@@ -2,6 +2,7 @@
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/danielxxomg/bak-cli)](https://goreportcard.com/report/github.com/danielxxomg/bak-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Release](https://img.shields.io/github/v/release/danielxxomg/bak-cli)](https://github.com/danielxxomg/bak-cli/releases/latest)
 
 **bak** is a CLI tool that backs up, restores, and syncs your OpenCode AI coding configuration across machines. Never lose your skills, MCP servers, plugins, agents, or config files again.
 
