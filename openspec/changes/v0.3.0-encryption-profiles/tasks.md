@@ -43,42 +43,42 @@ Chain strategy: stacked-to-main
 
 - [x] 3.1 Create `internal/crypto/password.go` with `GetPassword(prompt string) → (string, error)` — checks `BAK_ENCRYPTION_PASSWORD` env var first, falls back to interactive stdin prompt, errors if no terminal and no env var
 - [x] 3.2 Create `internal/crypto/password_test.go` — test env var precedence, test error on non-terminal without env var (mock stdin)
-- [ ] 3.3 Modify `cmd/push.go` — add `--profile` flag, resolve profile from config, after `cloud.TarGzDirectory()` check `profile.Encryption.Enabled`, call `crypto.Encrypt()` + `crypto.GetPassword()`, update manifest with `Encryption` struct, then call `provider.Push()` with encrypted data
-- [ ] 3.4 Modify `cmd/pull.go` — add `--profile` flag, after `provider.Pull()` check `crypto.IsEncrypted()`, if encrypted call `crypto.GetPassword()` + `crypto.Decrypt()`, on auth failure print "wrong password or corrupted archive — encryption is unrecoverable without the correct password" and write zero files, if not encrypted proceed as plaintext (backward compat)
-- [ ] 3.5 Add tests in `cmd/push_test.go` and `cmd/pull_test.go` — mock provider, verify encrypted push produces `BAK_ENC\x01` prefix, verify pull decrypts correctly, verify wrong password error message, verify plaintext backward compat
-- [ ] 3.6 Verify: `go test ./cmd/... ./internal/crypto/...` passes
+- [x] 3.3 Modify `cmd/push.go` — add `--profile` flag, resolve profile from config, after `cloud.TarGzDirectory()` check `profile.Encryption.Enabled`, call `crypto.Encrypt()` + `crypto.GetPassword()`, update manifest with `Encryption` struct, then call `provider.Push()` with encrypted data
+- [x] 3.4 Modify `cmd/pull.go` — add `--profile` flag, after `provider.Pull()` check `crypto.IsEncrypted()`, if encrypted call `crypto.GetPassword()` + `crypto.Decrypt()`, on auth failure print "wrong password or corrupted archive — encryption is unrecoverable without the correct password" and write zero files, if not encrypted proceed as plaintext (backward compat)
+- [x] 3.5 Add tests in `cmd/push_test.go` and `cmd/pull_test.go` — mock provider, verify encrypted push produces `BAK_ENC\x01` prefix, verify pull decrypts correctly, verify wrong password error message, verify plaintext backward compat
+- [x] 3.6 Verify: `go test ./cmd/... ./internal/crypto/...` passes
 
 ## Phase 4: Config Migration v0.2.0 → v0.3.0
 
-- [ ] 4.1 Add `ProfileConfig` struct and `EncryptionConfig` struct to `internal/config/config.go` — `ProfileConfig{Adapters, Categories, Preset, Provider, Encryption}`, `EncryptionConfig{Enabled bool}`, add `Profiles map[string]ProfileConfig` to `Config`
-- [ ] 4.2 Add `isV020(cfg) → bool` detection function — returns true if `schema_version == "0.2.0"` and `Profiles` map is nil
-- [ ] 4.3 Add `migrateV020(cfg, originalData) → error` — writes `config.json.v020.bak`, adds empty `Profiles` map, bumps `schema_version` to `"0.3.0"`, preserves all existing providers, saves
-- [ ] 4.4 Wire `migrateV020` into `LoadPath()` — after v0.1.0 check, add v0.2.0 detection and migration
-- [ ] 4.5 Add tests in `internal/config/config_test.go` — v0.2.0 config migrates to v0.3.0, `.v020.bak` created, providers preserved, schema_version bumped, idempotent (running again does not re-migrate)
-- [ ] 4.6 Verify: `go test ./internal/config/...` passes
+- [x] 4.1 Add `ProfileConfig` struct and `EncryptionConfig` struct to `internal/config/config.go` — `ProfileConfig{Adapters, Categories, Preset, Provider, Encryption}`, `EncryptionConfig{Enabled bool}`, add `Profiles map[string]ProfileConfig` to `Config`
+- [x] 4.2 Add `isV020(cfg) → bool` detection function — returns true if `schema_version == "0.2.0"` and `Profiles` map is nil
+- [x] 4.3 Add `migrateV020(cfg, originalData) → error` — writes `config.json.v020.bak`, adds empty `Profiles` map, bumps `schema_version` to `"0.3.0"`, preserves all existing providers, saves
+- [x] 4.4 Wire `migrateV020` into `LoadPath()` — after v0.1.0 check, add v0.2.0 detection and migration
+- [x] 4.5 Add tests in `internal/config/config_test.go` — v0.2.0 config migrates to v0.3.0, `.v020.bak` created, providers preserved, schema_version bumped, idempotent (running again does not re-migrate)
+- [x] 4.6 Verify: `go test ./internal/config/...` passes
 
 ## Phase 5: Profile CRUD Commands
 
-- [ ] 5.1 Create `cmd/profile.go` — add `profileCmd` parent command with `Use: "profile"`, register under `rootCmd`
-- [ ] 5.2 Add `profileCreateCmd` — `bak profile create <name> --provider <name> [--preset <p>] [--adapters a,b] [--categories c,d] [--encrypt]` — validates provider exists in config and token is set, creates `ProfileConfig`, persists to config
-- [ ] 5.3 Add `profileListCmd` — `bak profile list` — displays table of profiles with name, provider, preset, encryption status
-- [ ] 5.4 Add `profileShowCmd` — `bak profile show <name>` — displays full profile details: adapters, categories, preset, provider, encryption enabled/disabled
-- [ ] 5.5 Add `profileDeleteCmd` — `bak profile delete <name>` — removes profile from config, errors if profile does not exist
-- [ ] 5.6 Create `cmd/profile_test.go` — test create with valid/invalid provider, create with missing token, list with multiple profiles, show existing/missing, delete existing/missing
-- [ ] 5.7 Verify: `go test ./cmd/...` passes, manual test: `bak profile create test --provider github-gist`
+- [x] 5.1 Create `cmd/profile.go` — add `profileCmd` parent command with `Use: "profile"`, register under `rootCmd`
+- [x] 5.2 Add `profileCreateCmd` — `bak profile create <name> --provider <name> [--preset <p>] [--adapters a,b] [--categories c,d] [--encrypt]` — validates provider exists in config and token is set, creates `ProfileConfig`, persists to config
+- [x] 5.3 Add `profileListCmd` — `bak profile list` — displays table of profiles with name, provider, preset, encryption status
+- [x] 5.4 Add `profileShowCmd` — `bak profile show <name>` — displays full profile details: adapters, categories, preset, provider, encryption enabled/disabled
+- [x] 5.5 Add `profileDeleteCmd` — `bak profile delete <name>` — removes profile from config, errors if profile does not exist
+- [x] 5.6 Create `cmd/profile_test.go` — test create with valid/invalid provider, create with missing token, list with multiple profiles, show existing/missing, delete existing/missing
+- [x] 5.7 Verify: `go test ./cmd/...` passes, manual test: `bak profile create test --provider github-gist`
 
 ## Phase 6: Backup Engine Profile Awareness
 
-- [ ] 6.1 Modify `cmd/backup.go` — add `--profile` flag, when set load config and resolve profile, pass profile's preset/categories/adapters to `backup.Engine` instead of CLI flags
+- [x] 6.1 Modify `cmd/backup.go` — add `--profile` flag, when set load config and resolve profile, pass profile's preset/categories/adapters to `backup.Engine` instead of CLI flags
 - [ ] 6.2 Modify `internal/backup/engine.go` — add `CustomCategories []string` field to `Engine` struct, when set use it instead of resolving from preset; add adapter filtering by profile's adapter list
-- [ ] 6.3 Add test in `cmd/backup_test.go` — verify `--profile` flag resolves profile settings, verify engine uses profile's preset/categories
-- [ ] 6.4 Verify: `go test ./cmd/... ./internal/backup/...` passes
+- [x] 6.3 Add test in `cmd/backup_test.go` — verify `--profile` flag resolves profile settings, verify engine uses profile's preset/categories
+- [x] 6.4 Verify: `go test ./cmd/... ./internal/backup/...` passes
 
 ## Phase 7: Integration Testing + Documentation
 
 - [ ] 7.1 Create end-to-end integration test — create backup, push with encrypted profile, pull with same profile, verify decrypted archive matches original, verify manifest has Encryption struct
 - [ ] 7.2 Create backward-compat integration test — push unencrypted archive (v0.2.0 style), pull with v0.3.0 binary, verify extraction works without encryption prompt
 - [ ] 7.3 Create wrong-password integration test — push encrypted, pull with wrong password, verify error message and zero files restored
-- [ ] 7.4 Update `README.md` — document `bak profile` commands, `--profile` flag, encryption workflow, `BAK_ENCRYPTION_PASSWORD` env var, backward compat notes
-- [ ] 7.5 Update `CHANGELOG.md` — add v0.3.0 entry with encryption and profiles features
+- [x] 7.4 Update `README.md` — document `bak profile` commands, `--profile` flag, encryption workflow, `BAK_ENCRYPTION_PASSWORD` env var, backward compat notes
+- [x] 7.5 Update `CHANGELOG.md` — add v0.3.0 entry with encryption and profiles features
 - [ ] 7.6 Verify: `go test ./...` passes with >80% coverage on new code, `go vet ./...` clean, `golangci-lint` clean

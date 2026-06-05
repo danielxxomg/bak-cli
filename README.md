@@ -68,6 +68,13 @@ bak undo
 bak login
 bak push --provider github-gist
 bak pull
+
+# Verify backup integrity
+bak verify 20260604-150405
+bak verify --verbose 20260604-150405
+
+# Compare two backups
+bak diff 20260604-150405 20260605-080000
 ```
 
 ## Commands
@@ -84,6 +91,8 @@ bak pull
 | `bak export <id> [--output path]` | Export as tar.gz |
 | `bak login [--provider <name>]` | Authenticate with a cloud provider |
 | `bak profile create\|list\|show\|delete` | Manage machine profiles |
+| `bak verify [--verbose] <id>` | Verify backup integrity |
+| `bak diff <id1> <id2>` | Show file-level differences between two backups |
 | `bak version` | Show version info |
 
 ## Configuration
