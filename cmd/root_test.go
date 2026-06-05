@@ -126,6 +126,9 @@ func TestBackupCmd_Help(t *testing.T) {
 	if !strings.Contains(output, "adapter") {
 		t.Fatal("help output should mention --adapter")
 	}
+	if !strings.Contains(output, "profile") {
+		t.Fatal("help output should mention --profile")
+	}
 }
 
 // --- Version command structure tests ---
