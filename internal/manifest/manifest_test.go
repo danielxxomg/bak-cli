@@ -92,7 +92,7 @@ func TestValidate_HappyPath(t *testing.T) {
 	}
 
 	m := New("validate-test", "linux", "box", "0.1.0", "full", []string{"config"})
-	m.AddAdapter("opencode", "1.0.0", "~/.config/opencode", []Item{
+	m.AddAdapter("opencode", "0.1.0", "~/.config/opencode", []Item{
 		{Category: "config", SourcePath: "~/.config/opencode/config.json", BackupPath: "opencode/config.json", Hash: "sha256:9724c1e20e6e3e4d7f57ed25f9d4efb006e508590d528c90da597f6a775c13e5", Size: 16},
 	})
 
@@ -113,7 +113,7 @@ func TestValidate_HashMismatch(t *testing.T) {
 	}
 
 	m := New("mismatch-test", "linux", "box", "0.1.0", "full", []string{"config"})
-	m.AddAdapter("opencode", "1.0.0", "~/.config/opencode", []Item{
+	m.AddAdapter("opencode", "0.1.0", "~/.config/opencode", []Item{
 		{Category: "config", SourcePath: "~/.config/opencode/config.json", BackupPath: "opencode/config.json", Hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000", Size: 5},
 	})
 
@@ -131,7 +131,7 @@ func TestValidate_EmptyVersion(t *testing.T) {
 }
 
 func TestValidate_NoAdapters(t *testing.T) {
-	m := &Manifest{Version: "1.0.0"}
+	m := &Manifest{Version: "0.1.0"}
 	if err := m.Validate("."); err == nil {
 		t.Error("expected error for no adapters")
 	}

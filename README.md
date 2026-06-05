@@ -233,20 +233,20 @@ reg.Register(&youradapter.Adapter{})
 
 ## Roadmap
 
-### v1.1 (planned)
-- [ ] Increase test coverage for `cmd` package (currently 23.6%)
-- [ ] Increase test coverage for `internal/config` (currently 68.3%)
+### v0.2.0 (planned)
+- [ ] Increase test coverage for `cmd` package (currently 42.4%)
+- [ ] Increase test coverage for `internal/config` (currently 82.9%)
 - [x] Logo and banner image — see `docs/brand/`
 - [ ] GitHub Actions release workflow (goreleaser)
 
-### v2.0 (future)
+### v0.3.0 (future)
 - [ ] **Multi-agent support** — Cursor, Claude Code, Codex, Windsurf, Kiro, pi.dev, KiloCode
 - [ ] **Cloud backends** — GitHub private repo, Codeberg, rclone (Google Drive, OneDrive, S3), Gitea/Forgejo
 - [ ] **Encryption at rest** — Optional encryption for sensitive backups
 - [ ] **Machine-specific profiles** — `bak profile create work-laptop`, `bak profile create home-pc`
 - [ ] **GUI** — Optional terminal UI with bubbletea (beyond `bak pick`)
 
-### v2.x (long-term)
+### v1.0.0 (long-term)
 - [ ] Backup scheduling (cron integration)
 - [ ] Diff between backups (`bak diff <id1> <id2>`)
 - [ ] Backup verification (`bak verify <id>`)

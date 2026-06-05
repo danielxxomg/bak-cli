@@ -2,17 +2,17 @@
 schema: spec-driven
 
 context: |
-  Project: opencode-backup
+  Project: bak-cli
+  Binary: bak
   Description: Backup and restore your OpenCode skills, MCP servers, plugins,
     agents, and AI coding configuration across machines.
   Tagline: Pack your AI coding setup. Move anywhere.
-  Stack: Go 1.24+ CLI (cobra, bubbletea, go-git, goreleaser)
-  Reference sources:
-    - OpenCode: opencode-fork (TypeScript/Bun monorepo)
-    - Gentle AI: gentle-ai-fix (Go CLI with TUI)
-  Architecture: CLI tool for configuration backup/restore
-  Testing: Not yet configured (greenfield project)
-  Style: See rules below
+  Stack: Go 1.26+ CLI (cobra, bubbletea, go-git/v5, goreleaser)
+  Repo: https://github.com/danielxxomg/bak-cli
+  Architecture: CLI tool for configuration backup/restore — adapter pattern
+    with Engine/Registry for OpenCode v1 (extensible to Claude, Cursor, etc.)
+  Status: v0.1.0 released — active development
+  Style: See AGENTS.md for full Go conventions
 
 rules:
   proposal:
@@ -50,8 +50,8 @@ testing:
       available: true
       tool: "go test"
     integration:
-      available: false
-      tool: ""
+      available: true
+      tool: "go test (internal/*/integration_test.go + git_integration_test.go)"
     e2e:
       available: false
       tool: ""

@@ -146,7 +146,7 @@ func (r *Registry) All() []Adapter
 
 ```json
 {
-  "version": "1.0.0",
+  "version": "0.1.0",
   "id": "20260604-232200",
   "created_at": "2026-06-04T23:22:00Z",
   "os_source": "windows",
