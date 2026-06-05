@@ -125,6 +125,67 @@ bak-cli/
 └── Makefile                # Development workflow
 ```
 
+### Data Flow
+
+```mermaid
+graph LR
+    subgraph "bak backup"
+        A[Detect Adapters] --> B[Resolve Preset]
+        B --> C[Copy Files]
+        C --> D[Scan Secrets]
+        D --> E[Generate Manifest]
+        E --> F[Auto-commit]
+    end
+
+    subgraph "bak restore"
+        G[Load Manifest] --> H[Validate Checksums]
+        H --> I[Compute Dry-run]
+        I --> J{User Confirms?}
+        J -->|Yes| K[Apply Restore]
+        J -->|No| L[Cancel]
+        K --> M[Auto-commit]
+    end
+
+    subgraph "Cloud Sync"
+        N[bak push] --> O[Package tar.gz]
+        O --> P[Upload to Gist]
+        Q[bak pull] --> R[Download Gist]
+        R --> S[Extract & Restore]
+    end
+
+    subgraph "Safety"
+        T[bak undo] --> U[git revert HEAD]
+    end
+```
+
+### Adapter Pattern
+
+```mermaid
+classDiagram
+    class Adapter {
+        <<interface>>
+        +Name() string
+        +Detect(homeDir) bool
+        +ListItems(homeDir, categories) []Item
+        +Backup(homeDir, backupDir, items) error
+        +Restore(homeDir, backupDir) error
+    }
+
+    class OpenCodeAdapter {
+        +Name() "opencode"
+        +Detect() ~/.config/opencode
+    }
+
+    class Registry {
+        +Register(adapter)
+        +DetectAll(homeDir) []DetectedAdapter
+        +Get(name) Adapter
+    }
+
+    Adapter <|.. OpenCodeAdapter
+    Registry --> Adapter
+```
+
 ## Safety Guarantees
 
 - ✅ **Mandatory dry-run** — Always preview changes before restore
@@ -162,6 +223,27 @@ Register it in `cmd/backup.go`:
 reg := adapters.NewRegistry()
 reg.Register(&youradapter.Adapter{})
 ```
+
+## Roadmap
+
+### v1.1 (planned)
+- [ ] Increase test coverage for `cmd` package (currently 23.6%)
+- [ ] Increase test coverage for `internal/config` (currently 68.3%)
+- [ ] Logo and banner image
+- [ ] GitHub Actions release workflow (goreleaser)
+
+### v2.0 (future)
+- [ ] **Multi-agent support** — Cursor, Claude Code, Codex, Windsurf, Kiro, pi.dev, KiloCode
+- [ ] **Cloud backends** — GitHub private repo, Codeberg, rclone (Google Drive, OneDrive, S3), Gitea/Forgejo
+- [ ] **Encryption at rest** — Optional encryption for sensitive backups
+- [ ] **Machine-specific profiles** — `bak profile create work-laptop`, `bak profile create home-pc`
+- [ ] **GUI** — Optional terminal UI with bubbletea (beyond `bak pick`)
+
+### v2.x (long-term)
+- [ ] Backup scheduling (cron integration)
+- [ ] Diff between backups (`bak diff <id1> <id2>`)
+- [ ] Backup verification (`bak verify <id>`)
+- [ ] Plugin system for custom backup strategies
 
 ## License
 
