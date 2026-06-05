@@ -1,0 +1,70 @@
+# openspec/config.yaml
+schema: spec-driven
+
+context: |
+  Project: opencode-backup
+  Description: Backup and restore your OpenCode skills, MCP servers, plugins,
+    agents, and AI coding configuration across machines.
+  Tagline: Pack your AI coding setup. Move anywhere.
+  Stack: Go 1.24+ CLI (cobra, bubbletea, go-git, goreleaser)
+  Reference sources:
+    - OpenCode: opencode-fork (TypeScript/Bun monorepo)
+    - Gentle AI: gentle-ai-fix (Go CLI with TUI)
+  Architecture: CLI tool for configuration backup/restore
+  Testing: Not yet configured (greenfield project)
+  Style: See rules below
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Clarify backup scope: skills, MCP servers, plugins, agents, configs
+    - Define restore semantics (overwrite vs merge)
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+    - Consider cross-platform support (macOS, Linux, Windows)
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    - Follow existing code patterns
+    tdd: false
+    test_command: "go test ./..."
+  verify:
+    test_command: "go test ./..."
+    build_command: "go build -o bak.exe ."
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
+
+testing:
+  strict_tdd: false
+  runner:
+    name: "go test"
+    command: "go test ./..."
+  layers:
+    unit:
+      available: true
+      tool: "go test"
+    integration:
+      available: false
+      tool: ""
+    e2e:
+      available: false
+      tool: ""
+  coverage:
+    available: true
+    command: "go test -cover ./..."
+  quality:
+    linter:
+      available: true
+      command: "golangci-lint run"
+    type_checker:
+      available: true
+      command: "go vet ./..."
+    formatter:
+      available: true
+      command: "gofmt -l ."
