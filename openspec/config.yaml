@@ -31,7 +31,7 @@ rules:
     - Keep tasks completable in one session
   apply:
     - Follow existing code patterns
-    tdd: false
+    tdd: true
     test_command: "go test ./..."
   verify:
     test_command: "go test ./..."
@@ -41,7 +41,7 @@ rules:
     - Warn before merging destructive deltas
 
 testing:
-  strict_tdd: false
+  strict_tdd: true
   runner:
     name: "go test"
     command: "go test ./..."

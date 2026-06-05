@@ -50,11 +50,11 @@ Chain strategy: feature-branch-chain (PR #1 of 6 — Foundation)
 
 ## Phase 3: Restore Engine
 
-- [ ] 3.1 Create `internal/restore/paths.go`: resolve manifest canonical paths to target OS absolute paths, security check (refuse paths outside home)
-- [ ] 3.2 Create `internal/restore/dryrun.go`: compute diff between backup items and existing target files, format unified diff output
-- [ ] 3.3 Create `internal/restore/engine.go`: read manifest → normalize paths → dry-run gate → overwrite files → report results
-- [ ] 3.4 Create `cmd/restore.go`: `bak restore [--dry-run] <id>` cobra command
-- [ ] 3.5 Write tests: cross-platform path resolution, dry-run diff accuracy, restore overwrite correctness, security path check
+- [x] 3.1 Create `internal/restore/paths.go`: resolve manifest canonical paths to target OS absolute paths, security check (refuse paths outside home)
+- [x] 3.2 Create `internal/restore/dryrun.go`: compute diff between backup items and existing target files, format unified diff output
+- [x] 3.3 Create `internal/restore/engine.go`: read manifest → normalize paths → dry-run gate → overwrite files → report results
+- [x] 3.4 Create `cmd/restore.go`: `bak restore [--dry-run] <id>` cobra command
+- [x] 3.5 Write tests: cross-platform path resolution, dry-run diff accuracy, restore overwrite correctness, security path check
 
 ## Phase 4: Git Safety
 
