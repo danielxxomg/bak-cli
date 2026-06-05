@@ -1,8 +1,12 @@
 // Package crypto provides AES-256-GCM encryption and Argon2id key derivation
 // for backup archive encryption at rest.
+//
+// Dependency: golang.org/x/crypto/argon2 — required for Argon2id key derivation
+// (memory-hard KDF, resistant to GPU/ASIC attacks, not available in stdlib).
 package crypto
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -11,23 +15,33 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-// Magic bytes prefix for encrypted archives.
+// Magic bytes prefix for encrypted archives ("BAK_ENC" + version byte).
 const magicBytes = "BAK_ENC\x01"
 
 const (
-	saltLen    = 32 // bytes
-	nonceLen   = 12 // bytes (AES-GCM standard nonce)
-	keyLen     = 32 // bytes (AES-256)
-	tagLen     = 16 // bytes (GCM authentication tag)
-	memoryKiB  = 65536
-	iterations = 3
+	saltLen     = 32 // bytes
+	nonceLen    = 12 // bytes (AES-GCM standard nonce)
+	keyLen      = 32 // bytes (AES-256)
+	tagLen      = 16 // bytes (GCM authentication tag)
+	memoryKiB   = 65536
+	iterations  = 3
 	parallelism = 4
+)
+
+// Exported constants for archive layout offsets and KDF parameters.
+const (
+	MagicLen    = 8  // len(magicBytes)
+	SaltLen     = saltLen
+	NonceLen    = nonceLen
+	ArgonMemory = memoryKiB
+	ArgonIters  = iterations
+	ArgonPar    = parallelism
 )
 
 // Encrypt encrypts plaintext with AES-256-GCM using a key derived from password
 // via Argon2id. Returns a byte slice with format:
 //
-//	magic(7) + salt(32) + nonce(12) + ciphertext
+//	magic(8) + salt(32) + nonce(12) + ciphertext + gcm_tag(16)
 func Encrypt(plaintext []byte, password string) ([]byte, error) {
 	// Generate random salt.
 	salt := make([]byte, saltLen)
@@ -36,7 +50,7 @@ func Encrypt(plaintext []byte, password string) ([]byte, error) {
 	}
 
 	// Derive key.
-	key := DeriveKey(password, salt)
+	key := deriveKey(password, salt)
 
 	// Create AES cipher.
 	block, err := aes.NewCipher(key)
@@ -90,7 +104,7 @@ func Decrypt(archive []byte, password string) ([]byte, error) {
 	ciphertext := archive[off:]
 
 	// Derive key.
-	key := DeriveKey(password, salt)
+	key := deriveKey(password, salt)
 
 	// Create AES cipher.
 	block, err := aes.NewCipher(key)
@@ -115,19 +129,11 @@ func Decrypt(archive []byte, password string) ([]byte, error) {
 
 // IsEncrypted reports whether data starts with the magic bytes prefix.
 func IsEncrypted(data []byte) bool {
-	if len(data) < len(magicBytes) {
-		return false
-	}
-	for i := 0; i < len(magicBytes); i++ {
-		if data[i] != magicBytes[i] {
-			return false
-		}
-	}
-	return true
+	return bytes.HasPrefix(data, []byte(magicBytes))
 }
 
-// DeriveKey derives a 32-byte key from the password and salt using Argon2id
+// deriveKey derives a 32-byte key from the password and salt using Argon2id
 // with 64MB RAM, 3 iterations, and 4-way parallelism.
-func DeriveKey(password string, salt []byte) []byte {
+func deriveKey(password string, salt []byte) []byte {
 	return argon2.IDKey([]byte(password), salt, iterations, memoryKiB, parallelism, keyLen)
 }

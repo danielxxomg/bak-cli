@@ -163,7 +163,7 @@ func TestIsEncrypted(t *testing.T) {
 	}
 }
 
-// ---- DeriveKey ----
+// ---- deriveKey ----
 
 func TestDeriveKey_Deterministic(t *testing.T) {
 	password := "my-secret"
@@ -172,15 +172,15 @@ func TestDeriveKey_Deterministic(t *testing.T) {
 		salt[i] = byte(i)
 	}
 
-	key1 := DeriveKey(password, salt)
-	key2 := DeriveKey(password, salt)
+	key1 := deriveKey(password, salt)
+	key2 := deriveKey(password, salt)
 
 	if !bytes.Equal(key1, key2) {
-		t.Error("DeriveKey: same password+salt produced different keys")
+		t.Error("deriveKey: same password+salt produced different keys")
 	}
 
 	if len(key1) != 32 {
-		t.Errorf("DeriveKey: key length = %d, want 32", len(key1))
+		t.Errorf("deriveKey: key length = %d, want 32", len(key1))
 	}
 }
 
@@ -188,16 +188,16 @@ func TestDeriveKey_DistinctInputs(t *testing.T) {
 	salt1 := bytes.Repeat([]byte{0xAA}, 32)
 	salt2 := bytes.Repeat([]byte{0xBB}, 32)
 
-	key1 := DeriveKey("pw", salt1)
-	key2 := DeriveKey("pw", salt2)
+	key1 := deriveKey("pw", salt1)
+	key2 := deriveKey("pw", salt2)
 
 	if bytes.Equal(key1, key2) {
-		t.Error("DeriveKey: different salts produced identical keys")
+		t.Error("deriveKey: different salts produced identical keys")
 	}
 
-	key3 := DeriveKey("other-pw", salt1)
+	key3 := deriveKey("other-pw", salt1)
 	if bytes.Equal(key1, key3) {
-		t.Error("DeriveKey: different passwords produced identical keys")
+		t.Error("deriveKey: different passwords produced identical keys")
 	}
 }
 
