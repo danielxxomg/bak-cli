@@ -7,11 +7,13 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 	"github.com/danielxxomg/bak-cli/internal/adapters/register"
 	"github.com/danielxxomg/bak-cli/internal/backup"
+	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/spf13/cobra"
 )
 
 var backupPreset string
 var backupAdapter string
+var backupProfile string
 
 // backupCmd represents the backup command.
 var backupCmd = &cobra.Command{
@@ -25,7 +27,8 @@ Examples:
   bak backup                    # quick backup (config files only)
   bak backup --preset full      # everything: skills, commands, plugins, agents, config
   bak backup --preset skills    # skills only
-  bak backup --adapter opencode # force a specific adapter`,
+  bak backup --adapter opencode # force a specific adapter
+  bak backup --profile work     # use profile settings (preset, categories, adapters)`,
 	RunE: runBackup,
 }
 
@@ -34,6 +37,8 @@ func init() {
 		"backup preset: quick, full, or skills")
 	backupCmd.Flags().StringVarP(&backupAdapter, "adapter", "a", "",
 		"run only the named adapter (default: all detected)")
+	backupCmd.Flags().StringVar(&backupProfile, "profile", "",
+		"use named profile from config (overrides --preset, --adapter)")
 
 	rootCmd.AddCommand(backupCmd)
 }
@@ -55,15 +60,55 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("register adapters: %w", err)
 	}
 
+	// --- Resolve profile (overrides CLI flags) ----------------------------
+	preset := backupPreset
+	adapterFilter := backupAdapter
+	var customCategories []string
+
+	if backupProfile != "" {
+		cfg, loadErr := config.Load()
+		if loadErr != nil {
+			return fmt.Errorf("load config for profile: %w", loadErr)
+		}
+
+		p, ok := cfg.Profiles[backupProfile]
+		if !ok {
+			return fmt.Errorf("profile %q not found — create it with 'bak profile create %s --provider <name>'", backupProfile, backupProfile)
+		}
+
+		// Profile overrides CLI flags.
+		if p.Preset != "" {
+			preset = p.Preset
+		}
+		if len(p.Categories) > 0 {
+			customCategories = p.Categories
+		}
+		if len(p.Adapters) > 0 {
+			// When profile specifies adapters, use the first as filter.
+			// Multiple adapter filtering requires engine changes (future work).
+			adapterFilter = p.Adapters[0]
+		}
+
+		if verbose {
+			enc := "disabled"
+			if p.Encryption != nil {
+				enc = "enabled"
+			}
+			fmt.Fprintf(os.Stderr, "Using profile %q (provider=%s, preset=%s, encryption=%s)\n",
+				backupProfile, p.Provider, preset, enc)
+		}
+	}
+
 	// --- Build and run engine ---------------------------------------------
 	engine := &backup.Engine{
-		HomeDir:       homeDir,
-		BakDir:        bakDir,
-		Registry:      reg,
-		Preset:        backupPreset,
-		AdapterFilter: backupAdapter,
-		BakVersion:    Version,
-		Verbose:       verbose,
+		HomeDir:          homeDir,
+		BakDir:           bakDir,
+		Registry:         reg,
+		Preset:           preset,
+		AdapterFilter:    adapterFilter,
+		CustomCategories: customCategories,
+		BakVersion:       Version,
+		Verbose:          verbose,
 	}
 
 	result, err := engine.Run()
@@ -73,7 +118,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 
 	// --- Report -----------------------------------------------------------
 	fmt.Printf("Backup created: %s\n", result.ID)
-	fmt.Printf("  Preset:     %s\n", backupPreset)
+	fmt.Printf("  Preset:     %s\n", preset)
 	fmt.Printf("  Adapters:   %d\n", result.AdaptersRun)
 	fmt.Printf("  Files:      %d\n", result.FileCount)
 	fmt.Printf("  Size:       %s\n", formatSize(result.TotalSize))

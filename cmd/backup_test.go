@@ -10,6 +10,7 @@ import (
 func resetBackupVars() {
 	backupPreset = "quick"
 	backupAdapter = ""
+	backupProfile = ""
 }
 
 // --- backup command execution tests ---
@@ -104,5 +105,62 @@ func TestBackupCmd_FlagsAfterInit(t *testing.T) {
 	}
 	if adapterFlag.DefValue != "" {
 		t.Errorf("--adapter default = %q, want ''", adapterFlag.DefValue)
+	}
+
+	profileFlag := cmd.Flags().Lookup("profile")
+	if profileFlag == nil {
+		t.Fatal("--profile flag not found after init")
+	}
+	if profileFlag.DefValue != "" {
+		t.Errorf("--profile default = %q, want ''", profileFlag.DefValue)
+	}
+}
+
+func TestRunBackup_ProfileNotFound(t *testing.T) {
+	resetBackupVars()
+
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"backup", "--profile", "nonexistent_profile_xyz"})
+	err := rootCmd.Execute()
+
+	if err == nil {
+		t.Fatal("expected backup with nonexistent profile to error")
+	}
+	errStr := err.Error()
+	if !strings.Contains(errStr, "profile") && !strings.Contains(errStr, "nonexistent_profile_xyz") {
+		t.Errorf("error should mention profile, got: %v", err)
+	}
+}
+
+func TestRunBackup_ProfileFlagRegistered(t *testing.T) {
+	cmd := findSubcommand(t, "backup")
+	if cmd == nil {
+		t.Fatal("backup command not found")
+	}
+
+	profileFlag := cmd.Flags().Lookup("profile")
+	if profileFlag == nil {
+		t.Fatal("--profile flag not found")
+	}
+	if profileFlag.Usage == "" {
+		t.Error("--profile flag should have usage description")
+	}
+}
+
+func TestRunBackup_HelpMentionsProfile(t *testing.T) {
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+
+	rootCmd.SetArgs([]string{"backup", "--help"})
+	rootCmd.Execute()
+
+	output := buf.String()
+	if !strings.Contains(output, "profile") {
+		t.Fatal("help output should mention --profile")
 	}
 }
