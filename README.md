@@ -1,10 +1,16 @@
-# bak — Backup Your AI Coding Setup
+<p align="center">
+  <img src="docs/brand/banner/bak-github-banner.png" alt="bak — Pack your AI coding setup. Move anywhere." width="100%">
+</p>
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/danielxxomg/bak-cli)](https://goreportcard.com/report/github.com/danielxxomg/bak-cli)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Release](https://img.shields.io/github/v/release/danielxxomg/bak-cli)](https://github.com/danielxxomg/bak-cli/releases/latest)
+<p align="center">
+  <a href="https://goreportcard.com/report/github.com/danielxxomg/bak-cli"><img src="https://goreportcard.com/badge/github.com/danielxxomg/bak-cli" alt="Go Report Card"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://github.com/danielxxomg/bak-cli/releases/latest"><img src="https://img.shields.io/github/v/release/danielxxomg/bak-cli" alt="Release"></a>
+</p>
 
-**bak** is a CLI tool that backs up, restores, and syncs your OpenCode AI coding configuration across machines. Never lose your skills, MCP servers, plugins, agents, or config files again.
+<p align="center">
+  <strong>bak</strong> is a CLI tool that backs up, restores, and syncs your OpenCode AI coding configuration across machines. Never lose your skills, MCP servers, plugins, agents, or config files again.
+</p>
 
 ## Features
 
@@ -230,7 +236,7 @@ reg.Register(&youradapter.Adapter{})
 ### v1.1 (planned)
 - [ ] Increase test coverage for `cmd` package (currently 23.6%)
 - [ ] Increase test coverage for `internal/config` (currently 68.3%)
-- [ ] Logo and banner image
+- [x] Logo and banner image — see `docs/brand/`
 - [ ] GitHub Actions release workflow (goreleaser)
 
 ### v2.0 (future)
@@ -245,6 +251,20 @@ reg.Register(&youradapter.Adapter{})
 - [ ] Diff between backups (`bak diff <id1> <id2>`)
 - [ ] Backup verification (`bak verify <id>`)
 - [ ] Plugin system for custom backup strategies
+
+## Brand Assets
+
+Visual assets are in `docs/brand/`:
+
+| Asset | File | Usage |
+|-------|------|-------|
+| Wordmark (color) | `logo/bak-wordmark-color.png` | Primary brand mark |
+| Wordmark (mono) | `logo/bak-wordmark-mono-white.png` | Dark backgrounds, print |
+| GitHub Banner | `banner/bak-github-banner.png` | Social preview, README |
+| Icon (geometric) | `icon-secondary/bak-icon-geometric.png` | Official icon, favicons |
+| Icon (friendly) | `icon-secondary/bak-icon-friendly.png` | Stickers, swag, presentations |
+| Favicon 32px | `favicon/bak-favicon-32.png` | Browser tab, small icon |
+| Favicon 16px | `favicon/bak-favicon-16.png` | Browser tab (tiny) |
 
 ## License
 

@@ -33,5 +33,8 @@ bak/
 .atl/
 .gga
 
+# Deprecated brand assets (source variants, not for repo)
+docs/bak-logo-options/
+
 # OpenSpec artifacts (optional — uncomment to exclude)
 # openspec/
