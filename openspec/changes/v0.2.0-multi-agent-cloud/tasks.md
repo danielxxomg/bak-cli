@@ -53,15 +53,15 @@ Chain strategy: feature-branch-chain
 
 ## Phase 4: Multi-Agent Adapters
 
-- [ ] 4.1 Create `internal/adapters/claudecode/adapter.go` + `adapter_test.go`: Name="claude-code", configPath=`.claude/`, categories: config (settings.json, CLAUDE.md), skills, commands
-- [ ] 4.2 Create `internal/adapters/cursor/adapter.go` + `adapter_test.go`: Name="cursor", configPath=`.cursor/`, categories: config (settings), extensions
-- [ ] 4.3 Create `internal/adapters/codex/adapter.go` + `adapter_test.go`: Name="codex", configPath=`.codex/`, categories: config, instructions
-- [ ] 4.4 Create `internal/adapters/windsurf/adapter.go` + `adapter_test.go`: Name="windsurf", configPath=`.codeium/windsurf/`, categories: config, rules
-- [ ] 4.5 Create `internal/adapters/kiro/adapter.go` + `adapter_test.go`: Name="kiro", configPath=`.kiro/`, categories: config, hooks
-- [ ] 4.6 Create `internal/adapters/kilocode/adapter.go` + `adapter_test.go`: Name="kilocode", configPath=`.kilocode/`, categories: config, rules
-- [ ] 4.7 Create `internal/adapters/pidev/adapter.go` + `adapter_test.go`: Name="pidev", configPath=`.pi/`, categories: config, agents
-- [ ] 4.8 Modify `internal/adapters/registry.go`: add `RegisterAll()` method registering all 8 adapters in priority order (Claude Code → Cursor → Codex → Windsurf → Kiro → KiloCode → pi.dev → OpenCode)
-- [ ] 4.9 Modify `cmd/backup.go`: replace manual opencode registration with `reg.RegisterAll()`
+- [x] 4.1 Create `internal/adapters/claudecode/adapter.go` + `adapter_test.go`: Name="claude-code", configPath=`.claude/`, categories: config (settings.json, CLAUDE.md), skills, commands
+- [x] 4.2 Create `internal/adapters/cursor/adapter.go` + `adapter_test.go`: Name="cursor", configPath=`.cursor/`, categories: config (settings), extensions
+- [x] 4.3 Create `internal/adapters/codex/adapter.go` + `adapter_test.go`: Name="codex", configPath=`.codex/`, categories: config, instructions
+- [x] 4.4 Create `internal/adapters/windsurf/adapter.go` + `adapter_test.go`: Name="windsurf", configPath=`.codeium/windsurf/`, categories: config, rules
+- [x] 4.5 Create `internal/adapters/kiro/adapter.go` + `adapter_test.go`: Name="kiro", configPath=`.kiro/`, categories: config, hooks
+- [x] 4.6 Create `internal/adapters/kilocode/adapter.go` + `adapter_test.go`: Name="kilocode", configPath=`.kilocode/`, categories: config, rules
+- [x] 4.7 Create `internal/adapters/pidev/adapter.go` + `adapter_test.go`: Name="pidev", configPath=`.pi/`, categories: config, agents
+- [x] 4.8 Create `internal/adapters/register/register.go` + `register_test.go`: `RegisterAll()` function registering all 8 adapters in priority order (Claude Code → Cursor → Codex → Windsurf → Kiro → KiloCode → pi.dev → OpenCode). Lives in separate package to avoid circular imports.
+- [x] 4.9 Modify `cmd/backup.go`: replace manual opencode registration with `register.All(reg)`
 
 ## Phase 5: CLI Integration
 
