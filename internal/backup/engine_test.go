@@ -113,8 +113,8 @@ func TestEngine_Run_QuickPreset(t *testing.T) {
 	if m["preset"] != "quick" {
 		t.Errorf("manifest preset = %v, want quick", m["preset"])
 	}
-	if m["version"] != "1.0.0" {
-		t.Errorf("manifest version = %v, want 1.0.0", m["version"])
+	if m["version"] != "0.1.0" {
+		t.Errorf("manifest version = %v, want 0.1.0", m["version"])
 	}
 }
 

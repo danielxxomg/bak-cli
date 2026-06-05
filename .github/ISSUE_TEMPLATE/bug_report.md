@@ -26,7 +26,7 @@ What actually happened.
 ## Environment
 
 - OS: [e.g., Windows 11, macOS 14, Ubuntu 22.04]
-- bak version: [e.g., v1.0.0]
+- bak version: [e.g., v0.1.0]
 - Go version: [e.g., 1.24]
 
 ## Additional Context

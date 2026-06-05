@@ -209,7 +209,7 @@ func buildTestManifest(t *testing.T, backupDir string, items []manifestItem) *ma
 	}
 
 	return &manifest.Manifest{
-		Version:    "1.0.0",
+		Version:    "0.1.0",
 		ID:         "test-backup",
 		OSSource:   "linux",
 		BakVersion: "0.1.0",

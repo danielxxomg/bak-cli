@@ -13,7 +13,7 @@ import (
 )
 
 // ManifestVersion is the current schema version written by this tool.
-const ManifestVersion = "1.0.0"
+const ManifestVersion = "0.1.0"
 
 // AdapterManifest records the items backed up by a single adapter.
 type AdapterManifest struct {
