@@ -9,14 +9,15 @@
 </p>
 
 <p align="center">
-  <strong>bak</strong> is a CLI tool that backs up, restores, and syncs your OpenCode AI coding configuration across machines. Never lose your skills, MCP servers, plugins, agents, or config files again.
+  <strong>bak</strong> is a CLI tool that backs up, restores, and syncs your AI coding configuration across machines. Supports Claude Code, Cursor, Codex, Windsurf, Kiro, KiloCode, pi.dev, and OpenCode. Never lose your skills, MCP servers, plugins, agents, or config files again.
 </p>
 
 ## Features
 
+- 🤖 **Multi-Agent Support** — Auto-detects 8 AI coding tools: Claude Code, Cursor, Codex, Windsurf, Kiro, KiloCode, pi.dev, and OpenCode
 - 🔄 **Backup & Restore** — Preset-based backups (quick, full, skills) with mandatory dry-run before restore
 - 🔒 **Secret Detection** — Automatically excludes API keys, tokens, and generates `.env.example` templates
-- ☁️ **Cloud Sync** — Push/pull backups to private GitHub Gists
+- ☁️ **Multi-Cloud Sync** — Push/pull backups to GitHub Gist, GitHub Repo, Codeberg, Gitea/Forgejo, and rclone (Google Drive, S3, etc.)
 - 🖥️ **Cross-Platform** — Works on Windows, macOS, and Linux with path normalization
 - 🎯 **Interactive Picker** — TUI with bubbletea for selective category backup
 - ↩️ **Undo** — Git-backed safety with `bak undo` (git revert)
@@ -57,9 +58,9 @@ bak restore 20260604-150405
 # Undo the last restore
 bak undo
 
-# Sync to GitHub
+# Sync to cloud (GitHub Gist, Codeberg, Gitea, rclone, etc.)
 bak login
-bak push
+bak push --provider github-gist
 bak pull
 ```
 
@@ -70,12 +71,12 @@ bak pull
 | `bak backup [--preset quick\|full\|skills]` | Create a backup |
 | `bak restore [--dry-run] [--force] <id>` | Restore a backup |
 | `bak undo` | Revert the last operation |
-| `bak list` | List all local backups |
+| `bak list [--provider <name>]` | List local or cloud backups |
 | `bak pick` | Interactive TUI picker |
-| `bak push [id]` | Push to GitHub Gist |
-| `bak pull [id]` | Pull from GitHub Gist |
+| `bak push [id] [--provider <name>]` | Push to a cloud backend |
+| `bak pull [id] [--provider <name>]` | Pull from a cloud backend |
 | `bak export <id> [--output path]` | Export as tar.gz |
-| `bak login` | Authenticate with GitHub |
+| `bak login [--provider <name>]` | Authenticate with a cloud provider |
 | `bak version` | Show version info |
 
 ## Configuration
@@ -103,7 +104,7 @@ Backups are stored in `~/.bak/backups/<id>/`:
 For cloud sync, configure a GitHub token:
 
 ```bash
-# Option 1: Interactive
+# Option 1: Interactive (GitHub only)
 bak login
 
 # Option 2: Environment variable
@@ -113,20 +114,67 @@ export GITHUB_TOKEN=ghp_xxxxxxxxxxxx
 bak config set github.token ghp_xxxxxxxxxxxx
 ```
 
+### Cloud Providers
+
+Use `--provider` to select a cloud backend for push/pull/list:
+
+| Provider | Flag | Config Key | Env Token |
+|----------|------|------------|-----------|
+| GitHub Gist | `github-gist` (default) | `providers.github.token` | `GITHUB_TOKEN` |
+| GitHub Repo | `github-repo` | `providers.github.token` + `.repo` | `GITHUB_TOKEN` |
+| Codeberg | `codeberg` | `providers.codeberg.token` + `.repo` | `CODEBERG_TOKEN` |
+| Gitea / Forgejo | `gitea` | `providers.gitea.token` + `.repo` + `.base_url` | `GITEA_TOKEN` |
+| Rclone | `rclone` | `providers.rclone.remote` | — |
+
+```bash
+# Push to a specific provider
+bak push --provider codeberg
+
+# List cloud backups
+bak list --provider github-gist
+
+# Configure non-GitHub providers
+bak config set providers.codeberg.token <your-token>
+bak config set providers.codeberg.repo owner/backups
+```
+
+### Supported AI Coding Agents
+
+`bak backup` auto-detects installed agents in priority order:
+
+| Agent | Path | Priority |
+|-------|------|----------|
+| Claude Code | `~/.claude/` | 1 |
+| Cursor | `~/.cursor/` | 2 |
+| Codex | `~/.codex/` | 3 |
+| Windsurf | `~/.codeium/windsurf/` | 4 |
+| Kiro | `~/.kiro/` | 5 |
+| KiloCode | `~/.kilocode/` | 6 |
+| pi.dev | `~/.pi/` | 7 |
+| OpenCode | `~/.config/opencode/` | 8 |
+
+Force a specific adapter:
+```bash
+bak backup --adapter cursor
+```
+
 ## Architecture
 
 ```
 bak-cli/
 ├── cmd/                    # CLI commands (cobra)
 ├── internal/
-│   ├── adapters/           # Agent adapters (OpenCode first-class)
+│   ├── adapters/           # Agent adapters (8 supported: Claude Code, Cursor, Codex,
+│   │   │                   #   Windsurf, Kiro, KiloCode, pi.dev, OpenCode)
+│   │   └── register/       # RegisterAll() wire-up
 │   ├── backup/             # Backup engine + presets + secrets
 │   ├── restore/            # Restore engine + dry-run + git safety
 │   ├── manifest/           # Manifest schema + validation
-│   ├── cloud/              # GitHub Gist client
+│   ├── cloud/              # Cloud provider abstraction (GitHub Gist, GitHub Repo,
+│   │                       #   Codeberg, Gitea/Forgejo, Rclone)
 │   ├── paths/              # Cross-platform path normalization
 │   ├── git/                # Git operations (go-git)
-│   ├── config/             # Configuration management
+│   ├── config/             # Configuration management + v0.1.0 → v0.2.0 migration
 │   └── presets/            # Preset definitions
 ├── .goreleaser.yaml        # Cross-platform release config
 └── Makefile                # Development workflow
@@ -233,15 +281,16 @@ reg.Register(&youradapter.Adapter{})
 
 ## Roadmap
 
-### v0.2.0 (planned)
-- [ ] Increase test coverage for `cmd` package (currently 42.4%)
-- [ ] Increase test coverage for `internal/config` (currently 82.9%)
+### v0.2.0 ✅ (current)
+- [x] Multi-agent support — Claude Code, Cursor, Codex, Windsurf, Kiro, pi.dev, KiloCode, OpenCode
+- [x] Cloud backends — GitHub private repo, Codeberg, rclone (Google Drive, OneDrive, S3), Gitea/Forgejo
+- [x] `--provider` flag on push/pull/list/login
+- [x] Config migration v0.1.0 → v0.2.0 with auto-backup
+- [x] Provider abstraction with `ProviderRegistry`
 - [x] Logo and banner image — see `docs/brand/`
 - [ ] GitHub Actions release workflow (goreleaser)
 
-### v0.3.0 (future)
-- [ ] **Multi-agent support** — Cursor, Claude Code, Codex, Windsurf, Kiro, pi.dev, KiloCode
-- [ ] **Cloud backends** — GitHub private repo, Codeberg, rclone (Google Drive, OneDrive, S3), Gitea/Forgejo
+### v0.3.0 (planned)
 - [ ] **Encryption at rest** — Optional encryption for sensitive backups
 - [ ] **Machine-specific profiles** — `bak profile create work-laptop`, `bak profile create home-pc`
 - [ ] **GUI** — Optional terminal UI with bubbletea (beyond `bak pick`)

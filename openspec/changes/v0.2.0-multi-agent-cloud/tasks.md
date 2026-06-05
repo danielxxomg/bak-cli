@@ -65,21 +65,21 @@ Chain strategy: feature-branch-chain
 
 ## Phase 5: CLI Integration
 
-- [ ] 5.1 Modify `cmd/push.go`: add `--provider` flag (default "github-gist"); build `ProviderRegistry`, resolve provider, call `provider.Push()` instead of direct Gist calls
-- [ ] 5.2 Modify `cmd/pull.go`: add `--provider` flag; build `ProviderRegistry`, call `provider.Pull()` instead of direct Gist calls
-- [ ] 5.3 Modify `cmd/list.go`: add `--provider` flag; call `provider.List()` to display backups from selected backend
-- [ ] 5.4 Modify `cmd/login.go`: keep GitHub-only for now; add `--provider` flag stub that errors for non-GitHub providers with message to use `bak config set`
-- [ ] 5.5 Update `internal/cloud/auth.go`: add `ResolveProviderToken(provider, cfg)` supporting per-provider env vars and config keys
+- [x] 5.1 Modify `cmd/push.go`: add `--provider` flag (default "github-gist"); build `ProviderRegistry`, resolve provider, call `provider.Push()` instead of direct Gist calls
+- [x] 5.2 Modify `cmd/pull.go`: add `--provider` flag; build `ProviderRegistry`, call `provider.Pull()` instead of direct Gist calls
+- [x] 5.3 Modify `cmd/list.go`: add `--provider` flag; call `provider.List()` to display backups from selected backend
+- [x] 5.4 Modify `cmd/login.go`: keep GitHub-only for now; add `--provider` flag stub that errors for non-GitHub providers with message to use `bak config set`
+- [x] 5.5 Update `internal/cloud/auth.go`: add `ResolveProviderToken(provider, cfg)` supporting per-provider env vars and config keys
 
 ## Phase 6: Testing + Verification
 
-- [ ] 6.1 Run `go test ./...` — verify all existing + new tests pass
-- [ ] 6.2 Run `go test -cover ./internal/cloud/ ./internal/config/ ./internal/adapters/...` — verify >80% coverage on new code
+- [x] 6.1 Run `go test ./...` — verify all existing + new tests pass
+- [x] 6.2 Run `go test -cover ./internal/cloud/ ./internal/config/ ./internal/adapters/...` — verify >80% coverage on new code
 - [ ] 6.3 Manual E2E: `bak backup` discovers multiple agents, `bak push --provider github-gist` round-trips, `bak pull` restores
 - [ ] 6.4 Verify config migration: create v0.1.0 config.json, run `bak push`, confirm auto-migration + `.v010.bak` created
 
 ## Phase 7: Documentation + Cleanup
 
-- [ ] 7.1 Update `README.md`: document `--provider` flag, new supported agents, config migration
-- [ ] 7.2 Add godoc comments on all new exported types (Provider, ProviderRegistry, PushMeta, BackupMeta, each provider struct)
-- [ ] 7.3 Update CLI `--help` text for push/pull/list/login to mention provider support
+- [x] 7.1 Update `README.md`: document `--provider` flag, new supported agents, config migration
+- [x] 7.2 Add godoc comments on all new exported types (Provider, ProviderRegistry, PushMeta, BackupMeta, each provider struct)
+- [x] 7.3 Update CLI `--help` text for push/pull/list/login to mention provider support

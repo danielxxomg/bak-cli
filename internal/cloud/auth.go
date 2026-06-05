@@ -9,6 +9,52 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/config"
 )
 
+// providerEnvToken maps provider names to their environment variable for token resolution.
+var providerEnvToken = map[string]string{
+	"github-gist": "GITHUB_TOKEN",
+	"github-repo": "GITHUB_TOKEN",
+	"github":      "GITHUB_TOKEN",
+	"codeberg":    "CODEBERG_TOKEN",
+	"gitea":       "GITEA_TOKEN",
+}
+
+// providerConfigKey maps provider names to their config key for token resolution.
+var providerConfigKey = map[string]string{
+	"github-gist": "github.token",
+	"github-repo": "github.token",
+	"github":      "github.token",
+	"codeberg":    "providers.codeberg.token",
+	"gitea":       "providers.gitea.token",
+}
+
+// ResolveProviderToken resolves an authentication token for a named provider
+// using the following precedence:
+//  1. Provider-specific environment variable (e.g., GITHUB_TOKEN, CODEBERG_TOKEN)
+//  2. bak config file (e.g., providers.github.token, providers.codeberg.token)
+//
+// Returns (token, source) where source describes where the token was found.
+// Returns empty strings when no token is found for the provider.
+func ResolveProviderToken(provider string, cfg *config.Config) (string, string) {
+	// 1. Environment variable.
+	envVar := providerEnvToken[provider]
+	if envVar != "" {
+		if tok := os.Getenv(envVar); tok != "" {
+			return tok, "environment variable " + envVar
+		}
+	}
+
+	// 2. Config file.
+	configKey := providerConfigKey[provider]
+	if configKey != "" && cfg != nil {
+		tok, err := cfg.Get(configKey)
+		if err == nil && tok != "" {
+			return tok, "config file (~/.config/bak/config.json)"
+		}
+	}
+
+	return "", ""
+}
+
 // ResolveToken obtains a GitHub token using the following precedence:
 //  1. GITHUB_TOKEN environment variable
 //  2. bak config (github.token key)
