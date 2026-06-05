@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -155,6 +157,87 @@ func TestCreateTarGz_RoundTrip(t *testing.T) {
 	// Should have at least 4 entries (root dir + 3 files).
 	if fileCount < 4 {
 		t.Errorf("Expected at least 4 entries in archive, got %d", fileCount)
+	}
+}
+
+// --- runExport execution tests ---
+
+func TestRunExport_InvalidID(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"export", "bad"})
+	err := rootCmd.Execute()
+
+	if err == nil {
+		t.Fatal("expected export with invalid ID to error")
+	}
+	if !strings.Contains(err.Error(), "invalid backup ID") && !strings.Contains(err.Error(), "YYYYMMDD") {
+		t.Errorf("error should mention invalid backup ID, got: %v", err)
+	}
+}
+
+func TestRunExport_BackupNotFound(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	// Valid format, but this backup doesn't exist.
+	rootCmd.SetArgs([]string{"export", "20260101-000000"})
+	err := rootCmd.Execute()
+
+	if err == nil {
+		t.Fatal("expected export of non-existent backup to error")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("error should mention 'not found', got: %v", err)
+	}
+}
+
+func TestRunExport_CustomOutput(t *testing.T) {
+	// Test with --output flag and valid-format ID that doesn't exist.
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"export", "--output", "test.tar.gz", "20260101-000000"})
+	err := rootCmd.Execute()
+
+	if err == nil {
+		t.Fatal("expected export of non-existent backup to error")
+	}
+}
+
+func TestRunExport_MissingArgs(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	// Export requires exactly 1 arg.
+	rootCmd.SetArgs([]string{"export"})
+	err := rootCmd.Execute()
+
+	if err == nil {
+		t.Fatal("expected export with 0 args to error")
+	}
+}
+
+func TestRunExport_TooManyArgs(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"export", "20260101-000000", "extra"})
+	err := rootCmd.Execute()
+
+	if err == nil {
+		t.Fatal("expected export with 2 args to error")
 	}
 }
 

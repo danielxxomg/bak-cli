@@ -101,3 +101,54 @@ func TestUndoCmd_Use(t *testing.T) {
 		t.Fatal("undo command should have a long description")
 	}
 }
+
+// --- runUndo execution tests ---
+
+func TestRunUndo_NoBakRepo(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"undo"})
+	err := rootCmd.Execute()
+
+	if err == nil {
+		t.Log("undo succeeded — .bak repo may already exist")
+		return
+	}
+
+	errStr := err.Error()
+	if !strings.Contains(errStr, "repository") && !strings.Contains(errStr, "repo") && !strings.Contains(errStr, "bak") {
+		t.Errorf("unexpected undo error: %v", err)
+	}
+}
+
+func TestRunUndo_ExtraArgs(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"undo", "extra"})
+	err := rootCmd.Execute()
+
+	if err == nil {
+		// Test arg validator directly.
+		var cmd *cobra.Command
+		for _, sub := range rootCmd.Commands() {
+			if sub.Name() == "undo" {
+				cmd = sub
+				break
+			}
+		}
+		if cmd != nil {
+			argErr := cmd.Args(cmd, []string{"extra"})
+			if argErr == nil {
+				t.Error("undo Args validator should reject extra args")
+			}
+		}
+		return
+	}
+	// Error is expected (cobra.NoArgs).
+}
