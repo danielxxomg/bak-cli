@@ -41,12 +41,12 @@ Chain strategy: feature-branch-chain (PR #1 of 6 — Foundation)
 
 ## Phase 2: Backup Engine
 
-- [ ] 2.1 Create `internal/presets/presets.go`: `quick`, `full`, `skills` preset definitions mapping to category lists
-- [ ] 2.2 Create `internal/backup/secrets.go`: regex-based secret detection (`API_KEY=`, `TOKEN=`, etc.), `ScanFile` + `GenerateEnvExample`
-- [ ] 2.3 Create `internal/adapters/opencode.go`: implement `Adapter` for OpenCode — detect `~/.config/opencode/`, list items by category (skills, commands, config, mcp, plugins, agents)
-- [ ] 2.4 Create `internal/backup/engine.go`: orchestrate adapters → copy files → scan secrets → build manifest → write to `~/.bak/backups/<id>/`
-- [ ] 2.5 Create `cmd/backup.go`: `bak backup [--preset quick|full|skills]` cobra command wiring engine
-- [ ] 2.6 Write tests: preset resolution, secret detection patterns, OpenCode adapter with temp dir, backup engine round-trip
+- [x] 2.1 Create `internal/presets/presets.go`: `quick`, `full`, `skills` preset definitions mapping to category lists _(done in Phase 1)_
+- [x] 2.2 Create `internal/backup/secrets.go`: regex-based secret detection (`API_KEY=`, `TOKEN=`, etc.), `ScanFile` + `GenerateEnvExample`
+- [x] 2.3 Create `internal/adapters/opencode/adapter.go`: implement `Adapter` for OpenCode — detect `~/.config/opencode/`, list items by category (skills, commands, config, mcp, plugins, agents)
+- [x] 2.4 Create `internal/backup/engine.go`: orchestrate adapters → copy files → scan secrets → build manifest → write to `~/.bak/backups/<id>/`
+- [x] 2.5 Create `cmd/backup.go`: `bak backup [--preset quick|full|skills]` cobra command wiring engine
+- [x] 2.6 Write tests: preset resolution, secret detection patterns, OpenCode adapter with temp dir, backup engine round-trip, integration test
 
 ## Phase 3: Restore Engine
 
