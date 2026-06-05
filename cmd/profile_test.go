@@ -302,6 +302,14 @@ func TestProfileCreateCmd_Flags(t *testing.T) {
 	if encryptFlag.DefValue != "false" {
 		t.Errorf("--encrypt default = %q, want 'false'", encryptFlag.DefValue)
 	}
+
+	interactiveFlag := createCmd.Flags().Lookup("interactive")
+	if interactiveFlag == nil {
+		t.Fatal("--interactive flag not defined")
+	}
+	if interactiveFlag.DefValue != "false" {
+		t.Errorf("--interactive default = %q, want 'false'", interactiveFlag.DefValue)
+	}
 }
 
 // --- profile integration tests (creates real profile in temp config) ---

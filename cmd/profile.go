@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -32,26 +33,28 @@ var profileCreatePreset string
 var profileCreateAdapters string
 var profileCreateCategories string
 var profileCreateEncrypt bool
+var profileCreateInteractive bool
 
 var profileCreateCmd = &cobra.Command{
 	Use:   "create <name>",
 	Short: "Create a new backup profile",
 	Long: `Create a named profile that groups backup settings for a machine.
 
-The --provider flag is required and must reference a configured cloud provider
-with a valid token.
+The --provider flag is required unless --interactive is used to launch
+the step-by-step wizard.
 
 Examples:
   bak profile create work-laptop --provider github-gist --preset full
   bak profile create home-pc --provider github-repo --preset quick --encrypt
-  bak profile create dev-box --provider codeberg --adapters opencode,cursor`,
+  bak profile create dev-box --provider codeberg --adapters opencode,cursor
+  bak profile create my-profile --interactive`,
 	Args: cobra.ExactArgs(1),
 	RunE: runProfileCreate,
 }
 
 func init() {
 	profileCreateCmd.Flags().StringVar(&profileCreateProvider, "provider", "",
-		"cloud provider name (required)")
+		"cloud provider name (required unless --interactive)")
 	profileCreateCmd.Flags().StringVar(&profileCreatePreset, "preset", "quick",
 		"backup preset: quick, full, or skills")
 	profileCreateCmd.Flags().StringVar(&profileCreateAdapters, "adapters", "",
@@ -60,7 +63,8 @@ func init() {
 		"comma-separated categories (e.g. config,skills)")
 	profileCreateCmd.Flags().BoolVar(&profileCreateEncrypt, "encrypt", false,
 		"enable encryption for this profile")
-	profileCreateCmd.MarkFlagRequired("provider")
+	profileCreateCmd.Flags().BoolVar(&profileCreateInteractive, "interactive", false,
+		"launch interactive wizard for profile creation")
 
 	profileCmd.AddCommand(profileCreateCmd)
 	rootCmd.AddCommand(profileCmd)
@@ -69,6 +73,16 @@ func init() {
 func runProfileCreate(cmd *cobra.Command, args []string) error {
 	name := args[0]
 	out := cmd.OutOrStdout()
+
+	// Interactive wizard mode.
+	if profileCreateInteractive {
+		return runProfileCreateInteractive(cmd, name)
+	}
+
+	// --provider is required in non-interactive mode.
+	if profileCreateProvider == "" {
+		return fmt.Errorf("required flag \"--provider\" not set (or use --interactive)")
+	}
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -310,6 +324,95 @@ func runProfileDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Fprintf(out, "Profile %q deleted.\n", name)
+	return nil
+}
+
+// --- interactive profile creation ---
+
+// runProfileCreateInteractive launches the interactive wizard for profile
+// creation. It builds the provider list from the current config and walks the
+// user through provider, preset, adapter, and category selection.
+func runProfileCreateInteractive(cmd *cobra.Command, name string) error {
+	out := cmd.OutOrStdout()
+
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	// Check for duplicate name.
+	if _, exists := cfg.Profiles[name]; exists {
+		return fmt.Errorf("profile %q already exists — use 'bak profile delete %s' first or choose a different name", name, name)
+	}
+
+	// Build provider list from configured providers.
+	providers := make([]string, 0, len(cfg.Providers))
+	for k := range cfg.Providers {
+		providers = append(providers, k)
+	}
+	if len(providers) == 0 {
+		return fmt.Errorf("no providers configured — run 'bak login' first")
+	}
+
+	// Launch wizard.
+	m := newWizardModel("profile-create", providers)
+	p := tea.NewProgram(m)
+	finalModel, err := p.Run()
+	if err != nil {
+		return fmt.Errorf("wizard: %w", err)
+	}
+
+	wm := finalModel.(*wizardModel)
+	if !wm.confirmed {
+		fmt.Fprintln(out, "Profile creation cancelled.")
+		return nil
+	}
+
+	// Collect selected adapters.
+	var adapters []string
+	for _, item := range wm.adapterItems {
+		if item.checked {
+			adapters = append(adapters, item.name)
+		}
+	}
+
+	// Collect selected categories.
+	var categories []string
+	for _, item := range wm.categoryItems {
+		if item.checked {
+			categories = append(categories, item.name)
+		}
+	}
+
+	// Build and save profile.
+	profile := config.ProfileConfig{
+		Adapters:   adapters,
+		Categories: categories,
+		Preset:     wm.selectedPreset,
+		Provider:   wm.selectedProvider,
+	}
+
+	if cfg.Profiles == nil {
+		cfg.Profiles = make(map[string]config.ProfileConfig)
+	}
+	cfg.Profiles[name] = profile
+
+	if err := cfg.Save(); err != nil {
+		return fmt.Errorf("save config: %w", err)
+	}
+
+	fmt.Fprintf(out, "Profile %q created.\n", name)
+	fmt.Fprintf(out, "  Provider:   %s\n", wm.selectedProvider)
+	if wm.selectedPreset != "" {
+		fmt.Fprintf(out, "  Preset:     %s\n", wm.selectedPreset)
+	}
+	if len(adapters) > 0 {
+		fmt.Fprintf(out, "  Adapters:   %s\n", strings.Join(adapters, ", "))
+	}
+	if len(categories) > 0 {
+		fmt.Fprintf(out, "  Categories: %s\n", strings.Join(categories, ", "))
+	}
+
 	return nil
 }
 
