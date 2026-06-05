@@ -462,6 +462,134 @@ func TestSave_ValidOutputFile(t *testing.T) {
 	}
 }
 
+// --- ScheduleConfig round-trip ---
+
+func TestSave_ScheduleConfig_RoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	cfg := &Config{
+		path:          cfgPath,
+		SchemaVersion: "0.3.0",
+		Profiles: map[string]ProfileConfig{
+			"work": {
+				Provider: "github-gist",
+				Preset:   "full",
+				Schedule: &ScheduleConfig{
+					Enabled:  true,
+					Interval: "daily",
+				},
+			},
+		},
+	}
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("Save() error: %v", err)
+	}
+
+	// Load and verify schedule config survived.
+	loaded, err := LoadPath(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadPath() error: %v", err)
+	}
+
+	pc, ok := loaded.Profiles["work"]
+	if !ok {
+		t.Fatal("expected profile 'work'")
+	}
+	if pc.Schedule == nil {
+		t.Fatal("expected Schedule to be non-nil")
+	}
+	if !pc.Schedule.Enabled {
+		t.Error("Schedule.Enabled should be true")
+	}
+	if pc.Schedule.Interval != "daily" {
+		t.Errorf("Schedule.Interval = %q, want 'daily'", pc.Schedule.Interval)
+	}
+}
+
+func TestSave_ScheduleConfig_DisabledOmitted(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	// Profile without schedule should have no schedule key in JSON.
+	cfg := &Config{
+		path:          cfgPath,
+		SchemaVersion: "0.3.0",
+		Profiles: map[string]ProfileConfig{
+			"minimal": {
+				Provider: "github-gist",
+			},
+		},
+	}
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("Save() error: %v", err)
+	}
+
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify schedule key is not present in JSON output.
+	if strings.Contains(string(data), "schedule") {
+		t.Error("schedule key should be omitted when nil (omitempty)")
+	}
+
+	// Load and verify.
+	loaded, err := LoadPath(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadPath() error: %v", err)
+	}
+	pc, ok := loaded.Profiles["minimal"]
+	if !ok {
+		t.Fatal("expected profile 'minimal'")
+	}
+	if pc.Schedule != nil {
+		t.Error("Schedule should be nil for profile without scheduling")
+	}
+}
+
+func TestSave_ScheduleConfig_MultipleIntervals(t *testing.T) {
+	intervals := []string{"daily", "weekly", "every-12h", "every-6h"}
+
+	for _, iv := range intervals {
+		t.Run(iv, func(t *testing.T) {
+			dir := t.TempDir()
+			cfgPath := filepath.Join(dir, "config.json")
+
+			cfg := &Config{
+				path:          cfgPath,
+				SchemaVersion: "0.3.0",
+				Profiles: map[string]ProfileConfig{
+					"test": {
+						Provider: "github-gist",
+						Schedule: &ScheduleConfig{
+							Enabled:  true,
+							Interval: iv,
+						},
+					},
+				},
+			}
+			if err := cfg.Save(); err != nil {
+				t.Fatalf("Save() error: %v", err)
+			}
+
+			loaded, err := LoadPath(cfgPath)
+			if err != nil {
+				t.Fatalf("LoadPath() error: %v", err)
+			}
+
+			sc := loaded.Profiles["test"].Schedule
+			if sc == nil {
+				t.Fatal("Schedule should not be nil")
+			}
+			if sc.Interval != iv {
+				t.Errorf("Interval = %q, want %q", sc.Interval, iv)
+			}
+		})
+	}
+}
+
 func TestLoad_ViaEnvVar(t *testing.T) {
 	// Set XDG_CONFIG_HOME to a temp dir so Load() finds our config.
 	dir := t.TempDir()
