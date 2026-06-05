@@ -1,15 +1,17 @@
 // Package config manages the bak CLI configuration file stored at
 // ~/.config/bak/config.json.
 //
-// The config file holds user preferences and credentials for
-// cloud-sync providers (e.g., GitHub Gist, Codeberg, Rclone).
+// The config file holds user preferences, credentials for cloud-sync
+// providers (e.g., GitHub Gist, Codeberg, Rclone), and encryption
+// profile settings.
 //
 // Schema versioning:
 //   - v0.1.0: flat github_token + gist_id at root (legacy)
-//   - v0.2.0: schema_version + nested providers (current)
+//   - v0.2.0: schema_version + nested providers
+//   - v0.3.0: schema_version + nested providers + profiles (current)
 //
-// LoadPath() auto-detects v0.1.0 configs and migrates them to v0.2.0,
-// preserving the original as config.json.v010.bak.
+// LoadPath() auto-detects older configs and migrates them in a chain,
+// preserving backups at each step (config.json.v010.bak, .v020.bak).
 package config
 
 import (
@@ -23,10 +25,11 @@ import (
 
 // Config represents the persistent bak CLI configuration.
 type Config struct {
-	SchemaVersion string              `json:"schema_version,omitempty"`
-	GitHubToken   string              `json:"github_token,omitempty"`
-	GistID        string              `json:"gist_id,omitempty"`
-	Providers     map[string]ProviderConfig `json:"providers,omitempty"`
+	SchemaVersion string                     `json:"schema_version,omitempty"`
+	GitHubToken   string                     `json:"github_token,omitempty"`
+	GistID        string                     `json:"gist_id,omitempty"`
+	Providers     map[string]ProviderConfig  `json:"providers,omitempty"`
+	Profiles      map[string]ProfileConfig   `json:"profiles,omitempty"`
 
 	// path is the on-disk location of this config file (not serialized).
 	path string `json:"-"`
@@ -39,6 +42,19 @@ type ProviderConfig struct {
 	Repo    string `json:"repo,omitempty"`       // github-repo, codeberg, gitea
 	Remote  string `json:"remote,omitempty"`     // rclone remote name
 	BaseURL string `json:"base_url,omitempty"`   // gitea/forgejo custom URL
+}
+
+// EncryptionConfig holds the encryption settings for a named profile.
+type EncryptionConfig struct {
+	Password    string `json:"password,omitempty"`
+	Iterations  int    `json:"iterations,omitempty"`
+	MemoryKiB   int    `json:"memory_kib,omitempty"`
+	Parallelism int    `json:"parallelism,omitempty"`
+}
+
+// ProfileConfig holds the configuration for a named backup profile.
+type ProfileConfig struct {
+	Encryption *EncryptionConfig `json:"encryption,omitempty"`
 }
 
 // DefaultPath returns the canonical path to the config file.
@@ -63,7 +79,8 @@ func Load() (*Config, error) {
 // LoadPath reads config from an explicit path.
 // If the config is in v0.1.0 format (flat github_token + gist_id at root,
 // no schema_version), it auto-migrates to v0.2.0 and writes a .v010.bak
-// backup.
+// backup. If the config is v0.2.0, it migrates to v0.3.0 (adding the
+// profiles map) with a .v020.bak backup. Migrations are chained.
 func LoadPath(cfgPath string) (*Config, error) {
 	cfg := &Config{path: cfgPath}
 
@@ -84,6 +101,13 @@ func LoadPath(cfgPath string) (*Config, error) {
 	// Detect v0.1.0: has github_token or gist_id at root AND no schema_version.
 	if isV010(cfg) {
 		if err := migrateV010(cfg, data); err != nil {
+			return nil, fmt.Errorf("migrate config: %w", err)
+		}
+	}
+
+	// Detect v0.2.0 (runs after potential v0.1.0 → v0.2.0 migration).
+	if isV020(cfg) {
+		if err := migrateV020(cfg); err != nil {
 			return nil, fmt.Errorf("migrate config: %w", err)
 		}
 	}
@@ -129,6 +153,37 @@ func migrateV010(cfg *Config, original []byte) error {
 	cfg.SchemaVersion = "0.2.0"
 
 	// Persist the migrated config.
+	return cfg.Save()
+}
+
+// isV020 returns true if the config is v0.2.0 format (schema_version == "0.2.0").
+func isV020(cfg *Config) bool {
+	return cfg.SchemaVersion == "0.2.0"
+}
+
+// migrateV020 transforms a v0.2.0 config into v0.3.0 by adding the
+// profiles map and bumping the schema version. Writes config.json.v020.bak
+// before overwriting.
+func migrateV020(cfg *Config) error {
+	// Read current v0.2.0 config from disk for backup.
+	current, err := os.ReadFile(cfg.path)
+	if err != nil {
+		return fmt.Errorf("read config for backup: %w", err)
+	}
+
+	bakPath := cfg.path + ".v020.bak"
+	if err := os.WriteFile(bakPath, current, 0600); err != nil {
+		return fmt.Errorf("write backup: %w", err)
+	}
+
+	// Add profiles map if not present.
+	if cfg.Profiles == nil {
+		cfg.Profiles = make(map[string]ProfileConfig)
+	}
+
+	// Bump schema version.
+	cfg.SchemaVersion = "0.3.0"
+
 	return cfg.Save()
 }
 
