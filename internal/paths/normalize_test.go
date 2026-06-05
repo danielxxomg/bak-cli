@@ -134,7 +134,10 @@ func TestIsUnderHome(t *testing.T) {
 }
 
 func TestDetectOS(t *testing.T) {
-	info := DetectOS()
+	info, err := DetectOS()
+	if err != nil {
+		t.Fatalf("DetectOS() error: %v", err)
+	}
 
 	if info.OS != runtime.GOOS {
 		t.Errorf("OS = %q, want %q", info.OS, runtime.GOOS)
