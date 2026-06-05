@@ -46,6 +46,7 @@ type ProviderConfig struct {
 
 // EncryptionConfig holds the encryption settings for a named profile.
 type EncryptionConfig struct {
+	Enabled     bool   `json:"enabled,omitempty"`
 	Password    string `json:"password,omitempty"`
 	Iterations  int    `json:"iterations,omitempty"`
 	MemoryKiB   int    `json:"memory_kib,omitempty"`
@@ -54,6 +55,10 @@ type EncryptionConfig struct {
 
 // ProfileConfig holds the configuration for a named backup profile.
 type ProfileConfig struct {
+	Adapters   []string          `json:"adapters,omitempty"`
+	Categories []string          `json:"categories,omitempty"`
+	Preset     string            `json:"preset,omitempty"`
+	Provider   string            `json:"provider,omitempty"`
 	Encryption *EncryptionConfig `json:"encryption,omitempty"`
 }
 
