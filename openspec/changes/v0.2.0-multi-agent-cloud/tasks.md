@@ -42,14 +42,14 @@ Chain strategy: feature-branch-chain
 
 ## Phase 3: New Provider Implementations
 
-- [ ] 3.1 Create `internal/cloud/gitea.go`: `GiteaProvider` with configurable `BaseURL`; implements Push/Pull/List via Gitea API (file content endpoints); token from env `GITEA_TOKEN` or config
-- [ ] 3.2 Create `internal/cloud/gitea_test.go`: test with `httptest.Server` simulating Gitea API
-- [ ] 3.3 Create `internal/cloud/codeberg.go`: `CodebergProvider` embedding `GiteaProvider` with fixed `BaseURL = "https://codeberg.org"`; token from `CODEBERG_TOKEN`
-- [ ] 3.4 Create `internal/cloud/codeberg_test.go`: verify delegation to GiteaProvider with correct base URL
-- [ ] 3.5 Create `internal/cloud/github_repo.go`: `GitHubRepoProvider` using GitHub Contents API; token from `GITHUB_TOKEN`; config key `repo` (owner/name)
-- [ ] 3.6 Create `internal/cloud/github_repo_test.go`: test Push/Pull/List with `httptest.Server` mocking Contents API
-- [ ] 3.7 Create `internal/cloud/rclone.go`: `RcloneProvider` shelling out via `os/exec`; detect `rclone` in PATH; config key `remote`; Push = `rclone copy`, Pull = `rclone copy` reverse, List = `rclone lsf`
-- [ ] 3.8 Create `internal/cloud/rclone_test.go`: test PATH detection, missing binary error, command construction with mock exec
+- [x] 3.1 Create `internal/cloud/gitea.go`: `GiteaProvider` with configurable `BaseURL`; implements Push/Pull/List via Gitea API (file content endpoints); token from env `GITEA_TOKEN` or config. Includes `CodebergProvider` wrapper with fixed BaseURL.
+- [x] 3.2 Create `internal/cloud/gitea_test.go`: test with `httptest.Server` simulating Gitea API. Covers Gitea + Codeberg providers (20 tests).
+- [x] 3.3 Create `internal/cloud/codeberg.go`: `CodebergProvider` embedding `GiteaProvider` with fixed `BaseURL = "https://codeberg.org"`; token from `CODEBERG_TOKEN` — implemented as type in gitea.go.
+- [x] 3.4 Create `internal/cloud/codeberg_test.go`: verify delegation to GiteaProvider with correct base URL — included in gitea_test.go.
+- [x] 3.5 Create `internal/cloud/github_repo.go`: `GitHubRepoProvider` using GitHub Contents API; token from `GITHUB_TOKEN`; config key `repo` (owner/name)
+- [x] 3.6 Create `internal/cloud/github_repo_test.go`: test Push/Pull/List with `httptest.Server` mocking Contents API (17 tests)
+- [x] 3.7 Create `internal/cloud/rclone.go`: `RcloneProvider` shelling out via `os/exec` with swappable `execCommand`; config key `remote`; Push = `rclone copyto`, Pull = `rclone cat`, List = `rclone lsf`
+- [x] 3.8 Create `internal/cloud/rclone_test.go`: test remote validation, missing binary error, command construction with mock exec via batch/shell scripts and env-var-controlled failure mode (16 tests)
 
 ## Phase 4: Multi-Agent Adapters
 
