@@ -25,3 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`--verbose` flag** on all commands for diagnostic output
 - **CI pipeline** — GoReleaser cross-platform build matrix (Linux, macOS, Windows × amd64, arm64)
 - **Full test suite** with table-driven tests, >80% coverage target, and cross-platform path tests
+
+## Roadmap
+
+See [README.md](README.md#roadmap) for planned features in v1.1 and v2.0.
