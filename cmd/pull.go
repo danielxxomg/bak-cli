@@ -12,73 +12,76 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var pullProvider string
+
 // pullCmd represents the pull command.
 var pullCmd = &cobra.Command{
 	Use:   "pull [gist-id]",
-	Short: "Pull a backup from GitHub Gist",
-	Long: `Download a backup from a private GitHub Gist and reconstruct it
+	Short: "Pull a backup from the cloud",
+	Long: `Download a backup from a cloud backend and reconstruct it
 locally in ~/.bak/backups/.
 
-If no Gist ID is provided, the ID stored from a previous push is used.
+If no ID is provided, the ID stored from a previous push is used.
 
-Requires a GitHub token configured via 'bak login' or the
-GITHUB_TOKEN environment variable.
+Supported providers:
+  github-gist (default) — pull from a private GitHub Gist
+
+Requires a token configured via 'bak login' or the appropriate
+environment variable.
 
 Examples:
-  bak pull                          # pull from saved gist ID
-  bak pull abc123def456             # pull from specific gist`,
+  bak pull                          # pull from stored ID
+  bak pull abc123def456             # pull from specific ID
+  bak pull --provider github-gist   # explicit provider`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runPull,
 }
 
 func init() {
+	pullCmd.Flags().StringVar(&pullProvider, "provider", "github-gist",
+		"cloud provider to use (github-gist)")
 	rootCmd.AddCommand(pullCmd)
 }
 
 func runPull(cmd *cobra.Command, args []string) error {
-	// 1. Resolve token.
+	// 1. Load config and build provider registry.
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	token, source := cloud.ResolveToken(cfg)
-	if token == "" {
-		return fmt.Errorf("no GitHub token found — run 'bak login' or set GITHUB_TOKEN")
+	reg := cloud.NewProviderRegistry()
+	defaultProvider := cloud.NewGitHubGistProvider(cfg, "")
+	if err := reg.Register(defaultProvider); err != nil {
+		return fmt.Errorf("register provider: %w", err)
+	}
+	reg.SetDefault("github-gist")
+
+	provider, err := reg.Get(pullProvider)
+	if err != nil {
+		return fmt.Errorf("provider: %w", err)
 	}
 	if verbose {
-		fmt.Printf("Using token from %s\n", source)
+		fmt.Fprintf(os.Stderr, "Using provider: %s\n", provider.Name())
 	}
 
-	// 2. Resolve gist ID.
-	var gistID string
+	// 2. Resolve backup ID.
+	var remoteID string
 	if len(args) > 0 && args[0] != "" {
-		gistID = args[0]
+		remoteID = args[0]
 	} else {
 		id, err := cfg.Get("github.gist_id")
 		if err != nil || id == "" {
-			return fmt.Errorf("no stored Gist ID — provide one as argument or run 'bak push' first")
+			return fmt.Errorf("no stored backup ID — provide one as argument or run 'bak push' first")
 		}
-		gistID = id
+		remoteID = id
 	}
 
-	// 3. Download gist.
-	fmt.Printf("Downloading Gist %s...\n", gistID)
-	files, err := cloud.GetGist(token, gistID)
+	// 3. Download from provider.
+	fmt.Printf("Downloading backup %s...\n", remoteID)
+	archiveData, err := provider.Pull(remoteID)
 	if err != nil {
-		return fmt.Errorf("get gist: %w", err)
-	}
-
-	// Find the backup archive in the gist files.
-	var archiveData string
-	for _, f := range files {
-		if f.Filename == "backup.tar.gz" {
-			archiveData = f.Content
-			break
-		}
-	}
-	if archiveData == "" {
-		return fmt.Errorf("no backup.tar.gz found in Gist %s", gistID)
+		return fmt.Errorf("pull: %w", err)
 	}
 
 	// 4. Extract to local bak dir.
@@ -94,12 +97,12 @@ func runPull(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("create backup dir: %w", err)
 	}
 
-	fmt.Printf("Extracting to %s...\n", backupPath)
-	if err := cloud.UntarGz(archiveData, backupPath); err != nil {
+	fmt.Printf("Extracting backup %s...\n", backupID)
+	if err := cloud.UntarGz(string(archiveData), backupPath); err != nil {
 		return fmt.Errorf("extract backup: %w", err)
 	}
 
-	fmt.Printf("✅ Backup pulled to: %s\n", backupPath)
+	fmt.Printf("✅ Backup pulled: %s\n", backupID)
 	fmt.Printf("   Run 'bak restore %s' to apply it.\n", backupID)
 
 	return nil
