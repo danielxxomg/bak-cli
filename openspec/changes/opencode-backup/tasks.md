@@ -58,12 +58,12 @@ Chain strategy: feature-branch-chain (PR #1 of 6 — Foundation)
 
 ## Phase 4: Git Safety
 
-- [ ] 4.1 Create `internal/git/repo.go`: go-git wrapper — `Init(path)`, `Open(path)`, `IsRepo(path)`
-- [ ] 4.2 Create `internal/git/commit.go`: `AutoCommit(repo, message)` — stage all + commit with timestamp
-- [ ] 4.3 Create `internal/git/undo.go`: `RevertLast(repo)` — revert HEAD commit
-- [ ] 4.4 Integrate git safety into restore engine: pre-restore auto-commit, post-restore auto-commit
-- [ ] 4.5 Create `cmd/undo.go`: `bak undo` — thin wrapper over `git.RevertLast` on `~/.bak/`
-- [ ] 4.6 Write tests: init repo, auto-commit, undo reverts, restore creates two commits
+- [x] 4.1 Create `internal/git/repo.go`: go-git wrapper — `Init(path)`, `Open(path)`, `IsRepo(path)`
+- [x] 4.2 Create `internal/git/commit.go`: `AutoCommit(repo, message)` — stage all + commit with timestamp
+- [x] 4.3 Create `internal/git/undo.go`: `RevertLast(repo)` — revert HEAD commit
+- [x] 4.4 Integrate git safety into restore engine: pre-restore auto-commit, post-restore auto-commit
+- [x] 4.5 Create `cmd/undo.go`: `bak undo` — thin wrapper over `git.RevertLast` on `~/.bak/`
+- [x] 4.6 Write tests: init repo, auto-commit, undo reverts, restore creates two commits
 
 ## Phase 5: Cloud Sync
 
