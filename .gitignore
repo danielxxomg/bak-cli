@@ -11,6 +11,7 @@ bak
 
 # Output of go coverage
 *.out
+coverage
 
 # Dependency directories
 vendor/
@@ -27,3 +28,10 @@ Thumbs.db
 
 # bak output directory
 bak/
+
+# Local tooling (not for repo)
+.atl/
+.gga
+
+# OpenSpec artifacts (optional — uncomment to exclude)
+# openspec/
