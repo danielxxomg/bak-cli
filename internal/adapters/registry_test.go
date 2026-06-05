@@ -133,6 +133,83 @@ func (e *errorAdapter) Detect(homeDir string) (bool, string, error) {
 	return false, "", errors.New("detection failed")
 }
 
+func TestRegistry_RegisterOrReplace(t *testing.T) {
+	tests := []struct {
+		name     string
+		first    string
+		second   string
+		override bool
+		wantErr  bool
+		wantName string // name of adapter after operation
+	}{
+		{
+			name:     "first registration succeeds",
+			first:    "alpha",
+			second:   "beta",
+			override: false,
+			wantErr:  false,
+			wantName: "beta",
+		},
+		{
+			name:     "duplicate without override fails",
+			first:    "alpha",
+			second:   "alpha",
+			override: false,
+			wantErr:  true,
+			wantName: "alpha",
+		},
+		{
+			name:     "duplicate with override succeeds",
+			first:    "alpha-v1",
+			second:   "alpha-v2",
+			override: true,
+			wantErr:  false,
+			wantName: "alpha-v2",
+		},
+		{
+			name:     "unique names, override true",
+			first:    "gamma",
+			second:   "delta",
+			override: true,
+			wantErr:  false,
+			wantName: "delta",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := NewRegistry()
+			if err := r.Register(&mockAdapter{name: tt.first}); err != nil {
+				t.Fatalf("first register: %v", err)
+			}
+
+			err := r.RegisterOrReplace(&mockAdapter{name: tt.second}, tt.override)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				}
+				// Verify original still exists
+				a, ok := r.Get(tt.first)
+				if !ok || a.Name() != tt.first {
+					t.Error("original adapter lost on failed replace")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			a, ok := r.Get(tt.second)
+			if !ok {
+				t.Fatalf("adapter %q not found after RegisterOrReplace", tt.second)
+			}
+			if a.Name() != tt.wantName {
+				t.Errorf("Name() = %q, want %q", a.Name(), tt.wantName)
+			}
+		})
+	}
+}
+
 func TestRegistry_DetectAll_GracefulError(t *testing.T) {
 	r := NewRegistry()
 	r.Register(&errorAdapter{mockAdapter{name: "broken"}})

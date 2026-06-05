@@ -39,6 +39,24 @@ func (r *Registry) Register(a Adapter) error {
 	return nil
 }
 
+// RegisterOrReplace adds an adapter to the registry. When override is
+// true and an adapter with the same name already exists, the existing
+// entry is silently replaced. When override is false, the method
+// behaves like Register and returns an error on conflict.
+func (r *Registry) RegisterOrReplace(a Adapter, override bool) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	name := a.Name()
+	if _, exists := r.adapters[name]; exists {
+		if !override {
+			return fmt.Errorf("adapter %q already registered", name)
+		}
+	}
+	r.adapters[name] = a
+	return nil
+}
+
 // DetectAll runs Detect() on every registered adapter and returns only
 // those that report as installed. This is the auto-discovery mechanism.
 func (r *Registry) DetectAll(homeDir string) []DetectedAdapter {

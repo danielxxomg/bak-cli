@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Config-driven plugin system** — Custom backup presets and adapters via YAML
+  declarations. No Go code required to extend bak-cli with new tools or categories.
+  - `~/.config/bak/presets/*.yaml` — define custom backup presets with name and
+    category list. Use `bak backup --preset <name>` to invoke.
+  - `~/.config/bak/adapters/*.yaml` — define custom adapters with config paths
+    and category patterns. Auto-detected alongside built-in adapters.
+  - `--override` flag on `backup` and `restore` commands — prefer custom YAML
+    presets/adapters over same-named built-ins.
+  - See `examples/presets/custom.yaml` and `examples/adapters/myapp.yaml` for
+    annotated samples.
+- **Extracted action structs** — Core workflows (backup, restore, push, pull)
+  moved to `internal/actions/` with injectable filesystem and config dependencies.
+  Enables full unit-test coverage with mock implementations.
+- **`internal/actions` package** — `BackupAction`, `RestoreAction`, `PushAction`,
+  `PullAction` with `FileSystem` and `ConfigLoader` interfaces. Tests use
+  `MockFileSystem` and `MockConfigLoader` for deterministic, isolated coverage.
+- **`internal/presets` package** — YAML preset loader (`LoadFromDir`) with type
+  definitions (`YAMLPreset`, `YAMLMetadata`). `ResolveAll()` merges custom and
+  built-in presets with conflict detection.
+- **`internal/adapters` YAML support** — `ConfigAdapter` implementing the
+  `Adapter` interface for tools declared in YAML. `LoadYAMLAdapters()` scans
+  and parses adapter definitions. `RegisterOrReplace()` handles override logic.
+- **`internal/adapters/register` package** — `LoadYAMLAdapters()` wraps
+  `adapter.LoadYAMLAdapters()` with registry integration and override warnings.
+
 - **Backup scheduling** — `bak schedule` commands manage OS-native backup schedules
   using crontab on Unix and schtasks on Windows. Schedules run `bak backup && bak push`
   for a profile at configurable intervals.
@@ -45,11 +70,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   canonical path maps and categorizes items by presence and SHA-256 hash comparison.
 - **`internal/backup.ResolveBackupID()` shared helper** — validates backup IDs with
   path traversal prevention, replacing duplicated logic in `restore` command.
-
-### Changed
-
 - **`cmd/restore.go`** refactored to use shared `ResolveBackupID()` instead of inline
   BakDir + traversal guard + existence check. Behavior-preserving.
+
+- `cmd/backup.go` — thin wire to `BackupAction`; calls `presets.ResolveAll()`
+  and `register.LoadYAMLAdapters()` for YAML integration.
+- `cmd/restore.go` — thin wire to `RestoreAction`; supports `--override` flag.
+- `cmd/push.go` — thin wire to `PushAction`.
+- `cmd/pull.go` — thin wire to `PullAction`.
+- `internal/adapters/registry.go` — added `RegisterOrReplace()` for conflict
+  resolution with YAML adapter overrides.
 
 ## [0.3.0] — 2026-06-05
 

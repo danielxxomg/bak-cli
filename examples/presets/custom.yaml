@@ -1,0 +1,22 @@
+# Example custom preset for bak-cli.
+#
+# Place this file in ~/.config/bak/presets/ to add custom backup presets.
+# Each YAML file defines one preset with a name and category list.
+#
+# Categories: skills, commands, config, mcp, plugins, agents
+#
+# Usage:
+#   bak backup --preset my-full
+#   bak backup --preset my-full --override  # prefer over same-named built-in
+
+name: my-full
+categories:
+  - config
+  - skills
+  - commands
+  - plugins
+  - agents
+
+metadata:
+  description: "Backup config, skills, commands, plugins, and agents (no MCP)"
+  author: "you"

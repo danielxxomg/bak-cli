@@ -1,0 +1,25 @@
+# Example custom adapter for bak-cli.
+#
+# Place this file in ~/.config/bak/adapters/ to register a custom adapter.
+# Custom adapters use YAML declarations — no Go code needed.
+#
+# Usage:
+#   bak backup  # auto-detects if config_path exists
+#   bak backup --adapter myapp --override  # override built-in with same name
+
+name: myapp
+config_path: .config/myapp
+
+categories:
+  - name: config
+    root_files:
+      - config.yaml
+      - settings.json
+
+  - name: skills
+    sub_path: skills
+    is_dir: true
+
+  - name: commands
+    sub_path: commands
+    is_dir: true
