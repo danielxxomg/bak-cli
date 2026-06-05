@@ -5,7 +5,47 @@ All notable changes to bak-cli will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] — 2026-06-05
+## [0.3.0] — 2026-06-05
+
+### Added
+
+- **Encryption at rest** — AES-256-GCM encryption with Argon2id key derivation (64 MB RAM,
+  3 iterations, 4 parallelism). Encrypted archives are prefixed with `BAK_ENC\x01` magic
+  bytes for instant detection. Encryption is opt-in per profile.
+- **`internal/crypto` package** — `Encrypt()`, `Decrypt()`, `IsEncrypted()`, `DeriveKey()`
+  functions with full test coverage (round-trip, wrong password, magic byte integrity).
+- **Password input strategy** — `crypto.GetPassword()` checks `BAK_ENCRYPTION_PASSWORD`
+  env var first, falls back to interactive stdin prompt. Errors if no terminal and no
+  env var (CI-safe).
+- **Machine profiles** — `bak profile` commands:
+  - `bak profile create <name> --provider <name> [--preset] [--adapters] [--categories] [--encrypt]`
+  - `bak profile list` — table view of all configured profiles
+  - `bak profile show <name>` — full profile details
+  - `bak profile delete <name>` — remove a profile
+- **Profile-scoped backups** — `bak backup --profile <name>` resolves the profile's
+  preset, categories, and adapter list, overriding CLI flags. Works with `bak push`
+  and `bak pull` for end-to-end encrypted cloud sync.
+- **Profile-aware push/pull** — `bak push --profile <name>` and `bak pull --profile <name>`
+  resolve the profile's encryption settings. Encrypted archives are transparently
+  encrypted on push and decrypted on pull.
+- **Config migration v0.2.0 → v0.3.0** — auto-detected on `Load()`, adds empty
+  `profiles` map, bumps `schema_version` to `"0.3.0"`, writes `config.json.v020.bak`
+  before overwriting. All existing providers preserved.
+
+### Changed
+
+- `config.Config` now includes `Profiles map[string]ProfileConfig` with fields:
+  `Adapters`, `Categories`, `Preset`, `Provider`, and `Encryption` (with `Enabled`
+  and optional `Password`, `Iterations`, `MemoryKiB`, `Parallelism`).
+- `config.EncryptionConfig` adds `Enabled bool` field for explicit encryption opt-in.
+- `cmd/backup.go` adds `--profile` flag that overrides `--preset` and `--adapter`
+  when set. Profile preset/categories flow into `backup.Engine`.
+- `cmd/push.go` adds `--profile` flag (default `"default"`); encrypts archive
+  before push when profile has encryption enabled.
+- `cmd/pull.go` adds `--profile` flag; detects encrypted archives via magic bytes
+  and decrypts on the fly. Plaintext archives from v0.2.0 are handled transparently.
+- `internal/manifest/manifest.go` adds `Encryption` struct (algorithm, KDF, salt,
+  nonce, iterations, memory, parallelism) for encrypted backup auditability.
 
 ### Added
 
