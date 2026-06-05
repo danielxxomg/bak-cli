@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/danielxxomg/bak-cli/internal/backup"
@@ -13,42 +17,57 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var pushProvider string
+
 // pushCmd represents the push command.
 var pushCmd = &cobra.Command{
 	Use:   "push [backup-id]",
-	Short: "Push a backup to GitHub Gist",
-	Long: `Package a local backup and push it to a private GitHub Gist for
-cloud sync across machines.
+	Short: "Push a backup to the cloud",
+	Long: `Package a local backup and push it to a cloud backend for
+sync across machines.
 
 If no backup ID is provided, the most recent backup is used.
 
-Requires a GitHub token configured via 'bak login' or the
-GITHUB_TOKEN environment variable.
+Supported providers:
+  github-gist (default) — push to a private GitHub Gist
+
+Requires a token configured via 'bak login' or the appropriate
+environment variable.
 
 Examples:
   bak push                          # push latest backup
-  bak push 20260604-150405          # push a specific backup`,
+  bak push 20260604-150405          # push a specific backup
+  bak push --provider github-gist   # explicit provider`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runPush,
 }
 
 func init() {
+	pushCmd.Flags().StringVar(&pushProvider, "provider", "github-gist",
+		"cloud provider to use (github-gist)")
 	rootCmd.AddCommand(pushCmd)
 }
 
 func runPush(cmd *cobra.Command, args []string) error {
-	// 1. Resolve token.
+	// 1. Load config and build provider registry.
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	token, source := cloud.ResolveToken(cfg)
-	if token == "" {
-		return fmt.Errorf("no GitHub token found — run 'bak login' or set GITHUB_TOKEN")
+	reg := cloud.NewProviderRegistry()
+	defaultProvider := cloud.NewGitHubGistProvider(cfg, "")
+	if err := reg.Register(defaultProvider); err != nil {
+		return fmt.Errorf("register provider: %w", err)
+	}
+	reg.SetDefault("github-gist")
+
+	provider, err := reg.Get(pushProvider)
+	if err != nil {
+		return fmt.Errorf("provider: %w", err)
 	}
 	if verbose {
-		fmt.Printf("Using token from %s\n", source)
+		fmt.Fprintf(os.Stderr, "Using provider: %s\n", provider.Name())
 	}
 
 	// 2. Find backup.
@@ -64,53 +83,49 @@ func runPush(cmd *cobra.Command, args []string) error {
 	}
 
 	backupPath := filepath.Join(backupsDir, backupID)
-	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
-		return fmt.Errorf("backup %q not found at %s", backupID, backupPath)
+
+	// Security: validate resolved path stays under backupsDir.
+	cleanBackup := path.Clean(filepath.ToSlash(backupPath))
+	cleanBase := path.Clean(filepath.ToSlash(backupsDir)) + "/"
+	if !strings.HasPrefix(cleanBackup, cleanBase) {
+		return fmt.Errorf("backup ID %q resolves outside backups directory", backupID)
 	}
 
-	// 3. Package backup as tar.gz + base64.
+	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+		return fmt.Errorf("backup %q not found", backupID)
+	}
+
+	// 3. Package backup as tar.gz.
 	fmt.Printf("Packaging backup %s...\n", backupID)
 	archiveData, err := cloud.TarGzDirectory(backupPath)
 	if err != nil {
 		return fmt.Errorf("package backup: %w", err)
 	}
 
-	// 4. Push to Gist.
-	desc := fmt.Sprintf("bak backup %s — %s", backupID, time.Now().UTC().Format(time.RFC3339))
-
-	var gistID string
-	existingID, err := cfg.Get("github.gist_id")
+	// 4. Push via provider.
+	hostname, err := os.Hostname()
 	if err != nil {
-		// No existing gist ID — will create new.
-		existingID = ""
+		if verbose {
+			fmt.Fprintf(os.Stderr, "warning: hostname: %v\n", err)
+		}
+		hostname = "unknown"
+	}
+	rawArchive, err := base64.StdEncoding.DecodeString(archiveData)
+	if err != nil {
+		return fmt.Errorf("decode archive: %w", err)
 	}
 
-	if existingID != "" {
-		fmt.Printf("Updating existing Gist %s...\n", existingID)
-		if err := cloud.UpdateGist(token, existingID, desc, []cloud.GistFile{
-			{Filename: "backup.tar.gz", Content: archiveData},
-		}); err != nil {
-			return fmt.Errorf("update gist: %w", err)
-		}
-		gistID = existingID
-	} else {
-		fmt.Print("Creating new private Gist... ")
-		id, err := cloud.CreateGist(token, desc, []cloud.GistFile{
-			{Filename: "backup.tar.gz", Content: archiveData},
-		})
-		if err != nil {
-			return fmt.Errorf("create gist: %w", err)
-		}
-		gistID = id
-		fmt.Println("done")
-
-		// Save gist ID for future updates.
-		if err := cfg.Set("github.gist_id", gistID); err != nil {
-			return fmt.Errorf("save gist ID: %w", err)
-		}
+	id, err := provider.Push(rawArchive, cloud.PushMeta{
+		BackupID:  backupID,
+		CreatedAt: time.Now().UTC(),
+		Hostname:  hostname,
+		OS:        runtime.GOOS,
+	})
+	if err != nil {
+		return fmt.Errorf("push: %w", err)
 	}
 
-	fmt.Printf("✅ Pushed to GitHub Gist: https://gist.github.com/%s\n", gistID)
+	fmt.Printf("✅ Pushed to %s: %s\n", provider.Name(), id)
 	return nil
 }
 
@@ -134,7 +149,7 @@ func resolveBackupID(backupsDir string, args []string) (string, error) {
 	}
 
 	if len(ids) == 0 {
-		return "", fmt.Errorf("no backups found in %s — run 'bak backup' first", backupsDir)
+		return "", fmt.Errorf("no backups found — run 'bak backup' first")
 	}
 
 	// Sort descending (newest first) by timestamp ID format.
@@ -143,7 +158,7 @@ func resolveBackupID(backupsDir string, args []string) (string, error) {
 	})
 
 	if verbose {
-		fmt.Printf("Found %d backup(s), using latest: %s\n", len(ids), ids[0])
+		fmt.Fprintf(os.Stderr, "Found %d backup(s), using latest: %s\n", len(ids), ids[0])
 	}
 
 	return ids[0], nil

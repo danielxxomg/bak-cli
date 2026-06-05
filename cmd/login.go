@@ -11,30 +11,47 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var loginProvider string
+
 // loginCmd represents the login command.
 var loginCmd = &cobra.Command{
 	Use:   "login",
-	Short: "Authenticate with GitHub for cloud sync",
-	Long: `Configure a GitHub personal access token (PAT) to enable cloud backup
-via private GitHub Gists.
+	Short: "Authenticate with a cloud provider for sync",
+	Long: `Configure authentication for cloud backup providers.
+
+For GitHub (default): Configures a personal access token (PAT) to enable
+cloud backup via private GitHub Gists.
 
 The token is stored in ~/.config/bak/config.json and used by the
 push and pull commands.
 
-Token requirements:
+Token requirements for GitHub:
   - Classic PAT: needs the 'gist' scope
   - Fine-grained PAT: needs read/write access to Gists
 
-Create a token at: https://github.com/settings/tokens`,
+Create a token at: https://github.com/settings/tokens
+
+For other providers (Codeberg, Gitea, etc.), use 'bak config set':
+  bak config set providers.codeberg.token <your-token>
+  bak config set providers.gitea.token <your-token>`,
 	Args: cobra.NoArgs,
 	RunE: runLogin,
 }
 
 func init() {
+	loginCmd.Flags().StringVar(&loginProvider, "provider", "github-gist",
+		"cloud provider to authenticate with (github-gist)")
 	rootCmd.AddCommand(loginCmd)
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {
+	// Only GitHub login is interactive; other providers use bak config set.
+	if loginProvider != "" && loginProvider != "github-gist" && loginProvider != "github" {
+		return fmt.Errorf(
+			"login for %q is not interactive — use 'bak config set providers.%s.token <your-token>'",
+			loginProvider, loginProvider,
+		)
+	}
 	// 1. Check if token already exists.
 	cfg, err := config.Load()
 	if err != nil {

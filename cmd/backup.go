@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/danielxxomg/bak-cli/internal/adapters"
-	opencodeadapter "github.com/danielxxomg/bak-cli/internal/adapters/opencode"
+	"github.com/danielxxomg/bak-cli/internal/adapters/register"
 	"github.com/danielxxomg/bak-cli/internal/backup"
 	"github.com/spf13/cobra"
 )
@@ -51,8 +51,8 @@ func runBackup(cmd *cobra.Command, args []string) error {
 
 	// --- Wire adapters ----------------------------------------------------
 	reg := adapters.NewRegistry()
-	if err := reg.Register(&opencodeadapter.Adapter{}); err != nil {
-		return fmt.Errorf("register opencode adapter: %w", err)
+	if err := register.All(reg); err != nil {
+		return fmt.Errorf("register adapters: %w", err)
 	}
 
 	// --- Build and run engine ---------------------------------------------

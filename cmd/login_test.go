@@ -32,6 +32,39 @@ func TestRunLogin_EmptyToken(t *testing.T) {
 	}
 }
 
+func TestRunLogin_NonGitHubProvider(t *testing.T) {
+	// Test the guard logic in runLogin directly by setting the package variable.
+	orig := loginProvider
+	loginProvider = "codeberg"
+	defer func() { loginProvider = orig }()
+
+	err := runLogin(nil, nil)
+
+	if err == nil {
+		t.Fatal("expected error for non-GitHub provider login")
+	}
+	errStr := err.Error()
+	if !strings.Contains(errStr, "config set") {
+		t.Errorf("error should mention 'config set', got: %v", err)
+	}
+}
+
+func TestRunLogin_GiteaProvider(t *testing.T) {
+	orig := loginProvider
+	loginProvider = "gitea"
+	defer func() { loginProvider = orig }()
+
+	err := runLogin(nil, nil)
+
+	if err == nil {
+		t.Fatal("expected error for gitea provider login")
+	}
+	errStr := err.Error()
+	if !strings.Contains(errStr, "config set") {
+		t.Errorf("error should mention 'config set', got: %v", err)
+	}
+}
+
 func TestLoginCmd_RunEIsSet(t *testing.T) {
 	cmd := findSubcommand(t, "login")
 	if cmd == nil {

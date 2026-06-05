@@ -1,0 +1,278 @@
+package claudecode
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/danielxxomg/bak-cli/internal/adapters"
+)
+
+func TestAdapter_Name(t *testing.T) {
+	a := &Adapter{}
+	if a.Name() != "claude-code" {
+		t.Errorf("Name() = %q, want %q", a.Name(), "claude-code")
+	}
+}
+
+func TestAdapter_Detect(t *testing.T) {
+	a := &Adapter{}
+
+	t.Run("installed", func(t *testing.T) {
+		home := t.TempDir()
+		configDir := filepath.Join(home, ".claude")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		installed, gotDir, err := a.Detect(home)
+		if err != nil {
+			t.Fatalf("Detect: %v", err)
+		}
+		if !installed {
+			t.Error("expected installed=true")
+		}
+		if gotDir != configDir {
+			t.Errorf("configDir = %q, want %q", gotDir, configDir)
+		}
+	})
+
+	t.Run("not installed", func(t *testing.T) {
+		home := t.TempDir()
+
+		installed, _, err := a.Detect(home)
+		if err != nil {
+			t.Fatalf("Detect: %v", err)
+		}
+		if installed {
+			t.Error("expected installed=false")
+		}
+	})
+
+	t.Run("exists but is file not dir", func(t *testing.T) {
+		home := t.TempDir()
+		configPath := filepath.Join(home, ".claude")
+		if err := os.WriteFile(configPath, []byte("not a dir"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		installed, _, err := a.Detect(home)
+		if err != nil {
+			t.Fatalf("Detect: %v", err)
+		}
+		if installed {
+			t.Error("expected installed=false when path is a file")
+		}
+	})
+}
+
+func TestAdapter_ListItems(t *testing.T) {
+	a := &Adapter{}
+
+	setupHome := func(t *testing.T) string {
+		t.Helper()
+		home := t.TempDir()
+		configDir := filepath.Join(home, ".claude")
+
+		// Root config files
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(configDir, "settings.json"), []byte(`{"theme":"dark"}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(configDir, "CLAUDE.md"), []byte("# Claude Config"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Skills directory
+		skillDir := filepath.Join(configDir, "skills")
+		if err := os.MkdirAll(skillDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(skillDir, "code-review.md"), []byte("# Code Review"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Commands directory
+		cmdDir := filepath.Join(configDir, "commands")
+		if err := os.MkdirAll(cmdDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(cmdDir, "test.md"), []byte("run tests"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		return home
+	}
+
+	t.Run("config category", func(t *testing.T) {
+		home := setupHome(t)
+		items, err := a.ListItems(home, []string{"config"})
+		if err != nil {
+			t.Fatalf("ListItems: %v", err)
+		}
+		if len(items) < 2 {
+			t.Fatalf("expected at least 2 config items, got %d", len(items))
+		}
+		for _, item := range items {
+			if item.Category != "config" {
+				t.Errorf("item %q has category %q, want config", item.RelPath, item.Category)
+			}
+			if !item.IsDir && item.Hash == "" {
+				t.Errorf("file item %q has empty hash", item.RelPath)
+			}
+		}
+	})
+
+	t.Run("skills category", func(t *testing.T) {
+		home := setupHome(t)
+		items, err := a.ListItems(home, []string{"skills"})
+		if err != nil {
+			t.Fatalf("ListItems: %v", err)
+		}
+		if len(items) < 1 {
+			t.Fatal("expected at least 1 skill item")
+		}
+		for _, item := range items {
+			if item.Category != "skills" {
+				t.Errorf("item %q has category %q, want skills", item.RelPath, item.Category)
+			}
+		}
+	})
+
+	t.Run("commands category", func(t *testing.T) {
+		home := setupHome(t)
+		items, err := a.ListItems(home, []string{"commands"})
+		if err != nil {
+			t.Fatalf("ListItems: %v", err)
+		}
+		if len(items) < 1 {
+			t.Fatal("expected at least 1 command item")
+		}
+	})
+
+	t.Run("all categories", func(t *testing.T) {
+		home := setupHome(t)
+		items, err := a.ListItems(home, []string{"config", "skills", "commands"})
+		if err != nil {
+			t.Fatalf("ListItems: %v", err)
+		}
+		if len(items) < 4 {
+			t.Fatalf("expected at least 4 items across all categories, got %d", len(items))
+		}
+	})
+
+	t.Run("empty result for missing dirs", func(t *testing.T) {
+		home := t.TempDir()
+		configDir := filepath.Join(home, ".claude")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		items, err := a.ListItems(home, []string{"skills"})
+		if err != nil {
+			t.Fatalf("ListItems: %v", err)
+		}
+		if len(items) != 0 {
+			t.Errorf("expected 0 items for missing skills dir, got %d", len(items))
+		}
+	})
+}
+
+func TestAdapter_Backup(t *testing.T) {
+	a := &Adapter{}
+
+	home := t.TempDir()
+	configDir := filepath.Join(home, ".claude")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	srcFile := filepath.Join(configDir, "settings.json")
+	if err := os.WriteFile(srcFile, []byte(`{"theme":"dark"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	items := []adapters.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.claude/settings.json",
+			RelPath:    "settings.json",
+			IsDir:      false,
+			Hash:       "sha256:abc",
+			Size:       16,
+		},
+	}
+
+	backupDir := filepath.Join(t.TempDir(), "backup")
+	if err := a.Backup(home, backupDir, items); err != nil {
+		t.Fatalf("Backup: %v", err)
+	}
+
+	dstFile := filepath.Join(backupDir, "claude-code", "settings.json")
+	data, err := os.ReadFile(dstFile)
+	if err != nil {
+		t.Fatalf("read backup file: %v", err)
+	}
+	if string(data) != `{"theme":"dark"}` {
+		t.Errorf("backup content = %q, want %q", string(data), `{"theme":"dark"}`)
+	}
+}
+
+func TestAdapter_Restore(t *testing.T) {
+	a := &Adapter{}
+
+	backupDir := filepath.Join(t.TempDir(), "backup")
+	backupFile := filepath.Join(backupDir, "claude-code", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(backupFile), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(backupFile, []byte(`{"restored":true}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	items := []adapters.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.claude/settings.json",
+			RelPath:    "settings.json",
+			IsDir:      false,
+			Hash:       "sha256:xyz",
+			Size:       18,
+		},
+	}
+
+	home := t.TempDir()
+	if err := a.Restore(backupDir, home, items); err != nil {
+		t.Fatalf("Restore: %v", err)
+	}
+
+	restoredFile := filepath.Join(home, ".claude", "settings.json")
+	data, err := os.ReadFile(restoredFile)
+	if err != nil {
+		t.Fatalf("read restored file: %v", err)
+	}
+	if string(data) != `{"restored":true}` {
+		t.Errorf("restored content = %q, want %q", string(data), `{"restored":true}`)
+	}
+}
+
+func TestAdapter_InterfaceCompliance(t *testing.T) {
+	a := &Adapter{}
+
+	if a.Name() == "" {
+		t.Error("Name should not be empty")
+	}
+
+	home := t.TempDir()
+	installed, configDir, err := a.Detect(home)
+	if err != nil {
+		t.Errorf("Detect should not error on missing dir: %v", err)
+	}
+	if installed {
+		t.Error("Detect should return false for empty temp dir")
+	}
+	if configDir == "" {
+		t.Error("configDir should not be empty even when not installed")
+	}
+}
