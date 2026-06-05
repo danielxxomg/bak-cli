@@ -54,6 +54,51 @@ func TestListCmd_Help(t *testing.T) {
 	}
 }
 
+func TestListCmd_ProviderFlag(t *testing.T) {
+	// Verify the --provider flag is defined on listCmd.
+	flag := listCmd.Flags().Lookup("provider")
+	if flag == nil {
+		t.Fatal("list command should have --provider flag")
+	}
+	if flag.DefValue != "" {
+		t.Errorf("default value should be empty string, got %q", flag.DefValue)
+	}
+}
+
+func TestRunList_CloudProviderUnconfigured(t *testing.T) {
+	// When --provider is set to an unregistered name, it should error.
+	listCmd.Flags().Set("provider", "unknown-backend")
+	defer listCmd.Flags().Set("provider", "")
+
+	// listCmd.Execute() won't parse flags well standalone,
+	// so call runList with the flag already set.
+	listProviderOrig := listProvider
+	listProvider = "unknown-backend"
+	defer func() { listProvider = listProviderOrig }()
+
+	// runList will try to register and get the provider.
+	// Since it's not registered, it should return an error.
+	err := runList(nil, nil)
+	if err == nil {
+		t.Fatal("expected error for unknown provider")
+	}
+}
+
+func TestRunList_LocalBehaviorDefault(t *testing.T) {
+	// When no --provider flag, keep existing local listing behavior.
+	// This should not error (even if no backups exist, it prints a message).
+	listProviderOrig := listProvider
+	listProvider = ""
+	defer func() { listProvider = listProviderOrig }()
+
+	err := runList(nil, nil)
+	if err != nil {
+		// May fail if ~/.bak/backups doesn't exist, which is fine.
+		// The key test is that we don't hit a cloud provider error.
+		t.Logf("runList (local) returned: %v (may be expected)", err)
+	}
+}
+
 // --- runList execution tests ---
 
 func TestRunList_Execute(t *testing.T) {

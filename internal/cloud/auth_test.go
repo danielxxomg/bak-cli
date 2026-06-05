@@ -90,6 +90,116 @@ func TestValidateToken_FineGrainedPAT(t *testing.T) {
 	}
 }
 
+func TestResolveProviderToken(t *testing.T) {
+	origEnv := os.Getenv("GITHUB_TOKEN")
+	defer os.Setenv("GITHUB_TOKEN", origEnv)
+
+	t.Run("github-gist from environment", func(t *testing.T) {
+		os.Setenv("GITHUB_TOKEN", "ghp_env123")
+		defer os.Unsetenv("GITHUB_TOKEN")
+
+		tok, source := ResolveProviderToken("github-gist", nil)
+		if tok != "ghp_env123" {
+			t.Errorf("token = %q, want ghp_env123", tok)
+		}
+		if !strings.Contains(source, "GITHUB_TOKEN") {
+			t.Errorf("source = %q, want mention of GITHUB_TOKEN", source)
+		}
+	})
+
+	t.Run("github-gist from config", func(t *testing.T) {
+		os.Unsetenv("GITHUB_TOKEN")
+
+		cfg := &config.Config{}
+		_ = cfg.Set("github.token", "cfg_token456")
+
+		tok, source := ResolveProviderToken("github-gist", cfg)
+		if tok != "cfg_token456" {
+			t.Errorf("token = %q, want cfg_token456", tok)
+		}
+		if !strings.Contains(source, "config") {
+			t.Errorf("source = %q, want mention of config", source)
+		}
+	})
+
+	t.Run("env takes precedence over config", func(t *testing.T) {
+		os.Setenv("GITHUB_TOKEN", "env_wins")
+		defer os.Unsetenv("GITHUB_TOKEN")
+
+		cfg := &config.Config{}
+		_ = cfg.Set("github.token", "config_loses")
+
+		tok, source := ResolveProviderToken("github-gist", cfg)
+		if tok != "env_wins" {
+			t.Errorf("token = %q, want env_wins (env must win)", tok)
+		}
+		if !strings.Contains(source, "environment") {
+			t.Errorf("source = %q, want environment", source)
+		}
+	})
+
+	t.Run("no token anywhere", func(t *testing.T) {
+		os.Unsetenv("GITHUB_TOKEN")
+
+		tok, source := ResolveProviderToken("github-gist", nil)
+		if tok != "" {
+			t.Errorf("expected empty token, got %q", tok)
+		}
+		if source != "" {
+			t.Errorf("expected empty source, got %q", source)
+		}
+	})
+
+	t.Run("codeberg from environment", func(t *testing.T) {
+		os.Setenv("CODEBERG_TOKEN", "cb_token789")
+		os.Unsetenv("GITHUB_TOKEN")
+		defer os.Unsetenv("CODEBERG_TOKEN")
+
+		tok, source := ResolveProviderToken("codeberg", nil)
+		if tok != "cb_token789" {
+			t.Errorf("token = %q, want cb_token789", tok)
+		}
+		if !strings.Contains(source, "CODEBERG_TOKEN") {
+			t.Errorf("source = %q, want CODEBERG_TOKEN", source)
+		}
+	})
+
+	t.Run("gitea from config", func(t *testing.T) {
+		os.Unsetenv("GITEA_TOKEN")
+
+		cfg := &config.Config{}
+		_ = cfg.Set("providers.gitea.token", "gitea_cfg")
+
+		tok, source := ResolveProviderToken("gitea", cfg)
+		if tok != "gitea_cfg" {
+			t.Errorf("token = %q, want gitea_cfg", tok)
+		}
+		if !strings.Contains(source, "config") {
+			t.Errorf("source = %q, want config", source)
+		}
+	})
+
+	t.Run("unknown provider returns empty", func(t *testing.T) {
+		tok, source := ResolveProviderToken("unknown-provider", nil)
+		if tok != "" {
+			t.Errorf("expected empty token for unknown provider, got %q", tok)
+		}
+		if source != "" {
+			t.Errorf("expected empty source, got %q", source)
+		}
+	})
+
+	t.Run("github-repo uses GITHUB_TOKEN", func(t *testing.T) {
+		os.Setenv("GITHUB_TOKEN", "repo_token")
+		defer os.Unsetenv("GITHUB_TOKEN")
+
+		tok, _ := ResolveProviderToken("github-repo", nil)
+		if tok != "repo_token" {
+			t.Errorf("token = %q, want repo_token", tok)
+		}
+	})
+}
+
 func TestResolveToken(t *testing.T) {
 	// Save and restore env.
 	origEnv := os.Getenv("GITHUB_TOKEN")
