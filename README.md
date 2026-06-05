@@ -18,6 +18,8 @@
 - 🔄 **Backup & Restore** — Preset-based backups (quick, full, skills) with mandatory dry-run before restore
 - 🔒 **Secret Detection** — Automatically excludes API keys, tokens, and generates `.env.example` templates
 - ☁️ **Multi-Cloud Sync** — Push/pull backups to GitHub Gist, GitHub Repo, Codeberg, Gitea/Forgejo, and rclone (Google Drive, S3, etc.)
+- 🔐 **Encryption at Rest** — AES-256-GCM encryption with Argon2id key derivation; opt-in per profile
+- 👤 **Machine Profiles** — `bak profile` commands to scope backups per machine with independent adapter, category, preset, provider, and encryption settings
 - 🖥️ **Cross-Platform** — Works on Windows, macOS, and Linux with path normalization
 - 🎯 **Interactive Picker** — TUI with bubbletea for selective category backup
 - ↩️ **Undo** — Git-backed safety with `bak undo` (git revert)
@@ -49,6 +51,10 @@ Download from [GitHub Releases](https://github.com/danielxxomg/bak-cli/releases)
 # Create a backup
 bak backup
 
+# Create a backup scoped to a machine profile
+bak profile create work --provider github-gist --preset full --encrypt
+bak backup --profile work
+
 # Preview what would be restored
 bak restore --dry-run 20260604-150405
 
@@ -68,15 +74,16 @@ bak pull
 
 | Command | Description |
 |---------|-------------|
-| `bak backup [--preset quick\|full\|skills]` | Create a backup |
+| `bak backup [--preset quick\|full\|skills] [--profile <name>]` | Create a backup |
 | `bak restore [--dry-run] [--force] <id>` | Restore a backup |
 | `bak undo` | Revert the last operation |
 | `bak list [--provider <name>]` | List local or cloud backups |
 | `bak pick` | Interactive TUI picker |
-| `bak push [id] [--provider <name>]` | Push to a cloud backend |
-| `bak pull [id] [--provider <name>]` | Pull from a cloud backend |
+| `bak push [id] [--provider <name>] [--profile <name>]` | Push to a cloud backend |
+| `bak pull [id] [--provider <name>] [--profile <name>]` | Pull from a cloud backend |
 | `bak export <id> [--output path]` | Export as tar.gz |
 | `bak login [--provider <name>]` | Authenticate with a cloud provider |
+| `bak profile create\|list\|show\|delete` | Manage machine profiles |
 | `bak version` | Show version info |
 
 ## Configuration
@@ -138,6 +145,72 @@ bak config set providers.codeberg.token <your-token>
 bak config set providers.codeberg.repo owner/backups
 ```
 
+### Machine Profiles
+
+Profiles let you scope backups to specific machines with independent settings
+for adapters, categories, preset, provider, and encryption.
+
+```bash
+# Create a profile for your work laptop
+bak profile create work-laptop --provider github-gist --preset full --encrypt
+
+# Create a lightweight profile for your home PC
+bak profile create home-pc --provider github-repo --preset quick
+
+# Create a profile that only backs up OpenCode and Cursor config
+bak profile create dev-box --provider codeberg --adapters opencode,cursor --categories config,skills
+
+# List all profiles
+bak profile list
+
+# Show full profile details
+bak profile show work-laptop
+
+# Delete a profile
+bak profile delete old-machine
+```
+
+Use a profile with `--profile` on `backup`, `push`, or `pull`:
+
+```bash
+bak backup --profile work-laptop
+bak push --profile work-laptop
+bak pull --profile work-laptop
+```
+
+When `--profile` is set, its preset, categories, and adapter list override
+the equivalent CLI flags.
+
+### Encryption
+
+Encryption is enabled per profile with the `--encrypt` flag on `bak profile create`.
+Encrypted archives use **AES-256-GCM** with **Argon2id** key derivation (64 MB RAM,
+3 iterations, 4 parallelism).
+
+| Feature | Detail |
+|---------|--------|
+| Algorithm | AES-256-GCM |
+| Key derivation | Argon2id (64 MB, 3 iter, 4 parallel) |
+| Magic bytes | `BAK_ENC\x01` — instant detection without parsing |
+| Password input | Interactive prompt (stdin) or `BAK_ENCRYPTION_PASSWORD` env var |
+| Backward compat | Plaintext archives from v0.2.0 are detected and handled automatically |
+
+**Push flow**: `bak push --profile work` encrypts the tar.gz archive before upload.
+**Pull flow**: `bak pull` detects magic bytes, prompts for password, decrypts on the fly.
+
+```bash
+# Set password via environment variable (CI/scripts)
+export BAK_ENCRYPTION_PASSWORD="your-secure-password"
+bak push --profile work
+
+# Or use interactive prompt (no env var set)
+bak push --profile work
+# → Enter encryption password: ********
+```
+
+Encryption metadata (algorithm, KDF, salt, nonce) is stored in the backup manifest
+for auditability. The password itself is never persisted to disk.
+
 ### Supported AI Coding Agents
 
 `bak backup` auto-detects installed agents in priority order:
@@ -172,9 +245,10 @@ bak-cli/
 │   ├── manifest/           # Manifest schema + validation
 │   ├── cloud/              # Cloud provider abstraction (GitHub Gist, GitHub Repo,
 │   │                       #   Codeberg, Gitea/Forgejo, Rclone)
+│   ├── crypto/             # AES-256-GCM encryption + Argon2id key derivation
 │   ├── paths/              # Cross-platform path normalization
 │   ├── git/                # Git operations (go-git)
-│   ├── config/             # Configuration management + v0.1.0 → v0.2.0 migration
+│   ├── config/             # Configuration management + v0.1.0 → v0.3.0 migration
 │   └── presets/            # Preset definitions
 ├── .goreleaser.yaml        # Cross-platform release config
 └── Makefile                # Development workflow
@@ -290,9 +364,10 @@ reg.Register(&youradapter.Adapter{})
 - [x] Logo and banner image — see `docs/brand/`
 - [ ] GitHub Actions release workflow (goreleaser)
 
-### v0.3.0 (planned)
-- [ ] **Encryption at rest** — Optional encryption for sensitive backups
-- [ ] **Machine-specific profiles** — `bak profile create work-laptop`, `bak profile create home-pc`
+### v0.3.0 ✅ (current)
+- [x] **Encryption at rest** — AES-256-GCM with Argon2id key derivation, opt-in per profile
+- [x] **Machine-specific profiles** — `bak profile create work-laptop`, `bak profile create home-pc`
+- [x] **Profile-scoped backups** — `bak backup --profile work` resolves preset, categories, and adapters
 - [ ] **GUI** — Optional terminal UI with bubbletea (beyond `bak pick`)
 
 ### v1.0.0 (long-term)
