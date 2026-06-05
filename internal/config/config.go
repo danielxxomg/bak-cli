@@ -17,6 +17,7 @@ import (
 // Config represents the persistent bak CLI configuration.
 type Config struct {
 	GitHubToken string `json:"github_token,omitempty"`
+	GistID      string `json:"gist_id,omitempty"`
 
 	// path is the on-disk location of this config file (not serialized).
 	path string `json:"-"`
@@ -88,12 +89,15 @@ func (c *Config) Save() error {
 
 // Get returns a value by key. Supported keys:
 //   - "github.token" → c.GitHubToken
+//   - "github.gist_id" → c.GistID
 //
 // Returns an error for unknown keys.
 func (c *Config) Get(key string) (string, error) {
 	switch key {
 	case "github.token":
 		return c.GitHubToken, nil
+	case "github.gist_id":
+		return c.GistID, nil
 	default:
 		return "", fmt.Errorf("unknown config key: %q", key)
 	}
@@ -101,10 +105,13 @@ func (c *Config) Get(key string) (string, error) {
 
 // Set updates a value by key and persists to disk. Supported keys:
 //   - "github.token" → c.GitHubToken
+//   - "github.gist_id" → c.GistID
 func (c *Config) Set(key, value string) error {
 	switch key {
 	case "github.token":
 		c.GitHubToken = value
+	case "github.gist_id":
+		c.GistID = value
 	default:
 		return fmt.Errorf("unknown config key: %q", key)
 	}

@@ -67,12 +67,12 @@ Chain strategy: feature-branch-chain (PR #1 of 6 — Foundation)
 
 ## Phase 5: Cloud Sync
 
-- [ ] 5.1 Create `internal/cloud/auth.go`: token management — read `GITHUB_TOKEN` env or `~/.bak/config.json`, `bak login` flow
-- [ ] 5.2 Create `internal/cloud/gist.go`: GitHub Gist REST client — `Create`, `Update`, `Get`, `List` (private gists, HTTPS only)
-- [ ] 5.3 Create `cmd/push.go`: `bak push <id>` — serialize backup dir → push to private gist
-- [ ] 5.4 Create `cmd/pull.go`: `bak pull [gist-id]` — fetch gist → reconstruct backup dir → register locally
-- [ ] 5.5 Create `cmd/login.go`: `bak login` — prompt for GitHub PAT, save to config
-- [ ] 5.6 Write tests: gist CRUD with httptest mock server, push/pull round-trip, auth token resolution
+- [x] 5.1 Create `internal/cloud/auth.go`: token management — read `GITHUB_TOKEN` env or `~/.bak/config.json`, `bak login` flow
+- [x] 5.2 Create `internal/cloud/gist.go`: GitHub Gist REST client — `Create`, `Update`, `Get`, `List` (private gists, HTTPS only)
+- [x] 5.3 Create `cmd/push.go`: `bak push <id>` — serialize backup dir → push to private gist
+- [x] 5.4 Create `cmd/pull.go`: `bak pull [gist-id]` — fetch gist → reconstruct backup dir → register locally
+- [x] 5.5 Create `cmd/login.go`: `bak login` — prompt for GitHub PAT, save to config
+- [x] 5.6 Write tests: gist CRUD with httptest mock server, push/pull round-trip, auth token resolution
 
 ## Phase 6: TUI + Polish
 
