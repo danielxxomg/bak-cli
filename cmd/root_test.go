@@ -31,7 +31,7 @@ func TestRootCmd_Structure(t *testing.T) {
 func TestRootCmd_HasSubcommands(t *testing.T) {
 	expected := []string{
 		"backup", "list", "restore", "export",
-		"push", "pull", "login", "undo", "pick", "version",
+		"push", "pull", "login", "undo", "pick", "version", "profile",
 	}
 
 	registered := rootCmd.Commands()
