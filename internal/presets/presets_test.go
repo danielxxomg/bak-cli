@@ -97,3 +97,61 @@ func TestIsValid(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveAll_BuiltinFallback(t *testing.T) {
+	tests := []struct {
+		name     string
+		preset   string
+		wantCats []string
+		wantErr  bool
+	}{
+		{
+			name:     "quick preset (no yaml override)",
+			preset:   Quick,
+			wantCats: []string{CatConfig},
+		},
+		{
+			name:     "full preset (no yaml override)",
+			preset:   Full,
+			wantCats: AllCategories,
+		},
+		{
+			name:     "skills preset (no yaml override)",
+			preset:   Skills,
+			wantCats: []string{CatSkills},
+		},
+		{
+			name:    "unknown preset",
+			preset:  "nonexistent_xyz",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ResolveAll(tt.preset, false)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !slices.Equal(got, tt.wantCats) {
+				t.Errorf("categories = %v, want %v", got, tt.wantCats)
+			}
+		})
+	}
+}
+
+func TestResolveAll_ReturnsCopy(t *testing.T) {
+	cats1, _ := ResolveAll(Quick, false)
+	cats2, _ := ResolveAll(Quick, false)
+
+	cats1[0] = "corrupted"
+	if cats2[0] != CatConfig {
+		t.Errorf("ResolveAll did not return a copy: cats2[0] = %q after mutating cats1", cats2[0])
+	}
+}

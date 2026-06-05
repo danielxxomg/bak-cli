@@ -4,6 +4,8 @@ package presets
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 )
 
@@ -57,4 +59,44 @@ func Names() []string {
 func IsValid(name string) bool {
 	_, ok := presetCategories[name]
 	return ok
+}
+
+// ResolveAll loads YAML-defined presets from the standard directory
+// (~/.config/bak/presets/) and merges them with built-in presets.
+// When a YAML preset has the same name as a built-in:
+//   - override=true: the YAML version wins, replacing the built-in.
+//   - override=false: an error is returned.
+//
+// Unknown preset names fall through to the built-in resolver.
+func ResolveAll(presetName string, override bool) ([]string, error) {
+	yamlPresets, err := loadYAMLPresets()
+	if err != nil {
+		return nil, fmt.Errorf("load yaml presets: %w", err)
+	}
+
+	for _, yp := range yamlPresets {
+		if yp.Name == presetName {
+			if !override {
+				_, isBuiltin := presetCategories[presetName]
+				if isBuiltin {
+					return nil, fmt.Errorf("preset %q exists as both built-in and custom; use --override to prefer custom", presetName)
+				}
+			}
+			return slices.Clone(yp.Categories), nil
+		}
+	}
+
+	return Resolve(presetName)
+}
+
+// loadYAMLPresets loads custom preset definitions from the standard
+// YAML presets directory. Returns an empty slice when the directory
+// does not exist.
+func loadYAMLPresets() ([]YAMLPreset, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("home dir: %w", err)
+	}
+	dir := filepath.Join(home, ".config", "bak", "presets")
+	return LoadFromDir(dir)
 }

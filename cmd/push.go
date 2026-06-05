@@ -1,20 +1,11 @@
 package cmd
 
 import (
-	"encoding/base64"
 	"fmt"
 	"os"
-	"path"
-	"path/filepath"
-	"runtime"
 	"sort"
-	"strings"
-	"time"
 
-	"github.com/danielxxomg/bak-cli/internal/backup"
-	"github.com/danielxxomg/bak-cli/internal/cloud"
-	"github.com/danielxxomg/bak-cli/internal/config"
-	"github.com/danielxxomg/bak-cli/internal/crypto"
+	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/spf13/cobra"
 )
 
@@ -53,106 +44,19 @@ func init() {
 }
 
 func runPush(cmd *cobra.Command, args []string) error {
-	// 1. Load config and build provider registry.
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+	action := &actions.PushAction{
+		FS:       &actions.OSFileSystem{},
+		Provider: pushProvider,
+		Profile:  pushProfile,
+		Verbose:  verbose,
 	}
 
-	reg := cloud.NewProviderRegistry()
-	defaultProvider := cloud.NewGitHubGistProvider(cfg, "")
-	if err := reg.Register(defaultProvider); err != nil {
-		return fmt.Errorf("register provider: %w", err)
-	}
-	reg.SetDefault("github-gist")
-
-	provider, err := reg.Get(pushProvider)
-	if err != nil {
-		return fmt.Errorf("provider: %w", err)
-	}
-	if verbose {
-		fmt.Fprintf(os.Stderr, "Using provider: %s\n", provider.Name())
-	}
-
-	// 2. Find backup.
-	bakDir, err := backup.BakDir()
-	if err != nil {
-		return fmt.Errorf("bak dir: %w", err)
-	}
-
-	backupsDir := filepath.Join(bakDir, "backups")
-	backupID, err := resolveBackupID(backupsDir, args)
-	if err != nil {
-		return err
-	}
-
-	backupPath := filepath.Join(backupsDir, backupID)
-
-	// Security: validate resolved path stays under backupsDir.
-	cleanBackup := path.Clean(filepath.ToSlash(backupPath))
-	cleanBase := path.Clean(filepath.ToSlash(backupsDir)) + "/"
-	if !strings.HasPrefix(cleanBackup, cleanBase) {
-		return fmt.Errorf("backup ID %q resolves outside backups directory", backupID)
-	}
-
-	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
-		return fmt.Errorf("backup %q not found", backupID)
-	}
-
-	// 3. Package backup as tar.gz.
-	fmt.Printf("Packaging backup %s...\n", backupID)
-	archiveData, err := cloud.TarGzDirectory(backupPath)
-	if err != nil {
-		return fmt.Errorf("package backup: %w", err)
-	}
-
-	// 4. Push via provider.
-	hostname, err := os.Hostname()
-	if err != nil {
-		if verbose {
-			fmt.Fprintf(os.Stderr, "warning: hostname: %v\n", err)
-		}
-		hostname = "unknown"
-	}
-	rawArchive, err := base64.StdEncoding.DecodeString(archiveData)
-	if err != nil {
-		return fmt.Errorf("decode archive: %w", err)
-	}
-
-	// Encrypt if the selected profile has encryption configured.
-	if profileCfg, ok := cfg.Profiles[pushProfile]; ok && profileCfg.Encryption != nil {
-		password, err := crypto.GetPassword("Enter encryption password: ")
-		if err != nil {
-			return fmt.Errorf("encryption password: %w", err)
-		}
-
-		encrypted, err := crypto.Encrypt(rawArchive, password)
-		if err != nil {
-			return fmt.Errorf("encrypt archive: %w", err)
-		}
-		rawArchive = encrypted
-
-		if verbose {
-			fmt.Fprintf(os.Stderr, "Encrypted archive with profile %q\n", pushProfile)
-		}
-	}
-
-	id, err := provider.Push(rawArchive, cloud.PushMeta{
-		BackupID:  backupID,
-		CreatedAt: time.Now().UTC(),
-		Hostname:  hostname,
-		OS:        runtime.GOOS,
-	})
-	if err != nil {
-		return fmt.Errorf("push: %w", err)
-	}
-
-	fmt.Printf("✅ Pushed to %s: %s\n", provider.Name(), id)
-	return nil
+	return action.Run(cmd, args)
 }
 
 // resolveBackupID returns the backup ID from args or finds the most
-// recent backup when no argument is given.
+// recent backup when no argument is given. Kept as a package-level
+// helper for testability; PushAction has its own resolver internally.
 func resolveBackupID(backupsDir string, args []string) (string, error) {
 	if len(args) > 0 && args[0] != "" {
 		return args[0], nil
@@ -174,14 +78,9 @@ func resolveBackupID(backupsDir string, args []string) (string, error) {
 		return "", fmt.Errorf("no backups found — run 'bak backup' first")
 	}
 
-	// Sort descending (newest first) by timestamp ID format.
 	sort.Slice(ids, func(i, j int) bool {
 		return ids[i] > ids[j]
 	})
-
-	if verbose {
-		fmt.Fprintf(os.Stderr, "Found %d backup(s), using latest: %s\n", len(ids), ids[0])
-	}
 
 	return ids[0], nil
 }

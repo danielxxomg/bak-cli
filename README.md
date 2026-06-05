@@ -192,6 +192,80 @@ bak pull --profile work-laptop
 When `--profile` is set, its preset, categories, and adapter list override
 the equivalent CLI flags.
 
+### Custom Presets
+
+You can define custom backup presets as YAML files under
+`~/.config/bak/presets/`. Each file defines a preset with a name and
+category list.
+
+**Example** (`~/.config/bak/presets/my-full.yaml`):
+
+```yaml
+name: my-full
+categories:
+  - config
+  - skills
+  - commands
+  - plugins
+  - agents
+
+metadata:
+  description: "Custom full preset without MCP servers"
+  author: "you"
+```
+
+If a custom preset has the same name as a built-in (quick, full, skills),
+use `--override` to prefer the custom version:
+
+```bash
+bak backup --preset full --override
+```
+
+Without `--override`, name conflicts produce an error so you don't
+accidentally replace built-in behavior.
+
+Custom presets are merged with built-ins: any preset name not matching
+a built-in is treated as a custom preset loaded from YAML.
+
+### Custom Adapters
+
+You can register adapters for new tools without writing Go code by
+placing YAML declarations in `~/.config/bak/adapters/`.
+
+**Example** (`~/.config/bak/adapters/myapp.yaml`):
+
+```yaml
+name: myapp
+config_path: .config/myapp
+
+categories:
+  - name: config
+    root_files:
+      - config.yaml
+      - settings.json
+
+  - name: skills
+    sub_path: skills
+    is_dir: true
+
+  - name: commands
+    sub_path: commands
+    is_dir: true
+```
+
+`bak backup` will auto-detect your custom adapter if the `config_path`
+directory exists under your home directory. Use `--adapter myapp` to
+force it.
+
+Custom adapters that share a name with a built-in adapter require
+`--override` to replace the built-in:
+
+```bash
+bak backup --adapter opencode --override
+```
+
+See `examples/presets/` and `examples/adapters/` for annotated samples.
+
 ### Backup Scheduling
 
 Schedule automatic backups using OS-native task schedulers (crontab on

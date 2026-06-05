@@ -4,16 +4,18 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 	"github.com/danielxxomg/bak-cli/internal/adapters/register"
-	"github.com/danielxxomg/bak-cli/internal/backup"
 	"github.com/danielxxomg/bak-cli/internal/config"
+	"github.com/danielxxomg/bak-cli/internal/presets"
 	"github.com/spf13/cobra"
 )
 
 var backupPreset string
 var backupAdapter string
 var backupProfile string
+var backupOverride bool
 
 // backupCmd represents the backup command.
 var backupCmd = &cobra.Command{
@@ -28,7 +30,8 @@ Examples:
   bak backup --preset full      # everything: skills, commands, plugins, agents, config
   bak backup --preset skills    # skills only
   bak backup --adapter opencode # force a specific adapter
-  bak backup --profile work     # use profile settings (preset, categories, adapters)`,
+  bak backup --profile work     # use profile settings (preset, categories, adapters)
+  bak backup --override         # prefer custom YAML presets/adapters over built-ins`,
 	RunE: runBackup,
 }
 
@@ -39,25 +42,24 @@ func init() {
 		"run only the named adapter (default: all detected)")
 	backupCmd.Flags().StringVar(&backupProfile, "profile", "",
 		"use named profile from config (overrides --preset, --adapter)")
+	backupCmd.Flags().BoolVar(&backupOverride, "override", false,
+		"prefer custom YAML presets and adapters over built-ins")
 
 	rootCmd.AddCommand(backupCmd)
 }
 
 func runBackup(cmd *cobra.Command, args []string) error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("cannot determine home directory: %w", err)
-	}
+	// --- Build injectable dependencies -------------------------------------
+	fs := &actions.OSFileSystem{}
+	cfgLoader := &actions.RealConfigLoader{}
 
-	bakDir, err := backup.BakDir()
-	if err != nil {
-		return fmt.Errorf("bak dir: %w", err)
-	}
-
-	// --- Wire adapters ----------------------------------------------------
+	// --- Wire adapters (built-in + YAML) -----------------------------------
 	reg := adapters.NewRegistry()
 	if err := register.All(reg); err != nil {
 		return fmt.Errorf("register adapters: %w", err)
+	}
+	if err := register.LoadYAMLAdapters(reg, backupOverride); err != nil {
+		return fmt.Errorf("load yaml adapters: %w", err)
 	}
 
 	// --- Resolve profile (overrides CLI flags) ----------------------------
@@ -76,7 +78,6 @@ func runBackup(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("profile %q not found — create it with 'bak profile create %s --provider <name>'", backupProfile, backupProfile)
 		}
 
-		// Profile overrides CLI flags.
 		if p.Preset != "" {
 			preset = p.Preset
 		}
@@ -84,8 +85,6 @@ func runBackup(cmd *cobra.Command, args []string) error {
 			customCategories = p.Categories
 		}
 		if len(p.Adapters) > 0 {
-			// When profile specifies adapters, use the first as filter.
-			// Multiple adapter filtering requires engine changes (future work).
 			adapterFilter = p.Adapters[0]
 		}
 
@@ -99,48 +98,26 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// --- Build and run engine ---------------------------------------------
-	engine := &backup.Engine{
-		HomeDir:          homeDir,
-		BakDir:           bakDir,
+	// --- Resolve categories (YAML-aware) -----------------------------------
+	if len(customCategories) == 0 {
+		cats, err := presets.ResolveAll(preset, backupOverride)
+		if err != nil {
+			return fmt.Errorf("resolve preset %q: %w", preset, err)
+		}
+		customCategories = cats
+	}
+
+	// --- Build and run action ----------------------------------------------
+	action := &actions.BackupAction{
+		FS:               fs,
+		Config:           cfgLoader,
 		Registry:         reg,
 		Preset:           preset,
 		AdapterFilter:    adapterFilter,
-		CustomCategories: customCategories,
-		BakVersion:       Version,
 		Verbose:          verbose,
+		BakVersion:       Version,
+		CustomCategories: customCategories,
 	}
 
-	result, err := engine.Run()
-	if err != nil {
-		return err
-	}
-
-	// --- Report -----------------------------------------------------------
-	fmt.Printf("Backup created: %s\n", result.ID)
-	fmt.Printf("  Preset:     %s\n", preset)
-	fmt.Printf("  Adapters:   %d\n", result.AdaptersRun)
-	fmt.Printf("  Files:      %d\n", result.FileCount)
-	fmt.Printf("  Size:       %s\n", formatSize(result.TotalSize))
-	fmt.Printf("  Location:   %s\n", result.BackupDir)
-
-	if result.Secrets > 0 {
-		fmt.Printf("  ⚠ Secrets detected in %d file(s) — .env.example created\n", result.Secrets)
-	}
-
-	return nil
-}
-
-// formatSize returns a human-readable byte count.
-func formatSize(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+	return action.Run(cmd, args)
 }
