@@ -3,9 +3,11 @@ package backup
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/danielxxomg/bak-cli/internal/adapters"
@@ -26,14 +28,15 @@ func BakDir() (string, error) {
 // Engine orchestrates the backup workflow: detect adapters, resolve
 // presets, copy files, scan secrets, and produce a manifest.
 type Engine struct {
-	HomeDir        string           // user home directory
-	BakDir         string           // ~/.bak storage root
-	Registry       *adapters.Registry // adapter registry
-	Preset         string           // preset name (quick, full, skills)
-	AdapterFilter  string           // optional: run only this adapter
-	BakVersion     string           // bak binary version
-	Verbose        bool             // enable verbose output
-	SecretPatterns []*regexp.Regexp // patterns for secret detection; nil = defaults
+	HomeDir         string           // user home directory
+	BakDir          string           // ~/.bak storage root
+	Registry        *adapters.Registry // adapter registry
+	Preset          string           // preset name (quick, full, skills)
+	AdapterFilter   string           // optional: run only this adapter
+	BakVersion      string           // bak binary version
+	Verbose         bool             // enable verbose output
+	SecretPatterns  []*regexp.Regexp // patterns for secret detection; nil = defaults
+	CustomCategories []string        // custom categories from TUI picker; overrides preset
 }
 
 // Result summarizes a completed backup operation.
@@ -49,9 +52,17 @@ type Result struct {
 // Run executes the full backup flow and returns a summary.
 func (e *Engine) Run() (*Result, error) {
 	// --- 1. Resolve preset ------------------------------------------------
-	categories, err := presets.Resolve(e.Preset)
-	if err != nil {
-		return nil, fmt.Errorf("resolve preset %q: %w", e.Preset, err)
+	// --- 1. Resolve categories -------------------------------------------
+	var categories []string
+	if len(e.CustomCategories) > 0 {
+		// Use custom categories from TUI picker (overrides preset).
+		categories = e.CustomCategories
+	} else {
+		var err error
+		categories, err = presets.Resolve(e.Preset)
+		if err != nil {
+			return nil, fmt.Errorf("resolve preset %q: %w", e.Preset, err)
+		}
 	}
 
 	// --- 2. Identify which adapters to run --------------------------------
@@ -89,14 +100,24 @@ func (e *Engine) Run() (*Result, error) {
 	}
 
 	// --- 4. Build manifest ------------------------------------------------
-	hostname, _ := os.Hostname()
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "unknown"
+	}
 	m := manifest.New(backupID, runtime.GOOS, hostname, e.BakVersion, e.Preset, categories)
+
+	// --- 5. Validate manifest is writable (fail-fast) ---------------------
+	if err := m.Save(backupDir); err != nil {
+		return nil, fmt.Errorf("save manifest (fail-fast): %w", err)
+	}
 
 	// Fallback on cleanup; caller should inspect Result to know whether to keep.
 	var cleanupOnError = true
 	defer func() {
 		if cleanupOnError {
-			os.RemoveAll(backupDir)
+			if removeErr := os.RemoveAll(backupDir); removeErr != nil && e.Verbose {
+				fmt.Fprintf(os.Stderr, "warning: cleanup failed: %v\n", removeErr)
+			}
 		}
 	}()
 
@@ -123,12 +144,34 @@ func (e *Engine) Run() (*Result, error) {
 		secretFiles := scanBackupForSecrets(backupDir, filepath.Join(backupDir, d.Adapter.Name()), patterns)
 		allSecretFiles = append(allSecretFiles, secretFiles...)
 
+		// Exclude secret-containing files from backup (security requirement).
+		for _, secretFile := range secretFiles {
+			if err := os.Remove(secretFile); err != nil && e.Verbose {
+				fmt.Fprintf(os.Stderr, "warning: could not remove secret file %s: %v\n", secretFile, err)
+			}
+		}
+
 		// Convert adapter items to manifest items.
 		manifestItems := make([]manifest.Item, 0, len(items))
 		for _, item := range items {
 			if item.IsDir {
 				continue // manifest tracks files only
 			}
+
+			// Security: validate source path stays under home directory.
+			// SourcePath may be canonical (~/...) or absolute — normalize both.
+			absSource := item.SourcePath
+			if strings.HasPrefix(absSource, "~/") {
+				absSource = paths.FromCanonical(absSource, e.HomeDir)
+			}
+			cleanSource := path.Clean(filepath.ToSlash(absSource))
+			cleanHome := path.Clean(filepath.ToSlash(e.HomeDir)) + "/"
+			// Case-insensitive comparison for Windows (case-insensitive FS).
+			if !strings.HasPrefix(strings.ToLower(cleanSource), strings.ToLower(cleanHome)) &&
+				!strings.EqualFold(cleanSource, path.Clean(filepath.ToSlash(e.HomeDir))) {
+				return nil, fmt.Errorf("adapter %q returned source path outside home: %s", d.Adapter.Name(), item.SourcePath)
+			}
+
 			manifestItems = append(manifestItems, manifest.Item{
 				Category:   item.Category,
 				SourcePath: item.SourcePath,
@@ -175,19 +218,22 @@ func (e *Engine) Run() (*Result, error) {
 func scanBackupForSecrets(backupRoot, adapterBackupDir string, patterns []*regexp.Regexp) []string {
 	var secretFiles []string
 
-	_ = filepath.WalkDir(adapterBackupDir, func(path string, d os.DirEntry, err error) error {
+	if err := filepath.WalkDir(adapterBackupDir, func(fpath string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}
-		results, scanErr := ScanFile(path, patterns)
+		results, scanErr := ScanFile(fpath, patterns)
 		if scanErr != nil {
 			return nil // skip unreadable files
 		}
 		if len(results) > 0 {
-			secretFiles = append(secretFiles, path)
+			secretFiles = append(secretFiles, fpath)
 		}
 		return nil
-	})
+	}); err != nil {
+		// Walk error — return whatever we found so far.
+		return secretFiles
+	}
 
 	return secretFiles
 }

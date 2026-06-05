@@ -2,7 +2,7 @@
 # bak-cli — OpenCode Config Backup Tool
 
 # AI Provider
-PROVIDER="opencode:opencode-go/deepseek-v4-flash"
+PROVIDER="opencode:opencode-go/qwen3.7-plus"
 
 # File patterns — Go project
 FILE_PATTERNS="*.go,*.mod,*.sum"
