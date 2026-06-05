@@ -103,6 +103,9 @@ func (e *Engine) Run() (*Result, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = "unknown"
+		if e.Verbose {
+			fmt.Fprintf(os.Stderr, "warning: could not get hostname: %v\n", err)
+		}
 	}
 	m := manifest.New(backupID, runtime.GOOS, hostname, e.BakVersion, e.Preset, categories)
 
