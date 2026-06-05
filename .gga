@@ -1,0 +1,23 @@
+# Gentleman Guardian Angel Configuration
+# bak-cli — OpenCode Config Backup Tool
+
+# AI Provider
+PROVIDER="opencode:opencode-go/deepseek-v4-flash"
+
+# File patterns — Go project
+FILE_PATTERNS="*.go,*.mod,*.sum"
+
+# Exclude patterns — skip generated/vendor
+EXCLUDE_PATTERNS="vendor/*,*.pb.go,*_test.go"
+
+# Rules file
+RULES_FILE="AGENTS.md"
+
+# Strict mode — fail on ambiguous responses
+STRICT_MODE="true"
+
+# Timeout
+TIMEOUT="800"
+
+# PR base branch
+PR_BASE_BRANCH="main"

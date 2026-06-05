@@ -9,6 +9,7 @@ package paths
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -23,14 +24,18 @@ type OSInfo struct {
 }
 
 // DetectOS returns platform metadata for the current host.
-func DetectOS() OSInfo {
-	home, _ := os.UserHomeDir()
+// Returns an error if the home directory cannot be determined.
+func DetectOS() (OSInfo, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return OSInfo{}, fmt.Errorf("detect OS: %w", err)
+	}
 	return OSInfo{
 		OS:      runtime.GOOS,
 		Arch:    runtime.GOARCH,
 		HomeDir: home,
 		Sep:     string(filepath.Separator),
-	}
+	}, nil
 }
 
 // ConfigDir returns the OS-specific config directory for the given
@@ -65,9 +70,9 @@ func ToCanonical(absPath string) string {
 
 // toCanonical is the testable core that accepts an explicit homeDir.
 func toCanonical(absPath, homeDir string) string {
-	// Clean both paths to remove trailing separators, dots, etc.
-	cleanedAbs := filepath.Clean(absPath)
-	cleanedHome := filepath.Clean(homeDir)
+	// Use path.Clean (forward-slash) for canonical form.
+	cleanedAbs := path.Clean(filepath.ToSlash(absPath))
+	cleanedHome := path.Clean(filepath.ToSlash(homeDir))
 
 	// Case-insensitive prefix check for Windows.
 	if strings.EqualFold(cleanedAbs, cleanedHome) {
@@ -107,8 +112,8 @@ func IsUnderHome(absPath string) bool {
 
 // isUnder is the testable core with explicit homeDir.
 func isUnder(absPath, homeDir string) bool {
-	cleanedAbs := filepath.Clean(absPath)
-	cleanedHome := filepath.Clean(homeDir)
+	cleanedAbs := path.Clean(filepath.ToSlash(absPath))
+	cleanedHome := path.Clean(filepath.ToSlash(homeDir))
 
 	rel, err := filepath.Rel(cleanedHome, cleanedAbs)
 	if err != nil {
