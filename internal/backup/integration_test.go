@@ -82,7 +82,7 @@ func TestIntegration_FullBackupFlow(t *testing.T) {
 
 	// Verify manifest metadata.
 	checks := map[string]interface{}{
-		"version":    "0.1.0",
+		"version":    "0.3.0",
 		"preset":     "full",
 		"os_source":  engine.HomeDir, // not really — os_source is runtime.GOOS
 		"bak_version": "test",

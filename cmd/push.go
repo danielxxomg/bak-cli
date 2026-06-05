@@ -14,10 +14,12 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/backup"
 	"github.com/danielxxomg/bak-cli/internal/cloud"
 	"github.com/danielxxomg/bak-cli/internal/config"
+	"github.com/danielxxomg/bak-cli/internal/crypto"
 	"github.com/spf13/cobra"
 )
 
 var pushProvider string
+var pushProfile string
 
 // pushCmd represents the push command.
 var pushCmd = &cobra.Command{
@@ -45,6 +47,8 @@ Examples:
 func init() {
 	pushCmd.Flags().StringVar(&pushProvider, "provider", "github-gist",
 		"cloud provider to use (github-gist)")
+	pushCmd.Flags().StringVar(&pushProfile, "profile", "default",
+		"encryption profile to use from config")
 	rootCmd.AddCommand(pushCmd)
 }
 
@@ -113,6 +117,24 @@ func runPush(cmd *cobra.Command, args []string) error {
 	rawArchive, err := base64.StdEncoding.DecodeString(archiveData)
 	if err != nil {
 		return fmt.Errorf("decode archive: %w", err)
+	}
+
+	// Encrypt if the selected profile has encryption configured.
+	if profileCfg, ok := cfg.Profiles[pushProfile]; ok && profileCfg.Encryption != nil {
+		password, err := crypto.GetPassword("Enter encryption password: ")
+		if err != nil {
+			return fmt.Errorf("encryption password: %w", err)
+		}
+
+		encrypted, err := crypto.Encrypt(rawArchive, password)
+		if err != nil {
+			return fmt.Errorf("encrypt archive: %w", err)
+		}
+		rawArchive = encrypted
+
+		if verbose {
+			fmt.Fprintf(os.Stderr, "Encrypted archive with profile %q\n", pushProfile)
+		}
 	}
 
 	id, err := provider.Push(rawArchive, cloud.PushMeta{

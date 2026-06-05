@@ -22,9 +22,9 @@ func TestConfigMigration_V010_Detected(t *testing.T) {
 		t.Fatalf("LoadPath: %v", err)
 	}
 
-	// After migration, schema_version must be "0.2.0".
-	if cfg.SchemaVersion != "0.2.0" {
-		t.Errorf("SchemaVersion = %q, want 0.2.0", cfg.SchemaVersion)
+	// After chain migration, schema_version must be "0.3.0".
+	if cfg.SchemaVersion != "0.3.0" {
+		t.Errorf("SchemaVersion = %q, want 0.3.0", cfg.SchemaVersion)
 	}
 
 	// Original flat fields should be cleared (moved to Providers).
@@ -48,13 +48,13 @@ func TestConfigMigration_V010_Detected(t *testing.T) {
 	}
 }
 
-func TestConfigMigration_V020_Skipped(t *testing.T) {
+func TestConfigMigration_V030_Skipped(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
-	// v0.2.0 config: has schema_version.
-	v020 := `{"schema_version":"0.2.0","providers":{"github":{"token":"ghp_v2","gist_id":"xyz"}}}`
-	if err := os.WriteFile(cfgPath, []byte(v020), 0644); err != nil {
+	// v0.3.0 config: has schema_version, no migration needed.
+	v030 := `{"schema_version":"0.3.0","providers":{"github":{"token":"ghp_v3","gist_id":"xyz"}}}`
+	if err := os.WriteFile(cfgPath, []byte(v030), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -64,15 +64,15 @@ func TestConfigMigration_V020_Skipped(t *testing.T) {
 	}
 
 	// Should load normally — no migration.
-	if cfg.SchemaVersion != "0.2.0" {
-		t.Errorf("SchemaVersion = %q, want 0.2.0", cfg.SchemaVersion)
+	if cfg.SchemaVersion != "0.3.0" {
+		t.Errorf("SchemaVersion = %q, want 0.3.0", cfg.SchemaVersion)
 	}
 	githubCfg, ok := cfg.Providers["github"]
 	if !ok {
 		t.Fatal("providers.github should exist")
 	}
-	if githubCfg.Token != "ghp_v2" {
-		t.Errorf("providers.github.token = %q, want ghp_v2", githubCfg.Token)
+	if githubCfg.Token != "ghp_v3" {
+		t.Errorf("providers.github.token = %q, want ghp_v3", githubCfg.Token)
 	}
 	if githubCfg.GistID != "xyz" {
 		t.Errorf("providers.github.gist_id = %q, want xyz", githubCfg.GistID)
@@ -107,7 +107,7 @@ func TestConfigMigration_Idempotent(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
-	// Write v0.1.0 and load (triggers migration).
+	// Write v0.1.0 and load (triggers chain migration to v0.3.0).
 	v010 := `{"github_token":"ghp_idem","gist_id":"idem123"}`
 	if err := os.WriteFile(cfgPath, []byte(v010), 0644); err != nil {
 		t.Fatal(err)
@@ -117,17 +117,17 @@ func TestConfigMigration_Idempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadPath first: %v", err)
 	}
-	if cfg1.SchemaVersion != "0.2.0" {
-		t.Fatalf("first load: SchemaVersion = %q, want 0.2.0", cfg1.SchemaVersion)
+	if cfg1.SchemaVersion != "0.3.0" {
+		t.Fatalf("first load: SchemaVersion = %q, want 0.3.0", cfg1.SchemaVersion)
 	}
 
-	// Load again — should be v0.2.0, no re-migration.
+	// Load again — should be v0.3.0, no re-migration.
 	cfg2, err := LoadPath(cfgPath)
 	if err != nil {
 		t.Fatalf("LoadPath second: %v", err)
 	}
-	if cfg2.SchemaVersion != "0.2.0" {
-		t.Errorf("second load: SchemaVersion = %q, want 0.2.0", cfg2.SchemaVersion)
+	if cfg2.SchemaVersion != "0.3.0" {
+		t.Errorf("second load: SchemaVersion = %q, want 0.3.0", cfg2.SchemaVersion)
 	}
 
 	githubCfg, ok := cfg2.Providers["github"]
@@ -145,11 +145,11 @@ func TestConfigMigration_Idempotent(t *testing.T) {
 	}
 }
 
-func TestConfigMigration_NoGitHubToken_NoMigration(t *testing.T) {
+func TestConfigMigration_NoGitHubToken_V020Migrated(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
-	// Config without github_token at root — should NOT trigger migration.
+	// Config at v0.2.0 without github_token at root — migrates to v0.3.0.
 	plain := `{"schema_version":"0.2.0","providers":{}}`
 	if err := os.WriteFile(cfgPath, []byte(plain), 0644); err != nil {
 		t.Fatal(err)
@@ -159,8 +159,13 @@ func TestConfigMigration_NoGitHubToken_NoMigration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadPath: %v", err)
 	}
-	if cfg.SchemaVersion != "0.2.0" {
-		t.Errorf("SchemaVersion = %q, want 0.2.0", cfg.SchemaVersion)
+	// Migrated to v0.3.0.
+	if cfg.SchemaVersion != "0.3.0" {
+		t.Errorf("SchemaVersion = %q, want 0.3.0", cfg.SchemaVersion)
+	}
+	// Profiles should be initialized.
+	if cfg.Profiles == nil {
+		t.Error("Profiles should be non-nil after migration")
 	}
 }
 
@@ -266,13 +271,13 @@ func TestConfig_Set_NestedKeys_Unknown(t *testing.T) {
 	}
 }
 
-func TestConfig_Save_V020(t *testing.T) {
+func TestConfig_Save_V030(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
 	cfg := &Config{
 		path:          cfgPath,
-		SchemaVersion: "0.2.0",
+		SchemaVersion: "0.3.0",
 		Providers: map[string]ProviderConfig{
 			"github": {Token: "ghp_save", GistID: "save123"},
 		},
@@ -303,8 +308,8 @@ func TestConfig_Save_V020(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadPath after Save: %v", err)
 	}
-	if loaded.SchemaVersion != "0.2.0" {
-		t.Errorf("SchemaVersion = %q, want 0.2.0", loaded.SchemaVersion)
+	if loaded.SchemaVersion != "0.3.0" {
+		t.Errorf("SchemaVersion = %q, want 0.3.0", loaded.SchemaVersion)
 	}
 }
 
@@ -315,7 +320,7 @@ func TestConfig_Save_CompatShim_NotDuplicated(t *testing.T) {
 	// Write migrated config with schema_version and providers.
 	cfg := &Config{
 		path:          cfgPath,
-		SchemaVersion: "0.2.0",
+		SchemaVersion: "0.3.0",
 		Providers: map[string]ProviderConfig{
 			"github": {Token: "ghp_clean"},
 		},
@@ -366,5 +371,142 @@ func TestConfig_CompatShim_LoadV010(t *testing.T) {
 	}
 	if githubCfg.GistID != "shim123" {
 		t.Errorf("providers.github.gist_id = %q, want shim123", githubCfg.GistID)
+	}
+}
+
+// ---- v0.2.0 → v0.3.0 migration tests ----
+
+func TestConfigMigration_V020_Detected(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	v020 := `{"schema_version":"0.2.0","providers":{"github":{"token":"ghp_migrate_v3","gist_id":"abc456"}}}`
+	if err := os.WriteFile(cfgPath, []byte(v020), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadPath(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadPath: %v", err)
+	}
+
+	// After migration, schema_version must be "0.3.0".
+	if cfg.SchemaVersion != "0.3.0" {
+		t.Errorf("SchemaVersion = %q, want 0.3.0", cfg.SchemaVersion)
+	}
+
+	// Providers data preserved.
+	githubCfg, ok := cfg.Providers["github"]
+	if !ok {
+		t.Fatal("expected providers.github to exist after migration")
+	}
+	if githubCfg.Token != "ghp_migrate_v3" {
+		t.Errorf("providers.github.token = %q, want ghp_migrate_v3", githubCfg.Token)
+	}
+	if githubCfg.GistID != "abc456" {
+		t.Errorf("providers.github.gist_id = %q, want abc456", githubCfg.GistID)
+	}
+
+	// Profiles should be initialized.
+	if cfg.Profiles == nil {
+		t.Error("Profiles should be non-nil after migration")
+	}
+}
+
+func TestConfigMigration_V020_BackupCreated(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+	bakPath := cfgPath + ".v020.bak"
+
+	v020 := `{"schema_version":"0.2.0","providers":{"github":{"token":"ghp_bak_v3","gist_id":"bak456"}}}`
+	if err := os.WriteFile(cfgPath, []byte(v020), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := LoadPath(cfgPath); err != nil {
+		t.Fatalf("LoadPath: %v", err)
+	}
+
+	// Backup file must exist with the v0.2.0 content.
+	bakData, err := os.ReadFile(bakPath)
+	if err != nil {
+		t.Fatalf("expected .v020.bak file: %v", err)
+	}
+	if string(bakData) != v020 {
+		t.Errorf("backup content = %q, want %q", string(bakData), v020)
+	}
+}
+
+func TestConfigMigration_V020_Idempotent(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	v020 := `{"schema_version":"0.2.0","providers":{"github":{"token":"ghp_idem_v3","gist_id":"idem456"}}}`
+	if err := os.WriteFile(cfgPath, []byte(v020), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg1, err := LoadPath(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadPath first: %v", err)
+	}
+	if cfg1.SchemaVersion != "0.3.0" {
+		t.Fatalf("first load: SchemaVersion = %q, want 0.3.0", cfg1.SchemaVersion)
+	}
+
+	// Load again — should already be v0.3.0, no re-migration.
+	cfg2, err := LoadPath(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadPath second: %v", err)
+	}
+	if cfg2.SchemaVersion != "0.3.0" {
+		t.Errorf("second load: SchemaVersion = %q, want 0.3.0", cfg2.SchemaVersion)
+	}
+
+	githubCfg, ok := cfg2.Providers["github"]
+	if !ok {
+		t.Fatal("second load: providers.github missing")
+	}
+	if githubCfg.Token != "ghp_idem_v3" {
+		t.Errorf("second load: token = %q, want ghp_idem_v3", githubCfg.Token)
+	}
+}
+
+func TestConfigMigration_V010_ChainToV030(t *testing.T) {
+	// v0.1.0 → v0.2.0 → v0.3.0 chain. Both .v010.bak and .v020.bak exist.
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	v010 := `{"github_token":"ghp_chain","gist_id":"chain123"}`
+	if err := os.WriteFile(cfgPath, []byte(v010), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadPath(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadPath: %v", err)
+	}
+
+	if cfg.SchemaVersion != "0.3.0" {
+		t.Errorf("SchemaVersion = %q, want 0.3.0 (chain)", cfg.SchemaVersion)
+	}
+
+	// Both backup files should exist.
+	if _, err := os.Stat(cfgPath + ".v010.bak"); os.IsNotExist(err) {
+		t.Error("expected .v010.bak from v0.1.0→v0.2.0 migration")
+	}
+	if _, err := os.Stat(cfgPath + ".v020.bak"); os.IsNotExist(err) {
+		t.Error("expected .v020.bak from v0.2.0→v0.3.0 migration")
+	}
+
+	// Providers should be populated.
+	githubCfg, ok := cfg.Providers["github"]
+	if !ok || githubCfg.Token != "ghp_chain" {
+		t.Errorf("providers.github.token = %q, want ghp_chain", githubCfg.Token)
+	}
+
+	// Profiles should be initialized.
+	if cfg.Profiles == nil {
+		t.Error("Profiles should be non-nil after chain migration")
 	}
 }
