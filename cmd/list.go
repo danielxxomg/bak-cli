@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"text/tabwriter"
 
 	"github.com/danielxxomg/bak-cli/internal/backup"
@@ -38,9 +39,12 @@ func runList(cmd *cobra.Command, args []string) error {
 	backupsDir := filepath.Join(bakDir, "backups")
 
 	// Check if backups directory exists.
-	if _, err := os.Stat(backupsDir); os.IsNotExist(err) {
-		fmt.Println("No backups found. Run 'bak backup' first.")
-		return nil
+	if _, err := os.Stat(backupsDir); err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("No backups found. Run 'bak backup' first.")
+			return nil
+		}
+		return fmt.Errorf("stat backups dir: %w", err)
 	}
 
 	entries, err := os.ReadDir(backupsDir)
@@ -97,19 +101,22 @@ func runList(cmd *cobra.Command, args []string) error {
 		// Format size.
 		sizeStr := formatSizeBytes(m.TotalSize)
 
-		// Get adapter names.
-		adapterNames := ""
-		first := true
+		// Get adapter names (sorted for deterministic output).
+		adapterNames := make([]string, 0, len(m.Adapters))
 		for name := range m.Adapters {
-			if !first {
-				adapterNames += ", "
+			adapterNames = append(adapterNames, name)
+		}
+		sort.Strings(adapterNames)
+		adapterStr := ""
+		for i, name := range adapterNames {
+			if i > 0 {
+				adapterStr += ", "
 			}
-			adapterNames += name
-			first = false
+			adapterStr += name
 		}
 
 		fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n",
-			backupID, date, m.Preset, totalFiles, sizeStr, adapterNames)
+			backupID, date, m.Preset, totalFiles, sizeStr, adapterStr)
 	}
 
 	if err := w.Flush(); err != nil {
