@@ -4,6 +4,7 @@ package manifest
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,6 +32,17 @@ type Item struct {
 	Size       int64  `json:"size"`
 }
 
+// Encryption holds encryption metadata for an encrypted backup.
+type Encryption struct {
+	Algorithm   string `json:"algorithm"`    // "AES-256-GCM"
+	KDF         string `json:"kdf"`          // "Argon2id"
+	Salt        string `json:"salt"`         // hex-encoded salt
+	Nonce       string `json:"nonce"`        // hex-encoded nonce
+	Iterations  int    `json:"iterations"`   // Argon2id iterations (3)
+	MemoryKB    int    `json:"memory_kb"`    // Argon2id memory (65536)
+	Parallelism int    `json:"parallelism"`  // Argon2id parallelism (4)
+}
+
 // Manifest is the top-level backup descriptor.
 type Manifest struct {
 	Version         string                     `json:"version"`
@@ -45,6 +57,7 @@ type Manifest struct {
 	SecretsExcluded bool                       `json:"secrets_excluded"`
 	FileCount       int                        `json:"file_count"`
 	TotalSize       int64                      `json:"total_size"`
+	Encryption      *Encryption                `json:"encryption,omitempty"`
 }
 
 // New creates a Manifest pre-populated with metadata.
@@ -98,6 +111,19 @@ func (m *Manifest) AddAdapter(name, versionDetected, configDir string, items []I
 		Items:           items,
 	}
 	m.recount()
+}
+
+// SetEncryption populates the Encryption metadata on the manifest.
+func (m *Manifest) SetEncryption(algorithm, kdf string, salt, nonce []byte, iter, memKB, parallel int) {
+	m.Encryption = &Encryption{
+		Algorithm:   algorithm,
+		KDF:         kdf,
+		Salt:        hex.EncodeToString(salt),
+		Nonce:       hex.EncodeToString(nonce),
+		Iterations:  iter,
+		MemoryKB:    memKB,
+		Parallelism: parallel,
+	}
 }
 
 // Validate checks the manifest for structural correctness and verifies

@@ -143,3 +143,154 @@ func TestLoad_NonExistent(t *testing.T) {
 		t.Error("expected error for missing manifest.json")
 	}
 }
+
+// ---- Encryption struct tests ----
+
+func TestSetEncryption(t *testing.T) {
+	m := New("enc-test", "linux", "box", "0.1.0", "full", []string{"config"})
+	salt := []byte{0x01, 0x02, 0x03}
+	nonce := []byte{0xAA, 0xBB, 0xCC}
+
+	m.SetEncryption("AES-256-GCM", "Argon2id", salt, nonce, 3, 65536, 4)
+
+	if m.Encryption == nil {
+		t.Fatal("Encryption is nil after SetEncryption")
+	}
+	e := m.Encryption
+	if e.Algorithm != "AES-256-GCM" {
+		t.Errorf("algorithm = %q, want %q", e.Algorithm, "AES-256-GCM")
+	}
+	if e.KDF != "Argon2id" {
+		t.Errorf("kdf = %q, want %q", e.KDF, "Argon2id")
+	}
+	if e.Salt != "010203" {
+		t.Errorf("salt = %q, want %q", e.Salt, "010203")
+	}
+	if e.Nonce != "aabbcc" {
+		t.Errorf("nonce = %q, want %q", e.Nonce, "aabbcc")
+	}
+	if e.Iterations != 3 {
+		t.Errorf("iterations = %d, want 3", e.Iterations)
+	}
+	if e.MemoryKB != 65536 {
+		t.Errorf("memory_kb = %d, want 65536", e.MemoryKB)
+	}
+	if e.Parallelism != 4 {
+		t.Errorf("parallelism = %d, want 4", e.Parallelism)
+	}
+}
+
+func TestManifest_JSON_EncryptionRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+
+	m := New("enc-json-test", "darwin", "mac", "0.3.0", "full", []string{"config"})
+	m.AddAdapter("opencode", "1.0.0", "~/.config/opencode", []Item{
+		{Category: "config", SourcePath: "~/.config/opencode/config.json", BackupPath: "opencode/config.json", Hash: "sha256:abc123", Size: 512},
+	})
+
+	fullSalt := make([]byte, 32)
+	fullNonce := make([]byte, 12)
+	for i := range fullSalt {
+		fullSalt[i] = byte(i % 256)
+	}
+	for i := range fullNonce {
+		fullNonce[i] = byte((i * 17) % 256)
+	}
+
+	m.SetEncryption("AES-256-GCM", "Argon2id", fullSalt, fullNonce, 3, 65536, 4)
+
+	// Save and reload.
+	if err := m.Save(dir); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	loaded, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if loaded.Encryption == nil {
+		t.Fatal("loaded Encryption is nil — should be preserved")
+	}
+
+	e := loaded.Encryption
+	if e.Algorithm != "AES-256-GCM" {
+		t.Errorf("algorithm = %q, want AES-256-GCM", e.Algorithm)
+	}
+	if e.KDF != "Argon2id" {
+		t.Errorf("kdf = %q, want Argon2id", e.KDF)
+	}
+	if e.Salt != "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f" {
+		t.Errorf("salt = %q", e.Salt)
+	}
+	if e.Nonce != "00112233445566778899aabb" {
+		t.Errorf("nonce = %q", e.Nonce)
+	}
+	if e.Iterations != 3 {
+		t.Errorf("iterations = %d, want 3", e.Iterations)
+	}
+	if e.MemoryKB != 65536 {
+		t.Errorf("memory_kb = %d, want 65536", e.MemoryKB)
+	}
+	if e.Parallelism != 4 {
+		t.Errorf("parallelism = %d, want 4", e.Parallelism)
+	}
+}
+
+func TestManifest_JSON_PlaintextOmitsEncryption(t *testing.T) {
+	dir := t.TempDir()
+
+	m := New("plain-json-test", "linux", "srv", "0.3.0", "quick", []string{"config"})
+	m.AddAdapter("opencode", "1.0.0", "~/.config/opencode", []Item{
+		{Category: "config", SourcePath: "~/.config/opencode/config.json", BackupPath: "opencode/config.json", Hash: "sha256:abc123", Size: 512},
+	})
+
+	// Do NOT call SetEncryption — should be nil.
+	if err := m.Save(dir); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	loaded, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if loaded.Encryption != nil {
+		t.Error("Encryption should be nil for plaintext manifest")
+	}
+
+	// Read raw JSON and verify "encryption" key is absent.
+	raw, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
+	if err != nil {
+		t.Fatalf("read raw manifest: %v", err)
+	}
+	if bytesContains(raw, `"encryption"`) {
+		t.Error("raw JSON contains 'encryption' key for plaintext manifest")
+	}
+}
+
+func bytesContains(data []byte, substr string) bool {
+	for i := 0; i <= len(data)-len(substr); i++ {
+		if string(data[i:i+len(substr)]) == substr {
+			return true
+		}
+	}
+	return false
+}
+
+func TestSetEncryption_NilSaltNonce(t *testing.T) {
+	m := New("nil-test", "linux", "box", "0.1.0", "full", []string{"config"})
+
+	// nil salt and nonce should produce empty hex strings.
+	m.SetEncryption("AES-256-GCM", "Argon2id", nil, nil, 3, 65536, 4)
+
+	if m.Encryption == nil {
+		t.Fatal("Encryption is nil")
+	}
+	if m.Encryption.Salt != "" {
+		t.Errorf("salt = %q, want empty", m.Encryption.Salt)
+	}
+	if m.Encryption.Nonce != "" {
+		t.Errorf("nonce = %q, want empty", m.Encryption.Nonce)
+	}
+}
