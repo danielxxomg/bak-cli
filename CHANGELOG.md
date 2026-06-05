@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Backup scheduling** — `bak schedule` commands manage OS-native backup schedules
+  using crontab on Unix and schtasks on Windows. Schedules run `bak backup && bak push`
+  for a profile at configurable intervals.
+  - `bak schedule create <profile> --every daily|weekly|every-12h|every-6h`
+  - `bak schedule list` — table view of all active bak-cli schedules
+  - `bak schedule remove <profile>` — delete a scheduled task
+- **`internal/schedule` package** — `Scheduler` interface with platform-specific
+  implementations (`CronScheduler` on Unix, `SchtasksScheduler` on Windows) using
+  build tags. Includes `MockScheduler` for testing.
+- **Schedule configuration** — `config.ScheduleConfig` struct with `Enabled` and
+  `Interval` fields stored per profile. Schedule state is persisted in config.json
+  alongside the OS-native task.
+- **Interactive wizard** — `bak profile create --interactive` and `bak login --interactive`
+  launch a step-by-step TUI wizard (Bubble Tea) for provider selection, preset choice,
+  adapter toggling, and category selection. Keyboard-driven with arrow keys, space to
+  toggle, enter to advance.
+- **`cmd/wizard.go`** — `wizardModel` (bubbletea.Model) with 5-step flow: provider →
+  preset → adapters → categories → confirm. Shared by profile create and login commands.
+- **`--interactive` flag** on `profile create` and `login` commands — launches the
+  wizard instead of requiring CLI flags. Provider list auto-populated from configured
+  providers.
+
+### Changed
+
+- `config.ProfileConfig` now includes `Schedule *ScheduleConfig` field for persisting
+  schedule state per profile.
+
 - **`bak verify <id>` command** — verifies backup integrity by checking SHA-256 hashes
   of every file in the manifest against files on disk. Exits 0 on success, 1 on first
   hash mismatch. Supports `--verbose` for per-file progress.

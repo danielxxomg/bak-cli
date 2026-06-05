@@ -94,6 +94,8 @@ bak diff 20260604-150405 20260605-080000
 | `bak verify [--verbose] <id>` | Verify backup integrity |
 | `bak diff <id1> <id2>` | Show file-level differences between two backups |
 | `bak version` | Show version info |
+| `bak schedule create\|list\|remove` | Manage OS-native backup schedules |
+| `bak wizard` | Launch the interactive profile/backup wizard |
 
 ## Configuration
 
@@ -190,6 +192,43 @@ bak pull --profile work-laptop
 When `--profile` is set, its preset, categories, and adapter list override
 the equivalent CLI flags.
 
+### Backup Scheduling
+
+Schedule automatic backups using OS-native task schedulers (crontab on
+Linux/macOS, schtasks on Windows).
+
+```bash
+# Create a daily scheduled backup for a profile
+bak schedule create work --every daily
+
+# List all active bak-cli schedules
+bak schedule list
+
+# Remove a schedule
+bak schedule remove work
+```
+
+Supported intervals: `daily`, `weekly`, `every-12h`, `every-6h`.
+
+Each schedule runs `bak backup --profile <name> && bak push --profile <name>`
+at the configured interval.
+
+### Interactive Wizard
+
+Use `--interactive` on `profile create` or `login` to launch a step-by-step
+TUI wizard powered by [Bubble Tea](https://github.com/charmbracelet/bubbletea).
+
+```bash
+# Create a profile interactively (no flags needed)
+bak profile create my-machine --interactive
+
+# Login with provider selection wizard
+bak login --interactive
+```
+
+The wizard walks through provider selection, preset choice, adapter toggling,
+and category selection with keyboard navigation.
+
 ### Encryption
 
 Encryption is enabled per profile with the `--encrypt` flag on `bak profile create`.
@@ -258,7 +297,8 @@ bak-cli/
 │   ├── paths/              # Cross-platform path normalization
 │   ├── git/                # Git operations (go-git)
 │   ├── config/             # Configuration management + v0.1.0 → v0.3.0 migration
-│   └── presets/            # Preset definitions
+│   ├── presets/            # Preset definitions
+│   └── schedule/           # OS-native task scheduling (crontab / schtasks)
 ├── .goreleaser.yaml        # Cross-platform release config
 └── Makefile                # Development workflow
 ```
@@ -380,7 +420,7 @@ reg.Register(&youradapter.Adapter{})
 - [ ] **GUI** — Optional terminal UI with bubbletea (beyond `bak pick`)
 
 ### v1.0.0 (long-term)
-- [ ] Backup scheduling (cron integration)
+- [x] Backup scheduling (cron integration)
 - [ ] Diff between backups (`bak diff <id1> <id2>`)
 - [ ] Backup verification (`bak verify <id>`)
 - [ ] Plugin system for custom backup strategies
