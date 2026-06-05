@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 
+	"github.com/danielxxomg/bak-cli/internal/backup"
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 	"github.com/danielxxomg/bak-cli/internal/restore"
 	"github.com/spf13/cobra"
@@ -49,9 +53,20 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("cannot determine home directory: %w", err)
 	}
 
-	// Locate the backup.
-	bakDir := filepath.Join(homeDir, ".bak")
-	backupDir := filepath.Join(bakDir, "backups", backupID)
+	// Locate the backup using BakDir() for consistency.
+	bakDir, err := backup.BakDir()
+	if err != nil {
+		return fmt.Errorf("bak dir: %w", err)
+	}
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupDir := filepath.Join(backupsDir, backupID)
+
+	// Security: validate the resolved path stays under backupsDir.
+	cleanBackup := path.Clean(filepath.ToSlash(backupDir))
+	cleanBase := path.Clean(filepath.ToSlash(backupsDir)) + "/"
+	if !strings.HasPrefix(cleanBackup, cleanBase) && cleanBackup != path.Clean(filepath.ToSlash(backupsDir)) {
+		return fmt.Errorf("backup ID %q resolves outside backups directory", backupID)
+	}
 
 	if _, err := os.Stat(backupDir); os.IsNotExist(err) {
 		return fmt.Errorf("backup %q not found at %s", backupID, backupDir)
@@ -96,6 +111,21 @@ func runRestore(cmd *cobra.Command, args []string) error {
 			countByStatus(result.Diffs, restore.DiffMissing),
 		)
 		return nil
+	}
+
+	// Confirmation prompt (mandatory unless --force).
+	if !restoreForce {
+		fmt.Print("Apply restore? [y/N]: ")
+		reader := bufio.NewReader(os.Stdin)
+		answer, err := reader.ReadString('\n')
+		if err != nil {
+			return fmt.Errorf("read input: %w", err)
+		}
+		answer = strings.TrimSpace(strings.ToLower(answer))
+		if answer != "y" && answer != "yes" {
+			fmt.Println("Restore cancelled.")
+			return nil
+		}
 	}
 
 	// Report results.
