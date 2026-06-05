@@ -391,3 +391,72 @@ func TestVersionIsNonEmpty(t *testing.T) {
 		t.Error("Version should not be empty")
 	}
 }
+
+// --- Execute tests ---
+
+func TestExecute_Help(t *testing.T) {
+	// Test root command --help execution.
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"--help"})
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Fatalf("--help should not error: %v", err)
+	}
+	output := bufOut.String()
+	if !strings.Contains(output, "bak") {
+		t.Error("help should contain 'bak'")
+	}
+}
+
+func TestExecute_NoSubcommand(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	// Running root without a subcommand or help flag should show help.
+	rootCmd.SetArgs([]string{})
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Fatalf("root execution without subcommand should not error: %v", err)
+	}
+}
+
+func TestExecute_VerboseFlag(t *testing.T) {
+	// The --verbose flag is added in the Execute() function (root.go).
+	// Test that it works after execution.
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	// Add the persistent verbose flag like Execute() does.
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+
+	rootCmd.SetArgs([]string{"--help"})
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Fatalf("--help with verbose flag added should not error: %v", err)
+	}
+	output := bufOut.String()
+	if !strings.Contains(output, "verbose") && !strings.Contains(output, "-v") {
+		t.Log("verbose flag may not appear in help output for root")
+	}
+}
+
+func TestExecute_UnknownCommand(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"nonexistent_cmd_xyz"})
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("unknown command should produce error")
+	}
+}

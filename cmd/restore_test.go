@@ -131,3 +131,94 @@ func TestRestoreCmd_Use(t *testing.T) {
 		t.Fatal("restore command should have a long description")
 	}
 }
+
+// --- runRestore execution tests ---
+
+func TestRunRestore_MissingArgs(t *testing.T) {
+	// Restore requires exactly 1 arg. Direct args validation was tested above.
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"restore"})
+	err := rootCmd.Execute()
+
+	if err == nil {
+		// If there's a restore with no args that succeeds, it may be because
+		// cobra handles subcommand routing differently. Test the arg validator directly.
+		var cmd *cobra.Command
+		for _, sub := range rootCmd.Commands() {
+			if sub.Name() == "restore" {
+				cmd = sub
+				break
+			}
+		}
+		if cmd != nil {
+			argErr := cmd.Args(cmd, []string{})
+			if argErr == nil {
+				t.Error("restore Args validator should reject 0 args")
+			}
+		}
+		return
+	}
+	// If it errors, that's correct behavior.
+}
+
+func TestRunRestore_BackupNotFound(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"restore", "20250101-000000"})
+	err := rootCmd.Execute()
+
+	if err == nil {
+		t.Log("restore of non-existent backup succeeded (backup may exist)")
+		return
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("error should mention 'not found', got: %v", err)
+	}
+}
+
+func TestRunRestore_DryRunNonexistent(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"restore", "--dry-run", "20250101-000000"})
+	err := rootCmd.Execute()
+
+	if err == nil {
+		t.Log("restore --dry-run succeeded (backup may exist)")
+		return
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("error should mention 'not found', got: %v", err)
+	}
+}
+
+func TestRestoreCmd_UseAndDescription(t *testing.T) {
+	var cmd *cobra.Command
+	for _, sub := range rootCmd.Commands() {
+		if sub.Name() == "restore" {
+			cmd = sub
+			break
+		}
+	}
+	if cmd == nil {
+		t.Fatal("restore command not found")
+	}
+	if cmd.Use == "" {
+		t.Fatal("restore Use should not be empty")
+	}
+	if cmd.Short == "" {
+		t.Fatal("restore Short should not be empty")
+	}
+	if cmd.Long == "" {
+		t.Fatal("restore Long should not be empty")
+	}
+}

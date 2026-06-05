@@ -432,3 +432,90 @@ func TestSave_ValidOutputFile(t *testing.T) {
 		t.Errorf("Expected GitHubToken 'ghp_output', got %q", parsed.GitHubToken)
 	}
 }
+
+func TestLoad_ViaEnvVar(t *testing.T) {
+	// Set XDG_CONFIG_HOME to a temp dir so Load() finds our config.
+	dir := t.TempDir()
+	cfgDir := filepath.Join(dir, "bak")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfgPath := filepath.Join(cfgDir, "config.json")
+	data := `{"github_token":"ghp_load_test","gist_id":"gist_load"}`
+	if err := os.WriteFile(cfgPath, []byte(data), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Override config dir env var.
+	origXDG := os.Getenv("XDG_CONFIG_HOME")
+	origAPPDATA := os.Getenv("APPDATA")
+	t.Cleanup(func() {
+		os.Setenv("XDG_CONFIG_HOME", origXDG)
+		os.Setenv("APPDATA", origAPPDATA)
+	})
+	os.Setenv("XDG_CONFIG_HOME", dir)
+	os.Setenv("APPDATA", dir)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.GitHubToken != "ghp_load_test" {
+		t.Errorf("Expected GitHubToken 'ghp_load_test', got %q", cfg.GitHubToken)
+	}
+	if cfg.GistID != "gist_load" {
+		t.Errorf("Expected GistID 'gist_load', got %q", cfg.GistID)
+	}
+}
+
+func TestLoad_NonExistentConfig(t *testing.T) {
+	// Load with a config dir that has no config.json should return defaults.
+	dir := t.TempDir()
+
+	origXDG := os.Getenv("XDG_CONFIG_HOME")
+	origAPPDATA := os.Getenv("APPDATA")
+	t.Cleanup(func() {
+		os.Setenv("XDG_CONFIG_HOME", origXDG)
+		os.Setenv("APPDATA", origAPPDATA)
+	})
+	os.Setenv("XDG_CONFIG_HOME", dir)
+	os.Setenv("APPDATA", dir)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.GitHubToken != "" {
+		t.Errorf("Expected empty GitHubToken, got %q", cfg.GitHubToken)
+	}
+}
+
+func TestSave_EmptyPath(t *testing.T) {
+	// Save with empty path should use DefaultPath().
+	// We override env vars so DefaultPath() goes to our temp dir.
+	dir := t.TempDir()
+
+	origXDG := os.Getenv("XDG_CONFIG_HOME")
+	origAPPDATA := os.Getenv("APPDATA")
+	t.Cleanup(func() {
+		os.Setenv("XDG_CONFIG_HOME", origXDG)
+		os.Setenv("APPDATA", origAPPDATA)
+	})
+	os.Setenv("XDG_CONFIG_HOME", dir)
+	os.Setenv("APPDATA", dir)
+
+	cfg := &Config{GitHubToken: "ghp_empty_path"}
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("Save() error: %v", err)
+	}
+
+	// Verify the file was created at the default path.
+	defaultPath, err := DefaultPath()
+	if err != nil {
+		t.Fatalf("DefaultPath() error: %v", err)
+	}
+	if _, err := os.Stat(defaultPath); os.IsNotExist(err) {
+		t.Errorf("Config file should exist at default path %s", defaultPath)
+	}
+}
