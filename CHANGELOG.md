@@ -5,6 +5,25 @@ All notable changes to bak-cli will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`bak verify <id>` command** — verifies backup integrity by checking SHA-256 hashes
+  of every file in the manifest against files on disk. Exits 0 on success, 1 on first
+  hash mismatch. Supports `--verbose` for per-file progress.
+- **`bak diff <id1> <id2>` command** — compares two backups and shows file-level
+  differences grouped by category: Added, Removed, Modified, and Unchanged.
+- **`internal/diff` package** — `Compare()` function that flattens two manifests into
+  canonical path maps and categorizes items by presence and SHA-256 hash comparison.
+- **`internal/backup.ResolveBackupID()` shared helper** — validates backup IDs with
+  path traversal prevention, replacing duplicated logic in `restore` command.
+
+### Changed
+
+- **`cmd/restore.go`** refactored to use shared `ResolveBackupID()` instead of inline
+  BakDir + traversal guard + existence check. Behavior-preserving.
+
 ## [0.3.0] — 2026-06-05
 
 ### Added

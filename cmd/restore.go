@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/danielxxomg/bak-cli/internal/backup"
@@ -53,23 +51,9 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("cannot determine home directory: %w", err)
 	}
 
-	// Locate the backup using BakDir() for consistency.
-	bakDir, err := backup.BakDir()
+	backupDir, err := backup.ResolveBackupID(backupID)
 	if err != nil {
-		return fmt.Errorf("bak dir: %w", err)
-	}
-	backupsDir := filepath.Join(bakDir, "backups")
-	backupDir := filepath.Join(backupsDir, backupID)
-
-	// Security: validate the resolved path stays under backupsDir.
-	cleanBackup := path.Clean(filepath.ToSlash(backupDir))
-	cleanBase := path.Clean(filepath.ToSlash(backupsDir)) + "/"
-	if !strings.HasPrefix(cleanBackup, cleanBase) && cleanBackup != path.Clean(filepath.ToSlash(backupsDir)) {
-		return fmt.Errorf("backup ID %q resolves outside backups directory", backupID)
-	}
-
-	if _, err := os.Stat(backupDir); os.IsNotExist(err) {
-		return fmt.Errorf("backup %q not found at %s", backupID, backupDir)
+		return fmt.Errorf("resolve backup %q: %w", backupID, err)
 	}
 
 	// Load manifest.
@@ -89,23 +73,23 @@ func runRestore(cmd *cobra.Command, args []string) error {
 
 	result, err := engine.Run(m)
 	if err != nil {
-		return err
+		return fmt.Errorf("run restore: %w", err)
 	}
 
 	// Show diffs.
 	if len(result.Diffs) > 0 {
-		fmt.Println("Dry-run diff:")
+		fmt.Fprintln(cmd.OutOrStdout(), "Dry-run diff:")
 		for _, d := range result.Diffs {
-			fmt.Printf("  [%s] %s\n", d.Status, d.SourcePath)
+			fmt.Fprintf(cmd.OutOrStdout(), "  [%s] %s\n", d.Status, d.SourcePath)
 			if d.Status == restore.DiffModified && d.Diff != "" && verbose {
-				fmt.Print(d.Diff)
+				fmt.Fprint(cmd.OutOrStdout(), d.Diff)
 			}
 		}
-		fmt.Println()
+		fmt.Fprintln(cmd.OutOrStdout())
 	}
 
 	if restoreDryRun {
-		fmt.Printf("Dry-run complete. %d file(s) would be restored, %d unchanged, %d missing.\n",
+		fmt.Fprintf(cmd.OutOrStdout(), "Dry-run complete. %d file(s) would be restored, %d unchanged, %d missing.\n",
 			countByStatus(result.Diffs, restore.DiffNew)+countByStatus(result.Diffs, restore.DiffModified),
 			countByStatus(result.Diffs, restore.DiffUnchanged),
 			countByStatus(result.Diffs, restore.DiffMissing),
@@ -115,7 +99,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 
 	// Confirmation prompt (mandatory unless --force).
 	if !restoreForce {
-		fmt.Print("Apply restore? [y/N]: ")
+		fmt.Fprint(cmd.OutOrStdout(), "Apply restore? [y/N]: ")
 		reader := bufio.NewReader(os.Stdin)
 		answer, err := reader.ReadString('\n')
 		if err != nil {
@@ -123,17 +107,17 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		}
 		answer = strings.TrimSpace(strings.ToLower(answer))
 		if answer != "y" && answer != "yes" {
-			fmt.Println("Restore cancelled.")
+			fmt.Fprintln(cmd.ErrOrStderr(), "Restore cancelled.")
 			return nil
 		}
 	}
 
 	// Report results.
-	fmt.Printf("Restore complete: %s\n", result.ID)
-	fmt.Printf("  Restored: %d\n", result.Restored)
-	fmt.Printf("  Skipped:  %d\n", result.Skipped)
+	fmt.Fprintf(cmd.OutOrStdout(), "Restore complete: %s\n", result.ID)
+	fmt.Fprintf(cmd.OutOrStdout(), "  Restored: %d\n", result.Restored)
+	fmt.Fprintf(cmd.OutOrStdout(), "  Skipped:  %d\n", result.Skipped)
 	if result.Failed > 0 {
-		fmt.Printf("  Failed:   %d\n", result.Failed)
+		fmt.Fprintf(cmd.OutOrStdout(), "  Failed:   %d\n", result.Failed)
 	}
 
 	return nil
