@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -220,5 +221,214 @@ func TestMarshalIndent(t *testing.T) {
 	var m map[string]interface{}
 	if err := json.Unmarshal(data, &m); err != nil {
 		t.Errorf("Config file should be valid JSON: %v", err)
+	}
+}
+
+func TestLoadPath_EmptyFile(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	// Write an empty file (0 bytes).
+	if err := os.WriteFile(cfgPath, []byte{}, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadPath(cfgPath)
+	if err == nil {
+		t.Error("Expected error for empty JSON file, got nil")
+	}
+}
+
+func TestLoadPath_WhitespaceOnly(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	// Write a file containing only whitespace.
+	if err := os.WriteFile(cfgPath, []byte("   \n\t  "), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadPath(cfgPath)
+	if err == nil {
+		t.Error("Expected error for whitespace-only JSON file, got nil")
+	}
+}
+
+func TestLoadPath_EmptyObject(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	// Write a minimal valid JSON object.
+	if err := os.WriteFile(cfgPath, []byte("{}"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadPath(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadPath() error for empty JSON object: %v", err)
+	}
+	if cfg.GitHubToken != "" {
+		t.Errorf("Expected empty GitHubToken from empty JSON, got %q", cfg.GitHubToken)
+	}
+	if cfg.GistID != "" {
+		t.Errorf("Expected empty GistID from empty JSON, got %q", cfg.GistID)
+	}
+}
+
+func TestLoadPath_PartialJSON(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	// Write JSON with only one field set.
+	if err := os.WriteFile(cfgPath, []byte(`{"github_token":"ghp_partial"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadPath(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadPath() error: %v", err)
+	}
+	if cfg.GitHubToken != "ghp_partial" {
+		t.Errorf("Expected GitHubToken 'ghp_partial', got %q", cfg.GitHubToken)
+	}
+	if cfg.GistID != "" {
+		t.Errorf("Expected empty GistID, got %q", cfg.GistID)
+	}
+}
+
+func TestLoadPath_ExtraFields(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	// Write JSON with unknown fields — should be silently ignored.
+	data := `{"github_token":"ghp_extra","unknown_field":"should_be_ignored"}`
+	if err := os.WriteFile(cfgPath, []byte(data), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadPath(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadPath() error: %v", err)
+	}
+	if cfg.GitHubToken != "ghp_extra" {
+		t.Errorf("Expected GitHubToken 'ghp_extra', got %q", cfg.GitHubToken)
+	}
+}
+
+func TestSave_PreservesIndentation(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	cfg := &Config{
+		path:        cfgPath,
+		GitHubToken: "ghp_indent",
+		GistID:      "gist_indent",
+	}
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("Save() error: %v", err)
+	}
+
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify the file contains newlines (indented, not compact).
+	content := string(data)
+	if !strings.Contains(content, "\n") && len(data) > 20 {
+		t.Error("Saved JSON should contain newlines (indentation)")
+	}
+
+	// Verify specific keys are present.
+	if !strings.Contains(content, "github_token") {
+		t.Error("Saved JSON should contain github_token key")
+	}
+	if !strings.Contains(content, "gist_id") {
+		t.Error("Saved JSON should contain gist_id key")
+	}
+}
+
+func TestSave_ExcludesOmitempty(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	// Config with ALL empty fields.
+	cfg := &Config{path: cfgPath}
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("Save() error: %v", err)
+	}
+
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// With omitempty, empty string fields should NOT appear.
+	content := string(data)
+	if strings.Contains(content, "github_token") {
+		t.Error("Empty github_token should be omitted (omitempty)")
+	}
+	if strings.Contains(content, "gist_id") {
+		t.Error("Empty gist_id should be omitted (omitempty)")
+	}
+
+	// File should be valid JSON (just {} or similar).
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Errorf("Config file should be valid JSON even with empty fields: %v", err)
+	}
+}
+
+func TestConfig_ImmutabilityAfterLoad(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	original := `{"github_token":"ghp_immutable","gist_id":"gist_immutable"}`
+	if err := os.WriteFile(cfgPath, []byte(original), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadPath(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadPath() error: %v", err)
+	}
+
+	// Modify the returned config.
+	cfg.GitHubToken = "ghp_modified"
+
+	// Reload from disk — should still have original value.
+	reloaded, err := LoadPath(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadPath() error on reload: %v", err)
+	}
+	if reloaded.GitHubToken != "ghp_immutable" {
+		t.Errorf("Expected reloaded token 'ghp_immutable', got %q — modification leaked to disk", reloaded.GitHubToken)
+	}
+}
+
+func TestSave_ValidOutputFile(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	cfg := &Config{path: cfgPath, GitHubToken: "ghp_output"}
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("Save() error: %v", err)
+	}
+
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// File should exist and be parseable.
+	if len(data) == 0 {
+		t.Error("Saved config file should not be empty")
+	}
+
+	var parsed Config
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		t.Errorf("Saved config should be valid JSON: %v", err)
+	}
+	if parsed.GitHubToken != "ghp_output" {
+		t.Errorf("Expected GitHubToken 'ghp_output', got %q", parsed.GitHubToken)
 	}
 }
