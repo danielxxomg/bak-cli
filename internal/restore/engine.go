@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 
@@ -53,7 +55,18 @@ func (e *Engine) Run(m *manifest.Manifest) (*RestoreResult, error) {
 		return result, nil
 	}
 
-	// Step 3: Git safety — commit current state before applying changes.
+	// Step 3: Validate manifest checksums before applying (integrity check).
+	// Fail on checksum mismatch unless --force is set.
+	if err := m.Validate(e.BackupDir); err != nil {
+		if !e.Force {
+			return nil, fmt.Errorf("manifest validation failed (use --force to override): %w", err)
+		}
+		if e.Verbose {
+			fmt.Fprintf(os.Stderr, "warning: manifest validation: %v\n", err)
+		}
+	}
+
+	// Step 4: Git safety — commit current state before applying changes.
 	e.tryAutoCommit("pre-restore snapshot")
 
 	// Step 4: Apply restore for new and modified files.
@@ -129,14 +142,37 @@ func (e *Engine) writeRestoreLog(backupID string, result *RestoreResult) {
 	logPath := filepath.Join(e.BackupDir, "restore-log.jsonl")
 	entry := fmt.Sprintf(`{"id":"%s","restored":%d,"skipped":%d,"failed":%d}`+"\n",
 		backupID, result.Restored, result.Skipped, result.Failed)
-	_ = os.MkdirAll(filepath.Dir(logPath), 0755)
-	_ = os.WriteFile(logPath, []byte(entry), 0644)
+	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
+		if e.Verbose {
+			fmt.Fprintf(os.Stderr, "restore-log: mkdir: %v\n", err)
+		}
+		return
+	}
+	if err := os.WriteFile(logPath, []byte(entry), 0644); err != nil {
+		if e.Verbose {
+			fmt.Fprintf(os.Stderr, "restore-log: write: %v\n", err)
+		}
+	}
 }
 
 // restoreFile copies a single file from the backup directory to the
-// target path, creating parent directories as needed.
+// target path, creating parent directories as needed. Validates that
+// both source and target paths stay within their expected directories.
 func (e *Engine) restoreFile(d FileDiff) error {
+	// Security: validate source path stays under backup directory.
 	src := filepath.Join(e.BackupDir, d.BackupPath)
+	cleanSrc := path.Clean(filepath.ToSlash(src))
+	cleanBackupDir := path.Clean(filepath.ToSlash(e.BackupDir)) + "/"
+	if !strings.HasPrefix(cleanSrc, cleanBackupDir) {
+		return fmt.Errorf("source path %q escapes backup directory", d.BackupPath)
+	}
+
+	// Security: validate target path stays under home directory.
+	cleanTarget := path.Clean(filepath.ToSlash(d.TargetPath))
+	cleanHome := path.Clean(filepath.ToSlash(e.HomeDir)) + "/"
+	if !strings.HasPrefix(cleanTarget, cleanHome) {
+		return fmt.Errorf("target path %q escapes home directory", d.TargetPath)
+	}
 
 	// Ensure target parent directory exists.
 	if err := os.MkdirAll(filepath.Dir(d.TargetPath), 0755); err != nil {
