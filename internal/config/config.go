@@ -53,6 +53,14 @@ type EncryptionConfig struct {
 	Parallelism int    `json:"parallelism,omitempty"`
 }
 
+// ScheduleConfig holds OS-native backup scheduling settings for a profile.
+// When Enabled is true, the profile has an active scheduled task managed by
+// the OS-native scheduler (crontab on Unix, schtasks on Windows).
+type ScheduleConfig struct {
+	Enabled  bool   `json:"enabled,omitempty"`
+	Interval string `json:"interval,omitempty"` // daily, weekly, every-12h, every-6h
+}
+
 // ProfileConfig holds the configuration for a named backup profile.
 type ProfileConfig struct {
 	Adapters   []string          `json:"adapters,omitempty"`
@@ -60,6 +68,7 @@ type ProfileConfig struct {
 	Preset     string            `json:"preset,omitempty"`
 	Provider   string            `json:"provider,omitempty"`
 	Encryption *EncryptionConfig `json:"encryption,omitempty"`
+	Schedule   *ScheduleConfig   `json:"schedule,omitempty"`
 }
 
 // DefaultPath returns the canonical path to the config file.
