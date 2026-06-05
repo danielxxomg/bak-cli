@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,10 +10,12 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/backup"
 	"github.com/danielxxomg/bak-cli/internal/cloud"
 	"github.com/danielxxomg/bak-cli/internal/config"
+	"github.com/danielxxomg/bak-cli/internal/crypto"
 	"github.com/spf13/cobra"
 )
 
 var pullProvider string
+var pullProfile string
 
 // pullCmd represents the pull command.
 var pullCmd = &cobra.Command{
@@ -40,6 +43,8 @@ Examples:
 func init() {
 	pullCmd.Flags().StringVar(&pullProvider, "provider", "github-gist",
 		"cloud provider to use (github-gist)")
+	pullCmd.Flags().StringVar(&pullProfile, "profile", "default",
+		"decryption profile to use from config")
 	rootCmd.AddCommand(pullCmd)
 }
 
@@ -84,6 +89,28 @@ func runPull(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("pull: %w", err)
 	}
 
+	archiveStr := string(archiveData)
+
+	// Check if the archive is encrypted by decoding and inspecting magic bytes.
+	if rawBytes, decErr := base64.StdEncoding.DecodeString(archiveStr); decErr == nil && crypto.IsEncrypted(rawBytes) {
+		password, err := crypto.GetPassword("Enter decryption password: ")
+		if err != nil {
+			return fmt.Errorf("decryption password: %w", err)
+		}
+
+		decrypted, err := crypto.Decrypt(rawBytes, password)
+		if err != nil {
+			return fmt.Errorf("decrypt archive: %w", err)
+		}
+
+		// Re-encode the plaintext tar.gz for UntarGz.
+		archiveStr = base64.StdEncoding.EncodeToString(decrypted)
+
+		if verbose {
+			fmt.Fprintf(os.Stderr, "Decrypted archive\n")
+		}
+	}
+
 	// 4. Extract to local bak dir.
 	bakDir, err := backup.BakDir()
 	if err != nil {
@@ -98,7 +125,7 @@ func runPull(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Extracting backup %s...\n", backupID)
-	if err := cloud.UntarGz(string(archiveData), backupPath); err != nil {
+	if err := cloud.UntarGz(archiveStr, backupPath); err != nil {
 		return fmt.Errorf("extract backup: %w", err)
 	}
 

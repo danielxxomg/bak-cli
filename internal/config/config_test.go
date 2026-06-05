@@ -27,8 +27,8 @@ func TestLoadPath_ValidFile(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
-	// Write a v0.2.0 config to avoid migration.
-	data := `{"schema_version":"0.2.0","providers":{"github":{"token":"ghp_test123","gist_id":"abc123"}}}`
+	// Write a v0.3.0 config to avoid migration.
+	data := `{"schema_version":"0.3.0","providers":{"github":{"token":"ghp_test123","gist_id":"abc123"}}}`
 	if err := os.WriteFile(cfgPath, []byte(data), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -37,8 +37,8 @@ func TestLoadPath_ValidFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadPath() error: %v", err)
 	}
-	if cfg.SchemaVersion != "0.2.0" {
-		t.Errorf("SchemaVersion = %q, want 0.2.0", cfg.SchemaVersion)
+	if cfg.SchemaVersion != "0.3.0" {
+		t.Errorf("SchemaVersion = %q, want 0.3.0", cfg.SchemaVersion)
 	}
 	githubCfg, ok := cfg.Providers["github"]
 	if !ok {
@@ -71,10 +71,10 @@ func TestSave_RoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
-	// Create and save a v0.2.0 config using the nested format.
+	// Create and save a v0.3.0 config using the nested format.
 	cfg := &Config{
 		path:          cfgPath,
-		SchemaVersion: "0.2.0",
+		SchemaVersion: "0.3.0",
 		Providers: map[string]ProviderConfig{
 			"github": {Token: "ghp_roundtrip", GistID: "gist_roundtrip"},
 		},
@@ -88,8 +88,8 @@ func TestSave_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadPath() error: %v", err)
 	}
-	if loaded.SchemaVersion != "0.2.0" {
-		t.Errorf("SchemaVersion = %q, want 0.2.0", loaded.SchemaVersion)
+	if loaded.SchemaVersion != "0.3.0" {
+		t.Errorf("SchemaVersion = %q, want 0.3.0", loaded.SchemaVersion)
 	}
 	githubCfg, ok := loaded.Providers["github"]
 	if !ok {
@@ -299,8 +299,8 @@ func TestLoadPath_PartialJSON(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
-	// Write v0.2.0 JSON with only token set.
-	if err := os.WriteFile(cfgPath, []byte(`{"schema_version":"0.2.0","providers":{"github":{"token":"ghp_partial"}}}`), 0644); err != nil {
+	// Write v0.3.0 JSON with only token set.
+	if err := os.WriteFile(cfgPath, []byte(`{"schema_version":"0.3.0","providers":{"github":{"token":"ghp_partial"}}}`), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -321,8 +321,8 @@ func TestLoadPath_ExtraFields(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
-	// Write v0.2.0 JSON with unknown fields — should be silently ignored.
-	data := `{"schema_version":"0.2.0","providers":{"github":{"token":"ghp_extra"}},"unknown_field":"should_be_ignored"}`
+	// Write v0.3.0 JSON with unknown fields — should be silently ignored.
+	data := `{"schema_version":"0.3.0","providers":{"github":{"token":"ghp_extra"}},"unknown_field":"should_be_ignored"}`
 	if err := os.WriteFile(cfgPath, []byte(data), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -408,7 +408,7 @@ func TestConfig_ImmutabilityAfterLoad(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
-	original := `{"schema_version":"0.2.0","providers":{"github":{"token":"ghp_immutable","gist_id":"gist_immutable"}}}`
+	original := `{"schema_version":"0.3.0","providers":{"github":{"token":"ghp_immutable","gist_id":"gist_immutable"}}}`
 	if err := os.WriteFile(cfgPath, []byte(original), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -471,8 +471,8 @@ func TestLoad_ViaEnvVar(t *testing.T) {
 	}
 
 	cfgPath := filepath.Join(cfgDir, "config.json")
-	// Use v0.2.0 format to avoid migration during test.
-	data := `{"schema_version":"0.2.0","providers":{"github":{"token":"ghp_load_test","gist_id":"gist_load"}}}`
+	// Use v0.3.0 format to avoid migration during test.
+	data := `{"schema_version":"0.3.0","providers":{"github":{"token":"ghp_load_test","gist_id":"gist_load"}}}`
 	if err := os.WriteFile(cfgPath, []byte(data), 0644); err != nil {
 		t.Fatal(err)
 	}
