@@ -27,8 +27,8 @@ func TestLoadPath_ValidFile(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
-	// Write a valid config file.
-	data := `{"github_token":"ghp_test123","gist_id":"abc123"}`
+	// Write a v0.2.0 config to avoid migration.
+	data := `{"schema_version":"0.2.0","providers":{"github":{"token":"ghp_test123","gist_id":"abc123"}}}`
 	if err := os.WriteFile(cfgPath, []byte(data), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -37,11 +37,18 @@ func TestLoadPath_ValidFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadPath() error: %v", err)
 	}
-	if cfg.GitHubToken != "ghp_test123" {
-		t.Errorf("Expected GitHubToken 'ghp_test123', got %q", cfg.GitHubToken)
+	if cfg.SchemaVersion != "0.2.0" {
+		t.Errorf("SchemaVersion = %q, want 0.2.0", cfg.SchemaVersion)
 	}
-	if cfg.GistID != "abc123" {
-		t.Errorf("Expected GistID 'abc123', got %q", cfg.GistID)
+	githubCfg, ok := cfg.Providers["github"]
+	if !ok {
+		t.Fatal("expected providers.github")
+	}
+	if githubCfg.Token != "ghp_test123" {
+		t.Errorf("Expected Token 'ghp_test123', got %q", githubCfg.Token)
+	}
+	if githubCfg.GistID != "abc123" {
+		t.Errorf("Expected GistID 'abc123', got %q", githubCfg.GistID)
 	}
 }
 
@@ -64,11 +71,13 @@ func TestSave_RoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
-	// Create and save a config.
+	// Create and save a v0.2.0 config using the nested format.
 	cfg := &Config{
-		path:        cfgPath,
-		GitHubToken: "ghp_roundtrip",
-		GistID:      "gist_roundtrip",
+		path:          cfgPath,
+		SchemaVersion: "0.2.0",
+		Providers: map[string]ProviderConfig{
+			"github": {Token: "ghp_roundtrip", GistID: "gist_roundtrip"},
+		},
 	}
 	if err := cfg.Save(); err != nil {
 		t.Fatalf("Save() error: %v", err)
@@ -79,11 +88,18 @@ func TestSave_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadPath() error: %v", err)
 	}
-	if loaded.GitHubToken != "ghp_roundtrip" {
-		t.Errorf("Expected GitHubToken 'ghp_roundtrip', got %q", loaded.GitHubToken)
+	if loaded.SchemaVersion != "0.2.0" {
+		t.Errorf("SchemaVersion = %q, want 0.2.0", loaded.SchemaVersion)
 	}
-	if loaded.GistID != "gist_roundtrip" {
-		t.Errorf("Expected GistID 'gist_roundtrip', got %q", loaded.GistID)
+	githubCfg, ok := loaded.Providers["github"]
+	if !ok {
+		t.Fatal("expected providers.github")
+	}
+	if githubCfg.Token != "ghp_roundtrip" {
+		t.Errorf("Expected Token 'ghp_roundtrip', got %q", githubCfg.Token)
+	}
+	if githubCfg.GistID != "gist_roundtrip" {
+		t.Errorf("Expected GistID 'gist_roundtrip', got %q", githubCfg.GistID)
 	}
 }
 
@@ -143,7 +159,7 @@ func TestSet_KnownKeys(t *testing.T) {
 
 	cfg := &Config{path: cfgPath}
 
-	// Set and verify.
+	// Set and verify using legacy keys (still supported).
 	if err := cfg.Set("github.token", "ghp_new"); err != nil {
 		t.Fatalf("Set() error: %v", err)
 	}
@@ -158,16 +174,20 @@ func TestSet_KnownKeys(t *testing.T) {
 		t.Errorf("Expected GistID 'gist_new', got %q", cfg.GistID)
 	}
 
-	// Verify persistence.
+	// Verify persistence via providers (Set writes to both flat and nested).
 	loaded, err := LoadPath(cfgPath)
 	if err != nil {
 		t.Fatalf("LoadPath() error: %v", err)
 	}
-	if loaded.GitHubToken != "ghp_new" {
-		t.Errorf("Expected persisted GitHubToken 'ghp_new', got %q", loaded.GitHubToken)
+	githubCfg, ok := loaded.Providers["github"]
+	if !ok {
+		t.Fatal("expected providers.github after set")
 	}
-	if loaded.GistID != "gist_new" {
-		t.Errorf("Expected persisted GistID 'gist_new', got %q", loaded.GistID)
+	if githubCfg.Token != "ghp_new" {
+		t.Errorf("Expected persisted Token 'ghp_new', got %q", githubCfg.Token)
+	}
+	if githubCfg.GistID != "gist_new" {
+		t.Errorf("Expected persisted GistID 'gist_new', got %q", githubCfg.GistID)
 	}
 }
 
@@ -279,8 +299,8 @@ func TestLoadPath_PartialJSON(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
-	// Write JSON with only one field set.
-	if err := os.WriteFile(cfgPath, []byte(`{"github_token":"ghp_partial"}`), 0644); err != nil {
+	// Write v0.2.0 JSON with only token set.
+	if err := os.WriteFile(cfgPath, []byte(`{"schema_version":"0.2.0","providers":{"github":{"token":"ghp_partial"}}}`), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -288,11 +308,12 @@ func TestLoadPath_PartialJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadPath() error: %v", err)
 	}
-	if cfg.GitHubToken != "ghp_partial" {
-		t.Errorf("Expected GitHubToken 'ghp_partial', got %q", cfg.GitHubToken)
+	githubCfg, ok := cfg.Providers["github"]
+	if !ok {
+		t.Fatal("expected providers.github")
 	}
-	if cfg.GistID != "" {
-		t.Errorf("Expected empty GistID, got %q", cfg.GistID)
+	if githubCfg.Token != "ghp_partial" {
+		t.Errorf("Expected Token 'ghp_partial', got %q", githubCfg.Token)
 	}
 }
 
@@ -300,8 +321,8 @@ func TestLoadPath_ExtraFields(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
-	// Write JSON with unknown fields — should be silently ignored.
-	data := `{"github_token":"ghp_extra","unknown_field":"should_be_ignored"}`
+	// Write v0.2.0 JSON with unknown fields — should be silently ignored.
+	data := `{"schema_version":"0.2.0","providers":{"github":{"token":"ghp_extra"}},"unknown_field":"should_be_ignored"}`
 	if err := os.WriteFile(cfgPath, []byte(data), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -310,8 +331,12 @@ func TestLoadPath_ExtraFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadPath() error: %v", err)
 	}
-	if cfg.GitHubToken != "ghp_extra" {
-		t.Errorf("Expected GitHubToken 'ghp_extra', got %q", cfg.GitHubToken)
+	githubCfg, ok := cfg.Providers["github"]
+	if !ok {
+		t.Fatal("expected providers.github")
+	}
+	if githubCfg.Token != "ghp_extra" {
+		t.Errorf("Expected Token 'ghp_extra', got %q", githubCfg.Token)
 	}
 }
 
@@ -383,7 +408,7 @@ func TestConfig_ImmutabilityAfterLoad(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
-	original := `{"github_token":"ghp_immutable","gist_id":"gist_immutable"}`
+	original := `{"schema_version":"0.2.0","providers":{"github":{"token":"ghp_immutable","gist_id":"gist_immutable"}}}`
 	if err := os.WriteFile(cfgPath, []byte(original), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -394,15 +419,19 @@ func TestConfig_ImmutabilityAfterLoad(t *testing.T) {
 	}
 
 	// Modify the returned config.
-	cfg.GitHubToken = "ghp_modified"
+	cfg.Providers["github"] = ProviderConfig{Token: "ghp_modified"}
 
 	// Reload from disk — should still have original value.
 	reloaded, err := LoadPath(cfgPath)
 	if err != nil {
 		t.Fatalf("LoadPath() error on reload: %v", err)
 	}
-	if reloaded.GitHubToken != "ghp_immutable" {
-		t.Errorf("Expected reloaded token 'ghp_immutable', got %q — modification leaked to disk", reloaded.GitHubToken)
+	githubCfg, ok := reloaded.Providers["github"]
+	if !ok {
+		t.Fatal("expected providers.github on reload")
+	}
+	if githubCfg.Token != "ghp_immutable" {
+		t.Errorf("Expected reloaded token 'ghp_immutable', got %q — modification leaked to disk", githubCfg.Token)
 	}
 }
 
@@ -442,7 +471,8 @@ func TestLoad_ViaEnvVar(t *testing.T) {
 	}
 
 	cfgPath := filepath.Join(cfgDir, "config.json")
-	data := `{"github_token":"ghp_load_test","gist_id":"gist_load"}`
+	// Use v0.2.0 format to avoid migration during test.
+	data := `{"schema_version":"0.2.0","providers":{"github":{"token":"ghp_load_test","gist_id":"gist_load"}}}`
 	if err := os.WriteFile(cfgPath, []byte(data), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -461,11 +491,15 @@ func TestLoad_ViaEnvVar(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error: %v", err)
 	}
-	if cfg.GitHubToken != "ghp_load_test" {
-		t.Errorf("Expected GitHubToken 'ghp_load_test', got %q", cfg.GitHubToken)
+	githubCfg, ok := cfg.Providers["github"]
+	if !ok {
+		t.Fatal("expected providers.github")
 	}
-	if cfg.GistID != "gist_load" {
-		t.Errorf("Expected GistID 'gist_load', got %q", cfg.GistID)
+	if githubCfg.Token != "ghp_load_test" {
+		t.Errorf("Expected Token 'ghp_load_test', got %q", githubCfg.Token)
+	}
+	if githubCfg.GistID != "gist_load" {
+		t.Errorf("Expected GistID 'gist_load', got %q", githubCfg.GistID)
 	}
 }
 

@@ -1,8 +1,15 @@
 // Package config manages the bak CLI configuration file stored at
 // ~/.config/bak/config.json.
 //
-// The config file holds user preferences and credentials (e.g., GitHub
-// token) used by the cloud-sync commands.
+// The config file holds user preferences and credentials for
+// cloud-sync providers (e.g., GitHub Gist, Codeberg, Rclone).
+//
+// Schema versioning:
+//   - v0.1.0: flat github_token + gist_id at root (legacy)
+//   - v0.2.0: schema_version + nested providers (current)
+//
+// LoadPath() auto-detects v0.1.0 configs and migrates them to v0.2.0,
+// preserving the original as config.json.v010.bak.
 package config
 
 import (
@@ -16,11 +23,22 @@ import (
 
 // Config represents the persistent bak CLI configuration.
 type Config struct {
-	GitHubToken string `json:"github_token,omitempty"`
-	GistID      string `json:"gist_id,omitempty"`
+	SchemaVersion string              `json:"schema_version,omitempty"`
+	GitHubToken   string              `json:"github_token,omitempty"`
+	GistID        string              `json:"gist_id,omitempty"`
+	Providers     map[string]ProviderConfig `json:"providers,omitempty"`
 
 	// path is the on-disk location of this config file (not serialized).
 	path string `json:"-"`
+}
+
+// ProviderConfig holds settings for a single cloud provider.
+type ProviderConfig struct {
+	Token   string `json:"token,omitempty"`
+	GistID  string `json:"gist_id,omitempty"`   // github-gist only
+	Repo    string `json:"repo,omitempty"`       // github-repo, codeberg, gitea
+	Remote  string `json:"remote,omitempty"`     // rclone remote name
+	BaseURL string `json:"base_url,omitempty"`   // gitea/forgejo custom URL
 }
 
 // DefaultPath returns the canonical path to the config file.
@@ -43,6 +61,9 @@ func Load() (*Config, error) {
 }
 
 // LoadPath reads config from an explicit path.
+// If the config is in v0.1.0 format (flat github_token + gist_id at root,
+// no schema_version), it auto-migrates to v0.2.0 and writes a .v010.bak
+// backup.
 func LoadPath(cfgPath string) (*Config, error) {
 	cfg := &Config{path: cfgPath}
 
@@ -54,11 +75,61 @@ func LoadPath(cfgPath string) (*Config, error) {
 		return nil, fmt.Errorf("read config: %w", err)
 	}
 
+	// Attempt normal unmarshal first.
 	if err := json.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 	cfg.path = cfgPath
+
+	// Detect v0.1.0: has github_token or gist_id at root AND no schema_version.
+	if isV010(cfg) {
+		if err := migrateV010(cfg, data); err != nil {
+			return nil, fmt.Errorf("migrate config: %w", err)
+		}
+	}
+
 	return cfg, nil
+}
+
+// isV010 returns true if the config appears to be v0.1.0 format:
+// has github_token or gist_id at root level and no schema_version.
+func isV010(cfg *Config) bool {
+	if cfg.SchemaVersion != "" {
+		return false
+	}
+	return cfg.GitHubToken != "" || cfg.GistID != ""
+}
+
+// migrateV010 transforms a v0.1.0 flat config into v0.2.0 nested format.
+// Writes config.json.v010.bak before overwriting.
+func migrateV010(cfg *Config, original []byte) error {
+	bakPath := cfg.path + ".v010.bak"
+	if err := os.WriteFile(bakPath, original, 0600); err != nil {
+		return fmt.Errorf("write backup: %w", err)
+	}
+
+	// Move flat fields into providers.github.
+	if cfg.Providers == nil {
+		cfg.Providers = make(map[string]ProviderConfig)
+	}
+	githubCfg := cfg.Providers["github"]
+	if cfg.GitHubToken != "" && githubCfg.Token == "" {
+		githubCfg.Token = cfg.GitHubToken
+	}
+	if cfg.GistID != "" && githubCfg.GistID == "" {
+		githubCfg.GistID = cfg.GistID
+	}
+	cfg.Providers["github"] = githubCfg
+
+	// Clear compat shim fields.
+	cfg.GitHubToken = ""
+	cfg.GistID = ""
+
+	// Set schema version.
+	cfg.SchemaVersion = "0.2.0"
+
+	// Persist the migrated config.
+	return cfg.Save()
 }
 
 // Save writes the config to disk, creating parent directories as needed.
@@ -88,32 +159,129 @@ func (c *Config) Save() error {
 }
 
 // Get returns a value by key. Supported keys:
-//   - "github.token" → c.GitHubToken
-//   - "github.gist_id" → c.GistID
+//
+// Legacy flat keys (backward-compatible):
+//   - "github.token" → Providers["github"].Token (or compat GitHubToken)
+//   - "github.gist_id" → Providers["github"].GistID (or compat GistID)
+//
+// Nested provider keys:
+//   - "providers.github.token" → Providers["github"].Token
+//   - "providers.github.gist_id" → Providers["github"].GistID
+//   - "providers.codeberg.token" → Providers["codeberg"].Token
+//   - etc.
 //
 // Returns an error for unknown keys.
 func (c *Config) Get(key string) (string, error) {
+	// Check nested providers first.
+	if provider, subkey, ok := parseNestedKey(key); ok {
+		pc, exists := c.Providers[provider]
+		if !exists {
+			return "", fmt.Errorf("unknown config key: %q (provider %q not configured)", key, provider)
+		}
+		switch subkey {
+		case "token":
+			return pc.Token, nil
+		case "gist_id":
+			return pc.GistID, nil
+		case "repo":
+			return pc.Repo, nil
+		case "remote":
+			return pc.Remote, nil
+		case "base_url":
+			return pc.BaseURL, nil
+		default:
+			return "", fmt.Errorf("unknown config key: %q (unsupported field %q)", key, subkey)
+		}
+	}
+
+	// Legacy flat keys with compat shim.
 	switch key {
 	case "github.token":
+		if c.Providers != nil {
+			if pc, ok := c.Providers["github"]; ok && pc.Token != "" {
+				return pc.Token, nil
+			}
+		}
 		return c.GitHubToken, nil
 	case "github.gist_id":
+		if c.Providers != nil {
+			if pc, ok := c.Providers["github"]; ok && pc.GistID != "" {
+				return pc.GistID, nil
+			}
+		}
 		return c.GistID, nil
 	default:
 		return "", fmt.Errorf("unknown config key: %q", key)
 	}
 }
 
-// Set updates a value by key and persists to disk. Supported keys:
-//   - "github.token" → c.GitHubToken
-//   - "github.gist_id" → c.GistID
+// Set updates a value by key and persists to disk.
+// Supports the same keys as Get().
 func (c *Config) Set(key, value string) error {
+	// Check nested providers first.
+	if provider, subkey, ok := parseNestedKey(key); ok {
+		if c.Providers == nil {
+			c.Providers = make(map[string]ProviderConfig)
+		}
+		pc := c.Providers[provider]
+		switch subkey {
+		case "token":
+			pc.Token = value
+		case "gist_id":
+			pc.GistID = value
+		case "repo":
+			pc.Repo = value
+		case "remote":
+			pc.Remote = value
+		case "base_url":
+			pc.BaseURL = value
+		default:
+			return fmt.Errorf("unknown config key: %q (unsupported field %q)", key, subkey)
+		}
+		c.Providers[provider] = pc
+		return c.Save()
+	}
+
+	// Legacy flat keys.
 	switch key {
 	case "github.token":
 		c.GitHubToken = value
+		// Also set in providers for forward compat.
+		if c.Providers == nil {
+			c.Providers = make(map[string]ProviderConfig)
+		}
+		pc := c.Providers["github"]
+		pc.Token = value
+		c.Providers["github"] = pc
 	case "github.gist_id":
 		c.GistID = value
+		if c.Providers == nil {
+			c.Providers = make(map[string]ProviderConfig)
+		}
+		pc := c.Providers["github"]
+		pc.GistID = value
+		c.Providers["github"] = pc
 	default:
 		return fmt.Errorf("unknown config key: %q", key)
 	}
 	return c.Save()
 }
+
+// parseNestedKey splits "providers.<name>.<field>" into provider name and field.
+// Returns (name, field, true) on success, or ("", "", false) if the key
+// does not match the nested pattern.
+func parseNestedKey(key string) (provider, field string, ok bool) {
+	const prefix = "providers."
+	if len(key) <= len(prefix) || key[:len(prefix)] != prefix {
+		return "", "", false
+	}
+	rest := key[len(prefix):]
+	for i := 0; i < len(rest); i++ {
+		if rest[i] == '.' {
+			return rest[:i], rest[i+1:], true
+		}
+	}
+	return "", "", false
+}
+
+
