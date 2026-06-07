@@ -40,6 +40,13 @@ func init() {
 }
 
 func runPull(cmd *cobra.Command, args []string) error {
+	return runPullWithDeps(cmd, args, depsFromCmd(cmd))
+}
+
+// runPullWithDeps follows the *WithDeps pattern for testability.
+// deps is accepted for consistency even if not directly used here
+// (the action wires its own FS/Factory).
+func runPullWithDeps(cmd *cobra.Command, args []string, _ cmdDeps) error {
 	action := &actions.PullAction{
 		FS:       &actions.OSFileSystem{},
 		Provider: pullProvider,
