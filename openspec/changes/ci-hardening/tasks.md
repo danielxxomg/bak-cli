@@ -34,7 +34,7 @@ Chain strategy: stacked-to-main
 - [x] 1.5 `internal/cloud/pack_test.go:130` — Apply De Morgan simplification in boolean expr (QF1001)
 - [x] 1.6 `internal/config/migration_test.go:142` — Remove empty branch (SA9003)
 - [x] 1.7 `internal/schedule/scheduler_unix_test.go:11` — Fix interface nil comparison with type assertion (SA4023)
-- [x] 1.8 Verify: `go build ./...` + `go vet ./...` + `go test ./...` passes (golangci-lint unavailable)
+- [x] 1.8 Verify: `go build ./...` + `go vet ./...` + `go test ./...` + `staticcheck` passes — zero violations on changed packages
 
 ## Phase 2: macOS CI Fix
 
