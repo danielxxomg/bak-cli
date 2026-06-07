@@ -217,13 +217,9 @@ func TestRunDiff_MissingBackup(t *testing.T) {
 		t.Setenv("HOME", tmpDir)
 	}
 
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
-
-	rootCmd.SetArgs([]string{"diff", "valid-id", "nonexistent"})
-	err := rootCmd.Execute()
+	deps, _, _ := setupTestDeps(t)
+	cmd := &cobra.Command{}
+	err := runDiffWithDeps(cmd, []string{"valid-id", "nonexistent"}, deps)
 	if err == nil {
 		t.Fatal("expected error for missing backup")
 	}
@@ -253,13 +249,9 @@ func TestRunDiff_TraversalBlocked(t *testing.T) {
 	}
 	m.Save(filepath.Join(backupsDir, "20250101-120000"))
 
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
-
-	rootCmd.SetArgs([]string{"diff", "20250101-120000", "../etc"})
-	err := rootCmd.Execute()
+	deps, _, _ := setupTestDeps(t)
+	cmd := &cobra.Command{}
+	err := runDiffWithDeps(cmd, []string{"20250101-120000", "../etc"}, deps)
 	if err == nil {
 		t.Fatal("expected error for traversal")
 	}

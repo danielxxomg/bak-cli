@@ -73,12 +73,6 @@ func runLoginWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 	return action.Run(loginProvider, deps.Stdout)
 }
 
-// runLoginInteractive launches the interactive wizard to select a provider
-// and then falls through to the normal token entry flow.
-func runLoginInteractive(cmd *cobra.Command) error {
-	return runLoginInteractiveWithDeps(cmd, depsFromCmd(cmd))
-}
-
 func runLoginInteractiveWithDeps(cmd *cobra.Command, deps cmdDeps) error {
 	if !isTTY() {
 		return fmt.Errorf("interactive login requires a terminal (TTY)")

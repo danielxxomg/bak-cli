@@ -10,7 +10,6 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/cloud"
 	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/danielxxomg/bak-cli/internal/crypto"
-	"github.com/spf13/cobra"
 )
 
 // PullAction encapsulates the pull-from-cloud workflow with injectable
@@ -21,12 +20,19 @@ type PullAction struct {
 	Profile  string
 	Verbose  bool
 
+	// ConfigLoader loads the bak-cli configuration. Defaults to config.Load.
+	ConfigLoader func() (*config.Config, error)
+
 	// Factory creates cloud providers on demand.
 	Factory ProviderFactory
 }
 
 // Run downloads a backup from a cloud backend and reconstructs it locally.
-func (a *PullAction) Run(cmd *cobra.Command, args []string) error {
+func (a *PullAction) Run(args []string) error {
+	if a.FS == nil {
+		return fmt.Errorf("filesystem is not configured")
+	}
+
 	// 1. Determine home and bak directories.
 	homeDir, err := a.FS.UserHomeDir()
 	if err != nil {
@@ -35,9 +41,19 @@ func (a *PullAction) Run(cmd *cobra.Command, args []string) error {
 	bakDir := filepath.Join(homeDir, ".bak")
 
 	// 2. Load config (for stored backup ID resolution).
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+	var cfg *config.Config
+	if a.ConfigLoader != nil {
+		var err error
+		cfg, err = a.ConfigLoader()
+		if err != nil {
+			return fmt.Errorf("load config: %w", err)
+		}
+	} else {
+		var err error
+		cfg, err = config.Load()
+		if err != nil {
+			return fmt.Errorf("load config: %w", err)
+		}
 	}
 
 	// 3. Resolve provider via injected factory.

@@ -188,12 +188,6 @@ func runProfileDeleteWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) e
 
 // --- interactive profile creation ---
 
-// runProfileCreateInteractive launches the interactive wizard for profile
-// creation. Business logic (validation, save) is delegated to actions.
-func runProfileCreateInteractive(cmd *cobra.Command, name string) error {
-	return runProfileCreateInteractiveWithDeps(cmd, name, depsFromCmd(cmd))
-}
-
 func runProfileCreateInteractiveWithDeps(cmd *cobra.Command, name string, deps cmdDeps) error {
 	out := deps.Stdout
 
