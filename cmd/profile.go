@@ -5,7 +5,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/danielxxomg/bak-cli/internal/actions"
-	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -70,12 +69,16 @@ func init() {
 }
 
 func runProfileCreate(cmd *cobra.Command, args []string) error {
+	return runProfileCreateWithDeps(cmd, args, depsFromCmd(cmd))
+}
+
+func runProfileCreateWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 	name := args[0]
-	out := cmd.OutOrStdout()
+	out := deps.Stdout
 
 	// Interactive wizard mode.
 	if profileCreateInteractive {
-		return runProfileCreateInteractive(cmd, name)
+		return runProfileCreateInteractiveWithDeps(cmd, name, deps)
 	}
 
 	// --provider is required in non-interactive mode.
@@ -83,7 +86,7 @@ func runProfileCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("required flag \"--provider\" not set (or use --interactive)")
 	}
 
-	cfg, err := config.Load()
+	cfg, err := deps.ConfigLoader()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
@@ -116,11 +119,15 @@ func init() {
 }
 
 func runProfileList(cmd *cobra.Command, args []string) error {
-	cfg, err := config.Load()
+	return runProfileListWithDeps(cmd, args, depsFromCmd(cmd))
+}
+
+func runProfileListWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
+	cfg, err := deps.ConfigLoader()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-	return actions.ProfileList(cfg, cmd.OutOrStdout())
+	return actions.ProfileList(cfg, deps.Stdout)
 }
 
 // --- show ---
@@ -138,11 +145,15 @@ func init() {
 }
 
 func runProfileShow(cmd *cobra.Command, args []string) error {
-	cfg, err := config.Load()
+	return runProfileShowWithDeps(cmd, args, depsFromCmd(cmd))
+}
+
+func runProfileShowWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
+	cfg, err := deps.ConfigLoader()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-	return actions.ProfileShow(cfg, args[0], cmd.OutOrStdout())
+	return actions.ProfileShow(cfg, args[0], deps.Stdout)
 }
 
 // --- delete ---
@@ -164,11 +175,15 @@ func init() {
 }
 
 func runProfileDelete(cmd *cobra.Command, args []string) error {
-	cfg, err := config.Load()
+	return runProfileDeleteWithDeps(cmd, args, depsFromCmd(cmd))
+}
+
+func runProfileDeleteWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
+	cfg, err := deps.ConfigLoader()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-	return actions.ProfileDelete(cfg, args[0], cmd.OutOrStdout(), profileDeleteDryRun)
+	return actions.ProfileDelete(cfg, args[0], deps.Stdout, profileDeleteDryRun)
 }
 
 // --- interactive profile creation ---
@@ -176,9 +191,13 @@ func runProfileDelete(cmd *cobra.Command, args []string) error {
 // runProfileCreateInteractive launches the interactive wizard for profile
 // creation. Business logic (validation, save) is delegated to actions.
 func runProfileCreateInteractive(cmd *cobra.Command, name string) error {
-	out := cmd.OutOrStdout()
+	return runProfileCreateInteractiveWithDeps(cmd, name, depsFromCmd(cmd))
+}
 
-	cfg, err := config.Load()
+func runProfileCreateInteractiveWithDeps(cmd *cobra.Command, name string, deps cmdDeps) error {
+	out := deps.Stdout
+
+	cfg, err := deps.ConfigLoader()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
