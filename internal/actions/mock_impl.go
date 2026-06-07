@@ -1,9 +1,12 @@
 package actions
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/danielxxomg/bak-cli/internal/cloud"
 )
 
 // MockFileSystem implements FileSystem with configurable behavior for
@@ -218,3 +221,64 @@ func defaultConfigLoad() (*Config, error) {
 // MockConfig is a type alias for Config used by tests for convenience.
 // It mirrors the Config struct for test readability.
 type MockConfig = Config
+
+// --- MockProviderFactory ------------------------------------------------------
+
+// MockProviderFactory implements ProviderFactory with configurable behavior.
+// Providers maps provider names to their cloud.Provider implementations.
+// Err, when non-nil, is returned by CreateProvider regardless of name.
+type MockProviderFactory struct {
+	Providers map[string]cloud.Provider
+	Err       error
+}
+
+// Compile-time check.
+var _ ProviderFactory = (*MockProviderFactory)(nil)
+
+// CreateProvider returns the configured error (if any), then looks up the
+// provider name in the Providers map. Returns an error when the name is
+// not present.
+func (m *MockProviderFactory) CreateProvider(name string) (cloud.Provider, error) {
+	if m.Err != nil {
+		return nil, m.Err
+	}
+	p, ok := m.Providers[name]
+	if !ok {
+		return nil, fmt.Errorf("unknown provider: %q", name)
+	}
+	return p, nil
+}
+
+// --- MockProvider -------------------------------------------------------------
+
+// MockProvider implements cloud.Provider with configurable function fields.
+// Each method delegates to the corresponding function field when set.
+// Nil function fields trigger a panic — tests must configure every method
+// they expect to be called.
+type MockProvider struct {
+	MockName string
+	PushFn   func(archive []byte, meta cloud.PushMeta) (string, error)
+	PullFn   func(id string) ([]byte, error)
+	ListFn   func() ([]cloud.BackupMeta, error)
+}
+
+// Compile-time check.
+var _ cloud.Provider = (*MockProvider)(nil)
+
+// Name returns the configured MockName.
+func (m *MockProvider) Name() string { return m.MockName }
+
+// Push delegates to PushFn.
+func (m *MockProvider) Push(archive []byte, meta cloud.PushMeta) (string, error) {
+	return m.PushFn(archive, meta)
+}
+
+// Pull delegates to PullFn.
+func (m *MockProvider) Pull(id string) ([]byte, error) {
+	return m.PullFn(id)
+}
+
+// List delegates to ListFn.
+func (m *MockProvider) List() ([]cloud.BackupMeta, error) {
+	return m.ListFn()
+}
