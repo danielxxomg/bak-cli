@@ -3,13 +3,9 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"text/tabwriter"
-	"time"
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/danielxxomg/bak-cli/internal/backup"
-	"github.com/danielxxomg/bak-cli/internal/cloud"
-	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -40,9 +36,13 @@ func init() {
 }
 
 func runList(cmd *cobra.Command, args []string) error {
+	return runListWithDeps(cmd, args, depsFromCmd(cmd))
+}
+
+func runListWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 	// When --provider is set, list from cloud backend.
 	if listProvider != "" {
-		return runListCloud(listProvider)
+		return runListCloudWithDeps(listProvider, deps)
 	}
 
 	// Local listing (existing behavior).
@@ -60,56 +60,23 @@ func runListLocal(cmd *cobra.Command) error {
 
 // runListCloud lists backups from a named cloud provider.
 func runListCloud(providerName string) error {
-	cfg, err := config.Load()
+	return runListCloudWithDeps(providerName, defaultDeps)
+}
+
+func runListCloudWithDeps(providerName string, deps cmdDeps) error {
+	cfg, err := deps.ConfigLoader()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	reg := cloud.NewProviderRegistry()
-
-	// Register all available providers (they'll fail at runtime if not configured).
-	reg.Register(cloud.NewGitHubGistProvider(cfg, ""))
-	reg.Register(cloud.NewGitHubRepoProvider(cfg, "", cfg.Providers["github"].Repo))
-	reg.Register(cloud.NewCodebergProvider(cfg, "", cfg.Providers["codeberg"].Repo))
-	reg.Register(cloud.NewGiteaProvider(cfg, "", cfg.Providers["gitea"].BaseURL, cfg.Providers["gitea"].Repo))
-	reg.Register(cloud.NewRcloneProvider(cfg, cfg.Providers["rclone"].Remote))
-	reg.SetDefault("github-gist")
-
-	provider, err := reg.Get(providerName)
-	if err != nil {
-		return fmt.Errorf("provider: %w", err)
+	action := &actions.ListCloudAction{
+		Config:  cfg,
+		Stdout:  deps.Stdout,
+		Stderr:  deps.Stderr,
+		Verbose: verbose,
 	}
 
-	if verbose {
-		fmt.Fprintf(os.Stderr, "Using provider: %s\n", provider.Name())
-	}
-
-	backups, err := provider.List()
-	if err != nil {
-		return fmt.Errorf("list from %s: %w", providerName, err)
-	}
-
-	if len(backups) == 0 {
-		fmt.Printf("No backups found on %s.\n", providerName)
-		return nil
-	}
-
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tDATE\tHOST\tSIZE\tURL")
-	fmt.Fprintln(w, "--\t----\t----\t----\t---")
-
-	for _, b := range backups {
-		date := b.CreatedAt.Format(time.RFC3339)
-		sizeStr := formatSize(b.Size)
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-			b.ID, date, b.Hostname, sizeStr, b.URL)
-	}
-
-	if err := w.Flush(); err != nil {
-		return fmt.Errorf("flush output: %w", err)
-	}
-
-	return nil
+	return action.Run(providerName)
 }
 
 // formatSizeBytes delegates to actions.formatSizeBytes for backward compatibility.
