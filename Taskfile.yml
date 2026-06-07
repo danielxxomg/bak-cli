@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: '3'
+
+vars:
+  BINARY: bak.exe
+  COVERAGE_FILE: coverage.out
+  COVERAGE_THRESHOLD: 80
+
+tasks:
+  fmt:
+    desc: Format Go code with goimports
+    cmds:
+      - goimports -w .
+
+  lint:
+    desc: Run golangci-lint with project config
+    cmds:
+      - golangci-lint run
+
+  vet:
+    desc: Run go vet on all packages
+    cmds:
+      - go vet ./...
+
+  test:
+    desc: Run tests with race detector and shuffle
+    cmds:
+      - go test -race -shuffle=on ./...
+
+  cover:
+    desc: Run tests with coverage profile and enforce {{.COVERAGE_THRESHOLD}}% gate
+    cmds:
+      - go test -coverprofile={{.COVERAGE_FILE}} ./...
+      - go tool cover -func={{.COVERAGE_FILE}}
+      - cmd: |
+          total=$(go tool cover -func={{.COVERAGE_FILE}} | grep total | awk '{print $3}' | sed 's/%//')
+          if [ "${total%.*}" -lt {{.COVERAGE_THRESHOLD}} ]; then
+            echo "FAIL: coverage ${total}% is below {{.COVERAGE_THRESHOLD}}% threshold"
+            exit 1
+          fi
+          echo "PASS: coverage ${total}% meets {{.COVERAGE_THRESHOLD}}% threshold"
+        platforms: [linux, darwin]
+      - cmd: |
+          powershell -Command ^
+            $output = go tool cover -func={{.COVERAGE_FILE}}; ^
+            $line = $output | Select-String 'total:'; ^
+            $pct = [double]($line.Line -replace '.*\s+(\d+\.\d+)%.*','$1'); ^
+            if ($pct -lt {{.COVERAGE_THRESHOLD}}) { ^
+              Write-Error "FAIL: coverage $pct% is below {{.COVERAGE_THRESHOLD}}% threshold"; ^
+              exit 1 ^
+            } else { ^
+              Write-Host "PASS: coverage $pct% meets {{.COVERAGE_THRESHOLD}}% threshold" ^
+            }
+        platforms: [windows]
+
+  e2e:
+    desc: Run end-to-end tests (Phase 5 — stub)
+    cmds:
+      - echo "E2E tests not yet implemented (Phase 5 — testscript)"
+
+  fuzz:
+    desc: Run fuzz tests (Phase 6 — stub)
+    cmds:
+      - echo "Fuzz tests not yet implemented (Phase 6)"
+
+  bench:
+    desc: Run benchmarks
+    cmds:
+      - go test -bench=. ./...
+
+  build:
+    desc: Build the bak binary
+    cmds:
+      - go build -o {{.BINARY}} .
+
+  security:
+    desc: Run vulnerability and security checks
+    cmds:
+      - govulncheck ./...
+      - gosec ./...
+
+  ci:
+    desc: Run full CI pipeline (fmt → lint → vet → test → cover → security → build)
+    cmds:
+      - task fmt
+      - task lint
+      - task vet
+      - task test
+      - task cover
+      - task security
+      - task build
+
+  default:
+    desc: Run the full CI pipeline
+    cmds:
+      - task: ci
