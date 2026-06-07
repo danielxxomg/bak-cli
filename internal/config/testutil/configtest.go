@@ -10,10 +10,11 @@ import (
 )
 
 // SetConfigHome sets OS-specific environment variables so that
-// os.UserConfigDir() resolves to a subdirectory of dir on every platform.
+// os.UserConfigDir() and os.UserHomeDir() both resolve to subdirectories
+// of dir on every platform.
 //
-//	Linux:   sets XDG_CONFIG_HOME
-//	Windows: sets APPDATA
+//	Linux:   sets XDG_CONFIG_HOME and HOME
+//	Windows: sets APPDATA and USERPROFILE
 //	macOS:   sets HOME and pre-creates Library/Application Support
 //
 // The function uses t.Setenv so variables are automatically restored
@@ -32,7 +33,9 @@ func SetConfigHome(t *testing.T, dir string) {
 		}
 	case "windows":
 		t.Setenv("APPDATA", dir)
+		t.Setenv("USERPROFILE", dir)
 	default: // linux
 		t.Setenv("XDG_CONFIG_HOME", dir)
+		t.Setenv("HOME", dir)
 	}
 }
