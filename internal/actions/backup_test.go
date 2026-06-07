@@ -373,3 +373,92 @@ func TestBackupAction_MultiAdapterFilter(t *testing.T) {
 		t.Fatal("expected error for unknown adapter in multi-filter")
 	}
 }
+
+func TestBackupAction_HomeDirError(t *testing.T) {
+	mockFS := &MockFileSystem{
+		HomeDir:    "",
+		StatResult: make(map[string]MockStatResult),
+		Files:      make(map[string][]byte),
+	}
+
+	action := &BackupAction{
+		FS:         mockFS,
+		Registry:   setupBackupRegistry(),
+		Preset:     "quick",
+		BakVersion: "test",
+	}
+
+	err := action.Run(nil, nil)
+	if err == nil {
+		t.Fatal("expected error for empty home dir")
+	}
+}
+
+func TestBackupAction_CustomCategories(t *testing.T) {
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	action := &BackupAction{
+		FS:               newHomeFS(home),
+		Registry:         setupBackupRegistry(),
+		Preset:           "quick",
+		CustomCategories: []string{"config"},
+		BakVersion:       "test",
+	}
+
+	err := action.Run(nil, nil)
+	if err != nil {
+		t.Fatalf("Run with custom categories: %v", err)
+	}
+}
+
+func TestBackupAction_SaveManifestError(t *testing.T) {
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	// Use a custom FS that fails WriteFile.
+	fs := &writeFailingFS{OSFileSystem: &OSFileSystem{}, home: home}
+
+	action := &BackupAction{
+		FS:         fs,
+		Registry:   setupBackupRegistry(),
+		Preset:     "quick",
+		BakVersion: "test",
+	}
+
+	err := action.Run(nil, nil)
+	if err == nil {
+		t.Fatal("expected error when manifest write fails")
+	}
+	if !strings.Contains(err.Error(), "save manifest") {
+		t.Errorf("error should mention manifest save: %v", err)
+	}
+}
+
+// writeFailingFS delegates to OSFileSystem but fails WriteFile.
+type writeFailingFS struct {
+	*OSFileSystem
+	home string
+}
+
+func (w *writeFailingFS) UserHomeDir() (string, error) { return w.home, nil }
+func (w *writeFailingFS) WriteFile(filename string, data []byte, perm os.FileMode) error {
+	return errors.New("disk full")
+}
+
+func TestBackupAction_SkillsPreset(t *testing.T) {
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	action := &BackupAction{
+		FS:         newHomeFS(home),
+		Registry:   setupBackupRegistry(),
+		Preset:     "skills",
+		BakVersion: "test",
+	}
+
+	err := action.Run(nil, nil)
+	if err != nil {
+		t.Fatalf("Run with skills preset: %v", err)
+	}
+}

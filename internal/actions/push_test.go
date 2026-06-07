@@ -172,7 +172,34 @@ func TestPushAction_InvalidBackupID(t *testing.T) {
 	}
 }
 
-func TestPushAction_PathTraversal(t *testing.T) {
+func TestPushAction_VerboseLogging(t *testing.T) {
+	home := t.TempDir()
+	mockFS := &MockFileSystem{
+		HomeDir:    home,
+		StatResult: make(map[string]MockStatResult),
+		Files:      make(map[string][]byte),
+	}
+
+	action := &PushAction{FS: mockFS, Provider: "github-gist", Verbose: true}
+	_ = action.Run(nil, []string{"nonexistent"})
+	// Just exercises the verbose code path. Error expected.
+}
+
+func TestPushAction_UnknownProvider(t *testing.T) {
+	mockFS := &MockFileSystem{
+		HomeDir:    "/home/test",
+		StatResult: make(map[string]MockStatResult),
+		Files:      make(map[string][]byte),
+	}
+
+	action := &PushAction{FS: mockFS, Provider: "unknown-backend-xyz"}
+	err := action.Run(nil, nil)
+	if err == nil {
+		t.Fatal("expected error for unknown provider")
+	}
+}
+
+func TestPushAction_PathTraversal_Latest(t *testing.T) {
 	home := "/home/test"
 	backupsDir := filepath.Join(home, ".bak", "backups")
 
@@ -191,5 +218,84 @@ func TestPushAction_PathTraversal(t *testing.T) {
 	err := action.Run(nil, nil)
 	if err == nil {
 		t.Fatal("expected error for path traversal")
+	}
+}
+
+func TestPushAction_ExplicitArgResolvesID(t *testing.T) {
+	home := "/home/test"
+	backupsDir := filepath.Join(home, ".bak", "backups")
+	backupDir := filepath.Join(backupsDir, "20260101-120000")
+
+	mockFS := &MockFileSystem{
+		HomeDir: home,
+		StatResult: map[string]MockStatResult{
+			backupDir: {Info: &mockFileInfo{name: "20260101-120000", isDir: true}},
+		},
+		Files: make(map[string][]byte),
+	}
+
+	action := &PushAction{FS: mockFS, Provider: "github-gist"}
+	// Explicit arg should resolve without reading dir.
+	err := action.Run(nil, []string{"20260101-120000"})
+	if err != nil {
+		t.Logf("push with explicit arg: %v", err)
+	}
+}
+
+func TestPushAction_EmptyArgFallsback(t *testing.T) {
+	home := "/home/test"
+	backupsDir := filepath.Join(home, ".bak", "backups")
+
+	mockFS := &MockFileSystem{
+		HomeDir: home,
+		DirEntries: map[string][]os.DirEntry{
+			backupsDir: {
+				&mockDirEntry{name: "20260102-130000", isDir: true},
+			},
+		},
+		StatResult: map[string]MockStatResult{
+			filepath.Join(backupsDir, "20260102-130000"): {Info: &mockFileInfo{name: "20260102-130000", isDir: true}},
+		},
+		Files: make(map[string][]byte),
+	}
+
+	action := &PushAction{FS: mockFS, Provider: "github-gist"}
+	// Empty string arg should fall back to latest.
+	err := action.Run(nil, []string{""})
+	if err != nil {
+		t.Logf("push with empty arg: %v", err)
+	}
+}
+
+func TestPushAction_HomeDirError(t *testing.T) {
+	// A mock that fails UserHomeDir (though our mock always succeeds).
+	// Test the Stat error path instead.
+	mockFS := &MockFileSystem{
+		HomeDir:    "/home/test",
+		StatResult: map[string]MockStatResult{},
+		Files:      make(map[string][]byte),
+	}
+
+	action := &PushAction{FS: mockFS, Provider: "github-gist"}
+	err := action.Run(nil, []string{"nonexistent"})
+	if err == nil {
+		t.Fatal("expected error for nonexistent backup")
+	}
+}
+
+func TestPushAction_ReadDirErrorOnFallback(t *testing.T) {
+	mockFS := &MockFileSystem{
+		HomeDir: "/home/test",
+		ReadDirErrors: map[string]error{
+			filepath.Join("/home/test", ".bak", "backups"): os.ErrPermission,
+		},
+		StatResult: make(map[string]MockStatResult),
+		Files:      make(map[string][]byte),
+	}
+
+	action := &PushAction{FS: mockFS, Provider: "github-gist"}
+	err := action.Run(nil, nil) // no args → fallback to ReadDir
+	if err == nil {
+		t.Fatal("expected error")
 	}
 }

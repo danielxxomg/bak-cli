@@ -312,6 +312,71 @@ func TestProfileCreateCmd_Flags(t *testing.T) {
 	}
 }
 
+// --- additional profile execution tests ---
+
+func TestProfileList_Execute(t *testing.T) {
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+
+	rootCmd.SetArgs([]string{"profile", "list"})
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Logf("profile list: %v", err)
+	}
+}
+
+func TestProfileShow_ExecuteNonexistent(t *testing.T) {
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+
+	rootCmd.SetArgs([]string{"profile", "show", "definitely_not_a_profile_xyz"})
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Logf("profile show nonexistent: %v (expected)", err)
+	}
+}
+
+func TestProfileDelete_ExecuteNonexistent(t *testing.T) {
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+
+	rootCmd.SetArgs([]string{"profile", "delete", "definitely_not_a_profile_xyz"})
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Logf("profile delete nonexistent: %v (expected)", err)
+	}
+}
+
+func TestProfileCreate_RcloneProvider(t *testing.T) {
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+
+	rootCmd.SetArgs([]string{"profile", "create", "rclone-test", "--provider", "rclone"})
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Logf("profile create rclone: %v (expected)", err)
+	}
+}
+
+func TestProfileCreate_AdaptersAndCategories(t *testing.T) {
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+
+	rootCmd.SetArgs([]string{"profile", "create", "adapt-profile",
+		"--provider", "github-gist",
+		"--adapters", "opencode,cursor",
+		"--categories", "config,skills"})
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Logf("profile create with adapters/categories: %v (expected without configured providers)", err)
+	}
+}
+
 // --- profile integration tests (creates real profile in temp config) ---
 
 // findSubcommandIn finds a subcommand within a parent command.

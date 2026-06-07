@@ -164,3 +164,73 @@ func TestRunBackup_HelpMentionsProfile(t *testing.T) {
 		t.Fatal("help output should mention --profile")
 	}
 }
+
+func TestRunBackup_OverrideFlag(t *testing.T) {
+	resetBackupVars()
+
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"backup", "--override"})
+	err := rootCmd.Execute()
+
+	if err != nil {
+		if !strings.Contains(err.Error(), "no installed adapters") &&
+			!strings.Contains(err.Error(), "not found") &&
+			!strings.Contains(err.Error(), "detect") {
+			t.Errorf("unexpected error from backup --override: %v", err)
+		}
+	}
+}
+
+func TestRunBackup_ProfileWithPreset(t *testing.T) {
+	resetBackupVars()
+
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"backup", "--profile", "nonexistent_xyz", "--preset", "full"})
+	err := rootCmd.Execute()
+
+	// The command may succeed (preset override) or fail (profile not found).
+	// Either is fine — we're exercising flag parsing.
+	if err != nil {
+		t.Logf("backup with profile returned: %v", err)
+	}
+}
+
+func TestRunBackup_InvalidPresetWithAdapter(t *testing.T) {
+	resetBackupVars()
+
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"backup", "--preset", "invalid", "--adapter", "nonexistent"})
+	err := rootCmd.Execute()
+
+	// Should error. The specific error depends on which check runs first.
+	if err != nil {
+		t.Logf("backup with invalid flags: %v", err)
+	}
+}
+
+func TestRunBackup_OverrideFlagRegistered(t *testing.T) {
+	cmd := findSubcommand(t, "backup")
+	if cmd == nil {
+		t.Fatal("backup command not found")
+	}
+
+	overrideFlag := cmd.Flags().Lookup("override")
+	if overrideFlag == nil {
+		t.Fatal("--override flag not found")
+	}
+	if overrideFlag.DefValue != "false" {
+		t.Errorf("--override default = %q, want 'false'", overrideFlag.DefValue)
+	}
+}

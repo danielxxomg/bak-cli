@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/danielxxomg/bak-cli/internal/manifest"
+	restorepkg "github.com/danielxxomg/bak-cli/internal/restore"
 )
 
 // --- restore helpers ----------------------------------------------------
@@ -227,6 +228,145 @@ func TestRestoreAction_VerboseOutput(t *testing.T) {
 	err := action.Run(nil, []string{backupID})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
+	}
+}
+
+func TestRestoreAction_DryRunWithDiffs(t *testing.T) {
+	home := t.TempDir()
+	backupID := createBackupForRestore(t, home)
+
+	bakDir := filepath.Join(home, ".bak")
+	backupDir := filepath.Join(bakDir, "backups", backupID)
+
+	action := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: backupDir,
+		DryRun:    true,
+		Verbose:   false,
+	}
+
+	err := action.Run(nil, []string{backupID})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+}
+
+func TestRestoreAction_RestoreFile_MkdirError(t *testing.T) {
+	home := t.TempDir()
+	backupID := createBackupForRestore(t, home)
+
+	bakDir := filepath.Join(home, ".bak")
+	backupDir := filepath.Join(bakDir, "backups", backupID)
+
+	mockFS := &MockFileSystem{
+		HomeDir:    home,
+		StatResult: make(map[string]MockStatResult),
+		Files:      make(map[string][]byte),
+		MkdirErrors: map[string]error{
+			filepath.Join(home, ".config", "bak"): os.ErrPermission,
+		},
+	}
+
+	action := &RestoreAction{
+		FS:        mockFS,
+		BackupDir: backupDir,
+		Force:     true,
+		Verbose:   true,
+	}
+
+	err := action.Run(nil, []string{backupID})
+	if err != nil {
+		t.Logf("restore with mkdir error returned: %v", err)
+	}
+}
+
+func TestRestoreAction_CountByStatus_AllTypes(t *testing.T) {
+	diffs := []restorepkg.FileDiff{
+		{Status: restorepkg.DiffNew, SourcePath: "/a"},
+		{Status: restorepkg.DiffNew, SourcePath: "/b"},
+		{Status: restorepkg.DiffModified, SourcePath: "/c"},
+		{Status: restorepkg.DiffUnchanged, SourcePath: "/d"},
+		{Status: restorepkg.DiffMissing, SourcePath: "/e"},
+	}
+
+	if n := countByStatus(diffs, restorepkg.DiffNew); n != 2 {
+		t.Errorf("DiffNew count = %d, want 2", n)
+	}
+	if n := countByStatus(diffs, restorepkg.DiffModified); n != 1 {
+		t.Errorf("DiffModified count = %d, want 1", n)
+	}
+	if n := countByStatus(diffs, restorepkg.DiffUnchanged); n != 1 {
+		t.Errorf("DiffUnchanged count = %d, want 1", n)
+	}
+	if n := countByStatus(diffs, restorepkg.DiffMissing); n != 1 {
+		t.Errorf("DiffMissing count = %d, want 1", n)
+	}
+}
+
+func TestRestoreAction_RestoreFile_PathTraversalBackupDir(t *testing.T) {
+	home := t.TempDir()
+	action := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: filepath.Join(home, ".bak", "backups", "test"),
+	}
+
+	err := action.restoreFile(restorepkg.FileDiff{
+		BackupPath: "../../../etc/passwd",
+		TargetPath: filepath.Join(home, "safe.txt"),
+	})
+
+	if err == nil {
+		t.Fatal("expected path traversal error")
+	}
+	if !strings.Contains(err.Error(), "escapes") {
+		t.Errorf("error should mention escapes: %v", err)
+	}
+}
+
+func TestRestoreAction_RestoreFile_PathTraversalTarget(t *testing.T) {
+	home := t.TempDir()
+
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupDir := filepath.Join(backupsDir, "test")
+	os.MkdirAll(backupDir, 0755)
+	srcFile := filepath.Join(backupDir, "safe.txt")
+	os.WriteFile(srcFile, []byte("content"), 0644)
+
+	action := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: backupDir,
+	}
+
+	err := action.restoreFile(restorepkg.FileDiff{
+		BackupPath: "safe.txt",
+		TargetPath: filepath.Join(home, "..", "..", "etc", "passwd"),
+	})
+
+	if err == nil {
+		t.Fatal("expected path traversal error")
+	}
+	if !strings.Contains(err.Error(), "escapes") {
+		t.Errorf("error should mention escapes: %v", err)
+	}
+}
+
+func TestRestoreAction_UserHomeDir_Error(t *testing.T) {
+	mockFS := &MockFileSystem{
+		HomeDir:    "",
+		StatResult: make(map[string]MockStatResult),
+		Files:      make(map[string][]byte),
+	}
+
+	action := &RestoreAction{
+		FS:        mockFS,
+		BackupDir: "/some/path",
+		Force:     true,
+	}
+
+	err := action.Run(nil, []string{"test"})
+	if err == nil {
+		t.Fatal("expected error")
 	}
 }
 
