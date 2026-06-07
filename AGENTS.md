@@ -4,7 +4,7 @@
 - **Name**: bak-cli
 - **Binary**: `bak`
 - **Purpose**: Backup and restore OpenCode AI coding configurations across machines
-- **Language**: Go 1.24+
+- **Language**: Go 1.25+
 - **Architecture**: CLI (cobra) with adapter pattern
 
 ## Code Review Rules
@@ -35,7 +35,7 @@
 - MUST NOT include secrets/API keys/tokens in backup by default
 - MUST redact sensitive patterns (ghp_*, sk-*, sk-ant-*) in any output
 - MUST use `os.UserHomeDir()` — never hardcode home paths
-- MUST use `path.Clean` + `filepath.ToSlash` for canonical path comparison
+- MUST use `path.Clean` + `strings.ReplaceAll(path, "\\", "/")` for canonical path comparison — NOT `filepath.ToSlash` (OS-dependent, fails on Linux)
 - MUST NOT use `filepath.Clean` for cross-platform canonical paths
 
 ### Cross-Platform
@@ -64,6 +64,8 @@
 - MUST test happy path AND error paths
 - MUST test edge cases: empty input, missing files, permission errors
 - MUST use `t.TempDir()` for test isolation — never write to real filesystem
+- MUST isolate config from real user config via dependency injection or `t.Setenv` — tests MUST NOT depend on `~/.config/bak/` existing
+- MUST skip Windows-specific test cases on non-Windows via `runtime.GOOS` check
 - SHOULD test cross-platform path behavior
 - MUST maintain per-package coverage ≥80% for `internal/` packages
 - MUST NOT unit-test `os.Exit` paths — test via integration/E2E only
