@@ -102,3 +102,27 @@ tasks:
     desc: Run the full CI pipeline
     cmds:
       - task: ci
+
+  test:linux:
+    desc: Run tests in Linux Docker container (mirrors CI)
+    cmds:
+      - docker build -t bak-cli-test -f Dockerfile.test .
+      - docker run --rm bak-cli-test
+
+  test:lint:
+    desc: Run only linter in Linux Docker container
+    cmds:
+      - docker build -t bak-cli-test -f Dockerfile.test .
+      - docker run --rm bak-cli-test sh -c "golangci-lint run"
+
+  test:vet:
+    desc: Run only vet in Linux Docker container
+    cmds:
+      - docker build -t bak-cli-test -f Dockerfile.test .
+      - docker run --rm bak-cli-test sh -c "go vet ./..."
+
+  test:unit:
+    desc: Run only unit tests in Linux Docker container
+    cmds:
+      - docker build -t bak-cli-test -f Dockerfile.test .
+      - docker run --rm bak-cli-test sh -c "go test -race -shuffle=on ./..."
