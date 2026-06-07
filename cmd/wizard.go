@@ -280,7 +280,7 @@ func (m *wizardModel) renderToggleList(items []toggleItem, cursor int) string {
 		if item.checked {
 			check = checkedStyle.Render("[x]")
 		}
-		b.WriteString(fmt.Sprintf("%s%s %s\n", cursorMark, check, item.name))
+		fmt.Fprintf(&b, "%s%s %s\n", cursorMark, check, item.name)
 	}
 	return b.String()
 }
@@ -320,7 +320,7 @@ func renderCursorList(items []string, cursor int) string {
 		if cursor == i {
 			cursorMark = cursorStyle.Render("> ")
 		}
-		b.WriteString(fmt.Sprintf("%s%s\n", cursorMark, item))
+		fmt.Fprintf(&b, "%s%s\n", cursorMark, item)
 	}
 	return b.String()
 }

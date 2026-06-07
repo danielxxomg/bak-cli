@@ -34,6 +34,7 @@ func TestExportCmd_Flags(t *testing.T) {
 	flag := exportCmd.Flags().Lookup("output")
 	if flag == nil {
 		t.Error("Expected 'output' flag to exist")
+		return
 	}
 	if flag.DefValue != "bak-export.tar.gz" {
 		t.Errorf("Expected default value 'bak-export.tar.gz', got %q", flag.DefValue)
