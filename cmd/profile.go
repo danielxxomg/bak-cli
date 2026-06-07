@@ -2,10 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -89,96 +88,17 @@ func runProfileCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	// Validate provider exists.
-	providerName := profileCreateProvider
-	if _, ok := cfg.Providers[providerName]; !ok {
-		known := make([]string, 0, len(cfg.Providers))
-		for k := range cfg.Providers {
-			known = append(known, k)
-		}
-		if len(known) == 0 {
-			return fmt.Errorf("no providers configured — run 'bak login' or 'bak config set' first")
-		}
-		return fmt.Errorf("provider %q not configured (known: %s)", providerName, strings.Join(known, ", "))
-	}
-
-	// Validate provider has a token set (or remote for rclone).
-	pc := cfg.Providers[providerName]
-	if providerName == "rclone" {
-		if pc.Remote == "" {
-			return fmt.Errorf("rclone remote not configured — run 'bak config set providers.rclone.remote <name>'")
-		}
-	} else {
-		if pc.Token == "" {
-			return fmt.Errorf("provider %q has no token — run 'bak login' or set a token first", providerName)
-		}
-	}
-
-	// Check for duplicate name.
-	if _, exists := cfg.Profiles[name]; exists {
-		return fmt.Errorf("profile %q already exists — use 'bak profile delete %s' first or choose a different name", name, name)
-	}
-
 	// Parse adapters and categories from comma-separated flags.
-	var adapters []string
-	if profileCreateAdapters != "" {
-		for _, a := range strings.Split(profileCreateAdapters, ",") {
-			a = strings.TrimSpace(a)
-			if a != "" {
-				adapters = append(adapters, a)
-			}
-		}
-	}
+	adapters := actions.ParseCSV(profileCreateAdapters)
+	categories := actions.ParseCSV(profileCreateCategories)
 
-	var categories []string
-	if profileCreateCategories != "" {
-		for _, c := range strings.Split(profileCreateCategories, ",") {
-			c = strings.TrimSpace(c)
-			if c != "" {
-				categories = append(categories, c)
-			}
-		}
-	}
-
-	// Build profile config.
-	profile := config.ProfileConfig{
+	return actions.ProfileCreate(cfg, name, actions.ProfileCreateOptions{
+		Provider:   profileCreateProvider,
+		Preset:     profileCreatePreset,
 		Adapters:   adapters,
 		Categories: categories,
-		Preset:     profileCreatePreset,
-		Provider:   providerName,
-	}
-
-	if profileCreateEncrypt {
-		profile.Encryption = &config.EncryptionConfig{
-			Enabled: true,
-		}
-	}
-
-	if cfg.Profiles == nil {
-		cfg.Profiles = make(map[string]config.ProfileConfig)
-	}
-	cfg.Profiles[name] = profile
-
-	if err := cfg.Save(); err != nil {
-		return fmt.Errorf("save config: %w", err)
-	}
-
-	fmt.Fprintf(out, "Profile %q created.\n", name)
-	if profileCreateEncrypt {
-		fmt.Fprintln(out, "  Encryption: enabled (password will be prompted during push)")
-	}
-	fmt.Fprintf(out, "  Provider:   %s\n", providerName)
-	if profileCreatePreset != "" {
-		fmt.Fprintf(out, "  Preset:     %s\n", profileCreatePreset)
-	}
-	if len(adapters) > 0 {
-		fmt.Fprintf(out, "  Adapters:   %s\n", strings.Join(adapters, ", "))
-	}
-	if len(categories) > 0 {
-		fmt.Fprintf(out, "  Categories: %s\n", strings.Join(categories, ", "))
-	}
-
-	return nil
+		Encrypt:    profileCreateEncrypt,
+	}, out)
 }
 
 // --- list ---
@@ -196,40 +116,11 @@ func init() {
 }
 
 func runProfileList(cmd *cobra.Command, args []string) error {
-	out := cmd.OutOrStdout()
-
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-
-	if len(cfg.Profiles) == 0 {
-		fmt.Fprintln(out, "No profiles configured.")
-		fmt.Fprintln(out, "Create one with: bak profile create <name> --provider <name>")
-		return nil
-	}
-
-	// Header.
-	fmt.Fprintf(out, "%-20s %-15s %-10s %s\n", "NAME", "PROVIDER", "PRESET", "ENCRYPTION")
-	fmt.Fprintln(out, strings.Repeat("-", 65))
-
-	for name, p := range cfg.Profiles {
-		preset := p.Preset
-		if preset == "" {
-			preset = "quick"
-		}
-		provider := p.Provider
-		if provider == "" {
-			provider = "—"
-		}
-		encryption := "disabled"
-		if p.Encryption != nil {
-			encryption = "enabled"
-		}
-		fmt.Fprintf(out, "%-20s %-15s %-10s %s\n", name, provider, preset, encryption)
-	}
-
-	return nil
+	return actions.ProfileList(cfg, cmd.OutOrStdout())
 }
 
 // --- show ---
@@ -247,50 +138,16 @@ func init() {
 }
 
 func runProfileShow(cmd *cobra.Command, args []string) error {
-	name := args[0]
-	out := cmd.OutOrStdout()
-
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-
-	p, ok := cfg.Profiles[name]
-	if !ok {
-		return fmt.Errorf("profile %q not found — use 'bak profile list' to see configured profiles", name)
-	}
-
-	fmt.Fprintf(out, "Profile: %s\n", name)
-	fmt.Fprintf(out, "  Provider:    %s\n", p.Provider)
-
-	preset := p.Preset
-	if preset == "" {
-		preset = "quick"
-	}
-	fmt.Fprintf(out, "  Preset:      %s\n", preset)
-
-	if len(p.Adapters) > 0 {
-		fmt.Fprintf(out, "  Adapters:    %s\n", strings.Join(p.Adapters, ", "))
-	} else {
-		fmt.Fprintln(out, "  Adapters:    all detected")
-	}
-
-	if len(p.Categories) > 0 {
-		fmt.Fprintf(out, "  Categories:  %s\n", strings.Join(p.Categories, ", "))
-	} else {
-		fmt.Fprintln(out, "  Categories:  from preset")
-	}
-
-	if p.Encryption != nil {
-		fmt.Fprintln(out, "  Encryption:  enabled")
-	} else {
-		fmt.Fprintln(out, "  Encryption:  disabled")
-	}
-
-	return nil
+	return actions.ProfileShow(cfg, args[0], cmd.OutOrStdout())
 }
 
 // --- delete ---
+
+var profileDeleteDryRun bool
 
 var profileDeleteCmd = &cobra.Command{
 	Use:   "delete <name>",
@@ -301,37 +158,23 @@ var profileDeleteCmd = &cobra.Command{
 }
 
 func init() {
+	profileDeleteCmd.Flags().BoolVar(&profileDeleteDryRun, "dry-run", false,
+		"preview what would be deleted without making changes")
 	profileCmd.AddCommand(profileDeleteCmd)
 }
 
 func runProfileDelete(cmd *cobra.Command, args []string) error {
-	name := args[0]
-	out := cmd.OutOrStdout()
-
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-
-	if _, ok := cfg.Profiles[name]; !ok {
-		return fmt.Errorf("profile %q not found — use 'bak profile list' to see configured profiles", name)
-	}
-
-	delete(cfg.Profiles, name)
-
-	if err := cfg.Save(); err != nil {
-		return fmt.Errorf("save config: %w", err)
-	}
-
-	fmt.Fprintf(out, "Profile %q deleted.\n", name)
-	return nil
+	return actions.ProfileDelete(cfg, args[0], cmd.OutOrStdout(), profileDeleteDryRun)
 }
 
 // --- interactive profile creation ---
 
 // runProfileCreateInteractive launches the interactive wizard for profile
-// creation. It builds the provider list from the current config and walks the
-// user through provider, preset, adapter, and category selection.
+// creation. Business logic (validation, save) is delegated to actions.
 func runProfileCreateInteractive(cmd *cobra.Command, name string) error {
 	out := cmd.OutOrStdout()
 
@@ -340,18 +183,10 @@ func runProfileCreateInteractive(cmd *cobra.Command, name string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	// Check for duplicate name.
-	if _, exists := cfg.Profiles[name]; exists {
-		return fmt.Errorf("profile %q already exists — use 'bak profile delete %s' first or choose a different name", name, name)
-	}
-
-	// Build provider list from configured providers.
-	providers := make([]string, 0, len(cfg.Providers))
-	for k := range cfg.Providers {
-		providers = append(providers, k)
-	}
-	if len(providers) == 0 {
-		return fmt.Errorf("no providers configured — run 'bak login' first")
+	// Validate before launching wizard.
+	providers, err := actions.ProfileValidateForCreation(cfg, name)
+	if err != nil {
+		return err
 	}
 
 	// Launch wizard.
@@ -365,70 +200,30 @@ func runProfileCreateInteractive(cmd *cobra.Command, name string) error {
 		return fmt.Errorf("wizard: %w", err)
 	}
 
-	wm := finalModel.(*wizardModel)
-	if !wm.confirmed {
-		fmt.Fprintln(out, "Profile creation cancelled.")
-		return nil
+	wm, ok := finalModel.(*wizardModel)
+	if !ok {
+		return fmt.Errorf("wizard: unexpected model type %T", finalModel)
 	}
 
-	// Collect selected adapters.
-	var adapters []string
+	// Collect raw selections from wizard model.
+	var adapterNames []string
 	for _, item := range wm.adapterItems {
 		if item.checked {
-			adapters = append(adapters, item.name)
+			adapterNames = append(adapterNames, item.name)
 		}
 	}
-
-	// Collect selected categories.
-	var categories []string
+	var categoryNames []string
 	for _, item := range wm.categoryItems {
 		if item.checked {
-			categories = append(categories, item.name)
+			categoryNames = append(categoryNames, item.name)
 		}
 	}
 
-	// Build and save profile.
-	profile := config.ProfileConfig{
-		Adapters:   adapters,
-		Categories: categories,
-		Preset:     wm.selectedPreset,
-		Provider:   wm.selectedProvider,
-	}
-
-	if cfg.Profiles == nil {
-		cfg.Profiles = make(map[string]config.ProfileConfig)
-	}
-	cfg.Profiles[name] = profile
-
-	if err := cfg.Save(); err != nil {
-		return fmt.Errorf("save config: %w", err)
-	}
-
-	fmt.Fprintf(out, "Profile %q created.\n", name)
-	fmt.Fprintf(out, "  Provider:   %s\n", wm.selectedProvider)
-	if wm.selectedPreset != "" {
-		fmt.Fprintf(out, "  Preset:     %s\n", wm.selectedPreset)
-	}
-	if len(adapters) > 0 {
-		fmt.Fprintf(out, "  Adapters:   %s\n", strings.Join(adapters, ", "))
-	}
-	if len(categories) > 0 {
-		fmt.Fprintf(out, "  Categories: %s\n", strings.Join(categories, ", "))
-	}
-
-	return nil
-}
-
-// --- helpers ---
-
-// profileList writes a profile name, its provider, and its encryption status
-// to os.Stderr for verbose output (used by backup/push/pull when --profile
-// resolves a profile).
-func profileVerbose(name string, p config.ProfileConfig) {
-	enc := "disabled"
-	if p.Encryption != nil {
-		enc = "enabled"
-	}
-	fmt.Fprintf(os.Stderr, "Using profile %q (provider=%s, preset=%s, encryption=%s)\n",
-		name, p.Provider, p.Preset, enc)
+	return actions.ProfileCreateInteractive(cfg, name, actions.ProfileCreateFromWizard{
+		Confirmed:        wm.confirmed,
+		SelectedProvider: wm.selectedProvider,
+		SelectedPreset:   wm.selectedPreset,
+		AdapterNames:     adapterNames,
+		CategoryNames:    categoryNames,
+	}, out)
 }

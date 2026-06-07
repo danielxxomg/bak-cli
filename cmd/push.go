@@ -49,6 +49,7 @@ func runPush(cmd *cobra.Command, args []string) error {
 		Provider: pushProvider,
 		Profile:  pushProfile,
 		Verbose:  verbose,
+		Factory:  &actions.RealProviderFactory{},
 	}
 
 	return action.Run(cmd, args)

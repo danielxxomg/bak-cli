@@ -25,7 +25,7 @@ import (
 // KiloCode → pi.dev → OpenCode). Returns the first registration error
 // encountered.
 func All(r *adapters.Registry) error {
-	adapters := []adapters.Adapter{
+	builtins := []adapters.Adapter{
 		&claudecode.Adapter{},
 		&cursor.Adapter{},
 		&codex.Adapter{},
@@ -36,7 +36,7 @@ func All(r *adapters.Registry) error {
 		&opencode.Adapter{},
 	}
 
-	for _, a := range adapters {
+	for _, a := range builtins {
 		if err := r.Register(a); err != nil {
 			return err
 		}
@@ -50,14 +50,10 @@ func All(r *adapters.Registry) error {
 // registers each one with the provided registry. When override is
 // true, custom adapters replace built-in adapters with the same name.
 // A warning is emitted to stderr for each overridden adapter.
-func LoadYAMLAdapters(reg *adapters.Registry, override bool) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("home dir: %w", err)
-	}
-	dir := filepath.Join(home, ".config", "bak", "adapters")
+func LoadYAMLAdapters(reg *adapters.Registry, override bool, homeDir string) error {
+	dir := filepath.Join(homeDir, ".config", "bak", "adapters")
 
-	yamlAdapters, err := adapters.LoadYAMLAdapters(dir)
+	yamlAdapters, err := adapters.LoadYAMLAdapters(dir, homeDir)
 	if err != nil {
 		return fmt.Errorf("load yaml adapters: %w", err)
 	}

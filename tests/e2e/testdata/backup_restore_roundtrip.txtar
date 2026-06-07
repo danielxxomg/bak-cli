@@ -13,5 +13,5 @@ exec bak restore --help
 stdout 'dry-run'
 
 # Restore with --dry-run using a non-existent ID should fail properly.
-! exec bak restore --dry-run nonexistent-id-12345
+! exec bak restore --dry-run 20000101-000000
 stderr 'not found'

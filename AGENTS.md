@@ -45,12 +45,19 @@
 - MUST NOT assume case-sensitive filesystems
 - SHOULD use `strings.EqualFold` or `strings.ToLower` for case-insensitive comparison
 
+### Platform-Specific Code
+- MUST use `_GOOS.go` suffix for OS-specific files (e.g., `scheduler_windows.go`)
+- MUST use `//go:build GOOS` tags for platform-restricted code
+- MUST inject OS calls via variables for testability (e.g., `var execCommand = exec.Command`, `var isAdminFn = isAdmin`)
+- MUST test platform-specific code on the target OS in CI (3-OS matrix)
+
 ### CLI Patterns
 - MUST use cobra for command structure
 - MUST provide `--help` for every command
 - MUST return exit code 0 on success, 1 on error
 - SHOULD provide `--verbose` flag for debugging
 - MUST provide `--dry-run` for any destructive operation (restore)
+- MUST delegate all business logic from cobra `RunE` to `internal/actions/` — no logic in `cmd/`
 
 ### Testing
 - MUST achieve >80% coverage for new code
@@ -58,6 +65,9 @@
 - MUST test edge cases: empty input, missing files, permission errors
 - MUST use `t.TempDir()` for test isolation — never write to real filesystem
 - SHOULD test cross-platform path behavior
+- MUST maintain per-package coverage ≥80% for `internal/` packages
+- MUST NOT unit-test `os.Exit` paths — test via integration/E2E only
+- MUST NOT test `bubbletea.Program.Run()` directly — test model `Update()`/`View()` logic instead
 
 ### Backup/Restore Specifics
 - MUST create manifest before copying files (fail-fast on invalid state)
@@ -93,6 +103,24 @@
 - SHOULD avoid unnecessary allocations in hot paths
 - SHOULD use `strings.Builder` for string concatenation in loops
 - MUST NOT block indefinitely — use context or timeouts for external calls
+
+### Dependency Injection
+- MUST place interfaces in the consumer package (e.g., `actions/interfaces.go` defines `FileSystem`, `ConfigLoader`)
+- MUST use struct field injection — no constructor functions for internal packages
+- MUST make zero-value structs usable when possible (default behavior without explicit init)
+- SHOULD accept interfaces, return structs (Go proverb)
+
+### Test Doubles
+- MUST hand-roll test doubles — no mock generation tools
+- MUST use `Mock*` prefix for reusable test doubles (e.g., `MockFileSystem`)
+- MUST use descriptive suffixes for inline fakes (e.g., `homeFS`, `mkdirFailingFS`, `writeFailingFS`)
+- MUST verify interface compliance at compile time (e.g., `var _ FileSystem = (*MockFileSystem)(nil)`)
+- SHOULD use `t.Helper()` in shared test setup functions
+
+### GGA Integration
+- MUST run GGA (Guardian Angel) as pre-commit validation against AGENTS.md rules
+- MUST fix all GGA violations before committing — no `--no-verify` bypass
+- Config in `.gga` — file patterns, exclude patterns, rules file, strict mode
 
 ### Commits
 - MUST follow Conventional Commits: `feat:`, `fix:`, `test:`, `chore:`, `docs:`

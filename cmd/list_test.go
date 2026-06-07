@@ -3,6 +3,8 @@ package cmd
 import (
 	"bytes"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestListCmd_Structure(t *testing.T) {
@@ -91,7 +93,13 @@ func TestRunList_LocalBehaviorDefault(t *testing.T) {
 	listProvider = ""
 	defer func() { listProvider = listProviderOrig }()
 
-	err := runList(nil, nil)
+	// Set up a minimal cobra command to avoid nil pointer.
+	cmd := &cobra.Command{}
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	err := runList(cmd, nil)
 	if err != nil {
 		// May fail if ~/.bak/backups doesn't exist, which is fine.
 		// The key test is that we don't hit a cloud provider error.

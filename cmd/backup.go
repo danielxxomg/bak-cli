@@ -58,7 +58,11 @@ func runBackup(cmd *cobra.Command, args []string) error {
 	if err := register.All(reg); err != nil {
 		return fmt.Errorf("register adapters: %w", err)
 	}
-	if err := register.LoadYAMLAdapters(reg, backupOverride); err != nil {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("home dir: %w", err)
+	}
+	if err := register.LoadYAMLAdapters(reg, backupOverride, homeDir); err != nil {
 		return fmt.Errorf("load yaml adapters: %w", err)
 	}
 

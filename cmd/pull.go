@@ -45,6 +45,7 @@ func runPull(cmd *cobra.Command, args []string) error {
 		Provider: pullProvider,
 		Profile:  pullProfile,
 		Verbose:  verbose,
+		Factory:  &actions.RealProviderFactory{},
 	}
 
 	return action.Run(cmd, args)

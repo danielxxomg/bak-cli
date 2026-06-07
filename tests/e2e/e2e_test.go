@@ -28,6 +28,17 @@ func setupEnv(e *testscript.Env) error {
 	// ~/.bak and reads from sandboxed ~/.config.
 	e.Setenv("HOME", e.WorkDir)
 
+	// On Windows, os.UserHomeDir() reads USERPROFILE (not HOME) and
+	// os.UserConfigDir() reads APPDATA. Override both so the sandboxed
+	// fixture directories are discovered.
+	if runtime.GOOS == "windows" {
+		e.Setenv("USERPROFILE", e.WorkDir)
+		// os.UserConfigDir() returns %APPDATA%; point it to ~/.config
+		// so paths.ConfigDir("bak") resolves to the fixture-written
+		// $WORK/.config/bak/config.json.
+		e.Setenv("APPDATA", filepath.Join(e.WorkDir, ".config"))
+	}
+
 	// Build the bak binary and place it in the test's PATH.
 	bakBin := filepath.Join(e.WorkDir, "bak")
 	if runtime.GOOS == "windows" {

@@ -11,7 +11,7 @@ stdout 'Backup created:'
 
 # Verify diff command exists and shows help.
 exec bak diff --help
-stdout 'Compare two backup manifests'
+stdout 'Compares two backups and shows file-level'
 
 # Diff with invalid IDs should fail gracefully.
 ! exec bak diff fake-id-1 fake-id-2

@@ -32,7 +32,7 @@ func FuzzLoadYAMLAdapters(f *testing.F) {
 		}
 
 		// LoadYAMLAdapters should never panic, regardless of input.
-		adapters, err := LoadYAMLAdapters(dir)
+		adapters, err := LoadYAMLAdapters(dir, dir)
 		if err != nil {
 			// Errors are expected — ensure message is non-empty.
 			if err.Error() == "" {

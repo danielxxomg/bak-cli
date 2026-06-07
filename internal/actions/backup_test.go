@@ -446,6 +446,92 @@ func (w *writeFailingFS) WriteFile(filename string, data []byte, perm os.FileMod
 	return errors.New("disk full")
 }
 
+func TestBackupAction_HostnameFunc_Injected(t *testing.T) {
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	action := &BackupAction{
+		FS:         newHomeFS(home),
+		Registry:   setupBackupRegistry(),
+		Preset:     "quick",
+		BakVersion: "test",
+		HostnameFn: func() (string, error) { return "testbox", nil },
+	}
+
+	err := action.Run(nil, nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	bakDir := filepath.Join(home, ".bak")
+	entries, err := os.ReadDir(filepath.Join(bakDir, "backups"))
+	if err != nil {
+		t.Fatalf("read backups dir: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("no backup directory created")
+	}
+
+	manifestPath := filepath.Join(bakDir, "backups", entries[0].Name(), "manifest.json")
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("manifest not found: %v", err)
+	}
+
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatalf("invalid manifest JSON: %v", err)
+	}
+
+	if m["hostname"] != "testbox" {
+		t.Errorf("manifest hostname = %v, want testbox", m["hostname"])
+	}
+}
+
+func TestBackupAction_HostnameFunc_NilFallback(t *testing.T) {
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	action := &BackupAction{
+		FS:         newHomeFS(home),
+		Registry:   setupBackupRegistry(),
+		Preset:     "quick",
+		BakVersion: "test",
+		// HostnameFn is nil — should fall back to os.Hostname.
+	}
+
+	err := action.Run(nil, nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	bakDir := filepath.Join(home, ".bak")
+	entries, err := os.ReadDir(filepath.Join(bakDir, "backups"))
+	if err != nil {
+		t.Fatalf("read backups dir: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("no backup directory created")
+	}
+
+	manifestPath := filepath.Join(bakDir, "backups", entries[0].Name(), "manifest.json")
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("manifest not found: %v", err)
+	}
+
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatalf("invalid manifest JSON: %v", err)
+	}
+
+	// With nil HostnameFn, os.Hostname() is used. We can't predict the
+	// value, but it should be non-empty (unless the test host is broken).
+	if h, ok := m["hostname"].(string); !ok || h == "" {
+		t.Errorf("manifest hostname should be a non-empty string: %v", m["hostname"])
+	}
+}
+
 func TestBackupAction_SkillsPreset(t *testing.T) {
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
@@ -460,5 +546,29 @@ func TestBackupAction_SkillsPreset(t *testing.T) {
 	err := action.Run(nil, nil)
 	if err != nil {
 		t.Fatalf("Run with skills preset: %v", err)
+	}
+}
+
+func TestFormatSize(t *testing.T) {
+	tests := []struct {
+		name string
+		bytes int64
+		want string
+	}{
+		{"zero bytes", 0, "0 B"},
+		{"bytes", 512, "512 B"},
+		{"1 KB", 1024, "1.0 KB"},
+		{"1.5 KB", 1536, "1.5 KB"},
+		{"1 MB", 1048576, "1.0 MB"},
+		{"1 GB", 1073741824, "1.0 GB"},
+		{"large", 5 * 1024 * 1024 * 1024, "5.0 GB"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatSize(tt.bytes)
+			if got != tt.want {
+				t.Errorf("formatSize(%d) = %q, want %q", tt.bytes, got, tt.want)
+			}
+		})
 	}
 }

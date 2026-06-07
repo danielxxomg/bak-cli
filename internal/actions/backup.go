@@ -34,6 +34,9 @@ type BackupAction struct {
 	BakVersion      string
 	SecretPatterns  []*regexp.Regexp
 	CustomCategories []string
+
+	// HostnameFn returns the current hostname. Nil falls back to os.Hostname.
+	HostnameFn HostnameFunc
 }
 
 // Run executes the backup workflow: resolve preset, detect adapters,
@@ -97,8 +100,13 @@ func (a *BackupAction) Run(cmd *cobra.Command, args []string) error {
 
 	// 5. Build and save initial manifest (fail-fast).
 	hostname := "unknown"
-	// Hostname is an OS-level concern — use the real os.Hostname.
-	if h, err := os.Hostname(); err == nil {
+	if a.HostnameFn != nil {
+		if h, err := a.HostnameFn(); err == nil {
+			hostname = h
+		} else if a.Verbose {
+			fmt.Fprintf(os.Stderr, "warning: could not get hostname: %v\n", err)
+		}
+	} else if h, err := os.Hostname(); err == nil {
 		hostname = h
 	} else if a.Verbose {
 		fmt.Fprintf(os.Stderr, "warning: could not get hostname: %v\n", err)

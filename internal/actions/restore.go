@@ -24,6 +24,9 @@ type RestoreAction struct {
 	Force     bool
 	Verbose   bool
 	GitDir    string // optional git repo for safety commits
+
+	// Stdin is the reader for confirmation prompts. Nil falls back to os.Stdin.
+	Stdin io.Reader
 }
 
 // Run executes the restore workflow: load manifest, compute diffs, and
@@ -89,7 +92,11 @@ func (a *RestoreAction) Run(cmd *cobra.Command, args []string) error {
 	// 6. Confirmation prompt (unless --force).
 	if !a.Force {
 		fmt.Fprint(out, "Apply restore? [y/N]: ")
-		reader := bufio.NewReader(os.Stdin)
+		stdin := a.Stdin
+		if stdin == nil {
+			stdin = os.Stdin
+		}
+		reader := bufio.NewReader(stdin)
 		answer, err := reader.ReadString('\n')
 		if err != nil {
 			return fmt.Errorf("read input: %w", err)
@@ -164,19 +171,7 @@ func (a *RestoreAction) restoreFile(d restorepkg.FileDiff) error {
 		return fmt.Errorf("mkdir: %w", err)
 	}
 
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return fmt.Errorf("open source: %w", err)
-	}
-	defer srcFile.Close()
-
-	dstFile, err := os.Create(d.TargetPath)
-	if err != nil {
-		return fmt.Errorf("create target: %w", err)
-	}
-	defer dstFile.Close()
-
-	if _, err := io.Copy(dstFile, srcFile); err != nil {
+	if err := a.FS.CopyFile(src, d.TargetPath); err != nil {
 		return fmt.Errorf("copy: %w", err)
 	}
 

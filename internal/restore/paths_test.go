@@ -1,6 +1,8 @@
 package restore
 
 import (
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/danielxxomg/bak-cli/internal/manifest"
@@ -87,6 +89,10 @@ func TestResolvePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Skip Windows-specific test cases on non-Windows platforms.
+			if strings.Contains(tt.name, "windows") && runtime.GOOS != "windows" {
+				t.Skip("skipping Windows-specific test on non-Windows platform")
+			}
 			got, err := ResolvePath(tt.canonical, tt.homeDir)
 			if tt.wantErr {
 				if err == nil {
