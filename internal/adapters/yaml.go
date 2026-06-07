@@ -35,6 +35,14 @@ func (a *ConfigAdapter) Name() string {
 // Detect checks whether the configuration directory exists under homeDir.
 func (a *ConfigAdapter) Detect(homeDir string) (installed bool, configDir string, err error) {
 	configDir = filepath.Join(homeDir, filepath.FromSlash(a.def.ConfigPath))
+
+	// Security: validate configDir stays under homeDir.
+	cleanCfg := path.Clean(filepath.ToSlash(configDir))
+	cleanHome := path.Clean(filepath.ToSlash(homeDir))
+	if !strings.HasPrefix(cleanCfg, cleanHome+"/") && cleanCfg != cleanHome {
+		return false, configDir, fmt.Errorf("path traversal: config path %q escapes home dir", a.def.ConfigPath)
+	}
+
 	info, err := os.Stat(configDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -52,6 +60,13 @@ func (a *ConfigAdapter) Detect(homeDir string) (installed bool, configDir string
 // categories, using the YAML-defined patterns to discover items.
 func (a *ConfigAdapter) ListItems(homeDir string, categories []string) ([]Item, error) {
 	configDir := filepath.Join(homeDir, filepath.FromSlash(a.def.ConfigPath))
+
+	// Security: validate configDir stays under homeDir.
+	cleanCfg := path.Clean(filepath.ToSlash(configDir))
+	cleanHome := path.Clean(filepath.ToSlash(homeDir))
+	if !strings.HasPrefix(cleanCfg, cleanHome+"/") && cleanCfg != cleanHome {
+		return nil, fmt.Errorf("path traversal: config path %q escapes home dir", a.def.ConfigPath)
+	}
 
 	catSet := make(map[string]bool, len(categories))
 	for _, c := range categories {
@@ -111,10 +126,17 @@ func (a *ConfigAdapter) ListItems(homeDir string, categories []string) ([]Item, 
 // directory, preserving relative structure under an adapter-named prefix.
 func (a *ConfigAdapter) Backup(homeDir, backupDir string, items []Item) error {
 	configDir := filepath.Join(homeDir, filepath.FromSlash(a.def.ConfigPath))
+	cleanBackup := path.Clean(filepath.ToSlash(backupDir))
 
 	for _, item := range items {
 		src := filepath.Join(configDir, filepath.FromSlash(item.RelPath))
 		dst := filepath.Join(backupDir, a.def.Name, filepath.FromSlash(item.RelPath))
+
+		// Security: validate dst stays under backupDir.
+		cleanDst := path.Clean(filepath.ToSlash(dst))
+		if !strings.HasPrefix(cleanDst, cleanBackup+"/") && cleanDst != cleanBackup {
+			return fmt.Errorf("path traversal: item %q escapes backup dir", item.RelPath)
+		}
 
 		if item.IsDir {
 			if err := os.MkdirAll(dst, 0755); err != nil {
@@ -134,10 +156,17 @@ func (a *ConfigAdapter) Backup(homeDir, backupDir string, items []Item) error {
 // Restore copies items from the backup directory back to the user's home.
 func (a *ConfigAdapter) Restore(backupDir, homeDir string, items []Item) error {
 	configDir := filepath.Join(homeDir, filepath.FromSlash(a.def.ConfigPath))
+	cleanHome := path.Clean(filepath.ToSlash(homeDir))
 
 	for _, item := range items {
 		src := filepath.Join(backupDir, a.def.Name, filepath.FromSlash(item.RelPath))
 		dst := filepath.Join(configDir, filepath.FromSlash(item.RelPath))
+
+		// Security: validate dst stays under homeDir.
+		cleanDst := path.Clean(filepath.ToSlash(dst))
+		if !strings.HasPrefix(cleanDst, cleanHome+"/") && cleanDst != cleanHome {
+			return fmt.Errorf("path traversal: item %q escapes home dir", item.RelPath)
+		}
 
 		if item.IsDir {
 			if err := os.MkdirAll(dst, 0755); err != nil {
@@ -160,14 +189,10 @@ func (a *ConfigAdapter) Restore(backupDir, homeDir string, items []Item) error {
 // adapter definitions. Files with invalid YAML or missing required fields
 // are rejected with an error. Returns an empty slice when the directory
 // does not exist.
-func LoadYAMLAdapters(dir string) ([]*ConfigAdapter, error) {
+func LoadYAMLAdapters(dir, homeDir string) ([]*ConfigAdapter, error) {
 	// Security: validate path stays under user home BEFORE any filesystem access.
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("get home dir: %w", err)
-	}
 	cleanDir := path.Clean(filepath.ToSlash(dir))
-	cleanHome := path.Clean(filepath.ToSlash(home))
+	cleanHome := path.Clean(filepath.ToSlash(homeDir))
 	if !strings.HasPrefix(cleanDir, cleanHome+"/") && cleanDir != cleanHome {
 		return nil, fmt.Errorf("path traversal: directory outside home")
 	}
@@ -190,8 +215,8 @@ func LoadYAMLAdapters(dir string) ([]*ConfigAdapter, error) {
 			continue
 		}
 
-		path := filepath.Join(dir, entry.Name())
-		ca, err := loadAdapterFile(path)
+		filePath := filepath.Join(dir, entry.Name())
+		ca, err := loadAdapterFile(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("load adapter %q: %w", entry.Name(), err)
 		}
@@ -202,8 +227,8 @@ func LoadYAMLAdapters(dir string) ([]*ConfigAdapter, error) {
 }
 
 // loadAdapterFile reads and validates a single YAML adapter file.
-func loadAdapterFile(path string) (*ConfigAdapter, error) {
-	data, err := os.ReadFile(path)
+func loadAdapterFile(filePath string) (*ConfigAdapter, error) {
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
@@ -277,7 +302,7 @@ func scanCategoryDir(dir, category, configDir string) ([]Item, error) {
 
 // copyFile copies a regular file from src to dst, creating parent
 // directories as needed.
-func copyFile(src, dst string) error {
+func copyFile(src, dst string) (err error) {
 	sf, err := os.Open(src)
 	if err != nil {
 		return fmt.Errorf("open src: %w", err)
@@ -292,9 +317,9 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return fmt.Errorf("create dst: %w", err)
 	}
-	defer df.Close()
 
 	if _, err := io.Copy(df, sf); err != nil {
+		df.Close()
 		return fmt.Errorf("copy: %w", err)
 	}
 
@@ -303,21 +328,21 @@ func copyFile(src, dst string) error {
 
 // fileHash computes the SHA-256 hex digest and file size for the given
 // regular file path.
-func fileHash(path string) (hash string, size int64, err error) {
-	f, err := os.Open(path)
+func fileHash(filePath string) (hash string, size int64, err error) {
+	f, err := os.Open(filePath)
 	if err != nil {
-		return "", 0, err
+		return "", 0, fmt.Errorf("open file: %w", err)
 	}
 	defer f.Close()
 
 	info, err := f.Stat()
 	if err != nil {
-		return "", 0, err
+		return "", 0, fmt.Errorf("stat file: %w", err)
 	}
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
-		return "", 0, err
+		return "", 0, fmt.Errorf("hash content: %w", err)
 	}
 
 	return fmt.Sprintf("sha256:%x", h.Sum(nil)), info.Size(), nil
