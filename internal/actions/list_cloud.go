@@ -24,6 +24,10 @@ type ListCloudAction struct {
 
 	// Verbose enables diagnostic output.
 	Verbose bool
+
+	// RegistryFactory creates the provider registry.
+	// If nil, Run() uses the default registry with all providers.
+	RegistryFactory func() *cloud.ProviderRegistry
 }
 
 // Run lists backups from the named cloud provider and writes a formatted
@@ -31,15 +35,20 @@ type ListCloudAction struct {
 func (a *ListCloudAction) Run(providerName string) error {
 	cfg := a.Config
 
-	reg := cloud.NewProviderRegistry()
+	var reg *cloud.ProviderRegistry
+	if a.RegistryFactory != nil {
+		reg = a.RegistryFactory()
+	} else {
+		reg = cloud.NewProviderRegistry()
 
-	// Register all available providers (they'll fail at runtime if not configured).
-	reg.Register(cloud.NewGitHubGistProvider(cfg, ""))
-	reg.Register(cloud.NewGitHubRepoProvider(cfg, "", cfg.Providers["github"].Repo))
-	reg.Register(cloud.NewCodebergProvider(cfg, "", cfg.Providers["codeberg"].Repo))
-	reg.Register(cloud.NewGiteaProvider(cfg, "", cfg.Providers["gitea"].BaseURL, cfg.Providers["gitea"].Repo))
-	reg.Register(cloud.NewRcloneProvider(cfg, cfg.Providers["rclone"].Remote))
-	reg.SetDefault("github-gist")
+		// Register all available providers (they'll fail at runtime if not configured).
+		reg.Register(cloud.NewGitHubGistProvider(cfg, ""))
+		reg.Register(cloud.NewGitHubRepoProvider(cfg, "", cfg.Providers["github"].Repo))
+		reg.Register(cloud.NewCodebergProvider(cfg, "", cfg.Providers["codeberg"].Repo))
+		reg.Register(cloud.NewGiteaProvider(cfg, "", cfg.Providers["gitea"].BaseURL, cfg.Providers["gitea"].Repo))
+		reg.Register(cloud.NewRcloneProvider(cfg, cfg.Providers["rclone"].Remote))
+		reg.SetDefault("github-gist")
+	}
 
 	provider, err := reg.Get(providerName)
 	if err != nil {
