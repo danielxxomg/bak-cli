@@ -77,7 +77,7 @@ func (a *RestoreAction) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	// 5. Validate manifest checksums before applying.
-	if err := m.Validate(a.BackupDir); err != nil {
+	if err := m.Validate(a.BackupDir, nil); err != nil {
 		if !a.Force {
 			return fmt.Errorf("manifest validation failed (use --force to override): %w", err)
 		}

@@ -1,11 +1,38 @@
 package actions
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
+
+// mockFileInfo implements os.FileInfo for testing.
+type mockFileInfo struct {
+	name  string
+	size  int64
+	isDir bool
+}
+
+func (m mockFileInfo) Name() string       { return m.name }
+func (m mockFileInfo) Size() int64        { return m.size }
+func (m mockFileInfo) Mode() os.FileMode  { return 0644 }
+func (m mockFileInfo) ModTime() time.Time { return time.Time{} }
+func (m mockFileInfo) IsDir() bool        { return m.isDir }
+func (m mockFileInfo) Sys() interface{}   { return nil }
+
+// mockDirEntry implements os.DirEntry for testing.
+type mockDirEntry struct {
+	name  string
+	isDir bool
+}
+
+func (m mockDirEntry) Name() string               { return m.name }
+func (m mockDirEntry) IsDir() bool                 { return m.isDir }
+func (m mockDirEntry) Type() fs.FileMode           { return 0 }
+func (m mockDirEntry) Info() (os.FileInfo, error)  { return mockFileInfo{name: m.name, isDir: m.isDir}, nil }
 
 // --- push helpers -------------------------------------------------------
 

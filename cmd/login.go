@@ -69,12 +69,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	tok, tokErr := cloud.ResolveToken(cfg)
-	if tokErr != nil {
-		if verbose {
-			fmt.Fprintf(os.Stderr, "warning: resolve token: %v\n", tokErr)
-		}
-	}
+	tok, _ := cloud.ResolveToken(cfg)
 	if tok != "" {
 		fmt.Println("Token already configured.")
 		fmt.Print("Do you want to replace it? [y/N]: ")
