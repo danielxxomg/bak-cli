@@ -54,6 +54,10 @@ func TestToCanonical(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Skip Windows-specific test cases on non-Windows platforms.
+			if strings.Contains(tt.name, "windows") && runtime.GOOS != "windows" {
+				t.Skip("skipping Windows-specific test on non-Windows platform")
+			}
 			got := toCanonical(tt.absPath, tt.homeDir)
 			if got != tt.want {
 				t.Errorf("toCanonical(%q, %q) = %q, want %q", tt.absPath, tt.homeDir, got, tt.want)
