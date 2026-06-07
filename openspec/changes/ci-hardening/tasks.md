@@ -57,15 +57,15 @@ Chain strategy: stacked-to-main
 
 ## Phase 4: FS Action Tests
 
-- [ ] 4.1 Create `internal/actions/verify_backup_test.go` — Use `configtest.SetConfigHome` + `t.TempDir()`, create fixture files with SHA-256 checksums, test pass + checksum mismatch + missing manifest
-- [ ] 4.2 Create `internal/actions/pick_backup_test.go` — Use `configtest.SetConfigHome` + `t.TempDir()`, create multiple backup dirs with manifests, test selection by criteria + empty dir error
-- [ ] 4.3 Create `internal/actions/diff_backups_test.go` — Use `configtest.SetConfigHome` + `t.TempDir()`, create two backup fixtures with different manifests, test diff output + identical + missing backup error
-- [ ] 4.4 Verify: `go test ./internal/actions/...` passes, all 3 new files ≥80% coverage
-- [ ] 4.5 Verify: `go test ./...` passes full suite, no regressions
+- [x] 4.1 Create `internal/actions/verify_backup_test.go` — Use `configtest.SetConfigHome` + `t.TempDir()`, create fixture files with SHA-256 checksums, test pass + checksum mismatch + missing manifest
+- [x] 4.2 Create `internal/actions/pick_backup_test.go` — Use `configtest.SetConfigHome` + `t.TempDir()`, create multiple backup dirs with manifests, test selection by criteria + empty dir error
+- [x] 4.3 Create `internal/actions/diff_backups_test.go` — Use `configtest.SetConfigHome` + `t.TempDir()`, create two backup fixtures with different manifests, test diff output + identical + missing backup error
+- [x] 4.4 Verify: `go test ./internal/actions/...` passes, all 3 new files ≥80% coverage
+- [x] 4.5 Verify: `go test ./...` passes full suite, no regressions
 
 ## Phase 5: Final Verification
 
 - [ ] 5.1 Run `golangci-lint run` — exits 0
-- [ ] 5.2 Run `go test ./...` — all pass
+- [x] 5.2 Run `go test ./...` — all pass
 - [ ] 5.3 Run GGA pre-commit — passes without `--no-verify`
 - [ ] 5.4 Confirm no behavior changes: all pre-existing tests still pass unchanged
