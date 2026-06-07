@@ -4,8 +4,8 @@ package diff
 
 import (
 	"path"
-	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
@@ -22,14 +22,14 @@ const (
 
 // DiffEntry represents one file-level difference between two backups.
 type DiffEntry struct {
-	SourcePath string   // canonical path (path.Clean + filepath.ToSlash)
+	SourcePath string   // canonical path (path.Clean + strings.ReplaceAll)
 	Category   Category
 	Adapter    string // adapter name from the manifest where the item was found
 }
 
 // canonicalPath normalizes a path for cross-platform comparison.
 func canonicalPath(p string) string {
-	return path.Clean(filepath.ToSlash(p))
+	return path.Clean(strings.ReplaceAll(p, "\\", "/"))
 }
 
 // indexedItem pairs a manifest item with its adapter name for diff computation.

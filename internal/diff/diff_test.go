@@ -220,6 +220,31 @@ func TestCanonicalPath(t *testing.T) {
 			input: "skills/",
 			want:  "skills",
 		},
+		{
+			name:  "windows absolute path",
+			input: `C:\Users\alice\.config\opencode`,
+			want:  "C:/Users/alice/.config/opencode",
+		},
+		{
+			name:  "unix absolute path",
+			input: "/home/alice/.config/opencode",
+			want:  "/home/alice/.config/opencode",
+		},
+		{
+			name:  "mixed slashes",
+			input: `C:/Users\alice/.config\opencode`,
+			want:  "C:/Users/alice/.config/opencode",
+		},
+		{
+			name:  "relative dot-dot path",
+			input: "../config",
+			want:  "../config",
+		},
+		{
+			name:  "empty string",
+			input: "",
+			want:  ".",
+		},
 	}
 
 	for _, tt := range tests {
