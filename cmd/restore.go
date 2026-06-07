@@ -1,13 +1,9 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
+	"errors"
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
-	"github.com/danielxxomg/bak-cli/internal/backup"
-	"github.com/danielxxomg/bak-cli/internal/presets"
-	restorepkg "github.com/danielxxomg/bak-cli/internal/restore"
 	"github.com/spf13/cobra"
 )
 
@@ -47,47 +43,28 @@ func init() {
 }
 
 func runRestore(cmd *cobra.Command, args []string) error {
+	return runRestoreWithDeps(cmd, args, depsFromCmd(cmd))
+}
+
+func runRestoreWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 	backupID := args[0]
 
 	// Validate backup ID format early (UX guard, action also validates).
-	if !isValidBackupID(backupID) {
-		return fmt.Errorf("%s", formatBackupIDError(backupID))
+	if !actions.IsValidBackupID(backupID) {
+		return errors.New(actions.FormatBackupIDError(backupID))
 	}
 
-	// Resolve backup directory.
-	backupDir, err := backup.ResolveBackupID(backupID)
-	if err != nil {
-		return fmt.Errorf("resolve backup %q: %w", backupID, err)
-	}
-
-	// Check for YAML presets override warning (informational).
-	if restoreOverride && verbose {
-		if _, err := presets.ResolveAll("quick", true); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: custom preset resolution: %v\n", err)
-		}
-	}
-
-	// Build and run action.
 	action := &actions.RestoreAction{
-		FS:        &actions.OSFileSystem{},
-		BackupDir: backupDir,
-		DryRun:    restoreDryRun,
-		Force:     restoreForce,
-		Verbose:   verbose,
+		FS:      &actions.OSFileSystem{},
+		DryRun:  restoreDryRun,
+		Force:   restoreForce,
+		Verbose: verbose,
+		Stdin:   deps.Stdin,
+	}
+
+	if err := action.ResolveBackup(backupID); err != nil {
+		return err
 	}
 
 	return action.Run(cmd, args)
-}
-
-// countByStatus returns the number of diffs with the given status.
-// Kept as a package-level helper for testability; RestoreAction
-// handles reporting internally.
-func countByStatus(diffs []restorepkg.FileDiff, status restorepkg.DiffStatus) int {
-	count := 0
-	for _, d := range diffs {
-		if d.Status == status {
-			count++
-		}
-	}
-	return count
 }
