@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/danielxxomg/bak-cli/internal/adapters"
-	"github.com/danielxxomg/bak-cli/internal/backup"
 	opencodeadapter "github.com/danielxxomg/bak-cli/internal/adapters/opencode"
+	"github.com/danielxxomg/bak-cli/internal/backup"
 )
 
 // CategoryItem represents a selectable backup category.
@@ -26,6 +27,34 @@ type PickResult struct {
 // Picker launches an interactive TUI and returns the user's selection.
 // The implementation is provided by the cmd package.
 type Picker func(categories []CategoryItem) (PickResult, error)
+
+// ResolveBackupID returns the backup ID from args or finds the most
+// recent backup when no argument is given.
+func ResolveBackupID(backupsDir string, args []string) (string, error) {
+	if len(args) > 0 && args[0] != "" {
+		return args[0], nil
+	}
+
+	entries, err := os.ReadDir(backupsDir)
+	if err != nil {
+		return "", fmt.Errorf("read backups dir: %w", err)
+	}
+
+	var ids []string
+	for _, e := range entries {
+		if e.IsDir() {
+			ids = append(ids, e.Name())
+		}
+	}
+
+	if len(ids) == 0 {
+		return "", fmt.Errorf("no backups found — run 'bak backup' first")
+	}
+
+	sort.Strings(ids)
+	// Most recent backup has the largest timestamp string.
+	return ids[len(ids)-1], nil
+}
 
 // PickBackupAction orchestrates the interactive picker and backup workflow.
 type PickBackupAction struct {

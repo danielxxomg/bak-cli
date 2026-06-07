@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/spf13/cobra"
 )
 
@@ -153,10 +154,11 @@ func TestFormatSizeBytes_Extended(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := formatSizeBytes(tt.bytes)
+			got := actions.FormatSizeBytes(tt.bytes)
 			if got != tt.want {
-				t.Errorf("formatSizeBytes(%d) = %q, want %q", tt.bytes, got, tt.want)
+				t.Errorf("actions.FormatSizeBytes(%d) = %q, want %q", tt.bytes, got, tt.want)
 			}
 		})
 	}
 }
+

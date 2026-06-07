@@ -6,12 +6,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/danielxxomg/bak-cli/internal/actions"
 )
 
 // --- resolveBackupID tests ---
 
 func TestResolveBackupID_ExplicitArg(t *testing.T) {
-	id, err := resolveBackupID("/nonexistent", []string{"20260604-150405"})
+	id, err := actions.ResolveBackupID("/nonexistent", []string{"20260604-150405"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -30,7 +32,7 @@ func TestResolveBackupID_Latest(t *testing.T) {
 		}
 	}
 
-	id, err := resolveBackupID(backupsDir, nil)
+	id, err := actions.ResolveBackupID(backupsDir, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -45,7 +47,7 @@ func TestResolveBackupID_EmptyArg(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	id, err := resolveBackupID(backupsDir, []string{""})
+	id, err := actions.ResolveBackupID(backupsDir, []string{""})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -57,7 +59,7 @@ func TestResolveBackupID_EmptyArg(t *testing.T) {
 func TestResolveBackupID_NoBackups(t *testing.T) {
 	backupsDir := t.TempDir()
 
-	_, err := resolveBackupID(backupsDir, nil)
+	_, err := actions.ResolveBackupID(backupsDir, nil)
 	if err == nil {
 		t.Fatal("expected error for empty backups dir")
 	}
@@ -68,7 +70,7 @@ func TestResolveBackupID_NoBackups(t *testing.T) {
 
 func TestResolveBackupID_DirNotFound(t *testing.T) {
 	nonexistentDir := filepath.Join(t.TempDir(), "definitely-not-real")
-	_, err := resolveBackupID(nonexistentDir, nil)
+	_, err := actions.ResolveBackupID(nonexistentDir, nil)
 	if err == nil {
 		t.Fatal("expected error for non-existent dir")
 	}
@@ -84,7 +86,7 @@ func TestResolveBackupID_OnlyDirsConsidered(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	id, err := resolveBackupID(backupsDir, nil)
+	id, err := actions.ResolveBackupID(backupsDir, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -99,7 +101,7 @@ func TestResolveBackupID_SingleBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	id, err := resolveBackupID(backupsDir, nil)
+	id, err := actions.ResolveBackupID(backupsDir, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -168,3 +170,4 @@ func TestRunPush_TooManyArgs(t *testing.T) {
 		t.Fatal("expected push command to reject 2 args")
 	}
 }
+
