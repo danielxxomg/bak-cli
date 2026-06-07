@@ -64,7 +64,10 @@ func runBackup(cmd *cobra.Command, args []string) error {
 
 	// --- Resolve profile (overrides CLI flags) ----------------------------
 	preset := backupPreset
-	adapterFilter := backupAdapter
+	var adapterFilter []string
+	if backupAdapter != "" {
+		adapterFilter = []string{backupAdapter}
+	}
 	var customCategories []string
 
 	if backupProfile != "" {
@@ -85,7 +88,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 			customCategories = p.Categories
 		}
 		if len(p.Adapters) > 0 {
-			adapterFilter = p.Adapters[0]
+			adapterFilter = p.Adapters
 		}
 
 		if verbose {
