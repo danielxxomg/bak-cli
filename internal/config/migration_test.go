@@ -138,11 +138,8 @@ func TestConfigMigration_Idempotent(t *testing.T) {
 		t.Errorf("second load: token = %q, want ghp_idem", githubCfg.Token)
 	}
 
-	// No second backup should be created.
-	if _, err := os.Stat(cfgPath + ".v010.bak"); os.IsNotExist(err) {
-		// The bak might have been overwritten with identical content — that's OK.
-		// We just verify no duplicate like .v010.bak.1
-	}
+	// No second backup should be created (the bak file from the first load
+	// may have been overwritten with identical content — that's OK).
 }
 
 func TestConfigMigration_NoGitHubToken_V020Migrated(t *testing.T) {

@@ -106,7 +106,7 @@ func (m pickModel) View() string {
 			check = checkedStyle.Render("[x]")
 		}
 
-		b.WriteString(fmt.Sprintf("%s%s %s\n", cursor, check, item.name))
+		fmt.Fprintf(&b, "%s%s %s\n", cursor, check, item.name)
 	}
 
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
@@ -127,10 +127,12 @@ func (m pickModel) Selected() []string {
 	return selected
 }
 
+// runPick is the cobra RunE handler for the pick command.
 func runPick(cmd *cobra.Command, args []string) error {
 	return runPickWithDeps(cmd, args, depsFromCmd(cmd))
 }
 
+// runPickWithDeps runs the pick command with injected dependencies.
 func runPickWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 	if !isTTY() {
 		return fmt.Errorf("interactive picker requires a terminal (TTY)")
