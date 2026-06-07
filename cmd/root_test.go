@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/danielxxomg/bak-cli/internal/restore"
 )
 
@@ -219,9 +220,9 @@ func TestFormatSizeBytes_FullRange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := formatSizeBytes(tt.bytes)
+			got := actions.FormatSizeBytes(tt.bytes)
 			if got != tt.want {
-				t.Errorf("formatSizeBytes(%d) = %q, want %q", tt.bytes, got, tt.want)
+				t.Errorf("actions.FormatSizeBytes(%d) = %q, want %q", tt.bytes, got, tt.want)
 			}
 		})
 	}
@@ -317,9 +318,9 @@ func TestCountByStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := countByStatus(tt.diffs, tt.status)
+			got := restore.CountByStatus(tt.diffs, tt.status)
 			if got != tt.want {
-				t.Errorf("countByStatus(diffs, %v) = %d, want %d", tt.status, got, tt.want)
+				t.Errorf("restore.CountByStatus(diffs, %v) = %d, want %d", tt.status, got, tt.want)
 			}
 		})
 	}
@@ -365,9 +366,9 @@ func TestIsValidBackupID_EdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isValidBackupID(tt.id)
+			got := actions.IsValidBackupID(tt.id)
 			if got != tt.want {
-				t.Errorf("isValidBackupID(%q) = %v, want %v", tt.id, got, tt.want)
+				t.Errorf("actions.IsValidBackupID(%q) = %v, want %v", tt.id, got, tt.want)
 			}
 		})
 	}
@@ -376,7 +377,7 @@ func TestIsValidBackupID_EdgeCases(t *testing.T) {
 // --- formatBackupIDError supplementary ---
 
 func TestFormatBackupIDError_ContainsFormatHint(t *testing.T) {
-	msg := formatBackupIDError("bad-id")
+	msg := actions.FormatBackupIDError("bad-id")
 	if !strings.Contains(msg, "YYYYMMDD-HHMMSS") {
 		t.Error("Error message should contain the expected format hint")
 	}
@@ -463,3 +464,5 @@ func TestExecute_UnknownCommand(t *testing.T) {
 		t.Fatal("unknown command should produce error")
 	}
 }
+
+

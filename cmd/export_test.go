@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/danielxxomg/bak-cli/internal/actions"
 )
 
 func TestExportCmd_Structure(t *testing.T) {
@@ -64,16 +66,16 @@ func TestIsValidBackupID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isValidBackupID(tt.id)
+			got := actions.IsValidBackupID(tt.id)
 			if got != tt.want {
-				t.Errorf("isValidBackupID(%q) = %v, want %v", tt.id, got, tt.want)
+				t.Errorf("actions.IsValidBackupID(%q) = %v, want %v", tt.id, got, tt.want)
 			}
 		})
 	}
 }
 
 func TestFormatBackupIDError(t *testing.T) {
-	msg := formatBackupIDError("invalid")
+	msg := actions.FormatBackupIDError("invalid")
 	if msg == "" {
 		t.Error("Error message should not be empty")
 	}
@@ -111,7 +113,7 @@ func TestCreateTarGz_RoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := createTarGz(srcDir, f); err != nil {
+	if err := actions.CreateTarGz(srcDir, f); err != nil {
 		f.Close()
 		t.Fatal(err)
 	}
@@ -252,7 +254,7 @@ func TestCreateTarGz_EmptyDir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := createTarGz(srcDir, f); err != nil {
+	if err := actions.CreateTarGz(srcDir, f); err != nil {
 		f.Close()
 		t.Fatal(err)
 	}
@@ -287,3 +289,4 @@ func TestCreateTarGz_EmptyDir(t *testing.T) {
 		t.Errorf("Expected EOF after directory entry, got %v", err)
 	}
 }
+

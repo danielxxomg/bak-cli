@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
@@ -28,6 +29,17 @@ type FileDiff struct {
 	BackupPath string     // path within backup directory
 	Status     DiffStatus // classification
 	Diff       string     // unified diff for modified files; empty otherwise
+}
+
+// CountByStatus returns the number of diffs with the given status.
+func CountByStatus(diffs []FileDiff, status DiffStatus) int {
+	count := 0
+	for _, d := range diffs {
+		if d.Status == status {
+			count++
+		}
+	}
+	return count
 }
 
 // ComputeDryRun reads the manifest, resolves every item's target path,
@@ -93,9 +105,9 @@ func unifiedDiff(path, current, incoming string) string {
 		return ""
 	}
 
-	var out string
-	out += fmt.Sprintf("--- a/%s\n", path)
-	out += fmt.Sprintf("+++ b/%s\n", path)
+	var out strings.Builder
+	out.WriteString(fmt.Sprintf("--- a/%s\n", path))
+	out.WriteString(fmt.Sprintf("+++ b/%s\n", path))
 
 	// Simple line-by-line diff: mark lines unique to current as removed,
 	// lines unique to incoming as added.
@@ -115,20 +127,20 @@ func unifiedDiff(path, current, incoming string) string {
 		}
 
 		if cur == inc {
-			out += fmt.Sprintf("  %s\n", cur)
+			out.WriteString(fmt.Sprintf("  %s\n", cur))
 		} else {
 			if cur != "" || inc != "" {
 				if cur != "" {
-					out += fmt.Sprintf("- %s\n", cur)
+					out.WriteString(fmt.Sprintf("- %s\n", cur))
 				}
 				if inc != "" {
-					out += fmt.Sprintf("+ %s\n", inc)
+					out.WriteString(fmt.Sprintf("+ %s\n", inc))
 				}
 			}
 		}
 	}
 
-	return out
+	return out.String()
 }
 
 // splitLines splits content into lines preserving empty trailing line.
