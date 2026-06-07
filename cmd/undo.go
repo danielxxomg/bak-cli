@@ -1,11 +1,8 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-
 	gitutil "github.com/danielxxomg/bak-cli/internal/git"
+	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/spf13/cobra"
 )
 
@@ -32,26 +29,20 @@ func init() {
 }
 
 func runUndo(cmd *cobra.Command, args []string) error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("cannot determine home directory: %w", err)
+	return runUndoWithDeps(cmd, args, depsFromCmd(cmd))
+}
+
+func runUndoWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
+	action := &actions.UndoAction{
+		Stdout: deps.Stdout,
+		IsRepo: gitutil.IsRepo,
+		UndoFn: func(repoPath string) error {
+			repo, err := gitutil.OpenRepo(repoPath)
+			if err != nil {
+				return err
+			}
+			return gitutil.Undo(repo)
+		},
 	}
-
-	bakDir := filepath.Join(homeDir, ".bak")
-
-	if !gitutil.IsRepo(bakDir) {
-		return fmt.Errorf("no bak repository found at %s — run 'bak backup' first", bakDir)
-	}
-
-	repo, err := gitutil.OpenRepo(bakDir)
-	if err != nil {
-		return fmt.Errorf("open bak repository: %w", err)
-	}
-
-	if err := gitutil.Undo(repo); err != nil {
-		return fmt.Errorf("undo failed: %w", err)
-	}
-
-	fmt.Println("✅ Reverted to previous state")
-	return nil
+	return action.Run()
 }

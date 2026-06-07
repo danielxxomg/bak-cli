@@ -2,14 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/danielxxomg/bak-cli/internal/adapters"
-	opencodeadapter "github.com/danielxxomg/bak-cli/internal/adapters/opencode"
-	"github.com/danielxxomg/bak-cli/internal/backup"
+	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/spf13/cobra"
 )
 
@@ -131,84 +128,41 @@ func (m pickModel) Selected() []string {
 }
 
 func runPick(cmd *cobra.Command, args []string) error {
-	// Define available categories.
-	categories := []categoryItem{
-		{name: "skills", checked: true},
-		{name: "commands", checked: true},
-		{name: "config", checked: true},
-		{name: "plugins", checked: false},
-		{name: "agents", checked: false},
-	}
+	return runPickWithDeps(cmd, args, depsFromCmd(cmd))
+}
 
-	m := pickModel{
-		items:  categories,
-		cursor: 0,
-	}
-
+func runPickWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 	if !isTTY() {
 		return fmt.Errorf("interactive picker requires a terminal (TTY)")
 	}
 
-	p := tea.NewProgram(m)
-	result, err := p.Run()
-	if err != nil {
-		return fmt.Errorf("tui: %w", err)
+	action := &actions.PickBackupAction{
+		Stdout:  deps.Stdout,
+		Verbose: verbose,
+		Picker: func(categories []actions.CategoryItem) (actions.PickResult, error) {
+			items := make([]categoryItem, len(categories))
+			for i, c := range categories {
+				items[i] = categoryItem{name: c.Name, checked: c.Checked}
+			}
+
+			m := pickModel{items: items}
+			p := tea.NewProgram(m)
+			result, err := p.Run()
+			if err != nil {
+				return actions.PickResult{}, err
+			}
+
+			model, ok := result.(pickModel)
+			if !ok {
+				return actions.PickResult{}, fmt.Errorf("unexpected model type: %T", result)
+			}
+
+			return actions.PickResult{
+				Selected:  model.Selected(),
+				Confirmed: model.confirmed && !model.quitting,
+			}, nil
+		},
 	}
 
-	model, ok := result.(pickModel)
-	if !ok {
-		return fmt.Errorf("unexpected model type: %T", result)
-	}
-
-	if model.quitting || !model.confirmed {
-		fmt.Println("Backup cancelled.")
-		return nil
-	}
-
-	selected := model.Selected()
-	if len(selected) == 0 {
-		fmt.Println("No categories selected. Backup cancelled.")
-		return nil
-	}
-
-	fmt.Printf("Selected categories: %s\n", strings.Join(selected, ", "))
-
-	// Run backup with custom categories.
-	bakDir, err := backup.BakDir()
-	if err != nil {
-		return fmt.Errorf("bak dir: %w", err)
-	}
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("home dir: %w", err)
-	}
-
-	// Wire adapters (same as backup command).
-	reg := adapters.NewRegistry()
-	if err := reg.Register(&opencodeadapter.Adapter{}); err != nil {
-		return fmt.Errorf("register opencode adapter: %w", err)
-	}
-
-	engine := &backup.Engine{
-		HomeDir:         homeDir,
-		BakDir:          bakDir,
-		Registry:        reg,
-		BakVersion:      Version,
-		Verbose:         verbose,
-		CustomCategories: selected,
-	}
-
-	result2, err := engine.Run()
-	if err != nil {
-		return fmt.Errorf("backup failed: %w", err)
-	}
-
-	fmt.Printf("✅ Backup created: %s\n", result2.ID)
-	fmt.Printf("   Files: %d, Size: %d bytes\n", result2.FileCount, result2.TotalSize)
-	if result2.Secrets > 0 {
-		fmt.Printf("   Secrets excluded: %d files\n", result2.Secrets)
-	}
-
-	return nil
+	return action.Run()
 }

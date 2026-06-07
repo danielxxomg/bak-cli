@@ -1,12 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-	"strings"
-
-	"github.com/danielxxomg/bak-cli/internal/config"
-	"github.com/danielxxomg/bak-cli/internal/schedule"
+	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/spf13/cobra"
 )
 
@@ -54,47 +49,16 @@ func init() {
 }
 
 func runScheduleCreate(cmd *cobra.Command, args []string) error {
-	profile := args[0]
-	interval := scheduleCreateEvery
-	out := cmd.OutOrStdout()
+	return runScheduleCreateWithDeps(cmd, args, depsFromCmd(cmd))
+}
 
-	// Validate interval.
-	if !schedule.IsValidInterval(interval) {
-		valid := schedule.ValidIntervals()
-		return fmt.Errorf("invalid interval %q (valid: %s)", interval, strings.Join(valid, ", "))
+func runScheduleCreateWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
+	action := &actions.ScheduleAction{
+		ConfigLoader: deps.ConfigLoader,
+		Stdout:       deps.Stdout,
+		Stderr:       deps.Stderr,
 	}
-
-	// Load config and validate profile exists.
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-
-	pc, ok := cfg.Profiles[profile]
-	if !ok {
-		return fmt.Errorf("profile %q not found — use 'bak profile list' to see configured profiles", profile)
-	}
-
-	// Create the scheduled task.
-	s := schedule.NewScheduler()
-	if err := s.Create(profile, interval); err != nil {
-		return fmt.Errorf("schedule create: %w", err)
-	}
-
-	// Update profile config.
-	pc.Schedule = &config.ScheduleConfig{
-		Enabled:  true,
-		Interval: interval,
-	}
-	cfg.Profiles[profile] = pc
-
-	if err := cfg.Save(); err != nil {
-		// Warn but don't fail — the schedule is already created.
-		fmt.Fprintf(os.Stderr, "warning: schedule created but config save failed: %v\n", err)
-	}
-
-	fmt.Fprintf(out, "Schedule created for profile %q (interval: %s)\n", profile, interval)
-	return nil
+	return action.Create(args[0], scheduleCreateEvery)
 }
 
 // --- list ---
@@ -112,32 +76,14 @@ func init() {
 }
 
 func runScheduleList(cmd *cobra.Command, args []string) error {
-	out := cmd.OutOrStdout()
+	return runScheduleListWithDeps(cmd, args, depsFromCmd(cmd))
+}
 
-	s := schedule.NewScheduler()
-	entries, err := s.List()
-	if err != nil {
-		return fmt.Errorf("schedule list: %w", err)
+func runScheduleListWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
+	action := &actions.ScheduleAction{
+		Stdout: deps.Stdout,
 	}
-
-	if len(entries) == 0 {
-		fmt.Fprintln(out, "No bak-cli schedules found.")
-		return nil
-	}
-
-	// Header.
-	fmt.Fprintf(out, "%-20s %-15s\n", "PROFILE", "INTERVAL")
-	fmt.Fprintln(out, strings.Repeat("-", 40))
-
-	for _, e := range entries {
-		interval := e.Interval
-		if interval == "" {
-			interval = "—"
-		}
-		fmt.Fprintf(out, "%-20s %-15s\n", e.Profile, interval)
-	}
-
-	return nil
+	return action.List()
 }
 
 // --- remove ---
@@ -159,29 +105,14 @@ func init() {
 }
 
 func runScheduleRemove(cmd *cobra.Command, args []string) error {
-	profile := args[0]
-	out := cmd.OutOrStdout()
+	return runScheduleRemoveWithDeps(cmd, args, depsFromCmd(cmd))
+}
 
-	// Remove the scheduled task.
-	s := schedule.NewScheduler()
-	if err := s.Remove(profile); err != nil {
-		return fmt.Errorf("schedule remove: %w", err)
+func runScheduleRemoveWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
+	action := &actions.ScheduleAction{
+		ConfigLoader: deps.ConfigLoader,
+		Stdout:       deps.Stdout,
+		Stderr:       deps.Stderr,
 	}
-
-	// Clear profile schedule config.
-	cfg, err := config.Load()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: schedule removed but config load failed: %v\n", err)
-	} else {
-		if pc, ok := cfg.Profiles[profile]; ok {
-			pc.Schedule = nil
-			cfg.Profiles[profile] = pc
-			if err := cfg.Save(); err != nil {
-				fmt.Fprintf(os.Stderr, "warning: schedule removed but config save failed: %v\n", err)
-			}
-		}
-	}
-
-	fmt.Fprintf(out, "Schedule removed for profile %q.\n", profile)
-	return nil
+	return action.Remove(args[0])
 }
