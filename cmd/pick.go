@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// pickCmd represents the interactive category picker command.
 var pickCmd = &cobra.Command{
 	Use:   "pick",
 	Short: "Interactively select categories and run a backup",
@@ -144,10 +145,14 @@ func runPick(cmd *cobra.Command, args []string) error {
 		cursor: 0,
 	}
 
+	if !isTTY() {
+		return fmt.Errorf("interactive picker requires a terminal (TTY)")
+	}
+
 	p := tea.NewProgram(m)
 	result, err := p.Run()
 	if err != nil {
-		return fmt.Errorf("TUI error: %w", err)
+		return fmt.Errorf("tui: %w", err)
 	}
 
 	model, ok := result.(pickModel)

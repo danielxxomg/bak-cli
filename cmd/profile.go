@@ -355,6 +355,9 @@ func runProfileCreateInteractive(cmd *cobra.Command, name string) error {
 	}
 
 	// Launch wizard.
+	if !isTTY() {
+		return fmt.Errorf("interactive wizard requires a terminal (TTY)")
+	}
 	m := newWizardModel("profile-create", providers)
 	p := tea.NewProgram(m)
 	finalModel, err := p.Run()
