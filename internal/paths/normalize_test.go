@@ -97,6 +97,10 @@ func TestFromCanonical(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Skip Windows-specific test cases on non-Windows platforms.
+			if strings.Contains(tt.name, "windows") && runtime.GOOS != "windows" {
+				t.Skip("skipping Windows-specific test on non-Windows platform")
+			}
 			got := FromCanonical(tt.canonical, tt.homeDir)
 			if got != tt.want {
 				t.Errorf("FromCanonical(%q, %q) = %q, want %q", tt.canonical, tt.homeDir, got, tt.want)
@@ -126,6 +130,10 @@ func TestIsUnderHome(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Skip Windows-specific test cases on non-Windows platforms.
+			if strings.Contains(tt.name, "windows") && runtime.GOOS != "windows" {
+				t.Skip("skipping Windows-specific test on non-Windows platform")
+			}
 			got := isUnder(tt.absPath, tt.homeDir)
 			if got != tt.want {
 				t.Errorf("isUnder(%q, %q) = %v, want %v", tt.absPath, tt.homeDir, got, tt.want)
