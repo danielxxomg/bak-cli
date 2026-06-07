@@ -8,14 +8,15 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 )
 
 // RunExport creates a gzipped tar archive of the specified backup and writes
 // a confirmation message to out.
 func RunExport(homeDir, backupID, outputPath string, out io.Writer) error {
 	// Validate backup ID format.
-	if !isValidBackupID(backupID) {
-		return fmt.Errorf("invalid backup ID %q (expected format: YYYYMMDD-HHMMSS, e.g. 20260604-150405)", backupID)
+	if !IsValidBackupID(backupID) {
+		return fmt.Errorf("%s", FormatBackupIDError(backupID))
 	}
 
 	sourceDir := filepath.Join(homeDir, ".bak", "backups", backupID)
@@ -29,7 +30,7 @@ func RunExport(homeDir, backupID, outputPath string, out io.Writer) error {
 		return fmt.Errorf("access backup dir: %w", err)
 	}
 	if !info.IsDir() {
-		return fmt.Errorf("%q is not a directory", sourceDir)
+		return fmt.Errorf("backup %q is not a directory", backupID)
 	}
 
 	// Create output file.
@@ -87,7 +88,7 @@ func CreateTarGz(srcDir string, w io.Writer) (retErr error) {
 		if err != nil {
 			return fmt.Errorf("relative path: %w", err)
 		}
-		rel = path.Clean(filepath.ToSlash(rel))
+		rel = path.Clean(strings.ReplaceAll(rel, "\\", "/"))
 
 		info, err := d.Info()
 		if err != nil {
@@ -114,18 +115,22 @@ func CreateTarGz(srcDir string, w io.Writer) (retErr error) {
 		if err != nil {
 			return fmt.Errorf("open %q: %w", walkPath, err)
 		}
-		defer src.Close()
 
 		if _, err := io.Copy(tw, src); err != nil {
+			src.Close()
 			return fmt.Errorf("copy %q to tar: %w", walkPath, err)
+		}
+
+		if err := src.Close(); err != nil {
+			return fmt.Errorf("close %q: %w", walkPath, err)
 		}
 
 		return nil
 	})
 }
 
-// isValidBackupID checks the format YYYYMMDD-HHMMSS.
-func isValidBackupID(id string) bool {
+// IsValidBackupID checks the format YYYYMMDD-HHMMSS.
+func IsValidBackupID(id string) bool {
 	if len(id) != 15 || id[8] != '-' {
 		return false
 	}
@@ -138,4 +143,9 @@ func isValidBackupID(id string) bool {
 		}
 	}
 	return true
+}
+
+// FormatBackupIDError returns a user-friendly error message for invalid backup IDs.
+func FormatBackupIDError(id string) string {
+	return fmt.Sprintf("invalid backup ID %q (expected format: YYYYMMDD-HHMMSS, e.g. 20260604-150405)", id)
 }
