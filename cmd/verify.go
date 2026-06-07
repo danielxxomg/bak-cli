@@ -1,10 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-
-	"github.com/danielxxomg/bak-cli/internal/backup"
-	"github.com/danielxxomg/bak-cli/internal/manifest"
+	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/spf13/cobra"
 )
 
@@ -29,33 +26,14 @@ func init() {
 }
 
 func runVerify(cmd *cobra.Command, args []string) error {
-	backupID := args[0]
+	return runVerifyWithDeps(cmd, args, depsFromCmd(cmd))
+}
 
-	backupDir, err := backup.ResolveBackupID(backupID)
-	if err != nil {
-		return fmt.Errorf("resolve backup %q: %w", backupID, err)
+func runVerifyWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
+	action := &actions.VerifyBackupAction{
+		Stdout:  deps.Stdout,
+		Stderr:  deps.Stderr,
+		Verbose: verbose,
 	}
-
-	m, err := manifest.Load(backupDir)
-	if err != nil {
-		return fmt.Errorf("load manifest: %w", err)
-	}
-
-	if verbose {
-		fmt.Fprintf(cmd.ErrOrStderr(), "Verifying %d files in backup %q...\n", m.FileCount, backupID)
-	}
-
-	var progressFn func(string)
-	if verbose {
-		progressFn = func(path string) {
-			fmt.Fprintf(cmd.ErrOrStderr(), "  verifying %s\n", path)
-		}
-	}
-
-	if err := m.Validate(backupDir, progressFn); err != nil {
-		return err
-	}
-
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ backup %q verified (%d files)\n", backupID, m.FileCount)
-	return nil
+	return action.Run(args[0])
 }

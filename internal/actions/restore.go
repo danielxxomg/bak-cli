@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/danielxxomg/bak-cli/internal/backup"
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 	restorepkg "github.com/danielxxomg/bak-cli/internal/restore"
 	"github.com/spf13/cobra"
@@ -27,6 +28,16 @@ type RestoreAction struct {
 
 	// Stdin is the reader for confirmation prompts. Nil falls back to os.Stdin.
 	Stdin io.Reader
+}
+
+// ResolveBackup resolves the backup ID to a directory path and sets a.BackupDir.
+func (a *RestoreAction) ResolveBackup(backupID string) error {
+	dir, err := backup.ResolveBackupID(backupID)
+	if err != nil {
+		return fmt.Errorf("resolve backup %q: %w", backupID, err)
+	}
+	a.BackupDir = dir
+	return nil
 }
 
 // Run executes the restore workflow: load manifest, compute diffs, and
@@ -149,8 +160,8 @@ func (a *RestoreAction) restoreFile(d restorepkg.FileDiff) error {
 	src := filepath.Join(a.BackupDir, d.BackupPath)
 
 	// Security: validate source path stays under backup directory.
-	cleanSrc := path.Clean(filepath.ToSlash(src))
-	cleanBackupDir := path.Clean(filepath.ToSlash(a.BackupDir)) + "/"
+	cleanSrc := path.Clean(strings.ReplaceAll(src, "\\", "/"))
+	cleanBackupDir := path.Clean(strings.ReplaceAll(a.BackupDir, "\\", "/")) + "/"
 	if !strings.HasPrefix(cleanSrc, cleanBackupDir) {
 		return fmt.Errorf("source path escapes backup directory")
 	}
@@ -160,8 +171,8 @@ func (a *RestoreAction) restoreFile(d restorepkg.FileDiff) error {
 	if err != nil {
 		return fmt.Errorf("home dir: %w", err)
 	}
-	cleanTarget := path.Clean(filepath.ToSlash(d.TargetPath))
-	cleanHome := path.Clean(filepath.ToSlash(homeDir)) + "/"
+	cleanTarget := path.Clean(strings.ReplaceAll(d.TargetPath, "\\", "/"))
+	cleanHome := path.Clean(strings.ReplaceAll(homeDir, "\\", "/")) + "/"
 	if !strings.HasPrefix(cleanTarget, cleanHome) {
 		return fmt.Errorf("target path escapes home directory")
 	}
