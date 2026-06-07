@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
@@ -34,38 +33,16 @@ func init() {
 }
 
 func runExport(cmd *cobra.Command, args []string) error {
+	return runExportWithDeps(cmd, args, depsFromCmd(cmd))
+}
+
+func runExportWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 	backupID := args[0]
 
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return err
+		return fmt.Errorf("get home directory: %w", err)
 	}
 
-	return actions.RunExport(homeDir, backupID, exportOutput, cmd.OutOrStdout())
-}
-
-// createTarGz delegates to the actions package for test backward compatibility.
-func createTarGz(srcDir string, w io.Writer) error {
-	return actions.CreateTarGz(srcDir, w)
-}
-
-// isValidBackupID checks the format YYYYMMDD-HHMMSS.
-func isValidBackupID(id string) bool {
-	if len(id) != 15 || id[8] != '-' {
-		return false
-	}
-	for i, c := range id {
-		if i == 8 {
-			continue
-		}
-		if c < '0' || c > '9' {
-			return false
-		}
-	}
-	return true
-}
-
-// formatBackupIDError returns a user-friendly error for invalid IDs.
-func formatBackupIDError(id string) string {
-	return fmt.Sprintf("invalid backup ID %q (expected format: YYYYMMDD-HHMMSS, e.g. 20260604-150405)", id)
+	return actions.RunExport(homeDir, backupID, exportOutput, deps.Stdout)
 }
