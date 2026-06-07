@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/danielxxomg/bak-cli/internal/config/testutil"
 )
 
 func TestLoadPath_NonExistent(t *testing.T) {
@@ -591,8 +593,10 @@ func TestSave_ScheduleConfig_MultipleIntervals(t *testing.T) {
 }
 
 func TestLoad_ViaEnvVar(t *testing.T) {
-	// Set XDG_CONFIG_HOME to a temp dir so Load() finds our config.
+	// Use configtest.SetConfigHome so Load() finds our config on every OS.
 	dir := t.TempDir()
+	configtest.SetConfigHome(t, dir)
+
 	cfgDir := filepath.Join(dir, "bak")
 	if err := os.MkdirAll(cfgDir, 0755); err != nil {
 		t.Fatal(err)
@@ -604,16 +608,6 @@ func TestLoad_ViaEnvVar(t *testing.T) {
 	if err := os.WriteFile(cfgPath, []byte(data), 0644); err != nil {
 		t.Fatal(err)
 	}
-
-	// Override config dir env var.
-	origXDG := os.Getenv("XDG_CONFIG_HOME")
-	origAPPDATA := os.Getenv("APPDATA")
-	t.Cleanup(func() {
-		os.Setenv("XDG_CONFIG_HOME", origXDG)
-		os.Setenv("APPDATA", origAPPDATA)
-	})
-	os.Setenv("XDG_CONFIG_HOME", dir)
-	os.Setenv("APPDATA", dir)
 
 	cfg, err := Load()
 	if err != nil {
@@ -634,15 +628,7 @@ func TestLoad_ViaEnvVar(t *testing.T) {
 func TestLoad_NonExistentConfig(t *testing.T) {
 	// Load with a config dir that has no config.json should return defaults.
 	dir := t.TempDir()
-
-	origXDG := os.Getenv("XDG_CONFIG_HOME")
-	origAPPDATA := os.Getenv("APPDATA")
-	t.Cleanup(func() {
-		os.Setenv("XDG_CONFIG_HOME", origXDG)
-		os.Setenv("APPDATA", origAPPDATA)
-	})
-	os.Setenv("XDG_CONFIG_HOME", dir)
-	os.Setenv("APPDATA", dir)
+	configtest.SetConfigHome(t, dir)
 
 	cfg, err := Load()
 	if err != nil {
@@ -657,15 +643,7 @@ func TestSave_EmptyPath(t *testing.T) {
 	// Save with empty path should use DefaultPath().
 	// We override env vars so DefaultPath() goes to our temp dir.
 	dir := t.TempDir()
-
-	origXDG := os.Getenv("XDG_CONFIG_HOME")
-	origAPPDATA := os.Getenv("APPDATA")
-	t.Cleanup(func() {
-		os.Setenv("XDG_CONFIG_HOME", origXDG)
-		os.Setenv("APPDATA", origAPPDATA)
-	})
-	os.Setenv("XDG_CONFIG_HOME", dir)
-	os.Setenv("APPDATA", dir)
+	configtest.SetConfigHome(t, dir)
 
 	cfg := &Config{GitHubToken: "ghp_empty_path"}
 	if err := cfg.Save(); err != nil {
