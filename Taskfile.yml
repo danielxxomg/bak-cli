@@ -54,14 +54,16 @@ tasks:
         platforms: [windows]
 
   e2e:
-    desc: Run end-to-end tests (Phase 5 — stub)
+    desc: Run end-to-end testscript tests
     cmds:
-      - echo "E2E tests not yet implemented (Phase 5 — testscript)"
+      - go test -v ./tests/e2e/
 
   fuzz:
-    desc: Run fuzz tests (Phase 6 — stub)
+    desc: Run fuzz tests (10s each seed)
     cmds:
-      - echo "Fuzz tests not yet implemented (Phase 6)"
+      - go test -fuzz=FuzzLoadFromDir -fuzztime=10s ./internal/presets/
+      - go test -fuzz=FuzzLoad -fuzztime=10s ./internal/manifest/
+      - go test -fuzz=FuzzLoadYAMLAdapters -fuzztime=10s ./internal/adapters/
 
   bench:
     desc: Run benchmarks
@@ -78,6 +80,12 @@ tasks:
     cmds:
       - govulncheck ./...
       - gosec ./...
+
+  goreleaser-verify:
+    desc: Validate GoReleaser configuration and snapshot build
+    cmds:
+      - goreleaser check
+      - goreleaser build --snapshot --clean --skip=validate
 
   ci:
     desc: Run full CI pipeline (fmt → lint → vet → test → cover → security → build)
