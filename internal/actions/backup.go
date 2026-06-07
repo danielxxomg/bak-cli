@@ -29,7 +29,7 @@ type BackupAction struct {
 
 	// Parameters (from CLI flags).
 	Preset          string
-	AdapterFilter   string
+	AdapterFilter   []string
 	Verbose         bool
 	BakVersion      string
 	SecretPatterns  []*regexp.Regexp
@@ -61,22 +61,24 @@ func (a *BackupAction) Run(cmd *cobra.Command, args []string) error {
 	// 3. Identify which adapters to run.
 	var detected []adapters.DetectedAdapter
 
-	if a.AdapterFilter != "" {
-		adp, ok := a.Registry.Get(a.AdapterFilter)
-		if !ok {
-			return fmt.Errorf("adapter %q not registered", a.AdapterFilter)
+	if len(a.AdapterFilter) > 0 {
+		for _, filterName := range a.AdapterFilter {
+			adp, ok := a.Registry.Get(filterName)
+			if !ok {
+				return fmt.Errorf("adapter %q not registered", filterName)
+			}
+			installed, configDir, err := adp.Detect(homeDir)
+			if err != nil {
+				return fmt.Errorf("detect %q: %w", filterName, err)
+			}
+			if !installed {
+				return fmt.Errorf("adapter %q: config directory not found", filterName)
+			}
+			detected = append(detected, adapters.DetectedAdapter{
+				Adapter:   adp,
+				ConfigDir: configDir,
+			})
 		}
-		installed, configDir, err := adp.Detect(homeDir)
-		if err != nil {
-			return fmt.Errorf("detect %q: %w", a.AdapterFilter, err)
-		}
-		if !installed {
-			return fmt.Errorf("adapter %q: config directory not found", a.AdapterFilter)
-		}
-		detected = append(detected, adapters.DetectedAdapter{
-			Adapter:   adp,
-			ConfigDir: configDir,
-		})
 	} else {
 		detected = a.Registry.DetectAll(homeDir)
 	}
@@ -142,7 +144,7 @@ func (a *BackupAction) Run(cmd *cobra.Command, args []string) error {
 		// Remove secret-bearing files.
 		for _, sf := range secretFiles {
 			if err := a.FS.RemoveAll(sf); err != nil && a.Verbose {
-				fmt.Fprintf(os.Stderr, "warning: could not remove secret file %s: %v\n", sf, err)
+				fmt.Fprintf(os.Stderr, "warning: could not remove secret file: %v\n", err)
 			}
 		}
 
