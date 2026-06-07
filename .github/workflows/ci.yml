@@ -25,7 +25,7 @@ jobs:
       - name: Install Task
         uses: arduino/setup-task@v2
         with:
-          version: 3.x
+          version: 3.42.1
 
       - name: Install goimports
         run: go install golang.org/x/tools/cmd/goimports@latest
@@ -33,7 +33,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v4
         with:
-          version: latest
+          version: v1.64.5
 
       - name: Run task lint
         run: task lint
@@ -58,7 +58,7 @@ jobs:
       - name: Install Task
         uses: arduino/setup-task@v2
         with:
-          version: 3.x
+          version: 3.42.1
 
       - name: Vet
         run: task vet
@@ -82,7 +82,7 @@ jobs:
       - name: Install Task
         uses: arduino/setup-task@v2
         with:
-          version: 3.x
+          version: 3.42.1
 
       - name: Run coverage
         run: task cover
@@ -109,7 +109,7 @@ jobs:
       - name: Install Task
         uses: arduino/setup-task@v2
         with:
-          version: 3.x
+          version: 3.42.1
 
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
@@ -162,7 +162,7 @@ jobs:
       - name: Install Task
         uses: arduino/setup-task@v2
         with:
-          version: 3.x
+          version: 3.42.1
 
       - name: Build binary
         run: task build
