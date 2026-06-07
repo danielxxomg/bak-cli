@@ -5,8 +5,21 @@ package schedule
 import (
 	"bytes"
 	"fmt"
+	"os/exec"
 	"strings"
+	"syscall"
 )
+
+// isAdminFn is a variable so tests can replace it with a mock.
+var isAdminFn = isAdmin
+
+// isAdmin reports whether the current process is running with administrator
+// privileges on Windows by checking if "net session" succeeds.
+func isAdmin() bool {
+	cmd := exec.Command("net", "session")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	return cmd.Run() == nil
+}
 
 // NewScheduler returns the platform-appropriate Scheduler implementation.
 func NewScheduler() Scheduler {
@@ -15,6 +28,10 @@ func NewScheduler() Scheduler {
 
 // Create adds a schtasks scheduled task for the given profile.
 func (s *SchtasksScheduler) Create(profile string, interval string) error {
+	if !isAdminFn() {
+		return fmt.Errorf("administrator privileges required to create scheduled tasks; run as administrator")
+	}
+
 	args := buildSchtasksCreateArgs(profile, interval)
 	cmd := execCommand("schtasks", args...)
 
