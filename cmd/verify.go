@@ -45,7 +45,14 @@ func runVerify(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(cmd.ErrOrStderr(), "Verifying %d files in backup %q...\n", m.FileCount, backupID)
 	}
 
-	if err := m.Validate(backupDir); err != nil {
+	var progressFn func(string)
+	if verbose {
+		progressFn = func(path string) {
+			fmt.Fprintf(cmd.ErrOrStderr(), "  verifying %s\n", path)
+		}
+	}
+
+	if err := m.Validate(backupDir, progressFn); err != nil {
 		return err
 	}
 

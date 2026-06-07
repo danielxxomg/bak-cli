@@ -69,7 +69,12 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	tok, _ := cloud.ResolveToken(cfg)
+	tok, tokErr := cloud.ResolveToken(cfg)
+	if tokErr != nil {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "warning: resolve token: %v\n", tokErr)
+		}
+	}
 	if tok != "" {
 		fmt.Println("Token already configured.")
 		fmt.Print("Do you want to replace it? [y/N]: ")
@@ -95,7 +100,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	token := strings.TrimSpace(input)
 
 	if token == "" {
-		return fmt.Errorf("token cannot be empty")
+		return fmt.Errorf("login: token cannot be empty")
 	}
 
 	// 3. Validate token.
@@ -142,6 +147,9 @@ func runLoginInteractive(cmd *cobra.Command) error {
 	}
 
 	// Launch wizard (only provider selection step is relevant for login).
+	if !isTTY() {
+		return fmt.Errorf("interactive login requires a terminal (TTY)")
+	}
 	m := newWizardModel("login", providers)
 	p := tea.NewProgram(m)
 	finalModel, err := p.Run()
