@@ -129,18 +129,15 @@ func TestRunDiff_AllCategories(t *testing.T) {
 
 	id1, id2 := stageDiffBackups(t, tmpDir)
 
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
+	deps, stdout, _ := setupTestDeps(t)
 
-	rootCmd.SetArgs([]string{"diff", id1, id2})
-	err := rootCmd.Execute()
+	cmd := &cobra.Command{}
+	err := runDiffWithDeps(cmd, []string{id1, id2}, deps)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	output := bufOut.String()
+	output := stdout.String()
 	// Verify headings present.
 	for _, heading := range []string{"Added", "Removed", "Modified", "Unchanged"} {
 		if !strings.Contains(output, heading) {
@@ -298,18 +295,15 @@ func TestRunDiff_EmptyManifests(t *testing.T) {
 	makeEmpty("20250101-120000")
 	makeEmpty("20250102-130000")
 
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
+	deps, stdout, _ := setupTestDeps(t)
 
-	rootCmd.SetArgs([]string{"diff", "20250101-120000", "20250102-130000"})
-	err := rootCmd.Execute()
+	cmd := &cobra.Command{}
+	err := runDiffWithDeps(cmd, []string{"20250101-120000", "20250102-130000"}, deps)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	output := bufOut.String()
+	output := stdout.String()
 	if !strings.Contains(output, "identical") || !strings.Contains(output, "no differences") {
 		// Accept either message indicating no diffs.
 		if !strings.Contains(strings.ToLower(output), "no") {
