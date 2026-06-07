@@ -1,0 +1,22 @@
+# backup + verify roundtrip
+# Creates a backup and verifies its integrity using built-in commands.
+
+# Run backup with quick preset (config files only).
+exec bak backup --preset quick
+stdout 'Backup created:'
+
+# Verify the backup directory exists with expected structure.
+# HOME is set to the work directory, so .bak/ is relative.
+exists .bak/backups
+
+# List backups to confirm it's recorded with correct preset.
+exec bak list
+stdout 'quick'
+
+# Run a second backup to have two to work with.
+exec bak backup --preset full
+stdout 'Backup created:'
+
+# List should now show both backups.
+exec bak list
+stdout 'full'

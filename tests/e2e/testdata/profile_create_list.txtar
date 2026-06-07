@@ -1,0 +1,39 @@
+# profile create + list
+# Creates backup profiles and verifies they appear in the list.
+
+# Create a profile named 'work' with github-gist provider.
+exec bak profile create work --provider github-gist --preset quick
+stdout 'Profile "work" created'
+
+# List profiles — should include 'work'.
+exec bak profile list
+stdout 'work'
+stdout 'github-gist'
+stdout 'quick'
+
+# Show profile details.
+exec bak profile show work
+stdout 'Provider:'
+stdout 'Preset:'
+stdout 'quick'
+
+# Create a second profile.
+exec bak profile create home --provider github-gist --preset full
+stdout 'Profile "home" created'
+
+# List should show both profiles.
+exec bak profile list
+stdout 'work'
+stdout 'home'
+
+# Delete a profile.
+exec bak profile delete home
+stdout 'Profile "home" deleted'
+
+# Deleted profile should no longer appear.
+exec bak profile list
+! stdout 'home'
+
+# Creating a duplicate profile should fail.
+! exec bak profile create work --provider github-gist --preset skills
+stderr 'already exists'

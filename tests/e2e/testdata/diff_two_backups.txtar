@@ -1,0 +1,18 @@
+# diff between two backups
+# Creates two backups and verifies the diff command wiring.
+
+# First backup with quick preset.
+exec bak backup --preset quick
+stdout 'Backup created:'
+
+# Second backup with full preset (different scope).
+exec bak backup --preset full
+stdout 'Backup created:'
+
+# Verify diff command exists and shows help.
+exec bak diff --help
+stdout 'Compare two backup manifests'
+
+# Diff with invalid IDs should fail gracefully.
+! exec bak diff fake-id-1 fake-id-2
+stderr 'not found'
