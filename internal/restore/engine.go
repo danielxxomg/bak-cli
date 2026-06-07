@@ -57,7 +57,7 @@ func (e *Engine) Run(m *manifest.Manifest) (*RestoreResult, error) {
 
 	// Step 3: Validate manifest checksums before applying (integrity check).
 	// Fail on checksum mismatch unless --force is set.
-	if err := m.Validate(e.BackupDir); err != nil {
+	if err := m.Validate(e.BackupDir, nil); err != nil {
 		if !e.Force {
 			return nil, fmt.Errorf("manifest validation failed (use --force to override): %w", err)
 		}

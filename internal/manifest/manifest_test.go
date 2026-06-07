@@ -117,7 +117,7 @@ func TestValidate_HashMismatch(t *testing.T) {
 		{Category: "config", SourcePath: "~/.config/opencode/config.json", BackupPath: "opencode/config.json", Hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000", Size: 5},
 	})
 
-	err := m.Validate(dir)
+	err := m.Validate(dir, nil)
 	if err == nil {
 		t.Error("Validate: expected hash mismatch error, got nil")
 	}
