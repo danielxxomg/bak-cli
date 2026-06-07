@@ -1,0 +1,22 @@
+# schedule create + list
+# Tests schedule command structure (actual OS scheduling may require
+# elevated privileges, so we test command parsing and error paths).
+
+# Verify schedule help is available.
+exec bak schedule --help
+stdout 'Manage OS-native backup schedules'
+
+# schedule create requires --every flag (should fail without it).
+! exec bak schedule create work
+stderr 'required flag'
+
+# schedule create with invalid interval should fail.
+! exec bak schedule create work --every bananas
+stderr 'invalid interval'
+
+# schedule create with non-existent profile should fail.
+! exec bak schedule create nonexistent-profile --every daily
+stderr 'not found'
+
+# schedule list should run (may show empty results).
+exec bak schedule list
