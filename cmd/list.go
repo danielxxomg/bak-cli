@@ -69,6 +69,7 @@ func runListCloudWithDeps(providerName string, deps cmdDeps) error {
 		Stdout:  deps.Stdout,
 		Stderr:  deps.Stderr,
 		Verbose: verbose,
+		// RegistryFactory is nil — Run() defaults to real provider registry.
 	}
 
 	return action.Run(providerName)

@@ -47,13 +47,13 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: Registry Injection + DI Action Tests
 
-- [ ] 3.1 `internal/actions/list_cloud.go` — Add `RegistryFactory func() *cloud.ProviderRegistry` field to `ListCloudAction`; in `Run()`, use factory if non-nil, else default `cloud.NewProviderRegistry()`
-- [ ] 3.2 `cmd/list.go` — Wire `RegistryFactory` in cobra RunE (can be nil for default behavior)
-- [ ] 3.3 Create `internal/actions/list_cloud_test.go` — Table-driven: MockProvider via RegistryFactory, test list output, empty state, provider-not-found error
-- [ ] 3.4 Create `internal/actions/login_interactive_test.go` — Table-driven: mock ConfigLoader + mock Wizard, test happy path + auth error + cancel
-- [ ] 3.5 Create `internal/actions/undo_test.go` — Table-driven: inject HomeDir/IsRepo/UndoFn, test success + no-repo + revert-fail
-- [ ] 3.6 Create `internal/actions/schedule_test.go` — Table-driven: mock Scheduler via NewScheduler field, test Create/List/Remove paths
-- [ ] 3.7 Verify: `go test ./internal/actions/...` passes, each new file has ≥80% coverage
+- [x] 3.1 `internal/actions/list_cloud.go` — Add `RegistryFactory func() *cloud.ProviderRegistry` field to `ListCloudAction`; in `Run()`, use factory if non-nil, else default `cloud.NewProviderRegistry()`
+- [x] 3.2 `cmd/list.go` — Wire `RegistryFactory` in cobra RunE (can be nil for default behavior)
+- [x] 3.3 Create `internal/actions/list_cloud_test.go` — Table-driven: MockProvider via RegistryFactory, test list output, empty state, provider-not-found error
+- [x] 3.4 Create `internal/actions/login_interactive_test.go` — Table-driven: mock ConfigLoader + mock Wizard, test happy path + auth error + cancel
+- [x] 3.5 Create `internal/actions/undo_test.go` — Table-driven: inject HomeDir/IsRepo/UndoFn, test success + no-repo + revert-fail
+- [x] 3.6 Create `internal/actions/schedule_test.go` — Table-driven: mock Scheduler via NewScheduler field, test Create/List/Remove paths
+- [x] 3.7 Verify: `go test ./internal/actions/...` passes, each new file has ≥80% coverage
 
 ## Phase 4: FS Action Tests
 
