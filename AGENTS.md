@@ -66,6 +66,8 @@
 - MUST use `t.TempDir()` for test isolation — never write to real filesystem
 - MUST isolate config from real user config via dependency injection or `t.Setenv` — tests MUST NOT depend on `~/.config/bak/` existing
 - MUST skip Windows-specific test cases on non-Windows via `runtime.GOOS` check
+- MUST use `setConfigHome(t, dir)` helper for config isolation — handles `XDG_CONFIG_HOME` (Linux), `APPDATA` (Windows), `HOME`+Library (macOS) automatically
+- MUST NOT assume `os.UserConfigDir()` respects `XDG_CONFIG_HOME` on macOS — it always returns `$HOME/Library/Application Support`
 - SHOULD test cross-platform path behavior
 - MUST maintain per-package coverage ≥80% for `internal/` packages
 - MUST NOT unit-test `os.Exit` paths — test via integration/E2E only
