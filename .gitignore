@@ -12,6 +12,7 @@ bak
 # Output of go coverage
 *.out
 coverage
+coverage_*
 
 # Dependency directories
 vendor/

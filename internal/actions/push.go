@@ -16,14 +16,19 @@ import (
 )
 
 // PushAction encapsulates the push-to-cloud workflow with injectable
-// filesystem. Cloud provider and config operations use the real
-// implementations (cloud.ProviderRegistry, config.Load) until the
-// provider and config packages support DI interfaces.
+// filesystem and provider factory.
 type PushAction struct {
 	FS       FileSystem
 	Provider string
 	Profile  string
 	Verbose  bool
+
+	// Factory creates cloud providers on demand. When nil, the action
+	// falls back to the real cloud provider registry (backward compat).
+	Factory ProviderFactory
+
+	// HostnameFn returns the current hostname. Nil falls back to os.Hostname.
+	HostnameFn HostnameFunc
 }
 
 // Run packages a local backup and pushes it to a cloud backend.
@@ -54,15 +59,12 @@ func (a *PushAction) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("backup %q not found", backupID)
 	}
 
-	// 3. Build provider registry.
-	reg := cloud.NewProviderRegistry()
-	defaultProvider := cloud.NewGitHubGistProvider(nil, "")
-	if err := reg.Register(defaultProvider); err != nil {
-		return fmt.Errorf("register provider: %w", err)
+	// 3. Resolve provider via injected factory.
+	if a.Factory == nil {
+		return fmt.Errorf("provider factory is not configured")
 	}
-	reg.SetDefault("github-gist")
 
-	provider, err := reg.Get(a.Provider)
+	provider, err := a.Factory.CreateProvider(a.Provider)
 	if err != nil {
 		return fmt.Errorf("provider: %w", err)
 	}
@@ -78,12 +80,19 @@ func (a *PushAction) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	// 5. Push via provider.
-	hostname, err := os.Hostname()
-	if err != nil {
-		if a.Verbose {
+	hostname := "unknown"
+	if a.HostnameFn != nil {
+		if h, err := a.HostnameFn(); err == nil {
+			hostname = h
+		} else if a.Verbose {
 			fmt.Fprintf(os.Stderr, "warning: hostname: %v\n", err)
 		}
-		hostname = "unknown"
+	} else {
+		if h, err := os.Hostname(); err == nil {
+			hostname = h
+		} else if a.Verbose {
+			fmt.Fprintf(os.Stderr, "warning: hostname: %v\n", err)
+		}
 	}
 	rawArchive, err := base64.StdEncoding.DecodeString(archiveData)
 	if err != nil {

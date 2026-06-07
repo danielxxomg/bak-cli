@@ -6,6 +6,8 @@ package actions
 import (
 	"io/fs"
 	"os"
+
+	"github.com/danielxxomg/bak-cli/internal/cloud"
 )
 
 // FileSystem abstracts OS file operations for testability.
@@ -43,6 +45,18 @@ type ConfigLoader interface {
 	// Load reads and parses the bak-cli configuration.
 	Load() (*Config, error)
 }
+
+// ProviderFactory creates cloud providers on demand.
+// Consumer-side interface per AGENTS.md — defined in the actions package
+// to avoid coupling actions to concrete cloud provider construction.
+type ProviderFactory interface {
+	// CreateProvider returns a configured cloud.Provider for the given name.
+	CreateProvider(name string) (cloud.Provider, error)
+}
+
+// HostnameFunc returns the current hostname. Nil means fall back to
+// os.Hostname(). Injected as a struct field for per-action testability.
+type HostnameFunc func() (string, error)
 
 // Config is a simplified config type used by the actions package.
 // It mirrors the config.Config type from internal/config without

@@ -20,6 +20,9 @@ type PullAction struct {
 	Provider string
 	Profile  string
 	Verbose  bool
+
+	// Factory creates cloud providers on demand.
+	Factory ProviderFactory
 }
 
 // Run downloads a backup from a cloud backend and reconstructs it locally.
@@ -31,20 +34,18 @@ func (a *PullAction) Run(cmd *cobra.Command, args []string) error {
 	}
 	bakDir := filepath.Join(homeDir, ".bak")
 
-	// 2. Load config and build provider registry.
+	// 2. Load config (for stored backup ID resolution).
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	reg := cloud.NewProviderRegistry()
-	defaultProvider := cloud.NewGitHubGistProvider(cfg, "")
-	if err := reg.Register(defaultProvider); err != nil {
-		return fmt.Errorf("register provider: %w", err)
+	// 3. Resolve provider via injected factory.
+	if a.Factory == nil {
+		return fmt.Errorf("provider factory is not configured")
 	}
-	reg.SetDefault("github-gist")
 
-	provider, err := reg.Get(a.Provider)
+	provider, err := a.Factory.CreateProvider(a.Provider)
 	if err != nil {
 		return fmt.Errorf("provider: %w", err)
 	}
@@ -52,7 +53,7 @@ func (a *PullAction) Run(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "Using provider: %s\n", provider.Name())
 	}
 
-	// 3. Resolve remote backup ID.
+	// 4. Resolve remote backup ID.
 	var remoteID string
 	if len(args) > 0 && args[0] != "" {
 		remoteID = args[0]

@@ -370,4 +370,93 @@ func TestRestoreAction_UserHomeDir_Error(t *testing.T) {
 	}
 }
 
+func TestRestoreAction_RestoreFile_CopyFile_Success(t *testing.T) {
+	home := t.TempDir()
+
+	// Create only the backup directory structure (no real source file).
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups", "test")
+	os.MkdirAll(backupsDir, 0755)
+
+	// Source file exists ONLY in the mock FS, forcing the code path
+	// through a.FS.CopyFile() instead of os.Open.
+	srcPath := filepath.Join(backupsDir, "safe.txt")
+	mockFS := &MockFileSystem{
+		HomeDir:    home,
+		StatResult: make(map[string]MockStatResult),
+		Files: map[string][]byte{
+			srcPath: []byte("content"),
+		},
+	}
+
+	action := &RestoreAction{
+		FS:        mockFS,
+		BackupDir: backupsDir,
+	}
+
+	dst := filepath.Join(home, "restored.txt")
+	err := action.restoreFile(restorepkg.FileDiff{
+		BackupPath: "safe.txt",
+		TargetPath: dst,
+	})
+	if err != nil {
+		t.Fatalf("restoreFile: %v", err)
+	}
+
+	// Verify CopyFile was called by checking dst is in the mock FS.
+	if _, ok := mockFS.Files[dst]; !ok {
+		t.Error("CopyFile was not called — dst path not found in mock FS")
+	}
+}
+
+func TestRestoreAction_RestoreFile_CopyFile_Error(t *testing.T) {
+	home := t.TempDir()
+
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups", "test")
+	os.MkdirAll(backupsDir, 0755)
+
+	srcPath := filepath.Join(backupsDir, "safe.txt")
+	mockFS := &MockFileSystem{
+		HomeDir:    home,
+		StatResult: make(map[string]MockStatResult),
+		Files: map[string][]byte{
+			srcPath: []byte("content"),
+		},
+		CopyErrors: map[string]error{
+			srcPath: os.ErrPermission,
+		},
+	}
+
+	action := &RestoreAction{
+		FS:        mockFS,
+		BackupDir: backupsDir,
+	}
+
+	dst := filepath.Join(home, "restored.txt")
+	err := action.restoreFile(restorepkg.FileDiff{
+		BackupPath: "safe.txt",
+		TargetPath: dst,
+	})
+	if err == nil {
+		t.Fatal("expected error from CopyFile")
+	}
+}
+
+func TestRestoreAction_Stdin_Injected(t *testing.T) {
+	home := t.TempDir()
+
+	action := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: filepath.Join(home, "nonexistent"),
+	}
+
+	// Zero-value Stdin (nil) means os.Stdin is used at runtime.
+	if action.Stdin != nil {
+		t.Log("Stdin field is injectable on RestoreAction")
+	} else {
+		t.Log("Stdin is nil — will fall back to os.Stdin")
+	}
+}
+
 

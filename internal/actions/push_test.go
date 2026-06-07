@@ -1,12 +1,15 @@
 package actions
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/danielxxomg/bak-cli/internal/cloud"
 )
 
 // mockFileInfo implements os.FileInfo for testing.
@@ -297,5 +300,130 @@ func TestPushAction_ReadDirErrorOnFallback(t *testing.T) {
 	err := action.Run(nil, nil) // no args → fallback to ReadDir
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestPushAction_MockProvider_HappyPath(t *testing.T) {
+	home := t.TempDir()
+
+	// Create a real backup to package.
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-120000"
+	backupPath := filepath.Join(backupsDir, backupID)
+	os.MkdirAll(backupPath, 0755)
+
+	// Create a manifest so Stat succeeds.
+	manifestData := []byte(`{"id":"20260101-120000","version":"1.0"}`)
+	os.WriteFile(filepath.Join(backupPath, "manifest.json"), manifestData, 0644)
+
+	// Track push calls.
+	var pushedArchive []byte
+	var pushedMeta cloud.PushMeta
+	pushCalled := false
+
+	mockProvider := &MockProvider{
+		MockName: "mock-gist",
+		PushFn: func(archive []byte, meta cloud.PushMeta) (string, error) {
+			pushedArchive = archive
+			pushedMeta = meta
+			pushCalled = true
+			return "mock-id-123", nil
+		},
+	}
+
+	factory := &MockProviderFactory{
+		Providers: map[string]cloud.Provider{
+			"mock-gist": mockProvider,
+		},
+	}
+
+	action := &PushAction{
+		FS:       newHomeFS(home),
+		Provider: "mock-gist",
+		Factory:  factory,
+		HostnameFn: func() (string, error) { return "testbox", nil },
+	}
+
+	err := action.Run(nil, []string{backupID})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if !pushCalled {
+		t.Fatal("provider.Push was not called")
+	}
+	if len(pushedArchive) == 0 {
+		t.Error("pushed archive is empty")
+	}
+	if pushedMeta.BackupID != backupID {
+		t.Errorf("pushed meta BackupID = %q, want %q", pushedMeta.BackupID, backupID)
+	}
+	if pushedMeta.Hostname != "testbox" {
+		t.Errorf("pushed meta Hostname = %q, want testbox", pushedMeta.Hostname)
+	}
+}
+
+func TestPushAction_MockProvider_ProviderError(t *testing.T) {
+	home := t.TempDir()
+
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-120000"
+	backupPath := filepath.Join(backupsDir, backupID)
+	os.MkdirAll(backupPath, 0755)
+	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"test"}`), 0644)
+
+	factory := &MockProviderFactory{
+		Err: errors.New("factory explosion"),
+	}
+
+	action := &PushAction{
+		FS:       newHomeFS(home),
+		Provider: "mock-gist",
+		Factory:  factory,
+	}
+
+	err := action.Run(nil, []string{backupID})
+	if err == nil {
+		t.Fatal("expected error from factory")
+	}
+}
+
+func TestPushAction_MockProvider_PushError(t *testing.T) {
+	home := t.TempDir()
+
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-120000"
+	backupPath := filepath.Join(backupsDir, backupID)
+	os.MkdirAll(backupPath, 0755)
+	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"test"}`), 0644)
+
+	mockProvider := &MockProvider{
+		MockName: "mock-gist",
+		PushFn: func(archive []byte, meta cloud.PushMeta) (string, error) {
+			return "", errors.New("network timeout")
+		},
+	}
+
+	factory := &MockProviderFactory{
+		Providers: map[string]cloud.Provider{
+			"mock-gist": mockProvider,
+		},
+	}
+
+	action := &PushAction{
+		FS:       newHomeFS(home),
+		Provider: "mock-gist",
+		Factory:  factory,
+	}
+
+	err := action.Run(nil, []string{backupID})
+	if err == nil {
+		t.Fatal("expected error from provider push")
+	}
+	if !strings.Contains(err.Error(), "push") {
+		t.Errorf("error should mention push: %v", err)
 	}
 }

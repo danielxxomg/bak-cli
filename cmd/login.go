@@ -1,12 +1,11 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
 	"os"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/danielxxomg/bak-cli/internal/cloud"
 	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/spf13/cobra"
@@ -63,56 +62,20 @@ func runLogin(cmd *cobra.Command, args []string) error {
 			loginProvider, loginProvider,
 		)
 	}
-	// 1. Check if token already exists.
+
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	tok, _ := cloud.ResolveToken(cfg)
-	if tok != "" {
-		fmt.Println("Token already configured.")
-		fmt.Print("Do you want to replace it? [y/N]: ")
-		reader := bufio.NewReader(os.Stdin)
-		answer, err := reader.ReadString('\n')
-		if err != nil {
-			return fmt.Errorf("read input: %w", err)
-		}
-		answer = strings.TrimSpace(strings.ToLower(answer))
-		if answer != "y" && answer != "yes" {
-			fmt.Println("Login cancelled.")
-			return nil
-		}
+	action := &actions.LoginAction{
+		Stdin:          os.Stdin,
+		TokenValidator: cloud.ValidateToken,
+		ConfigSaver:    cfg,
+		Config:         cfg,
 	}
 
-	// 2. Prompt for token.
-	fmt.Print("Enter GitHub personal access token: ")
-	reader := bufio.NewReader(os.Stdin)
-	input, err := reader.ReadString('\n')
-	if err != nil {
-		return fmt.Errorf("read token: %w", err)
-	}
-	token := strings.TrimSpace(input)
-
-	if token == "" {
-		return fmt.Errorf("login: token cannot be empty")
-	}
-
-	// 3. Validate token.
-	fmt.Print("Validating token... ")
-	if err := cloud.ValidateToken(token); err != nil {
-		fmt.Println("❌")
-		return fmt.Errorf("token validation failed: %w", err)
-	}
-	fmt.Println("✅")
-
-	// 4. Save to config.
-	if err := cfg.Set("github.token", token); err != nil {
-		return fmt.Errorf("save token: %w", err)
-	}
-
-	fmt.Println("Token saved successfully.")
-	return nil
+	return action.Run(loginProvider, cmd.OutOrStdout())
 }
 
 // runLoginInteractive launches the interactive wizard to select a provider
