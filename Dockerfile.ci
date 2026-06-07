@@ -1,13 +1,11 @@
-# Dockerfile for local cross-platform testing
+# Dockerfile.ci — local cross-platform testing
 # Mirrors the Ubuntu CI environment
-# Usage: docker build -t bak-cli-test . && docker run --rm bak-cli-test
+# Usage: docker build -t bak-cli-test -f Dockerfile.ci . && docker run --rm bak-cli-test
 
 FROM golang:1.25-bookworm
 
-# Install tools (mirrors CI)
-RUN go install golang.org/x/tools/cmd/goimports@latest && \
-    go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest && \
-    go install go.uber.org/automaxprocs@latest
+# Install linter
+RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 
 WORKDIR /app
 
