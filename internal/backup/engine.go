@@ -32,7 +32,7 @@ type Engine struct {
 	BakDir          string           // ~/.bak storage root
 	Registry        *adapters.Registry // adapter registry
 	Preset          string           // preset name (quick, full, skills)
-	AdapterFilter   string           // optional: run only this adapter
+	AdapterFilter   []string         // optional: run only these adapters
 	BakVersion      string           // bak binary version
 	Verbose         bool             // enable verbose output
 	SecretPatterns  []*regexp.Regexp // patterns for secret detection; nil = defaults
@@ -68,28 +68,30 @@ func (e *Engine) Run() (*Result, error) {
 	// --- 2. Identify which adapters to run --------------------------------
 	var detected []adapters.DetectedAdapter
 
-	if e.AdapterFilter != "" {
-		a, ok := e.Registry.Get(e.AdapterFilter)
-		if !ok {
-			return nil, fmt.Errorf("adapter %q not registered", e.AdapterFilter)
+	if len(e.AdapterFilter) > 0 {
+		for _, filterName := range e.AdapterFilter {
+			a, ok := e.Registry.Get(filterName)
+			if !ok {
+				return nil, fmt.Errorf("adapter %q not registered", filterName)
+			}
+			installed, configDir, err := a.Detect(e.HomeDir)
+			if err != nil {
+				return nil, fmt.Errorf("detect %q: %w", filterName, err)
+			}
+			if !installed {
+				return nil, fmt.Errorf("adapter %q: config directory not found", filterName)
+			}
+			detected = append(detected, adapters.DetectedAdapter{
+				Adapter:   a,
+				ConfigDir: configDir,
+			})
 		}
-		installed, configDir, err := a.Detect(e.HomeDir)
-		if err != nil {
-			return nil, fmt.Errorf("detect %q: %w", e.AdapterFilter, err)
-		}
-		if !installed {
-			return nil, fmt.Errorf("adapter %q: %s not found", e.AdapterFilter, configDir)
-		}
-		detected = append(detected, adapters.DetectedAdapter{
-			Adapter:   a,
-			ConfigDir: configDir,
-		})
 	} else {
 		detected = e.Registry.DetectAll(e.HomeDir)
 	}
 
 	if len(detected) == 0 {
-		return nil, fmt.Errorf("no installed adapters detected (home: %s)", e.HomeDir)
+		return nil, fmt.Errorf("no installed adapters detected")
 	}
 
 	// --- 3. Create backup directory ---------------------------------------
@@ -150,7 +152,7 @@ func (e *Engine) Run() (*Result, error) {
 		// Exclude secret-containing files from backup (security requirement).
 		for _, secretFile := range secretFiles {
 			if err := os.Remove(secretFile); err != nil && e.Verbose {
-				fmt.Fprintf(os.Stderr, "warning: could not remove secret file %s: %v\n", secretFile, err)
+				fmt.Fprintf(os.Stderr, "warning: could not remove secret file: %v\n", err)
 			}
 		}
 
@@ -172,7 +174,7 @@ func (e *Engine) Run() (*Result, error) {
 			// Case-insensitive comparison for Windows (case-insensitive FS).
 			if !strings.HasPrefix(strings.ToLower(cleanSource), strings.ToLower(cleanHome)) &&
 				!strings.EqualFold(cleanSource, path.Clean(filepath.ToSlash(e.HomeDir))) {
-				return nil, fmt.Errorf("adapter %q returned source path outside home: %s", d.Adapter.Name(), item.SourcePath)
+				return nil, fmt.Errorf("adapter %q returned source path outside home directory", d.Adapter.Name())
 			}
 
 			manifestItems = append(manifestItems, manifest.Item{

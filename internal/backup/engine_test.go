@@ -182,7 +182,7 @@ func TestEngine_Run_AdapterFilter(t *testing.T) {
 	createOpenCodeFixture(t, home)
 
 	engine := setupTestEngine(t, home)
-	engine.AdapterFilter = "opencode"
+	engine.AdapterFilter = []string{"opencode"}
 
 	result, err := engine.Run()
 	if err != nil {
@@ -198,11 +198,42 @@ func TestEngine_Run_InvalidAdapterFilter(t *testing.T) {
 	createOpenCodeFixture(t, home)
 
 	engine := setupTestEngine(t, home)
-	engine.AdapterFilter = "nonexistent"
+	engine.AdapterFilter = []string{"nonexistent"}
 
 	_, err := engine.Run()
 	if err == nil {
 		t.Error("expected error for unknown adapter")
+	}
+}
+
+func TestEngine_Run_AdapterFilterSlice(t *testing.T) {
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	engine := setupTestEngine(t, home)
+	engine.AdapterFilter = []string{"opencode"}
+
+	result, err := engine.Run()
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.AdaptersRun != 1 {
+		t.Errorf("AdaptersRun = %d, want 1", result.AdaptersRun)
+	}
+}
+
+func TestEngine_Run_MultiAdapterFilter(t *testing.T) {
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	engine := setupTestEngine(t, home)
+	// Filter for opencode (installed) and a non-existent adapter should
+	// error because the second adapter is not registered.
+	engine.AdapterFilter = []string{"opencode", "nonexistent"}
+
+	_, err := engine.Run()
+	if err == nil {
+		t.Error("expected error for unknown adapter in multi-filter")
 	}
 }
 

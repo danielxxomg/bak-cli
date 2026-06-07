@@ -65,7 +65,7 @@ func IsValid(name string) bool {
 // (~/.config/bak/presets/) and merges them with built-in presets.
 // When a YAML preset has the same name as a built-in:
 //   - override=true: the YAML version wins, replacing the built-in.
-//   - override=false: an error is returned.
+//   - override=false: a warning is printed to stderr and the built-in is used.
 //
 // Unknown preset names fall through to the built-in resolver.
 func ResolveAll(presetName string, override bool) ([]string, error) {
@@ -79,7 +79,8 @@ func ResolveAll(presetName string, override bool) ([]string, error) {
 			if !override {
 				_, isBuiltin := presetCategories[presetName]
 				if isBuiltin {
-					return nil, fmt.Errorf("preset %q exists as both built-in and custom; use --override to prefer custom", presetName)
+					fmt.Fprintf(os.Stderr, "warning: preset %q exists as both built-in and custom; using built-in (use --override to prefer custom)\n", presetName)
+					return Resolve(presetName)
 				}
 			}
 			return slices.Clone(yp.Categories), nil

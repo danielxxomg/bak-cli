@@ -1,7 +1,12 @@
 package presets
 
 import (
+	"bytes"
+	"io"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -153,5 +158,88 @@ func TestResolveAll_ReturnsCopy(t *testing.T) {
 	cats1[0] = "corrupted"
 	if cats2[0] != CatConfig {
 		t.Errorf("ResolveAll did not return a copy: cats2[0] = %q after mutating cats1", cats2[0])
+	}
+}
+
+func TestResolveAll_ConflictWarning(t *testing.T) {
+	// When a YAML preset name conflicts with a built-in and override=false,
+	// ResolveAll should print a warning to stderr and fall back to the built-in.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	presetsDir := filepath.Join(home, ".config", "bak", "presets")
+	if err := os.MkdirAll(presetsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write a YAML preset that conflicts with built-in "quick".
+	yamlContent := []byte(`name: quick
+categories:
+  - skills
+  - commands
+`)
+	presetFile := filepath.Join(presetsDir, "my-preset.yaml")
+	if err := os.WriteFile(presetFile, yamlContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Capture stderr.
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	// Without override, should fall back to built-in "quick" (CatConfig).
+	cats, err := ResolveAll(Quick, false)
+
+	// Restore stderr.
+	w.Close()
+	os.Stderr = oldStderr
+
+	var stderrBuf bytes.Buffer
+	io.Copy(&stderrBuf, r)
+
+	if err != nil {
+		t.Fatalf("ResolveAll should not error on conflict (should warn), got: %v", err)
+	}
+	if !slices.Equal(cats, []string{CatConfig}) {
+		t.Errorf("categories = %v, want %v (built-in quick)", cats, []string{CatConfig})
+	}
+	stderrStr := stderrBuf.String()
+	if !strings.Contains(stderrStr, "warning") {
+		t.Errorf("stderr should contain 'warning', got: %q", stderrStr)
+	}
+	if !strings.Contains(stderrStr, "quick") {
+		t.Errorf("stderr should mention 'quick', got: %q", stderrStr)
+	}
+}
+
+func TestResolveAll_ConflictOverride(t *testing.T) {
+	// When override=true, the YAML version wins.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	presetsDir := filepath.Join(home, ".config", "bak", "presets")
+	if err := os.MkdirAll(presetsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	yamlContent := []byte(`name: quick
+categories:
+  - skills
+  - commands
+`)
+	presetFile := filepath.Join(presetsDir, "my-preset.yaml")
+	if err := os.WriteFile(presetFile, yamlContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cats, err := ResolveAll(Quick, true)
+	if err != nil {
+		t.Fatalf("ResolveAll with override: %v", err)
+	}
+	if !slices.Equal(cats, []string{CatSkills, CatCommands}) {
+		t.Errorf("categories = %v, want [CatSkills, CatCommands] (yaml override)", cats)
 	}
 }
