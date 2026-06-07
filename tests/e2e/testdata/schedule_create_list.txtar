@@ -4,7 +4,7 @@
 
 # Verify schedule help is available.
 exec bak schedule --help
-stdout 'Manage OS-native backup schedules'
+stdout 'Schedule automatic bak-cli backups'
 
 # schedule create requires --every flag (should fail without it).
 ! exec bak schedule create work
