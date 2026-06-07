@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/danielxxomg/bak-cli/internal/actions"
@@ -227,18 +226,4 @@ func runProfileCreateInteractive(cmd *cobra.Command, name string) error {
 		AdapterNames:     adapterNames,
 		CategoryNames:    categoryNames,
 	}, out)
-}
-
-// --- helpers ---
-
-// profileList writes a profile name, its provider, and its encryption status
-// to os.Stderr for verbose output (used by backup/push/pull when --profile
-// resolves a profile).
-func profileVerbose(name string, p config.ProfileConfig) {
-	enc := "disabled"
-	if p.Encryption != nil {
-		enc = "enabled"
-	}
-	fmt.Fprintf(os.Stderr, "Using profile %q (provider=%s, preset=%s, encryption=%s)\n",
-		name, p.Provider, p.Preset, enc)
 }
