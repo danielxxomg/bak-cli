@@ -263,7 +263,7 @@ func TestBackupAction_InvalidAdapterFilter(t *testing.T) {
 		FS:            newHomeFS(home),
 		Registry:      setupBackupRegistry(),
 		Preset:        "quick",
-		AdapterFilter: "nonexistent",
+		AdapterFilter: []string{"nonexistent"},
 		BakVersion:    "test",
 	}
 
@@ -320,7 +320,7 @@ func TestBackupAction_AdapterFilter(t *testing.T) {
 		FS:            newHomeFS(home),
 		Registry:      setupBackupRegistry(),
 		Preset:        "quick",
-		AdapterFilter: "opencode",
+		AdapterFilter: []string{"opencode"},
 		BakVersion:    "test",
 	}
 
@@ -353,5 +353,23 @@ func TestBackupAction_ManifestWriteError(t *testing.T) {
 	err := action.Run(nil, nil)
 	if err == nil {
 		t.Fatal("expected error when no adapters detected with mock FS")
+	}
+}
+
+func TestBackupAction_MultiAdapterFilter(t *testing.T) {
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	action := &BackupAction{
+		FS:            newHomeFS(home),
+		Registry:      setupBackupRegistry(),
+		Preset:        "quick",
+		AdapterFilter: []string{"opencode", "nonexistent"},
+		BakVersion:    "test",
+	}
+
+	err := action.Run(nil, nil)
+	if err == nil {
+		t.Fatal("expected error for unknown adapter in multi-filter")
 	}
 }
