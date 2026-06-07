@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.v2.jsonschema.json
+version: "2"
+
+linters:
+  enable:
+    - bodyclose
+    - errcheck
+    - errorlint
+    - gocritic
+    - gosec
+    - govet
+    - ineffassign
+    - nilerr
+    - staticcheck
+    - unused
+
+run:
+  timeout: 5m
+  tests: true
+
+issues:
+  exclude-use-default: false
+
+formatters:
+  enable:
+    - goimports
