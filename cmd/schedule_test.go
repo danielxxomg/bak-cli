@@ -94,12 +94,84 @@ func TestScheduleCreate_RequiresArgs(t *testing.T) {
 	}
 }
 
+func TestScheduleCreate_Execute(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"schedule", "create", "nonexistent-profile", "--every", "daily"})
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when profile not found")
+	}
+	errStr := err.Error()
+	if !strings.Contains(errStr, "not found") && !strings.Contains(errStr, "load config") && !strings.Contains(errStr, "schtasks") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestScheduleCreate_InvalidInterval(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"schedule", "create", "test", "--every", "hourly"})
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for invalid interval")
+	}
+	if !strings.Contains(err.Error(), "invalid interval") {
+		t.Errorf("error should mention invalid interval: %v", err)
+	}
+}
+
+func TestScheduleCreate_MissingEveryFlag(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"schedule", "create", "test"})
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when --every is missing")
+	}
+}
+
+func TestScheduleCreate_NoArgs(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"schedule", "create"})
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("expected error with no args")
+	}
+}
+
 // --- schedule list ---
 
 func TestScheduleList_NoArgs(t *testing.T) {
 	cmd, _, _ := rootCmd.Find([]string{"schedule", "list"})
 	if cmd == nil {
 		t.Fatal("schedule list not found")
+	}
+}
+
+func TestScheduleList_Execute(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"schedule", "list"})
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Logf("schedule list: %v (expected on systems without schtasks)", err)
 	}
 }
 
@@ -113,5 +185,31 @@ func TestScheduleRemove_RequiresArgs(t *testing.T) {
 
 	if removeCmd.Args == nil {
 		t.Error("schedule remove should require profile name arg")
+	}
+}
+
+func TestScheduleRemove_Execute(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"schedule", "remove", "nonexistent-profile"})
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Logf("schedule remove: %v (expected without admin/schtasks)", err)
+	}
+}
+
+func TestScheduleRemove_NoArgs(t *testing.T) {
+	bufOut := new(bytes.Buffer)
+	bufErr := new(bytes.Buffer)
+	rootCmd.SetOut(bufOut)
+	rootCmd.SetErr(bufErr)
+
+	rootCmd.SetArgs([]string{"schedule", "remove"})
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("expected error with no args")
 	}
 }

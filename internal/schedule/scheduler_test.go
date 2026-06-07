@@ -453,3 +453,147 @@ func TestIntervalToSchtasks(t *testing.T) {
 		})
 	}
 }
+
+func TestIntervalToSchtasks_DefaultFallback(t *testing.T) {
+	sc, mo, st := intervalToSchtasksParams("unknown")
+	if sc != "daily" {
+		t.Errorf("sc = %q, want 'daily' (default)", sc)
+	}
+	if mo != "" {
+		t.Errorf("mo = %q, want ''", mo)
+	}
+	if st != "02:00" {
+		t.Errorf("st = %q, want '02:00'", st)
+	}
+}
+
+// --- Schtasks CSV parsing ---
+
+func TestParseSchtasksCSV_ValidEntries(t *testing.T) {
+	output := `"bak-cli-work","2026-06-06 02:00:00","Ready"
+"bak-cli-home","2026-06-06 03:00:00","Ready"`
+	entries := parseSchtasksCSV(output)
+	if len(entries) != 2 {
+		t.Fatalf("parseSchtasksCSV returned %d entries, want 2", len(entries))
+	}
+	if entries[0].Profile != "work" {
+		t.Errorf("entry[0].Profile = %q, want 'work'", entries[0].Profile)
+	}
+	if entries[1].Profile != "home" {
+		t.Errorf("entry[1].Profile = %q, want 'home'", entries[1].Profile)
+	}
+}
+
+func TestParseSchtasksCSV_EmptyOutput(t *testing.T) {
+	entries := parseSchtasksCSV("")
+	if len(entries) != 0 {
+		t.Errorf("parseSchtasksCSV(empty) = %d entries, want 0", len(entries))
+	}
+}
+
+func TestParseSchtasksCSV_NonBakCLI(t *testing.T) {
+	output := `"SomeTask","2026-06-06 02:00:00","Ready"
+"AnotherTask","2026-06-06 04:00:00","Ready"`
+	entries := parseSchtasksCSV(output)
+	if len(entries) != 0 {
+		t.Errorf("parseSchtasksCSV on non-bak-cli CSV = %d entries, want 0", len(entries))
+	}
+}
+
+func TestParseSchtasksCSV_MixedEntries(t *testing.T) {
+	output := `"SomeTask","2026-06-06 02:00:00","Ready"
+"bak-cli-dev","2026-06-06 08:00:00","Ready"
+"AnotherTask","2026-06-06 04:00:00","Ready"`
+	entries := parseSchtasksCSV(output)
+	if len(entries) != 1 {
+		t.Fatalf("parseSchtasksCSV with mixed = %d entries, want 1", len(entries))
+	}
+	if entries[0].Profile != "dev" {
+		t.Errorf("Profile = %q, want 'dev'", entries[0].Profile)
+	}
+}
+
+func TestParseSchtasksCSV_SingleColumn(t *testing.T) {
+	// Malformed CSV with only task name, no extra columns.
+	output := `"bak-cli-test"`
+	entries := parseSchtasksCSV(output)
+	if len(entries) != 1 {
+		t.Fatalf("parseSchtasksCSV with single column = %d entries, want 1", len(entries))
+	}
+	if entries[0].Profile != "test" {
+		t.Errorf("Profile = %q, want 'test'", entries[0].Profile)
+	}
+}
+
+func TestParseSchtasksCSV_WhitespaceTrim(t *testing.T) {
+	output := "\n\"bak-cli-ws\"\n\n"
+	entries := parseSchtasksCSV(output)
+	if len(entries) != 1 {
+		t.Fatalf("parseSchtasksCSV with whitespace = %d entries, want 1", len(entries))
+	}
+	if entries[0].Profile != "ws" {
+		t.Errorf("Profile = %q, want 'ws'", entries[0].Profile)
+	}
+}
+
+// --- formatCronLine default fallback ---
+
+func TestFormatCronLine_DefaultFallback(t *testing.T) {
+	line := formatCronLine("test", "unknown-interval")
+	if len(line) == 0 {
+		t.Fatal("formatCronLine should not return empty")
+	}
+	if line[:9] != "0 2 * * *" {
+		t.Errorf("line prefix = %q, want '0 2 * * *' (default daily)", line[:9])
+	}
+	if !strings.Contains(line, "# bak-cli:test") {
+		t.Errorf("missing bak-cli:test tag in: %s", line)
+	}
+}
+
+// --- parseCronLine additional edge cases ---
+
+func TestParseCronLine_TagWithoutColon(t *testing.T) {
+	// Bare "# bak-cli" tag (no colon or profile) is parsed but profile is empty.
+	line := "0 2 * * * /bin/backup.sh # bak-cli"
+	entry, ok := parseCronLine(line)
+	if !ok {
+		t.Fatal("parseCronLine returned false for valid tagged line")
+	}
+	if entry.Profile != "" {
+		t.Errorf("Profile = %q, want '' (no profile after bare # bak-cli)", entry.Profile)
+	}
+}
+
+func TestParseCronLine_WhitespaceOnly(t *testing.T) {
+	_, ok := parseCronLine("   \t  ")
+	if ok {
+		t.Error("parseCronLine on whitespace = true, want false")
+	}
+}
+
+func TestParseCronLine_CommentedBakCLI(t *testing.T) {
+	line := "# 0 2 * * * bak backup --profile work # bak-cli:work"
+	_, ok := parseCronLine(line)
+	if ok {
+		t.Error("parseCronLine on commented line = true, want false")
+	}
+}
+
+func TestParseCronLine_FewerThan7Fields(t *testing.T) {
+	// Needs at least 7 fields. With 6 fields (5 cron + 1 command that is '#'),
+	// the 6th field starts with '#' → rejected.
+	line := "0 2 * * * # bak-cli:work"
+	_, ok := parseCronLine(line)
+	if ok {
+		t.Error("parseCronLine with 6th field = '#' = true, want false")
+	}
+}
+
+func TestParseCronLine_Exactly6FieldsNoTag(t *testing.T) {
+	line := "0 2 * * * cmd"
+	_, ok := parseCronLine(line)
+	if ok {
+		t.Error("parseCronLine on non-tagged cron line = true, want false")
+	}
+}
