@@ -37,14 +37,12 @@ func TestRunBackup_InvalidPreset(t *testing.T) {
 
 func TestRunBackup_InvalidAdapter(t *testing.T) {
 	resetBackupVars()
+	backupAdapter = "nonexistent_adapter_xyz"
+	defer func() { backupAdapter = "" }()
 
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
-
-	rootCmd.SetArgs([]string{"backup", "--adapter", "nonexistent_adapter_xyz"})
-	err := rootCmd.Execute()
+	deps, _, _ := setupTestDeps(t)
+	cmd := &cobra.Command{}
+	err := runBackupWithDeps(cmd, nil, deps)
 
 	if err == nil {
 		t.Fatal("expected backup with invalid adapter to error")

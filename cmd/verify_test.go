@@ -104,18 +104,14 @@ func TestRunVerify_Success(t *testing.T) {
 	id := "20250101-120000"
 	stageVerifyBackup(t, tmpDir, id, 2)
 
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
-
-	rootCmd.SetArgs([]string{"verify", id})
-	err := rootCmd.Execute()
+	deps, stdout, _ := setupTestDeps(t)
+	cmd := &cobra.Command{}
+	err := runVerifyWithDeps(cmd, []string{id}, deps)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	output := bufOut.String()
+	output := stdout.String()
 	if !strings.Contains(output, "verified") {
 		t.Errorf("output should contain 'verified', got: %s", output)
 	}
@@ -140,13 +136,9 @@ func TestRunVerify_CorruptedFile(t *testing.T) {
 	fpath := filepath.Join(backupDir, "opencode", "file-0.txt")
 	os.WriteFile(fpath, []byte("corrupted!"), 0644)
 
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
-
-	rootCmd.SetArgs([]string{"verify", id})
-	err := rootCmd.Execute()
+	deps, _, _ := setupTestDeps(t)
+	cmd := &cobra.Command{}
+	err := runVerifyWithDeps(cmd, []string{id}, deps)
 	if err == nil {
 		t.Fatal("expected error for corrupted file, got nil")
 	}
@@ -164,13 +156,9 @@ func TestRunVerify_MissingBackup(t *testing.T) {
 		t.Setenv("HOME", tmpDir)
 	}
 
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
-
-	rootCmd.SetArgs([]string{"verify", "nonexistent"})
-	err := rootCmd.Execute()
+	deps, _, _ := setupTestDeps(t)
+	cmd := &cobra.Command{}
+	err := runVerifyWithDeps(cmd, []string{"nonexistent"}, deps)
 	if err == nil {
 		t.Fatal("expected error for missing backup")
 	}
@@ -188,13 +176,9 @@ func TestRunVerify_TraversalBlocked(t *testing.T) {
 		t.Setenv("HOME", tmpDir)
 	}
 
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
-
-	rootCmd.SetArgs([]string{"verify", "../etc"})
-	err := rootCmd.Execute()
+	deps, _, _ := setupTestDeps(t)
+	cmd := &cobra.Command{}
+	err := runVerifyWithDeps(cmd, []string{"../etc"}, deps)
 	if err == nil {
 		t.Fatal("expected error for traversal")
 	}
@@ -215,24 +199,21 @@ func TestRunVerify_VerboseOutput(t *testing.T) {
 	id := "20250101-120000"
 	stageVerifyBackup(t, tmpDir, id, 1)
 
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
+	deps, _, stderr := setupTestDeps(t)
+	cmd := &cobra.Command{}
 
 	// Enable verbose via package variable (flag binding happens in main).
 	oldVerbose := verbose
 	verbose = true
 	defer func() { verbose = oldVerbose }()
 
-	rootCmd.SetArgs([]string{"verify", id})
-	err := rootCmd.Execute()
+	err := runVerifyWithDeps(cmd, []string{id}, deps)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	// Verbose output goes to stderr.
-	stderrOutput := bufErr.String()
+	stderrOutput := stderr.String()
 	if !strings.Contains(stderrOutput, "Verifying") {
 		t.Errorf("verbose stderr should contain 'Verifying', got: %s", stderrOutput)
 	}

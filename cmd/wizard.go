@@ -48,8 +48,6 @@ type wizardModel struct {
 
 	// Results.
 	selectedProvider string
-	selectedAdapters []string
-	selectedCategories []string
 }
 
 // toggleItem represents a selectable item in a toggle list.

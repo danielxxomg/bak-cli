@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/danielxxomg/bak-cli/internal/actions"
+	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -48,12 +49,13 @@ func runPull(cmd *cobra.Command, args []string) error {
 // (the action wires its own FS/Factory).
 func runPullWithDeps(cmd *cobra.Command, args []string, _ cmdDeps) error {
 	action := &actions.PullAction{
-		FS:       &actions.OSFileSystem{},
-		Provider: pullProvider,
-		Profile:  pullProfile,
-		Verbose:  verbose,
-		Factory:  &actions.RealProviderFactory{},
+		FS:           &actions.OSFileSystem{},
+		ConfigLoader: config.Load,
+		Provider:     pullProvider,
+		Profile:      pullProfile,
+		Verbose:      verbose,
+		Factory:      &actions.RealProviderFactory{},
 	}
 
-	return action.Run(cmd, args)
+	return action.Run(args)
 }

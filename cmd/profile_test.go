@@ -104,12 +104,7 @@ func TestProfileList_Help(t *testing.T) {
 // --- profile show tests ---
 
 func TestProfileShow_MissingArgs(t *testing.T) {
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
-
-	rootCmd.SetArgs([]string{"profile", "show"})
-	err := rootCmd.Execute()
+	err := profileShowCmd.Args(profileShowCmd, []string{})
 	if err == nil {
 		t.Fatal("profile show without name should error")
 	}
@@ -149,24 +144,16 @@ func TestProfileShow_Help(t *testing.T) {
 // --- profile delete tests ---
 
 func TestProfileDelete_MissingArgs(t *testing.T) {
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
-
-	rootCmd.SetArgs([]string{"profile", "delete"})
-	err := rootCmd.Execute()
+	err := profileDeleteCmd.Args(profileDeleteCmd, []string{})
 	if err == nil {
 		t.Fatal("profile delete without name should error")
 	}
 }
 
 func TestProfileDelete_NotFound(t *testing.T) {
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
-
-	rootCmd.SetArgs([]string{"profile", "delete", "nonexistent_xyz"})
-	err := rootCmd.Execute()
+	deps, _, _ := setupTestDeps(t)
+	cmd := &cobra.Command{}
+	err := runProfileDeleteWithDeps(cmd, []string{"nonexistent_xyz"}, deps)
 	if err == nil {
 		t.Fatal("profile delete with nonexistent name should error")
 	}
@@ -196,12 +183,13 @@ func TestProfileDelete_Help(t *testing.T) {
 // --- profile create tests ---
 
 func TestProfileCreate_MissingProvider(t *testing.T) {
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
+	oldProvider := profileCreateProvider
+	profileCreateProvider = ""
+	defer func() { profileCreateProvider = oldProvider }()
 
-	rootCmd.SetArgs([]string{"profile", "create", "test-profile"})
-	err := rootCmd.Execute()
+	deps, _, _ := setupTestDeps(t)
+	cmd := &cobra.Command{}
+	err := runProfileCreateWithDeps(cmd, []string{"test-profile"}, deps)
 	if err == nil {
 		t.Fatal("profile create without --provider should error (required flag)")
 	}
@@ -212,12 +200,7 @@ func TestProfileCreate_MissingProvider(t *testing.T) {
 }
 
 func TestProfileCreate_NoArgs(t *testing.T) {
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
-
-	rootCmd.SetArgs([]string{"profile", "create"})
-	err := rootCmd.Execute()
+	err := profileCreateCmd.Args(profileCreateCmd, []string{})
 	if err == nil {
 		t.Fatal("profile create without name should error")
 	}

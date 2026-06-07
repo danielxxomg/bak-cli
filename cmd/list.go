@@ -58,11 +58,6 @@ func runListLocal(cmd *cobra.Command) error {
 	return actions.RunListLocal(bakDir, verbose, cmd.OutOrStdout(), os.Stderr)
 }
 
-// runListCloud lists backups from a named cloud provider.
-func runListCloud(providerName string) error {
-	return runListCloudWithDeps(providerName, defaultDeps)
-}
-
 func runListCloudWithDeps(providerName string, deps cmdDeps) error {
 	cfg, err := deps.ConfigLoader()
 	if err != nil {
@@ -79,7 +74,4 @@ func runListCloudWithDeps(providerName string, deps cmdDeps) error {
 	return action.Run(providerName)
 }
 
-// formatSizeBytes delegates to actions.formatSizeBytes for backward compatibility.
-func formatSizeBytes(bytes int64) string {
-	return actions.FormatSizeBytes(bytes)
-}
+
