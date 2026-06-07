@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -128,8 +130,9 @@ func (m *Manifest) SetEncryption(algorithm, kdf string, salt, nonce []byte, iter
 
 // Validate checks the manifest for structural correctness and verifies
 // every backed-up file's SHA-256 hash against the actual file on disk.
+// progressFn is called for each file being verified (receives the backup path).
 // Returns nil when all checks pass.
-func (m *Manifest) Validate(backupDir string) error {
+func (m *Manifest) Validate(backupDir string, progressFn func(string)) error {
 	if m.Version == "" {
 		return fmt.Errorf("manifest version is empty")
 	}
@@ -139,7 +142,16 @@ func (m *Manifest) Validate(backupDir string) error {
 
 	for adapterName, am := range m.Adapters {
 		for _, item := range am.Items {
+			if progressFn != nil {
+				progressFn(item.BackupPath)
+			}
 			diskPath := filepath.Join(backupDir, item.BackupPath)
+			// Prevent path traversal: ensure resolved path stays under backupDir.
+			cleanDisk := path.Clean(filepath.ToSlash(diskPath))
+			cleanBackup := path.Clean(filepath.ToSlash(backupDir)) + "/"
+			if !strings.HasPrefix(strings.ToLower(cleanDisk), strings.ToLower(cleanBackup)) {
+				return fmt.Errorf("adapter %q, file %q: path traversal detected", adapterName, item.BackupPath)
+			}
 			actualHash, err := hashFile(diskPath)
 			if err != nil {
 				return fmt.Errorf("adapter %q, file %q: %w", adapterName, item.BackupPath, err)
@@ -178,6 +190,9 @@ func hashFile(path string) (string, error) {
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
 		return "", fmt.Errorf("hash: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return "", fmt.Errorf("close: %w", err)
 	}
 	return fmt.Sprintf("sha256:%x", h.Sum(nil)), nil
 }

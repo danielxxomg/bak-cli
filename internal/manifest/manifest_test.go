@@ -96,7 +96,7 @@ func TestValidate_HappyPath(t *testing.T) {
 		{Category: "config", SourcePath: "~/.config/opencode/config.json", BackupPath: "opencode/config.json", Hash: "sha256:9724c1e20e6e3e4d7f57ed25f9d4efb006e508590d528c90da597f6a775c13e5", Size: 16},
 	})
 
-	if err := m.Validate(dir); err != nil {
+	if err := m.Validate(dir, nil); err != nil {
 		t.Errorf("Validate: unexpected error: %v", err)
 	}
 }
@@ -125,14 +125,14 @@ func TestValidate_HashMismatch(t *testing.T) {
 
 func TestValidate_EmptyVersion(t *testing.T) {
 	m := &Manifest{Adapters: map[string]AdapterManifest{"x": {}}}
-	if err := m.Validate("."); err == nil {
+	if err := m.Validate(".", nil); err == nil {
 		t.Error("expected error for empty version")
 	}
 }
 
 func TestValidate_NoAdapters(t *testing.T) {
 	m := &Manifest{Version: "0.1.0"}
-	if err := m.Validate("."); err == nil {
+	if err := m.Validate(".", nil); err == nil {
 		t.Error("expected error for no adapters")
 	}
 }
