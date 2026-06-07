@@ -2,12 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/danielxxomg/bak-cli/internal/cloud"
-	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -50,78 +48,71 @@ func init() {
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {
+	return runLoginWithDeps(cmd, args, depsFromCmd(cmd))
+}
+
+func runLoginWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 	// Interactive wizard mode: select provider via TUI, then prompt for token.
 	if loginInteractive {
-		return runLoginInteractive(cmd)
+		return runLoginInteractiveWithDeps(cmd, deps)
 	}
 
-	// Only GitHub login is interactive; other providers use bak config set.
-	if loginProvider != "" && loginProvider != "github-gist" && loginProvider != "github" {
-		return fmt.Errorf(
-			"login for %q is not interactive — use 'bak config set providers.%s.token <your-token>'",
-			loginProvider, loginProvider,
-		)
-	}
-
-	cfg, err := config.Load()
+	// Validation is handled by LoginAction.Run (supports github-gist and github).
+	cfg, err := deps.ConfigLoader()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
 	action := &actions.LoginAction{
-		Stdin:          os.Stdin,
+		Stdin:          deps.Stdin,
 		TokenValidator: cloud.ValidateToken,
 		ConfigSaver:    cfg,
 		Config:         cfg,
 	}
 
-	return action.Run(loginProvider, cmd.OutOrStdout())
+	return action.Run(loginProvider, deps.Stdout)
 }
 
 // runLoginInteractive launches the interactive wizard to select a provider
 // and then falls through to the normal token entry flow.
 func runLoginInteractive(cmd *cobra.Command) error {
-	out := cmd.OutOrStdout()
+	return runLoginInteractiveWithDeps(cmd, depsFromCmd(cmd))
+}
 
-	// Build provider list: include common providers even if not yet configured.
-	providers := []string{"github-gist", "github-repo", "codeberg", "gitea", "rclone"}
-
-	// Also include any providers already configured.
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-	for k := range cfg.Providers {
-		found := false
-		for _, p := range providers {
-			if p == k {
-				found = true
-				break
-			}
-		}
-		if !found {
-			providers = append(providers, k)
-		}
-	}
-
-	// Launch wizard (only provider selection step is relevant for login).
+func runLoginInteractiveWithDeps(cmd *cobra.Command, deps cmdDeps) error {
 	if !isTTY() {
 		return fmt.Errorf("interactive login requires a terminal (TTY)")
 	}
-	m := newWizardModel("login", providers)
-	p := tea.NewProgram(m)
-	finalModel, err := p.Run()
-	if err != nil {
-		return fmt.Errorf("wizard: %w", err)
+
+	action := &actions.LoginInteractiveAction{
+		ConfigLoader: deps.ConfigLoader,
+		Stdout:       deps.Stdout,
+		Wizard: func(providers []string) (string, error) {
+			m := newWizardModel("login", providers)
+			p := tea.NewProgram(m)
+			finalModel, err := p.Run()
+			if err != nil {
+				return "", err
+			}
+			wm := finalModel.(*wizardModel)
+			if !wm.confirmed {
+				return "", nil
+			}
+			return wm.selectedProvider, nil
+		},
 	}
 
-	wm := finalModel.(*wizardModel)
-	if !wm.confirmed {
-		fmt.Fprintln(out, "Login cancelled.")
+	selected, err := action.Run()
+	if err != nil {
+		return err
+	}
+
+	if selected == "" {
+		fmt.Fprintln(deps.Stdout, "Login cancelled.")
 		return nil
 	}
 
 	// Use the selected provider for the rest of the login flow.
-	loginProvider = wm.selectedProvider
-	return runLogin(cmd, nil)
+	loginProvider = selected
+	return runLoginWithDeps(cmd, nil, deps)
 }
