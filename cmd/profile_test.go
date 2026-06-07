@@ -70,17 +70,15 @@ func TestProfileCmd_Help(t *testing.T) {
 // --- profile list tests ---
 
 func TestProfileList_NoProfiles(t *testing.T) {
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
+	deps, stdout, _ := setupTestDeps(t)
 
-	rootCmd.SetArgs([]string{"profile", "list"})
-	err := rootCmd.Execute()
+	cmd := &cobra.Command{}
+	err := runProfileListWithDeps(cmd, nil, deps)
 	if err != nil {
 		t.Fatalf("profile list should not error: %v", err)
 	}
 
-	output := buf.String()
+	output := stdout.String()
 	if !strings.Contains(output, "No profiles") {
 		t.Errorf("expected 'No profiles' message, got: %s", output)
 	}
@@ -118,12 +116,10 @@ func TestProfileShow_MissingArgs(t *testing.T) {
 }
 
 func TestProfileShow_NotFound(t *testing.T) {
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
+	deps, _, _ := setupTestDeps(t)
 
-	rootCmd.SetArgs([]string{"profile", "show", "nonexistent_xyz"})
-	err := rootCmd.Execute()
+	cmd := &cobra.Command{}
+	err := runProfileShowWithDeps(cmd, []string{"nonexistent_xyz"}, deps)
 	if err == nil {
 		t.Fatal("profile show with nonexistent name should error")
 	}
