@@ -1,10 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-	"sort"
-
 	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/spf13/cobra"
 )
@@ -44,6 +40,13 @@ func init() {
 }
 
 func runPush(cmd *cobra.Command, args []string) error {
+	return runPushWithDeps(cmd, args, depsFromCmd(cmd))
+}
+
+// runPushWithDeps follows the *WithDeps pattern for testability.
+// deps is accepted for consistency even if not directly used here
+// (the action wires its own FS/Factory).
+func runPushWithDeps(cmd *cobra.Command, args []string, _ cmdDeps) error {
 	action := &actions.PushAction{
 		FS:       &actions.OSFileSystem{},
 		Provider: pushProvider,
@@ -53,35 +56,4 @@ func runPush(cmd *cobra.Command, args []string) error {
 	}
 
 	return action.Run(cmd, args)
-}
-
-// resolveBackupID returns the backup ID from args or finds the most
-// recent backup when no argument is given. Kept as a package-level
-// helper for testability; PushAction has its own resolver internally.
-func resolveBackupID(backupsDir string, args []string) (string, error) {
-	if len(args) > 0 && args[0] != "" {
-		return args[0], nil
-	}
-
-	entries, err := os.ReadDir(backupsDir)
-	if err != nil {
-		return "", fmt.Errorf("read backups dir: %w", err)
-	}
-
-	var ids []string
-	for _, e := range entries {
-		if e.IsDir() {
-			ids = append(ids, e.Name())
-		}
-	}
-
-	if len(ids) == 0 {
-		return "", fmt.Errorf("no backups found — run 'bak backup' first")
-	}
-
-	sort.Slice(ids, func(i, j int) bool {
-		return ids[i] > ids[j]
-	})
-
-	return ids[0], nil
 }
