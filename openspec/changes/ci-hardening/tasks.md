@@ -38,12 +38,12 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: macOS CI Fix
 
-- [ ] 2.1 Create `internal/config/testutil/testutil.go` — `package configtest`, export `SetConfigHome(t testing.TB, dir)` that sets HOME (macOS), XDG_CONFIG_HOME (Linux), APPDATA+USERPROFILE (Windows) via `t.Setenv`
-- [ ] 2.2 Update `internal/config/config_test.go` — Replace ad-hoc `t.Setenv("XDG_CONFIG_HOME", ...)` with `configtest.SetConfigHome(t, dir)`
-- [ ] 2.3 Update other `internal/config/*_test.go` files that set config env vars to use `configtest.SetConfigHome`
-- [ ] 2.4 Update `tests/e2e/e2e_test.go` `setupEnv` — Set HOME alongside XDG_CONFIG_HOME so macOS resolves correctly
-- [ ] 2.5 Update `testdata/e2e/profile_create_list.txtar` — Add macOS path expectation (`$HOME/Library/Application Support/bak/`)
-- [ ] 2.6 Verify: `go test ./internal/config/... ./tests/e2e/...` passes on all 3 OS
+- [x] 2.1 Create `internal/config/testutil/configtest.go` — `package configtest`, export `SetConfigHome` that sets HOME (macOS), XDG_CONFIG_HOME (Linux), APPDATA (Windows) via `t.Setenv`
+- [x] 2.2 Update `internal/config/config_test.go` — Replace ad-hoc `t.Setenv("XDG_CONFIG_HOME", ...)` with `configtest.SetConfigHome(t, dir)` (3 functions: TestLoad_ViaEnvVar, TestLoad_NonExistentConfig, TestSave_EmptyPath)
+- [x] 2.3 Update other `internal/config/*_test.go` files — `migration_test.go` uses `LoadPath(cfgPath)` directly; no env var changes needed
+- [x] 2.4 Update `tests/e2e/e2e_test.go` `setupEnv` — Write config to macOS path (`Library/Application Support/bak/`) when `runtime.GOOS == "darwin"`
+- [x] 2.5 `tests/e2e/testdata/profile_create_list.txtar` — No path assertions in txtar; e2e fix handled entirely in `setupEnv`
+- [x] 2.6 Verify: `go test ./internal/config/... ./tests/e2e/...` — 57 + 9 pass; full suite 984 pass, zero regressions
 
 ## Phase 3: Registry Injection + DI Action Tests
 

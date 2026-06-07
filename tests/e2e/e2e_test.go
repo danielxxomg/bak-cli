@@ -113,5 +113,21 @@ func setupEnv(e *testscript.Env) error {
 		return err
 	}
 
+	// On macOS, os.UserConfigDir() returns $HOME/Library/Application Support.
+	// Write the config there too so bak finds it on macOS CI.
+	if runtime.GOOS == "darwin" {
+		macConfigDir := filepath.Join(e.WorkDir, "Library", "Application Support", "bak")
+		if err := os.MkdirAll(macConfigDir, 0755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(
+			filepath.Join(macConfigDir, "config.json"),
+			[]byte(configContent),
+			0644,
+		); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
