@@ -7,7 +7,6 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 	"github.com/danielxxomg/bak-cli/internal/adapters/register"
-	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/danielxxomg/bak-cli/internal/presets"
 	"github.com/spf13/cobra"
 )
@@ -49,6 +48,10 @@ func init() {
 }
 
 func runBackup(cmd *cobra.Command, args []string) error {
+	return runBackupWithDeps(cmd, args, depsFromCmd(cmd))
+}
+
+func runBackupWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 	// --- Build injectable dependencies -------------------------------------
 	fs := &actions.OSFileSystem{}
 	cfgLoader := &actions.RealConfigLoader{}
@@ -75,7 +78,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 	var customCategories []string
 
 	if backupProfile != "" {
-		cfg, loadErr := config.Load()
+		cfg, loadErr := deps.ConfigLoader()
 		if loadErr != nil {
 			return fmt.Errorf("load config for profile: %w", loadErr)
 		}
@@ -100,7 +103,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 			if p.Encryption != nil {
 				enc = "enabled"
 			}
-			fmt.Fprintf(os.Stderr, "Using profile %q (provider=%s, preset=%s, encryption=%s)\n",
+			fmt.Fprintf(deps.Stderr, "Using profile %q (provider=%s, preset=%s, encryption=%s)\n",
 				backupProfile, p.Provider, preset, enc)
 		}
 	}

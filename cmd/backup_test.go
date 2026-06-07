@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 // resetBackupVars resets package-level flag variables between tests.
@@ -17,14 +19,13 @@ func resetBackupVars() {
 
 func TestRunBackup_InvalidPreset(t *testing.T) {
 	resetBackupVars()
+	backupPreset = "nonexistent_xyz"
+	defer func() { backupPreset = "quick" }()
 
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
+	deps, _, _ := setupTestDeps(t)
 
-	rootCmd.SetArgs([]string{"backup", "--preset", "nonexistent_xyz"})
-	err := rootCmd.Execute()
+	cmd := &cobra.Command{}
+	err := runBackupWithDeps(cmd, nil, deps)
 
 	if err == nil {
 		t.Fatal("expected backup with invalid preset to error")
@@ -118,21 +119,20 @@ func TestBackupCmd_FlagsAfterInit(t *testing.T) {
 
 func TestRunBackup_ProfileNotFound(t *testing.T) {
 	resetBackupVars()
+	backupProfile = "nonexistent_profile_xyz"
+	defer func() { backupProfile = "" }()
 
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
+	deps, _, _ := setupTestDeps(t)
 
-	rootCmd.SetArgs([]string{"backup", "--profile", "nonexistent_profile_xyz"})
-	err := rootCmd.Execute()
+	cmd := &cobra.Command{}
+	err := runBackupWithDeps(cmd, nil, deps)
 
 	if err == nil {
 		t.Fatal("expected backup with nonexistent profile to error")
 	}
 	errStr := err.Error()
-	if !strings.Contains(errStr, "profile") && !strings.Contains(errStr, "nonexistent_profile_xyz") {
-		t.Errorf("error should mention profile, got: %v", err)
+	if !strings.Contains(errStr, "not found") {
+		t.Errorf("error should mention not found, got: %v", err)
 	}
 }
 
