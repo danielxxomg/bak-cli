@@ -97,8 +97,7 @@ func (m *wizardModel) Init() tea.Cmd {
 // Update implements bubbletea.Model. It handles keyboard input for each step
 // and manages step transitions.
 func (m *wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			m.quitting = true

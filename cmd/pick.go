@@ -50,8 +50,7 @@ func (m pickModel) Init() tea.Cmd {
 }
 
 func (m pickModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
 			m.quitting = true

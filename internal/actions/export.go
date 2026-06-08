@@ -3,6 +3,7 @@ package actions
 import (
 	"archive/tar"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -16,7 +17,7 @@ import (
 func RunExport(homeDir, backupID, outputPath string, out io.Writer) error {
 	// Validate backup ID format.
 	if !IsValidBackupID(backupID) {
-		return fmt.Errorf("%s", FormatBackupIDError(backupID))
+		return errors.New(FormatBackupIDError(backupID))
 	}
 
 	sourceDir := filepath.Join(homeDir, ".bak", "backups", backupID)
@@ -45,10 +46,10 @@ func RunExport(homeDir, backupID, outputPath string, out io.Writer) error {
 		closeErr := outFile.Close()
 		removeErr := os.Remove(outputPath)
 		if closeErr != nil {
-			return fmt.Errorf("create archive: %w (also failed to close output: %v)", err, closeErr)
+			return fmt.Errorf("create archive; close error: %w", errors.Join(err, closeErr))
 		}
 		if removeErr != nil {
-			return fmt.Errorf("create archive: %w (also failed to remove partial output: %v)", err, removeErr)
+			return fmt.Errorf("create archive; remove partial output error: %w", errors.Join(err, removeErr))
 		}
 		return fmt.Errorf("create archive: %w", err)
 	}

@@ -16,7 +16,7 @@ import (
 
 func TestE2E(t *testing.T) {
 	testscript.Run(t, testscript.Params{
-		Dir:           filepath.Join("testdata"),
+		Dir:           "testdata",
 		Setup:         setupEnv,
 		UpdateScripts: os.Getenv("UPDATE_SCRIPTS") != "",
 	})

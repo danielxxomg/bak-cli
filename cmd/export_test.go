@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -137,7 +138,7 @@ func TestCreateTarGz_RoundTrip(t *testing.T) {
 	fileCount := 0
 	for {
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -286,7 +287,7 @@ func TestCreateTarGz_EmptyDir(t *testing.T) {
 
 	// Should be EOF after the directory entry.
 	_, err = tr.Next()
-	if err != io.EOF {
+	if !errors.Is(err, io.EOF) {
 		t.Errorf("Expected EOF after directory entry, got %v", err)
 	}
 }
