@@ -217,7 +217,7 @@ func TestScanResult_Fields(t *testing.T) {
 	if r.Pattern == "" {
 		t.Error("Pattern should not be empty")
 	}
-	if r.Content == "" {
+	if r.content == "" {
 		t.Error("Content should not be empty")
 	}
 }

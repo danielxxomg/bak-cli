@@ -39,7 +39,7 @@ type ScanResult struct {
 	FilePath string // absolute path to the file
 	Pattern  string // the regex pattern that matched
 	Line     int    // 1-based line number
-	Content  string // the matched line (truncated to 120 chars)
+	content  string // the matched line (truncated to 120 chars); unexported to prevent accidental exposure
 }
 
 // ScanFile reads a file line by line and reports any lines that match
@@ -71,7 +71,7 @@ func ScanFile(filePath string, patterns []*regexp.Regexp) ([]ScanResult, error) 
 					FilePath: filePath,
 					Pattern:  pat.String(),
 					Line:     lineNum,
-					Content:  truncated,
+					content:  truncated,
 				})
 				break // one match per line is enough
 			}
@@ -96,11 +96,11 @@ func GenerateEnvExample(filePaths []string, patterns []*regexp.Regexp, outputDir
 
 	for _, fp := range filePaths {
 		base := filepath.Base(fp)
-		out.WriteString(fmt.Sprintf("# ---- %s ----\n", base))
+		fmt.Fprintf(&out, "# ---- %s ----\n", base)
 
 		f, err := os.Open(fp)
 		if err != nil {
-			out.WriteString(fmt.Sprintf("# [could not read: %v]\n\n", err))
+			fmt.Fprintf(&out, "# [could not read: %v]\n\n", err)
 			continue
 		}
 
@@ -122,10 +122,12 @@ func GenerateEnvExample(filePaths []string, patterns []*regexp.Regexp, outputDir
 				out.WriteString(line + "\n")
 			}
 		}
-		f.Close()
+		if closeErr := f.Close(); closeErr != nil {
+			fmt.Fprintf(&out, "# [close error: %v]\n", closeErr)
+		}
 
 		if err := scanner.Err(); err != nil {
-			out.WriteString(fmt.Sprintf("# [scan error: %v]\n", err))
+			fmt.Fprintf(&out, "# [scan error: %v]\n", err)
 		}
 		out.WriteString("\n")
 	}
@@ -139,52 +141,11 @@ func GenerateEnvExample(filePaths []string, patterns []*regexp.Regexp, outputDir
 }
 
 // redactLine replaces the value portion of a secret assignment with a
-// placeholder. It handles KEY=VALUE and KEY: VALUE styles.
+// <YOUR_SECRET> placeholder. It handles KEY=VALUE and KEY: VALUE styles.
 func redactLine(line string, pat *regexp.Regexp) string {
-	// Use the pattern to identify which key was matched, then replace
-	// the value portion with a placeholder.
-
-	match := pat.FindStringSubmatch(line)
-	if len(match) < 2 {
-		// Pattern matched but no capture group — replace the whole value segment.
-		idx := pat.FindStringIndex(line)
-		if idx == nil {
-			return line
-		}
-		return line[:idx[0]] + "<YOUR_SECRET>" + line[idx[1]:]
+	idx := pat.FindStringIndex(line)
+	if idx == nil {
+		return line
 	}
-
-	// Replace the captured value with <YOUR_*> placeholder.
-	fullMatch := match[0]
-	secret := match[1]
-
-	// Derive a meaningful placeholder name from the key pattern.
-	placeholder := derivePlaceholder(line, secret)
-
-	return strings.Replace(line, fullMatch, strings.Replace(fullMatch, secret, placeholder, 1), 1)
-}
-
-// derivePlaceholder returns a <YOUR_*> placeholder based on the context
-// of the secret line (e.g., API_KEY → <YOUR_API_KEY>).
-func derivePlaceholder(line, secret string) string {
-	lower := strings.ToLower(line)
-
-	switch {
-	case strings.Contains(lower, "github") && strings.Contains(lower, "token"):
-		return "<YOUR_GITHUB_TOKEN>"
-	case strings.Contains(lower, "openai") || strings.Contains(lower, "chatgpt"):
-		return "<YOUR_OPENAI_API_KEY>"
-	case strings.Contains(lower, "anthropic") || strings.Contains(lower, "claude"):
-		return "<YOUR_ANTHROPIC_API_KEY>"
-	case strings.Contains(lower, "api_key") || strings.Contains(lower, "apikey"):
-		return "<YOUR_API_KEY>"
-	case strings.Contains(lower, "token"):
-		return "<YOUR_TOKEN>"
-	case strings.Contains(lower, "password") || strings.Contains(lower, "passwd") || strings.Contains(lower, "pwd"):
-		return "<YOUR_PASSWORD>"
-	case strings.Contains(lower, "secret"):
-		return "<YOUR_SECRET>"
-	default:
-		return "<YOUR_SECRET>"
-	}
+	return line[:idx[0]] + "<YOUR_SECRET>" + line[idx[1]:]
 }

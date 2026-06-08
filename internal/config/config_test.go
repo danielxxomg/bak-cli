@@ -597,12 +597,17 @@ func TestLoad_ViaEnvVar(t *testing.T) {
 	dir := t.TempDir()
 	configtest.SetConfigHome(t, dir)
 
-	cfgDir := filepath.Join(dir, "bak")
+	// Use DefaultPath() so the file lands where Load() actually looks,
+	// which differs per OS (e.g. macOS: $HOME/Library/Application Support/bak).
+	cfgPath, err := DefaultPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfgDir := filepath.Dir(cfgPath)
 	if err := os.MkdirAll(cfgDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	cfgPath := filepath.Join(cfgDir, "config.json")
 	// Use v0.3.0 format to avoid migration during test.
 	data := `{"schema_version":"0.3.0","providers":{"github":{"token":"ghp_load_test","gist_id":"gist_load"}}}`
 	if err := os.WriteFile(cfgPath, []byte(data), 0644); err != nil {
