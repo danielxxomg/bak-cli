@@ -37,12 +37,20 @@ func UntarGz(encoded string, targetDir string) error {
 }
 
 // tarGzDir writes a gzipped tar of dir to w.
-func tarGzDir(dir string, w io.Writer) error {
+func tarGzDir(dir string, w io.Writer) (retErr error) {
 	gw := gzip.NewWriter(w)
-	defer func() { _ = gw.Close() }()
+	defer func() {
+		if err := gw.Close(); err != nil && retErr == nil {
+			retErr = fmt.Errorf("close gzip writer: %w", err)
+		}
+	}()
 
 	tw := tar.NewWriter(gw)
-	defer func() { _ = tw.Close() }()
+	defer func() {
+		if err := tw.Close(); err != nil && retErr == nil {
+			retErr = fmt.Errorf("close tar writer: %w", err)
+		}
+	}()
 
 	// baseDir uses OS-specific separators for filepath.Rel comparison.
 	baseDir := filepath.Clean(dir)
@@ -63,7 +71,9 @@ func tarGzDir(dir string, w io.Writer) error {
 			return fmt.Errorf("relative path: %w", err)
 		}
 		// Normalize to forward slashes and clean for archive portability.
-		rel = path.Clean(filepath.ToSlash(rel))
+		// Use path.Clean + strings.ReplaceAll instead of filepath.ToSlash
+		// for consistent cross-platform canonical paths.
+		rel = path.Clean(strings.ReplaceAll(rel, "\\", "/"))
 
 		info, err := d.Info()
 		if err != nil {
@@ -104,14 +114,21 @@ func tarGzDir(dir string, w io.Writer) error {
 			return fmt.Errorf("write tar header for %s: %w", walkPath, err)
 		}
 
+		//nolint:gosec // G122: Walk callback reads files for backup tar — backup tool must traverse directories
 		f, err := os.Open(walkPath)
 		if err != nil {
 			return fmt.Errorf("open %s: %w", walkPath, err)
 		}
-		defer func() { _ = f.Close() }()
 
 		if _, err := io.Copy(tw, f); err != nil {
+			if cerr := f.Close(); cerr != nil {
+				return fmt.Errorf("copy %s: %w; close error: %w", walkPath, err, cerr)
+			}
 			return fmt.Errorf("copy %s: %w", walkPath, err)
+		}
+
+		if err := f.Close(); err != nil {
+			return fmt.Errorf("close %s: %w", walkPath, err)
 		}
 
 		return nil
@@ -119,12 +136,16 @@ func tarGzDir(dir string, w io.Writer) error {
 }
 
 // untarGzDir extracts a tar.gz from reader into targetDir.
-func untarGzDir(r io.Reader, targetDir string) error {
+func untarGzDir(r io.Reader, targetDir string) (retErr error) {
 	gr, err := gzip.NewReader(r)
 	if err != nil {
 		return fmt.Errorf("gzip reader: %w", err)
 	}
-	defer func() { _ = gr.Close() }()
+	defer func() {
+		if cerr := gr.Close(); cerr != nil && retErr == nil {
+			retErr = fmt.Errorf("close gzip reader: %w", cerr)
+		}
+	}()
 
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", targetDir, err)
@@ -142,11 +163,9 @@ func untarGzDir(r io.Reader, targetDir string) error {
 
 		target := filepath.Join(targetDir, filepath.FromSlash(hdr.Name))
 
-		// Security: prevent path traversal using OS-specific path comparison.
-		// filepath.Clean is correct here (not path.Clean) because we compare
-		// OS-specific absolute paths for security, not canonical normalization.
-		cleanTarget := filepath.Clean(target)
-		cleanDir := filepath.Clean(targetDir) + string(filepath.Separator)
+		// Security: prevent path traversal using canonical path comparison.
+		cleanTarget := path.Clean(strings.ReplaceAll(target, "\\", "/"))
+		cleanDir := path.Clean(strings.ReplaceAll(targetDir, "\\", "/")) + "/"
 		if !strings.HasPrefix(cleanTarget, cleanDir) {
 			return fmt.Errorf("path traversal detected: %s", hdr.Name)
 		}
@@ -161,19 +180,28 @@ func untarGzDir(r io.Reader, targetDir string) error {
 			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 				return fmt.Errorf("mkdir parent %s: %w", target, err)
 			}
-			f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(hdr.Mode))
+			mode := hdr.FileInfo().Mode() // safe: fetches os.FileMode directly, no overflow
+			//nolint:gosec // G115: hdr.Mode is tar permission bits (max 0777), fits within uint32
+			f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 			if err != nil {
 				return fmt.Errorf("create %s: %w", target, err)
 			}
+			//nolint:gosec // G110: io.Copy within untar — tar entries are bounded by archive size; restore is expected
 			if _, err := io.Copy(f, tr); err != nil {
-				_ = f.Close()
+				if cerr := f.Close(); cerr != nil {
+					return fmt.Errorf("write %s: %w; close error: %w", target, err, cerr)
+				}
 				return fmt.Errorf("write %s: %w", target, err)
 			}
-			_ = f.Close()
+			if err := f.Close(); err != nil {
+				return fmt.Errorf("close %s: %w", target, err)
+			}
 
 		case tar.TypeSymlink:
-			// Symlinks may fail on some platforms; skip without error.
-			_ = os.Symlink(hdr.Linkname, target)
+			// Symlinks may fail on some platforms; log warning but continue.
+			if err := os.Symlink(hdr.Linkname, target); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: symlink %s: %v\n", hdr.Name, err)
+			}
 
 		default:
 			// Skip unknown entry types (devices, fifos, etc.).

@@ -142,6 +142,7 @@ func isV010(cfg *Config) bool {
 // Writes config.json.v010.bak before overwriting.
 func migrateV010(cfg *Config, original []byte) error {
 	bakPath := cfg.path + ".v010.bak"
+	//nolint:gosec // G703: bakPath is derived from cfg.path (trusted config loader path)
 	if err := os.WriteFile(bakPath, original, 0600); err != nil {
 		return fmt.Errorf("write backup: %w", err)
 	}
@@ -186,6 +187,7 @@ func migrateV020(cfg *Config) error {
 	}
 
 	bakPath := cfg.path + ".v020.bak"
+	//nolint:gosec // G703: bakPath is derived from cfg.path (trusted config loader path)
 	if err := os.WriteFile(bakPath, current, 0600); err != nil {
 		return fmt.Errorf("write backup: %w", err)
 	}
