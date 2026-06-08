@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
 project_name: bak
 
 before:
@@ -47,3 +48,39 @@ changelog:
       - "^test:"
       - "^chore:"
       - "^ci:"
+
+homebrew_casks:
+  - repository:
+      owner: danielxxomg
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    name: bak
+    directory: Casks
+    homepage: "https://github.com/danielxxomg/bak-cli"
+    description: "Backup and restore your AI coding setup across machines"
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/bak"]
+          end
+
+scoops:
+  - repository:
+      owner: danielxxomg
+      name: scoop-bucket
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: "https://github.com/danielxxomg/bak-cli"
+    description: "Backup and restore your AI coding setup across machines"
+    license: "MIT"
+
+nfpms:
+  - vendor: danielxxomg
+    homepage: "https://github.com/danielxxomg/bak-cli"
+    maintainer: "danielxxomg"
+    description: "Backup and restore your AI coding setup across machines"
+    license: "MIT"
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin

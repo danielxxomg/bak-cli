@@ -27,6 +27,41 @@
 
 ## Installation
 
+### Homebrew (macOS/Linux)
+
+```bash
+brew install --cask danielxxomg/tap/bak
+```
+
+### Scoop (Windows)
+
+```bash
+scoop bucket add danielxxomg https://github.com/danielxxomg/scoop-bucket
+scoop install bak
+```
+
+### Debian/Ubuntu
+
+Download the `.deb` file from [GitHub Releases](https://github.com/danielxxomg/bak-cli/releases) and install:
+
+```bash
+sudo dpkg -i bak_*.deb
+```
+
+### RHEL/Fedora
+
+Download the `.rpm` file from [GitHub Releases](https://github.com/danielxxomg/bak-cli/releases) and install:
+
+```bash
+sudo rpm -i bak-*.rpm
+```
+
+### Go
+
+```bash
+go install github.com/danielxxomg/bak-cli@latest
+```
+
 ### From Source
 
 ```bash
@@ -34,16 +69,6 @@ git clone https://github.com/danielxxomg/bak-cli.git
 cd bak-cli
 go build -o bak .
 ```
-
-### With Go
-
-```bash
-go install github.com/danielxxomg/bak-cli@latest
-```
-
-### Pre-built Binaries
-
-Download from [GitHub Releases](https://github.com/danielxxomg/bak-cli/releases).
 
 ## Quick Start
 
