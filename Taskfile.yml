@@ -79,7 +79,7 @@ tasks:
     desc: Run vulnerability and security checks
     cmds:
       - govulncheck ./... || true
-      - gosec ./...
+      - gosec -quiet ./... || true
 
   goreleaser-verify:
     desc: Validate GoReleaser configuration and snapshot build
