@@ -1,5 +1,6 @@
 //go:build !windows
 
+//nolint:gosec // Test file — exec.Command and file paths are test-controlled
 package schedule
 
 import (

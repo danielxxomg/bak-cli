@@ -1,3 +1,4 @@
+//nolint:gosec // Test file — permissions are fine for t.TempDir()
 package presets
 
 import (
