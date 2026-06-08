@@ -41,6 +41,9 @@ type PushAction struct {
 // Run packages a local backup and pushes it to a cloud backend.
 func (a *PushAction) Run(cmd *cobra.Command, args []string) error {
 	// 1. Determine backups directory.
+	if a.FS == nil {
+		return fmt.Errorf("filesystem not configured")
+	}
 	homeDir, err := a.FS.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("cannot determine home directory: %w", err)
