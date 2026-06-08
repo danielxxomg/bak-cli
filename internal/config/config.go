@@ -25,11 +25,11 @@ import (
 
 // Config represents the persistent bak CLI configuration.
 type Config struct {
-	SchemaVersion string                     `json:"schema_version,omitempty"`
-	GitHubToken   string                     `json:"github_token,omitempty"`
-	GistID        string                     `json:"gist_id,omitempty"`
-	Providers     map[string]ProviderConfig  `json:"providers,omitempty"`
-	Profiles      map[string]ProfileConfig   `json:"profiles,omitempty"`
+	SchemaVersion string                    `json:"schema_version,omitempty"`
+	GitHubToken   string                    `json:"github_token,omitempty"`
+	GistID        string                    `json:"gist_id,omitempty"`
+	Providers     map[string]ProviderConfig `json:"providers,omitempty"`
+	Profiles      map[string]ProfileConfig  `json:"profiles,omitempty"`
 
 	// path is the on-disk location of this config file (not serialized).
 	path string `json:"-"`
@@ -38,10 +38,10 @@ type Config struct {
 // ProviderConfig holds settings for a single cloud provider.
 type ProviderConfig struct {
 	Token   string `json:"token,omitempty"`
-	GistID  string `json:"gist_id,omitempty"`   // github-gist only
-	Repo    string `json:"repo,omitempty"`       // github-repo, codeberg, gitea
-	Remote  string `json:"remote,omitempty"`     // rclone remote name
-	BaseURL string `json:"base_url,omitempty"`   // gitea/forgejo custom URL
+	GistID  string `json:"gist_id,omitempty"`  // github-gist only
+	Repo    string `json:"repo,omitempty"`     // github-repo, codeberg, gitea
+	Remote  string `json:"remote,omitempty"`   // rclone remote name
+	BaseURL string `json:"base_url,omitempty"` // gitea/forgejo custom URL
 }
 
 // EncryptionConfig holds the encryption settings for a named profile.
@@ -352,5 +352,3 @@ func parseNestedKey(key string) (provider, field string, ok bool) {
 	}
 	return "", "", false
 }
-
-

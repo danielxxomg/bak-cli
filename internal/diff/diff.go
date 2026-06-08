@@ -22,7 +22,7 @@ const (
 
 // DiffEntry represents one file-level difference between two backups.
 type DiffEntry struct {
-	SourcePath string   // canonical path (path.Clean + strings.ReplaceAll)
+	SourcePath string // canonical path (path.Clean + strings.ReplaceAll)
 	Category   Category
 	Adapter    string // adapter name from the manifest where the item was found
 }

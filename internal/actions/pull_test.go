@@ -56,7 +56,7 @@ func TestPullAction_ConfigLoadError(t *testing.T) {
 		},
 		Provider: "github-gist",
 	}
-	err := action.Run( nil)
+	err := action.Run(nil)
 	if err == nil {
 		t.Fatal("expected error when config load fails")
 	}
@@ -78,7 +78,7 @@ func TestPullAction_NoStoredBackupID(t *testing.T) {
 		Provider: "github-gist",
 	}
 	// No args and no stored ID → should fail.
-	err := action.Run( nil)
+	err := action.Run(nil)
 	if err == nil {
 		t.Fatal("expected error when no backup ID provided")
 	}
@@ -86,9 +86,9 @@ func TestPullAction_NoStoredBackupID(t *testing.T) {
 
 func TestPullAction_ExplicitID(t *testing.T) {
 	mockFS := &MockFileSystem{
-		HomeDir:    "/home/test",
-		StatResult: make(map[string]MockStatResult),
-		Files:      make(map[string][]byte),
+		HomeDir:     "/home/test",
+		StatResult:  make(map[string]MockStatResult),
+		Files:       make(map[string][]byte),
 		MkdirErrors: make(map[string]error),
 	}
 
@@ -100,7 +100,7 @@ func TestPullAction_ExplicitID(t *testing.T) {
 		Provider: "github-gist",
 		Verbose:  true,
 	}
-	err := action.Run( []string{"abc123"})
+	err := action.Run([]string{"abc123"})
 	if err != nil {
 		// Expected: either config load, factory not configured, or cloud pull failure.
 		if !strings.Contains(err.Error(), "pull") &&
@@ -125,7 +125,7 @@ func TestPullAction_MkdirAllError(t *testing.T) {
 		},
 		Provider: "github-gist",
 	}
-	err := action.Run( []string{"test-id"})
+	err := action.Run([]string{"test-id"})
 	if err != nil {
 		// We expect either config load error or cloud pull error first,
 		// since mkdir happens after download. The mkdir error path is
@@ -148,7 +148,7 @@ func TestPullAction_UserHomeDir(t *testing.T) {
 		},
 		Provider: "github-gist",
 	}
-	err := action.Run( []string{"test-id"})
+	err := action.Run([]string{"test-id"})
 	if err != nil {
 		t.Logf("pull failed as expected: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestPullAction_InvalidProvider(t *testing.T) {
 		},
 		Provider: "unknown-provider",
 	}
-	err := action.Run( []string{"test-id"})
+	err := action.Run([]string{"test-id"})
 	if err == nil {
 		t.Fatal("expected error for unknown provider")
 	}
@@ -208,7 +208,7 @@ func TestPullAction_MockProvider_HappyPath(t *testing.T) {
 		Factory:  factory,
 	}
 
-	err := action.Run( []string{"abc123"})
+	err := action.Run([]string{"abc123"})
 	if err != nil {
 		// Error is expected from UntarGz on empty data, proving
 		// provider.Pull was called successfully.
@@ -238,7 +238,7 @@ func TestPullAction_MockProvider_FactoryError(t *testing.T) {
 		Factory:  factory,
 	}
 
-	err := action.Run( []string{"abc123"})
+	err := action.Run([]string{"abc123"})
 	if err == nil {
 		t.Fatal("expected error from factory")
 	}
@@ -269,7 +269,7 @@ func TestPullAction_MockProvider_PullError(t *testing.T) {
 		Factory:  factory,
 	}
 
-	err := action.Run( []string{"abc123"})
+	err := action.Run([]string{"abc123"})
 	if err == nil {
 		t.Fatal("expected error from provider pull")
 	}

@@ -144,5 +144,3 @@ func TestAutoCommitMessage(t *testing.T) {
 		}
 	})
 }
-
-

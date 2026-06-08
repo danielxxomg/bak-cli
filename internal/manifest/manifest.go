@@ -36,13 +36,13 @@ type Item struct {
 
 // Encryption holds encryption metadata for an encrypted backup.
 type Encryption struct {
-	Algorithm   string `json:"algorithm"`    // "AES-256-GCM"
-	KDF         string `json:"kdf"`          // "Argon2id"
-	Salt        string `json:"salt"`         // hex-encoded salt
-	Nonce       string `json:"nonce"`        // hex-encoded nonce
-	Iterations  int    `json:"iterations"`   // Argon2id iterations (3)
-	MemoryKB    int    `json:"memory_kb"`    // Argon2id memory (65536)
-	Parallelism int    `json:"parallelism"`  // Argon2id parallelism (4)
+	Algorithm   string `json:"algorithm"`   // "AES-256-GCM"
+	KDF         string `json:"kdf"`         // "Argon2id"
+	Salt        string `json:"salt"`        // hex-encoded salt
+	Nonce       string `json:"nonce"`       // hex-encoded nonce
+	Iterations  int    `json:"iterations"`  // Argon2id iterations (3)
+	MemoryKB    int    `json:"memory_kb"`   // Argon2id memory (65536)
+	Parallelism int    `json:"parallelism"` // Argon2id parallelism (4)
 }
 
 // Manifest is the top-level backup descriptor.

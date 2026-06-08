@@ -464,5 +464,3 @@ func TestExecute_UnknownCommand(t *testing.T) {
 		t.Fatal("unknown command should produce error")
 	}
 }
-
-

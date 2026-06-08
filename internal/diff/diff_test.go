@@ -12,8 +12,8 @@ import (
 // makeManifest builds a minimal manifest with items keyed by adapter name.
 func makeManifest(adapterName string, items []manifest.Item) *manifest.Manifest {
 	return &manifest.Manifest{
-		Version:    "0.3.0",
-		ID:         "test",
+		Version: "0.3.0",
+		ID:      "test",
 		Adapters: map[string]manifest.AdapterManifest{
 			adapterName: {Items: items},
 		},
@@ -31,10 +31,10 @@ func item(sourcePath, hash, adapter string) manifest.Item {
 
 func TestCompare(t *testing.T) {
 	tests := []struct {
-		name     string
-		a        *manifest.Manifest
-		b        *manifest.Manifest
-		want     []DiffEntry
+		name string
+		a    *manifest.Manifest
+		b    *manifest.Manifest
+		want []DiffEntry
 	}{
 		{
 			name: "added file",

@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 	"github.com/danielxxomg/bak-cli/internal/adapters/register"
 	"github.com/danielxxomg/bak-cli/internal/presets"
-	"github.com/spf13/cobra"
 )
 
 var backupPreset string

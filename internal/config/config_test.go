@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/danielxxomg/bak-cli/internal/config/testutil"
+	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 )
 
 func TestLoadPath_NonExistent(t *testing.T) {

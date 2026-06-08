@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestPickModel_Init(t *testing.T) {

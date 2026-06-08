@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/spf13/cobra"
+
+	"github.com/danielxxomg/bak-cli/internal/actions"
 )
 
 func TestListCmd_Structure(t *testing.T) {
@@ -161,4 +162,3 @@ func TestFormatSizeBytes_Extended(t *testing.T) {
 		})
 	}
 }
-

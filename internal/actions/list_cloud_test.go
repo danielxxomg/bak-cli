@@ -197,9 +197,9 @@ func TestListCloudAction_VerboseOutput(t *testing.T) {
 
 	var out, errOut strings.Builder
 	action := &ListCloudAction{
-		Config: &config.Config{SchemaVersion: "0.3.0"},
-		Stdout: &out,
-		Stderr: &errOut,
+		Config:  &config.Config{SchemaVersion: "0.3.0"},
+		Stdout:  &out,
+		Stderr:  &errOut,
 		Verbose: true,
 		RegistryFactory: func() *cloud.ProviderRegistry {
 			return reg

@@ -9,10 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/danielxxomg/bak-cli/internal/backup"
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 	restorepkg "github.com/danielxxomg/bak-cli/internal/restore"
-	"github.com/spf13/cobra"
 )
 
 // RestoreAction encapsulates the restore workflow with injectable

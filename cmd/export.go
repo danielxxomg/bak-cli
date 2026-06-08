@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/spf13/cobra"
+
+	"github.com/danielxxomg/bak-cli/internal/actions"
 )
 
 var exportOutput string

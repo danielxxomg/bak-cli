@@ -15,10 +15,10 @@ func TestToCanonical(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		absPath  string
-		homeDir  string
-		want     string
+		name    string
+		absPath string
+		homeDir string
+		want    string
 	}{
 		{
 			name:    "home directory itself",

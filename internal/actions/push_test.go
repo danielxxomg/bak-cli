@@ -32,10 +32,12 @@ type mockDirEntry struct {
 	isDir bool
 }
 
-func (m mockDirEntry) Name() string               { return m.name }
-func (m mockDirEntry) IsDir() bool                 { return m.isDir }
-func (m mockDirEntry) Type() fs.FileMode           { return 0 }
-func (m mockDirEntry) Info() (os.FileInfo, error)  { return mockFileInfo{name: m.name, isDir: m.isDir}, nil }
+func (m mockDirEntry) Name() string      { return m.name }
+func (m mockDirEntry) IsDir() bool       { return m.isDir }
+func (m mockDirEntry) Type() fs.FileMode { return 0 }
+func (m mockDirEntry) Info() (os.FileInfo, error) {
+	return mockFileInfo{name: m.name, isDir: m.isDir}, nil
+}
 
 // --- push helpers -------------------------------------------------------
 
@@ -339,9 +341,9 @@ func TestPushAction_MockProvider_HappyPath(t *testing.T) {
 	}
 
 	action := &PushAction{
-		FS:       newHomeFS(home),
-		Provider: "mock-gist",
-		Factory:  factory,
+		FS:         newHomeFS(home),
+		Provider:   "mock-gist",
+		Factory:    factory,
 		HostnameFn: func() (string, error) { return "testbox", nil },
 	}
 

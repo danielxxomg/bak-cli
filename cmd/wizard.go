@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-isatty"
 )
@@ -25,7 +25,7 @@ const (
 // and login wizards. It reuses the cursor/toggle patterns from pickModel.
 type wizardModel struct {
 	step      wizardStep
-	mode      string   // "profile-create" or "login"
+	mode      string // "profile-create" or "login"
 	quitting  bool
 	confirmed bool
 
@@ -34,12 +34,12 @@ type wizardModel struct {
 	providerCursor int
 
 	// Preset selection state.
-	presets       []string
-	presetCursor  int
+	presets        []string
+	presetCursor   int
 	selectedPreset string
 
 	// Adapter toggle state (reuses pickModel pattern).
-	adapterItems []toggleItem
+	adapterItems  []toggleItem
 	adapterCursor int
 
 	// Category toggle state.

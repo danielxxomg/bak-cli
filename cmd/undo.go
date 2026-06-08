@@ -1,9 +1,10 @@
 package cmd
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/danielxxomg/bak-cli/internal/actions"
 	gitutil "github.com/danielxxomg/bak-cli/internal/git"
-	"github.com/spf13/cobra"
 )
 
 // undoCmd represents the undo command.

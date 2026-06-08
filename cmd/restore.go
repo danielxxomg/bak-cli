@@ -3,8 +3,9 @@ package cmd
 import (
 	"errors"
 
-	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/spf13/cobra"
+
+	"github.com/danielxxomg/bak-cli/internal/actions"
 )
 
 var restoreDryRun bool

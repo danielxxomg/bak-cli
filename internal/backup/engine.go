@@ -28,15 +28,15 @@ func BakDir() (string, error) {
 // Engine orchestrates the backup workflow: detect adapters, resolve
 // presets, copy files, scan secrets, and produce a manifest.
 type Engine struct {
-	HomeDir         string           // user home directory
-	BakDir          string           // ~/.bak storage root
-	Registry        *adapters.Registry // adapter registry
-	Preset          string           // preset name (quick, full, skills)
-	AdapterFilter   []string         // optional: run only these adapters
-	BakVersion      string           // bak binary version
-	Verbose         bool             // enable verbose output
-	SecretPatterns  []*regexp.Regexp // patterns for secret detection; nil = defaults
-	CustomCategories []string        // custom categories from TUI picker; overrides preset
+	HomeDir          string             // user home directory
+	BakDir           string             // ~/.bak storage root
+	Registry         *adapters.Registry // adapter registry
+	Preset           string             // preset name (quick, full, skills)
+	AdapterFilter    []string           // optional: run only these adapters
+	BakVersion       string             // bak binary version
+	Verbose          bool               // enable verbose output
+	SecretPatterns   []*regexp.Regexp   // patterns for secret detection; nil = defaults
+	CustomCategories []string           // custom categories from TUI picker; overrides preset
 }
 
 // Result summarizes a completed backup operation.

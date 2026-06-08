@@ -24,7 +24,7 @@ type Provider interface {
 
 // PushMeta carries context for a push operation.
 type PushMeta struct {
-	BackupID  string    // local backup ID (timestamp)
+	BackupID  string // local backup ID (timestamp)
 	CreatedAt time.Time
 	Hostname  string
 	OS        string
@@ -33,8 +33,8 @@ type PushMeta struct {
 
 // BackupMeta describes a stored backup without its content.
 type BackupMeta struct {
-	ID        string    // provider-specific ID
-	BackupID  string    // original local backup ID
+	ID        string // provider-specific ID
+	BackupID  string // original local backup ID
 	CreatedAt time.Time
 	Hostname  string
 	Size      int64

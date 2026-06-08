@@ -2,8 +2,8 @@ package adapters
 
 // YAMLAdapter represents a declarative adapter definition loaded from YAML.
 type YAMLAdapter struct {
-	Name       string               `yaml:"name"`
-	ConfigPath string               `yaml:"config_path"` // e.g., ".config/myapp"
+	Name       string                `yaml:"name"`
+	ConfigPath string                `yaml:"config_path"` // e.g., ".config/myapp"
 	Categories []YAMLCategoryPattern `yaml:"categories"`
 }
 

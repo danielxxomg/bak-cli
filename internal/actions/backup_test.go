@@ -111,10 +111,10 @@ func TestBackupAction_MkdirError(t *testing.T) {
 	}
 
 	action := &BackupAction{
-		FS:              mockFS,
-		Registry:        adapters.NewRegistry(), // empty — will fail at detection, not mkdir
-		Preset:          "quick",
-		BakVersion:      "test",
+		FS:         mockFS,
+		Registry:   adapters.NewRegistry(), // empty — will fail at detection, not mkdir
+		Preset:     "quick",
+		BakVersion: "test",
 	}
 
 	// This will fail at "no adapters detected" since registry is empty.
@@ -551,9 +551,9 @@ func TestBackupAction_SkillsPreset(t *testing.T) {
 
 func TestFormatSize(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		bytes int64
-		want string
+		want  string
 	}{
 		{"zero bytes", 0, "0 B"},
 		{"bytes", 512, "512 B"},

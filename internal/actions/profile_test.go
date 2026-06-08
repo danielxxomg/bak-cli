@@ -214,8 +214,8 @@ func TestProfileList_Populated(t *testing.T) {
 		Preset:   "full",
 	}
 	cfg.Profiles["home"] = config.ProfileConfig{
-		Provider: "codeberg",
-		Preset:   "quick",
+		Provider:   "codeberg",
+		Preset:     "quick",
 		Encryption: &config.EncryptionConfig{Enabled: true},
 	}
 
