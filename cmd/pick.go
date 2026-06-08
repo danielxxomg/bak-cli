@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/spf13/cobra"
@@ -38,9 +38,9 @@ type categoryItem struct {
 
 // pickModel is the bubbletea model for the category picker.
 type pickModel struct {
-	items    []categoryItem
-	cursor   int
-	quitting bool
+	items     []categoryItem
+	cursor    int
+	quitting  bool
 	confirmed bool
 }
 

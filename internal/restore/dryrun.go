@@ -132,14 +132,12 @@ func unifiedDiff(path, current, incoming string) string {
 
 		if cur == inc {
 			fmt.Fprintf(&out, "  %s\n", cur)
-		} else {
-			if cur != "" || inc != "" {
-				if cur != "" {
-					fmt.Fprintf(&out, "- %s\n", cur)
-				}
-				if inc != "" {
-					fmt.Fprintf(&out, "+ %s\n", inc)
-				}
+		} else if cur != "" || inc != "" {
+			if cur != "" {
+				fmt.Fprintf(&out, "- %s\n", cur)
+			}
+			if inc != "" {
+				fmt.Fprintf(&out, "+ %s\n", inc)
 			}
 		}
 	}
