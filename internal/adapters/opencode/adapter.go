@@ -8,9 +8,7 @@
 package opencode
 
 import (
-	"crypto/sha256"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -155,7 +153,7 @@ func scanDir(dir, category, configDir, homeDir string) ([]adapters.Item, error) 
 		}
 
 		if !d.IsDir() {
-			hash, sz, hashErr := fileHash(absPath)
+			hash, sz, hashErr := adapters.FileHash(absPath)
 			if hashErr != nil {
 				return fmt.Errorf("hash %s: %w", absPath, hashErr)
 			}
@@ -200,7 +198,7 @@ func scanRootFiles(configDir, homeDir string, catSet map[string]bool) ([]adapter
 			return nil, infoErr
 		}
 
-		hash, _, hashErr := fileHash(absPath)
+		hash, _, hashErr := adapters.FileHash(absPath)
 		if hashErr != nil {
 			return nil, fmt.Errorf("hash %s: %w", absPath, hashErr)
 		}
@@ -235,7 +233,7 @@ func (a *Adapter) Backup(homeDir, backupDir string, items []adapters.Item) error
 			continue
 		}
 
-		if err := copyFile(src, dst); err != nil {
+		if err := adapters.CopyFile(src, dst); err != nil {
 			return fmt.Errorf("copy %s → %s: %w", src, dst, err)
 		}
 	}
@@ -259,60 +257,10 @@ func (a *Adapter) Restore(backupDir, homeDir string, items []adapters.Item) erro
 			continue
 		}
 
-		if err := copyFile(src, dst); err != nil {
+		if err := adapters.CopyFile(src, dst); err != nil {
 			return fmt.Errorf("copy %s → %s: %w", src, dst, err)
 		}
 	}
 
 	return nil
-}
-
-// --- helpers ----------------------------------------------------------------
-
-// copyFile copies a regular file from src to dst, creating parent
-// directories as needed. It preserves no metadata beyond file content.
-func copyFile(src, dst string) error {
-	sf, err := os.Open(src)
-	if err != nil {
-		return fmt.Errorf("open src: %w", err)
-	}
-	defer func() { _ = sf.Close() }()
-
-	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
-		return fmt.Errorf("mkdir: %w", err)
-	}
-
-	df, err := os.Create(dst)
-	if err != nil {
-		return fmt.Errorf("create dst: %w", err)
-	}
-	defer func() { _ = df.Close() }()
-
-	if _, err := io.Copy(df, sf); err != nil {
-		return fmt.Errorf("copy: %w", err)
-	}
-
-	return df.Close()
-}
-
-// fileHash computes the SHA-256 hex digest and file size for the given
-// regular file path.
-func fileHash(path string) (hash string, size int64, err error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", 0, err
-	}
-	defer func() { _ = f.Close() }()
-
-	info, err := f.Stat()
-	if err != nil {
-		return "", 0, err
-	}
-
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return "", 0, err
-	}
-
-	return fmt.Sprintf("sha256:%x", h.Sum(nil)), info.Size(), nil
 }

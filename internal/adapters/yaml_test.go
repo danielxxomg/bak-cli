@@ -1,8 +1,6 @@
 package adapters
 
 import (
-	"crypto/sha256"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -310,63 +308,6 @@ func TestConfigAdapter_Restore(t *testing.T) {
 	}
 }
 
-// ---------- fileHash -----------------------------------------------------
-
-func Test_fileHash(t *testing.T) {
-	t.Run("compute hash of known content", func(t *testing.T) {
-		dir := t.TempDir()
-		fpath := filepath.Join(dir, "test.txt")
-		if err := os.WriteFile(fpath, []byte("hello world"), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		hash, size, err := fileHash(fpath)
-		if err != nil {
-			t.Fatalf("fileHash: %v", err)
-		}
-		if size != 11 {
-			t.Errorf("size = %d, want 11", size)
-		}
-
-		// Verify hash is correct SHA-256 of "hello world".
-		h := sha256.New()
-		h.Write([]byte("hello world"))
-		expected := fmt.Sprintf("sha256:%x", h.Sum(nil))
-		if hash != expected {
-			t.Errorf("hash = %q, want %q", hash, expected)
-		}
-	})
-
-	t.Run("empty file", func(t *testing.T) {
-		dir := t.TempDir()
-		fpath := filepath.Join(dir, "empty.txt")
-		if err := os.WriteFile(fpath, []byte{}, 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		hash, size, err := fileHash(fpath)
-		if err != nil {
-			t.Fatalf("fileHash: %v", err)
-		}
-		if size != 0 {
-			t.Errorf("size = %d, want 0", size)
-		}
-		if hash == "" {
-			t.Error("hash should not be empty for empty file")
-		}
-	})
-
-	t.Run("nonexistent file", func(t *testing.T) {
-		dir := t.TempDir()
-		fpath := filepath.Join(dir, "missing.txt")
-
-		_, _, err := fileHash(fpath)
-		if err == nil {
-			t.Error("expected error for nonexistent file")
-		}
-	})
-}
-
 // ---------- scanCategoryDir ----------------------------------------------
 
 func Test_scanCategoryDir(t *testing.T) {
@@ -428,43 +369,6 @@ func Test_scanCategoryDir(t *testing.T) {
 		_, err := scanCategoryDir(missingPath, "plugins", filepath.Join(dir, "config"))
 		if err == nil {
 			t.Error("expected error for nonexistent directory")
-		}
-	})
-}
-
-// ---------- copyFile -----------------------------------------------------
-
-func Test_copyFile(t *testing.T) {
-	t.Run("copies content to destination", func(t *testing.T) {
-		dir := t.TempDir()
-		src := filepath.Join(dir, "src.txt")
-		dst := filepath.Join(dir, "sub", "dst.txt")
-
-		if err := os.WriteFile(src, []byte("copy me"), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		if err := copyFile(src, dst); err != nil {
-			t.Fatalf("copyFile: %v", err)
-		}
-
-		data, err := os.ReadFile(dst)
-		if err != nil {
-			t.Fatalf("read dst: %v", err)
-		}
-		if string(data) != "copy me" {
-			t.Errorf("dst content = %q, want %q", string(data), "copy me")
-		}
-	})
-
-	t.Run("nonexistent source returns error", func(t *testing.T) {
-		dir := t.TempDir()
-		src := filepath.Join(dir, "missing.txt")
-		dst := filepath.Join(dir, "dst.txt")
-
-		err := copyFile(src, dst)
-		if err == nil {
-			t.Error("expected error for nonexistent source")
 		}
 	})
 }

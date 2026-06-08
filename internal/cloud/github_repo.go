@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -105,31 +104,18 @@ func (p *GitHubRepoProvider) Pull(id string) ([]byte, error) {
 	filePath := fmt.Sprintf("%s/%s.tar.gz", githubRepoDir, id)
 	url := fmt.Sprintf("%s/repos/%s/contents/%s", p.apiBase, p.repo, filePath)
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := newRequest(http.MethodGet, url, p.token, "application/vnd.github+json", "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("pull github-repo: build request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+p.token)
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "bak-cli")
 
-	resp, err := p.client.Do(req)
+	body, status, err := doRequest(p.client, req)
 	if err != nil {
-		return nil, fmt.Errorf("pull github-repo: request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("pull github-repo: read response: %w", err)
+		return nil, fmt.Errorf("pull github-repo: %w", err)
 	}
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		msg := strings.TrimSpace(string(body))
-		if msg == "" {
-			msg = http.StatusText(resp.StatusCode)
-		}
-		return nil, fmt.Errorf("pull github-repo: API error %d: %s", resp.StatusCode, msg)
+	if status < 200 || status >= 300 {
+		return nil, fmt.Errorf("pull github-repo: %w", formatAPIError(body, status))
 	}
 
 	var cr githubContentResponse
@@ -156,36 +142,23 @@ func (p *GitHubRepoProvider) List() ([]BackupMeta, error) {
 
 	url := fmt.Sprintf("%s/repos/%s/contents/%s", p.apiBase, p.repo, githubRepoDir)
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := newRequest(http.MethodGet, url, p.token, "application/vnd.github+json", "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("list github-repo: build request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+p.token)
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "bak-cli")
 
-	resp, err := p.client.Do(req)
+	body, status, err := doRequest(p.client, req)
 	if err != nil {
-		return nil, fmt.Errorf("list github-repo: request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("list github-repo: read response: %w", err)
+		return nil, fmt.Errorf("list github-repo: %w", err)
 	}
 
 	// Directory listing returns 404 if the directory doesn't exist yet.
-	if resp.StatusCode == http.StatusNotFound {
+	if status == http.StatusNotFound {
 		return nil, nil
 	}
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		msg := strings.TrimSpace(string(body))
-		if msg == "" {
-			msg = http.StatusText(resp.StatusCode)
-		}
-		return nil, fmt.Errorf("list github-repo: API error %d: %s", resp.StatusCode, msg)
+	if status < 200 || status >= 300 {
+		return nil, fmt.Errorf("list github-repo: %w", formatAPIError(body, status))
 	}
 
 	var items []githubContentResponse
@@ -213,35 +186,22 @@ func (p *GitHubRepoProvider) List() ([]BackupMeta, error) {
 func (p *GitHubRepoProvider) getFileSHA(filePath string) (string, error) {
 	url := fmt.Sprintf("%s/repos/%s/contents/%s", p.apiBase, p.repo, filePath)
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := newRequest(http.MethodGet, url, p.token, "application/vnd.github+json", "", nil)
 	if err != nil {
 		return "", fmt.Errorf("check file: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+p.token)
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "bak-cli")
 
-	resp, err := p.client.Do(req)
+	body, status, err := doRequest(p.client, req)
 	if err != nil {
 		return "", fmt.Errorf("check file: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode == http.StatusNotFound {
+	if status == http.StatusNotFound {
 		return "", nil
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("check file: %w", err)
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		msg := strings.TrimSpace(string(body))
-		if msg == "" {
-			msg = http.StatusText(resp.StatusCode)
-		}
-		return "", fmt.Errorf("check file: api error %d: %s", resp.StatusCode, msg)
+	if status < 200 || status >= 300 {
+		return "", fmt.Errorf("check file: %w", formatAPIError(body, status))
 	}
 
 	var cr githubContentResponse
@@ -269,32 +229,18 @@ func (p *GitHubRepoProvider) putFile(filePath, content, message, sha string) err
 		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(bodyBytes))
+	req, err := newRequest(http.MethodPut, url, p.token, "application/vnd.github+json", "application/json", bytes.NewReader(bodyBytes))
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+p.token)
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "bak-cli")
 
-	resp, err := p.client.Do(req)
+	body, status, err := doRequest(p.client, req)
 	if err != nil {
-		return fmt.Errorf("request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("read response: %w", err)
+		return fmt.Errorf("write file: %w", err)
 	}
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		msg := strings.TrimSpace(string(respBody))
-		if msg == "" {
-			msg = http.StatusText(resp.StatusCode)
-		}
-		return fmt.Errorf("write file: api error %d: %s", resp.StatusCode, msg)
+	if status < 200 || status >= 300 {
+		return fmt.Errorf("write file: %w", formatAPIError(body, status))
 	}
 
 	return nil

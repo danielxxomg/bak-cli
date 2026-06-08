@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -148,31 +147,18 @@ func (p *GiteaProvider) Pull(id string) ([]byte, error) {
 	filePath := fmt.Sprintf("%s/%s.tar.gz", giteaBackupDir, id)
 	url := fmt.Sprintf("%s/api/v1/repos/%s/contents/%s", p.baseURL, p.repo, filePath)
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := newRequest(http.MethodGet, url, p.token, "application/json", "", nil)
 	if err != nil {
 		return nil, p.errf("pull: build request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+p.token)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "bak-cli")
 
-	resp, err := p.client.Do(req)
+	body, status, err := doRequest(p.client, req)
 	if err != nil {
-		return nil, p.errf("pull: request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, p.errf("pull: read response: %w", err)
+		return nil, p.errf("pull: %w", err)
 	}
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		msg := strings.TrimSpace(string(body))
-		if msg == "" {
-			msg = http.StatusText(resp.StatusCode)
-		}
-		return nil, p.errf("pull: api error %d: %s", resp.StatusCode, msg)
+	if status < 200 || status >= 300 {
+		return nil, p.errf("pull: %w", formatAPIError(body, status))
 	}
 
 	var cr giteaContentResponse
@@ -199,36 +185,23 @@ func (p *GiteaProvider) List() ([]BackupMeta, error) {
 
 	url := fmt.Sprintf("%s/api/v1/repos/%s/contents/%s", p.baseURL, p.repo, giteaBackupDir)
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := newRequest(http.MethodGet, url, p.token, "application/json", "", nil)
 	if err != nil {
 		return nil, p.errf("list: build request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+p.token)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "bak-cli")
 
-	resp, err := p.client.Do(req)
+	body, status, err := doRequest(p.client, req)
 	if err != nil {
-		return nil, p.errf("list: request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, p.errf("list: read response: %w", err)
+		return nil, p.errf("list: %w", err)
 	}
 
 	// Directory listing may return 404 if the directory doesn't exist yet.
-	if resp.StatusCode == http.StatusNotFound {
+	if status == http.StatusNotFound {
 		return nil, nil
 	}
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		msg := strings.TrimSpace(string(body))
-		if msg == "" {
-			msg = http.StatusText(resp.StatusCode)
-		}
-		return nil, p.errf("list: api error %d: %s", resp.StatusCode, msg)
+	if status < 200 || status >= 300 {
+		return nil, p.errf("list: %w", formatAPIError(body, status))
 	}
 
 	var items []giteaContentResponse
@@ -257,35 +230,22 @@ func (p *GiteaProvider) List() ([]BackupMeta, error) {
 func (p *GiteaProvider) getFileSHA(filePath string) (string, error) {
 	url := fmt.Sprintf("%s/api/v1/repos/%s/contents/%s", p.baseURL, p.repo, filePath)
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := newRequest(http.MethodGet, url, p.token, "application/json", "", nil)
 	if err != nil {
 		return "", fmt.Errorf("check file: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+p.token)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "bak-cli")
 
-	resp, err := p.client.Do(req)
+	body, status, err := doRequest(p.client, req)
 	if err != nil {
 		return "", fmt.Errorf("check file: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode == http.StatusNotFound {
+	if status == http.StatusNotFound {
 		return "", nil
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("check file: %w", err)
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		msg := strings.TrimSpace(string(body))
-		if msg == "" {
-			msg = http.StatusText(resp.StatusCode)
-		}
-		return "", fmt.Errorf("check file: api error %d: %s", resp.StatusCode, msg)
+	if status < 200 || status >= 300 {
+		return "", fmt.Errorf("check file: %w", formatAPIError(body, status))
 	}
 
 	var cr giteaContentResponse
@@ -322,32 +282,18 @@ func (p *GiteaProvider) writeFile(method, filePath, content, message, sha string
 		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest(method, url, bytes.NewReader(bodyBytes))
+	req, err := newRequest(method, url, p.token, "application/json", "application/json", bytes.NewReader(bodyBytes))
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+p.token)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "bak-cli")
 
-	resp, err := p.client.Do(req)
+	body, status, err := doRequest(p.client, req)
 	if err != nil {
-		return fmt.Errorf("request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("read response: %w", err)
+		return fmt.Errorf("write file: %w", err)
 	}
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		msg := strings.TrimSpace(string(respBody))
-		if msg == "" {
-			msg = http.StatusText(resp.StatusCode)
-		}
-		return fmt.Errorf("write file: api error %d: %s", resp.StatusCode, msg)
+	if status < 200 || status >= 300 {
+		return fmt.Errorf("write file: %w", formatAPIError(body, status))
 	}
 
 	return nil

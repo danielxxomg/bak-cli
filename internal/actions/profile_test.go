@@ -337,6 +337,122 @@ func TestProfileDelete_DryRun(t *testing.T) {
 	}
 }
 
+func TestProfileValidateForCreation(t *testing.T) {
+	tests := []struct {
+		name          string
+		cfg           *config.Config
+		profileName   string
+		wantErr       bool
+		errContains   string
+		wantProviders int // minimum number of providers expected
+	}{
+		{
+			name: "duplicate name",
+			cfg: &config.Config{
+				Profiles: map[string]config.ProfileConfig{
+					"work": {Provider: "github-gist"},
+				},
+				Providers: map[string]config.ProviderConfig{
+					"github-gist": {Token: "ghp_test"},
+				},
+			},
+			profileName: "work",
+			wantErr:     true,
+			errContains: "already exists",
+		},
+		{
+			name: "no providers",
+			cfg: &config.Config{
+				Profiles:  map[string]config.ProfileConfig{},
+				Providers: map[string]config.ProviderConfig{},
+			},
+			profileName: "test",
+			wantErr:     true,
+			errContains: "no providers configured",
+		},
+		{
+			name: "valid with single provider",
+			cfg: &config.Config{
+				Profiles: map[string]config.ProfileConfig{},
+				Providers: map[string]config.ProviderConfig{
+					"github-gist": {Token: "ghp_test"},
+				},
+			},
+			profileName:   "new-profile",
+			wantErr:       false,
+			wantProviders: 1,
+		},
+		{
+			name: "valid with multiple providers",
+			cfg: &config.Config{
+				Profiles: map[string]config.ProfileConfig{},
+				Providers: map[string]config.ProviderConfig{
+					"github-gist": {Token: "ghp_test"},
+					"codeberg":    {Token: "cb_test"},
+				},
+			},
+			profileName:   "new-profile",
+			wantErr:       false,
+			wantProviders: 2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			providers, err := ProfileValidateForCreation(tt.cfg, tt.profileName)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.errContains)
+				}
+				if !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("error = %v, want substring %q", err, tt.errContains)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(providers) < tt.wantProviders {
+				t.Errorf("providers count = %d, want at least %d (got %v)", len(providers), tt.wantProviders, providers)
+			}
+		})
+	}
+}
+
+func TestParseCSV(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []string
+	}{
+		{"empty string", "", nil},
+		{"single token", "opencode", []string{"opencode"}},
+		{"multiple tokens", "opencode,cursor", []string{"opencode", "cursor"}},
+		{"whitespace trimming", " opencode , cursor ", []string{"opencode", "cursor"}},
+		{"empty middle token", "opencode,,cursor", []string{"opencode", "cursor"}},
+		{"trailing comma", "opencode,", []string{"opencode"}},
+		{"whitespace only", "  ,  ", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ParseCSV(tt.input)
+			if tt.want == nil {
+				if got != nil {
+					t.Errorf("ParseCSV(%q) = %v, want nil", tt.input, got)
+				}
+				return
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("ParseCSV(%q) = %v (len=%d), want %v (len=%d)", tt.input, got, len(got), tt.want, len(tt.want))
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("ParseCSV(%q)[%d] = %q, want %q", tt.input, i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
 func TestProfileDelete_Missing(t *testing.T) {
 	_, cfg := setupConfigDir(t, nil)
 
