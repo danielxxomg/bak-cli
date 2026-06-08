@@ -241,6 +241,179 @@ func mustWrite(t *testing.T, path, content string) {
 	}
 }
 
+func TestCountByStatus(t *testing.T) {
+	tests := []struct {
+		name     string
+		diffs    []FileDiff
+		status   DiffStatus
+		expected int
+	}{
+		{
+			name:     "empty slice",
+			diffs:    []FileDiff{},
+			status:   DiffNew,
+			expected: 0,
+		},
+		{
+			name: "single match",
+			diffs: []FileDiff{
+				{Status: DiffNew},
+			},
+			status:   DiffNew,
+			expected: 1,
+		},
+		{
+			name: "single mismatch",
+			diffs: []FileDiff{
+				{Status: DiffNew},
+			},
+			status:   DiffUnchanged,
+			expected: 0,
+		},
+		{
+			name: "mixed statuses — count new",
+			diffs: []FileDiff{
+				{Status: DiffNew},
+				{Status: DiffModified},
+				{Status: DiffNew},
+				{Status: DiffUnchanged},
+				{Status: DiffMissing},
+			},
+			status:   DiffNew,
+			expected: 2,
+		},
+		{
+			name: "mixed statuses — count missing",
+			diffs: []FileDiff{
+				{Status: DiffNew},
+				{Status: DiffModified},
+				{Status: DiffMissing},
+				{Status: DiffUnchanged},
+				{Status: DiffMissing},
+			},
+			status:   DiffMissing,
+			expected: 2,
+		},
+		{
+			name: "all same status",
+			diffs: []FileDiff{
+				{Status: DiffUnchanged},
+				{Status: DiffUnchanged},
+				{Status: DiffUnchanged},
+			},
+			status:   DiffUnchanged,
+			expected: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CountByStatus(tt.diffs, tt.status)
+			if got != tt.expected {
+				t.Fatalf("CountByStatus = %d, want %d", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestWriteRestoreLog_ErrorPaths(t *testing.T) {
+	t.Run("valid write — creates log entry", func(t *testing.T) {
+		backupDir := t.TempDir()
+		engine := &Engine{
+			GitDir:    "/some/git/dir",
+			BackupDir: backupDir,
+		}
+		result := &RestoreResult{
+			Restored: 5,
+			Skipped:  2,
+			Failed:   1,
+		}
+
+		engine.writeRestoreLog("test-id", result)
+
+		logPath := filepath.Join(backupDir, "restore-log.jsonl")
+		data, err := os.ReadFile(logPath)
+		if err != nil {
+			t.Fatalf("expected log file to exist: %v", err)
+		}
+		want := `{"id":"test-id","restored":5,"skipped":2,"failed":1}` + "\n"
+		if string(data) != want {
+			t.Fatalf("log content = %q, want %q", string(data), want)
+		}
+	})
+
+	t.Run("empty GitDir — no-op, no file created", func(t *testing.T) {
+		backupDir := t.TempDir()
+		engine := &Engine{
+			GitDir:    "",
+			BackupDir: backupDir,
+		}
+		result := &RestoreResult{
+			Restored: 1,
+			Skipped:  0,
+			Failed:   0,
+		}
+
+		engine.writeRestoreLog("no-git-dir", result)
+
+		logPath := filepath.Join(backupDir, "restore-log.jsonl")
+		if _, err := os.Stat(logPath); err == nil {
+			t.Fatal("log file should not exist when GitDir is empty")
+		}
+	})
+
+	t.Run("mkdir blocked — BackupDir is a file, not a directory", func(t *testing.T) {
+		dir := t.TempDir()
+		// Create backupDir path as a FILE, so MkdirAll on its parent fails.
+		blockFile := filepath.Join(dir, "backup-file")
+		if err := os.WriteFile(blockFile, []byte("x"), 0644); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		engine := &Engine{
+			GitDir:    "/some/git/dir",
+			BackupDir: blockFile, // this is a file, not a directory
+			Verbose:   true,
+		}
+		result := &RestoreResult{
+			Restored: 1,
+			Skipped:  0,
+			Failed:   0,
+		}
+
+		// Should not panic; should silently skip.
+		engine.writeRestoreLog("mkdir-fail", result)
+
+		logPath := filepath.Join(blockFile, "restore-log.jsonl")
+		if _, err := os.Stat(logPath); err == nil {
+			t.Fatal("log file should not exist when mkdir fails")
+		}
+	})
+
+	t.Run("write failure — restore-log.jsonl is a directory", func(t *testing.T) {
+		backupDir := t.TempDir()
+		// Create restore-log.jsonl as a DIRECTORY, so WriteFile fails.
+		logDir := filepath.Join(backupDir, "restore-log.jsonl")
+		if err := os.MkdirAll(logDir, 0755); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		engine := &Engine{
+			GitDir:    "/some/git/dir",
+			BackupDir: backupDir,
+			Verbose:   true,
+		}
+		result := &RestoreResult{
+			Restored: 1,
+			Skipped:  0,
+			Failed:   0,
+		}
+
+		// Should not panic; should silently skip.
+		engine.writeRestoreLog("write-fail", result)
+	})
+}
+
 // mustHash returns the SHA-256 hex digest of a file.
 func mustHash(t *testing.T, path string) string {
 	t.Helper()

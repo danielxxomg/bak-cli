@@ -180,6 +180,141 @@ func TestRestoreEngine_Run(t *testing.T) {
 	})
 }
 
+func TestEngine_Run_ChecksumMismatch(t *testing.T) {
+	homeDir := t.TempDir()
+	backupDir := t.TempDir()
+
+	mustWrite(t, filepath.Join(backupDir, "opencode", "opencode.json"), `{"theme":"dark"}`)
+
+	// Build a manifest with a WRONG hash for the backup file.
+	m := &manifest.Manifest{
+		Version:    "0.1.0",
+		ID:         "test-backup",
+		OSSource:   "linux",
+		BakVersion: "0.1.0",
+		Preset:     "full",
+		Categories: []string{"config"},
+		Adapters: map[string]manifest.AdapterManifest{
+			"opencode": {
+				ConfigDir: "~/.config/opencode",
+				Items: []manifest.Item{
+					{
+						SourcePath: "~/.config/opencode/opencode.json",
+						BackupPath: "opencode/opencode.json",
+						Hash:       "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+					},
+				},
+			},
+		},
+	}
+
+	engine := &Engine{
+		HomeDir:   homeDir,
+		BackupDir: backupDir,
+		DryRun:    false,
+		Force:     false, // Force is off → checksum mismatch should cause error
+	}
+
+	_, err := engine.Run(m)
+	if err == nil {
+		t.Fatal("expected error for checksum mismatch, got nil")
+	}
+}
+
+func TestEngine_Run_ChecksumMismatch_ForceOverride(t *testing.T) {
+	homeDir := t.TempDir()
+	backupDir := t.TempDir()
+
+	mustWrite(t, filepath.Join(backupDir, "opencode", "opencode.json"), `{"theme":"dark"}`)
+
+	// Build a manifest with a WRONG hash — but Force is true.
+	m := &manifest.Manifest{
+		Version:    "0.1.0",
+		ID:         "test-backup",
+		OSSource:   "linux",
+		BakVersion: "0.1.0",
+		Preset:     "full",
+		Categories: []string{"config"},
+		Adapters: map[string]manifest.AdapterManifest{
+			"opencode": {
+				ConfigDir: "~/.config/opencode",
+				Items: []manifest.Item{
+					{
+						SourcePath: "~/.config/opencode/opencode.json",
+						BackupPath: "opencode/opencode.json",
+						Hash:       "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+					},
+				},
+			},
+		},
+	}
+
+	engine := &Engine{
+		HomeDir:   homeDir,
+		BackupDir: backupDir,
+		DryRun:    false,
+		Force:     true, // Force overrides checksum validation
+	}
+
+	result, err := engine.Run(m)
+	if err != nil {
+		t.Fatalf("unexpected error with Force=true: %v", err)
+	}
+	if result.Restored != 1 {
+		t.Fatalf("expected 1 restored with Force=true, got %d", result.Restored)
+	}
+
+	// Verify the file was actually written.
+	targetPath := filepath.Join(homeDir, ".config", "opencode", "opencode.json")
+	data, err := os.ReadFile(targetPath)
+	if err != nil {
+		t.Fatalf("target file not created: %v", err)
+	}
+	if string(data) != `{"theme":"dark"}` {
+		t.Fatalf("wrong content: %q", string(data))
+	}
+}
+
+func TestEngine_Run_WriteFailure(t *testing.T) {
+	homeDir := t.TempDir()
+	backupDir := t.TempDir()
+
+	mustWrite(t, filepath.Join(backupDir, "opencode", "opencode.json"), `{"theme":"dark"}`)
+
+	// Create a file where a directory component should be, so MkdirAll fails.
+	// The resolved target path will be: homeDir/.config/opencode/opencode.json
+	// We block the ".config" path by making it a file.
+	blockPath := filepath.Join(homeDir, ".config")
+	if err := os.WriteFile(blockPath, []byte("blocked"), 0644); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	m := buildTestManifest(t, backupDir, []manifestItem{
+		{source: "~/.config/opencode/opencode.json", backup: "opencode/opencode.json"},
+	})
+
+	engine := &Engine{
+		HomeDir:   homeDir,
+		BackupDir: backupDir,
+		DryRun:    false,
+		Force:     true,
+		Verbose:   true,
+	}
+
+	result, err := engine.Run(m)
+	if err != nil {
+		t.Fatalf("unexpected top-level error: %v", err)
+	}
+
+	// The write should have failed; Failed count should be 1.
+	if result.Failed != 1 {
+		t.Fatalf("expected 1 failed, got %d", result.Failed)
+	}
+	if result.Restored != 0 {
+		t.Fatalf("expected 0 restored, got %d", result.Restored)
+	}
+}
+
 // --- Helpers for restore engine tests ---
 
 type manifestItem struct {
