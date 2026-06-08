@@ -53,21 +53,21 @@ func (a *LoginAction) Run(provider string, out io.Writer) error {
 	// 1. Check if token already exists.
 	tok, _ := cloud.ResolveToken(a.Config)
 	if tok != "" {
-		fmt.Fprintln(out, "Token already configured.")
-		fmt.Fprint(out, "Do you want to replace it? [y/N]: ")
+		_, _ = fmt.Fprintln(out, "Token already configured.")
+		_, _ = fmt.Fprint(out, "Do you want to replace it? [y/N]: ")
 		answer, err := reader.ReadString('\n')
 		if err != nil {
 			return fmt.Errorf("read input: %w", err)
 		}
 		answer = strings.TrimSpace(strings.ToLower(answer))
 		if answer != "y" && answer != "yes" {
-			fmt.Fprintln(out, "Login cancelled.")
+			_, _ = fmt.Fprintln(out, "Login cancelled.")
 			return nil
 		}
 	}
 
 	// 2. Prompt for token.
-	fmt.Fprint(out, "Enter GitHub personal access token: ")
+	_, _ = fmt.Fprint(out, "Enter GitHub personal access token: ")
 	input, err := reader.ReadString('\n')
 	if err != nil {
 		return fmt.Errorf("read token: %w", err)
@@ -79,20 +79,20 @@ func (a *LoginAction) Run(provider string, out io.Writer) error {
 	}
 
 	// 3. Validate token.
-	fmt.Fprint(out, "Validating token... ")
+	_, _ = fmt.Fprint(out, "Validating token... ")
 	if a.TokenValidator != nil {
 		if err := a.TokenValidator(token); err != nil {
-			fmt.Fprintln(out, "❌")
+			_, _ = fmt.Fprintln(out, "❌")
 			return fmt.Errorf("token validation failed: %w", err)
 		}
 	}
-	fmt.Fprintln(out, "✅")
+	_, _ = fmt.Fprintln(out, "✅")
 
 	// 4. Save to config (Set persists automatically).
 	if err := a.ConfigSaver.Set("github.token", token); err != nil {
 		return fmt.Errorf("save token: %w", err)
 	}
 
-	fmt.Fprintln(out, "Token saved successfully.")
+	_, _ = fmt.Fprintln(out, "Token saved successfully.")
 	return nil
 }

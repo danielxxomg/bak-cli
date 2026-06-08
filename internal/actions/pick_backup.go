@@ -95,17 +95,17 @@ func (a *PickBackupAction) Run() error {
 	}
 
 	if !result.Confirmed {
-		fmt.Fprintln(a.Stdout, "Backup cancelled.")
+		_, _ = fmt.Fprintln(a.Stdout, "Backup cancelled.")
 		return nil
 	}
 
 	selected := result.Selected
 	if len(selected) == 0 {
-		fmt.Fprintln(a.Stdout, "No categories selected. Backup cancelled.")
+		_, _ = fmt.Fprintln(a.Stdout, "No categories selected. Backup cancelled.")
 		return nil
 	}
 
-	fmt.Fprintf(a.Stdout, "Selected categories: %s\n", strings.Join(selected, ", "))
+	_, _ = fmt.Fprintf(a.Stdout, "Selected categories: %s\n", strings.Join(selected, ", "))
 
 	// Run backup with custom categories.
 	bakFn := a.BakDir
@@ -154,10 +154,10 @@ func (a *PickBackupAction) Run() error {
 		return fmt.Errorf("backup: %w", err)
 	}
 
-	fmt.Fprintf(a.Stdout, "✅ Backup created: %s\n", bakResult.ID)
-	fmt.Fprintf(a.Stdout, "   Files: %d, Size: %d bytes\n", bakResult.FileCount, bakResult.TotalSize)
+	_, _ = fmt.Fprintf(a.Stdout, "✅ Backup created: %s\n", bakResult.ID)
+	_, _ = fmt.Fprintf(a.Stdout, "   Files: %d, Size: %d bytes\n", bakResult.FileCount, bakResult.TotalSize)
 	if bakResult.Secrets > 0 {
-		fmt.Fprintf(a.Stdout, "   Secrets excluded: %d files\n", bakResult.Secrets)
+		_, _ = fmt.Fprintf(a.Stdout, "   Secrets excluded: %d files\n", bakResult.Secrets)
 	}
 
 	return nil

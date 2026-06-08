@@ -103,7 +103,7 @@ func runLoginInteractiveWithDeps(cmd *cobra.Command, deps cmdDeps) error {
 	}
 
 	if selected == "" {
-		fmt.Fprintln(deps.Stdout, "Login cancelled.")
+		_, _ = fmt.Fprintln(deps.Stdout, "Login cancelled.")
 		return nil
 	}
 

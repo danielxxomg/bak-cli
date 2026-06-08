@@ -65,10 +65,10 @@ func (a *ScheduleAction) Create(profile, interval string) error {
 	cfg.Profiles[profile] = pc
 
 	if err := cfg.Save(); err != nil {
-		fmt.Fprintf(a.Stderr, "warning: schedule created but config save failed: %v\n", err)
+		_, _ = fmt.Fprintf(a.Stderr, "warning: schedule created but config save failed: %v\n", err)
 	}
 
-	fmt.Fprintf(a.Stdout, "Schedule created for profile %q (interval: %s)\n", profile, interval)
+	_, _ = fmt.Fprintf(a.Stdout, "Schedule created for profile %q (interval: %s)\n", profile, interval)
 	return nil
 }
 
@@ -81,19 +81,19 @@ func (a *ScheduleAction) List() error {
 	}
 
 	if len(entries) == 0 {
-		fmt.Fprintln(a.Stdout, "No bak-cli schedules found.")
+		_, _ = fmt.Fprintln(a.Stdout, "No bak-cli schedules found.")
 		return nil
 	}
 
-	fmt.Fprintf(a.Stdout, "%-20s %-15s\n", "PROFILE", "INTERVAL")
-	fmt.Fprintln(a.Stdout, strings.Repeat("-", 40))
+	_, _ = fmt.Fprintf(a.Stdout, "%-20s %-15s\n", "PROFILE", "INTERVAL")
+	_, _ = fmt.Fprintln(a.Stdout, strings.Repeat("-", 40))
 
 	for _, e := range entries {
 		interval := e.Interval
 		if interval == "" {
 			interval = "—"
 		}
-		fmt.Fprintf(a.Stdout, "%-20s %-15s\n", e.Profile, interval)
+		_, _ = fmt.Fprintf(a.Stdout, "%-20s %-15s\n", e.Profile, interval)
 	}
 
 	return nil
@@ -108,17 +108,17 @@ func (a *ScheduleAction) Remove(profile string) error {
 
 	cfg, err := a.ConfigLoader()
 	if err != nil {
-		fmt.Fprintf(a.Stderr, "warning: schedule removed but config load failed: %v\n", err)
+		_, _ = fmt.Fprintf(a.Stderr, "warning: schedule removed but config load failed: %v\n", err)
 	} else {
 		if pc, ok := cfg.Profiles[profile]; ok {
 			pc.Schedule = nil
 			cfg.Profiles[profile] = pc
 			if err := cfg.Save(); err != nil {
-				fmt.Fprintf(a.Stderr, "warning: schedule removed but config save failed: %v\n", err)
+				_, _ = fmt.Fprintf(a.Stderr, "warning: schedule removed but config save failed: %v\n", err)
 			}
 		}
 	}
 
-	fmt.Fprintf(a.Stdout, "Schedule removed for profile %q.\n", profile)
+	_, _ = fmt.Fprintf(a.Stdout, "Schedule removed for profile %q.\n", profile)
 	return nil
 }

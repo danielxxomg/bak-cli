@@ -81,19 +81,19 @@ func saveProfile(cfg *config.Config, name string, profile config.ProfileConfig, 
 		return fmt.Errorf("save config: %w", err)
 	}
 
-	fmt.Fprintf(out, "Profile %q created.\n", name)
+	_, _ = fmt.Fprintf(out, "Profile %q created.\n", name)
 	if profile.Encryption != nil {
-		fmt.Fprintln(out, "  Encryption: enabled (password will be prompted during push)")
+		_, _ = fmt.Fprintln(out, "  Encryption: enabled (password will be prompted during push)")
 	}
-	fmt.Fprintf(out, "  Provider:   %s\n", profile.Provider)
+	_, _ = fmt.Fprintf(out, "  Provider:   %s\n", profile.Provider)
 	if profile.Preset != "" {
-		fmt.Fprintf(out, "  Preset:     %s\n", profile.Preset)
+		_, _ = fmt.Fprintf(out, "  Preset:     %s\n", profile.Preset)
 	}
 	if len(profile.Adapters) > 0 {
-		fmt.Fprintf(out, "  Adapters:   %s\n", strings.Join(profile.Adapters, ", "))
+		_, _ = fmt.Fprintf(out, "  Adapters:   %s\n", strings.Join(profile.Adapters, ", "))
 	}
 	if len(profile.Categories) > 0 {
-		fmt.Fprintf(out, "  Categories: %s\n", strings.Join(profile.Categories, ", "))
+		_, _ = fmt.Fprintf(out, "  Categories: %s\n", strings.Join(profile.Categories, ", "))
 	}
 
 	return nil
@@ -102,14 +102,14 @@ func saveProfile(cfg *config.Config, name string, profile config.ProfileConfig, 
 // ProfileList writes a table of all configured profiles to out.
 func ProfileList(cfg *config.Config, out io.Writer) error {
 	if len(cfg.Profiles) == 0 {
-		fmt.Fprintln(out, "No profiles configured.")
-		fmt.Fprintln(out, "Create one with: bak profile create <name> --provider <name>")
+		_, _ = fmt.Fprintln(out, "No profiles configured.")
+		_, _ = fmt.Fprintln(out, "Create one with: bak profile create <name> --provider <name>")
 		return nil
 	}
 
 	// Header.
-	fmt.Fprintf(out, "%-20s %-15s %-10s %s\n", "NAME", "PROVIDER", "PRESET", "ENCRYPTION")
-	fmt.Fprintln(out, strings.Repeat("-", 65))
+	_, _ = fmt.Fprintf(out, "%-20s %-15s %-10s %s\n", "NAME", "PROVIDER", "PRESET", "ENCRYPTION")
+	_, _ = fmt.Fprintln(out, strings.Repeat("-", 65))
 
 	for name, p := range cfg.Profiles {
 		preset := p.Preset
@@ -124,7 +124,7 @@ func ProfileList(cfg *config.Config, out io.Writer) error {
 		if p.Encryption != nil {
 			encryption = "enabled"
 		}
-		fmt.Fprintf(out, "%-20s %-15s %-10s %s\n", name, provider, preset, encryption)
+		_, _ = fmt.Fprintf(out, "%-20s %-15s %-10s %s\n", name, provider, preset, encryption)
 	}
 
 	return nil
@@ -137,31 +137,31 @@ func ProfileShow(cfg *config.Config, name string, out io.Writer) error {
 		return fmt.Errorf("profile %q not found — use 'bak profile list' to see configured profiles", name)
 	}
 
-	fmt.Fprintf(out, "Profile: %s\n", name)
-	fmt.Fprintf(out, "  Provider:    %s\n", p.Provider)
+	_, _ = fmt.Fprintf(out, "Profile: %s\n", name)
+	_, _ = fmt.Fprintf(out, "  Provider:    %s\n", p.Provider)
 
 	preset := p.Preset
 	if preset == "" {
 		preset = "quick"
 	}
-	fmt.Fprintf(out, "  Preset:      %s\n", preset)
+	_, _ = fmt.Fprintf(out, "  Preset:      %s\n", preset)
 
 	if len(p.Adapters) > 0 {
-		fmt.Fprintf(out, "  Adapters:    %s\n", strings.Join(p.Adapters, ", "))
+		_, _ = fmt.Fprintf(out, "  Adapters:    %s\n", strings.Join(p.Adapters, ", "))
 	} else {
-		fmt.Fprintln(out, "  Adapters:    all detected")
+		_, _ = fmt.Fprintln(out, "  Adapters:    all detected")
 	}
 
 	if len(p.Categories) > 0 {
-		fmt.Fprintf(out, "  Categories:  %s\n", strings.Join(p.Categories, ", "))
+		_, _ = fmt.Fprintf(out, "  Categories:  %s\n", strings.Join(p.Categories, ", "))
 	} else {
-		fmt.Fprintln(out, "  Categories:  from preset")
+		_, _ = fmt.Fprintln(out, "  Categories:  from preset")
 	}
 
 	if p.Encryption != nil {
-		fmt.Fprintln(out, "  Encryption:  enabled")
+		_, _ = fmt.Fprintln(out, "  Encryption:  enabled")
 	} else {
-		fmt.Fprintln(out, "  Encryption:  disabled")
+		_, _ = fmt.Fprintln(out, "  Encryption:  disabled")
 	}
 
 	return nil
@@ -214,7 +214,7 @@ func ProfileValidateForCreation(cfg *config.Config, name string) ([]string, erro
 // saves it through cfg, and writes confirmation to out.
 func ProfileCreateInteractive(cfg *config.Config, name string, wiz ProfileCreateFromWizard, out io.Writer) error {
 	if !wiz.Confirmed {
-		fmt.Fprintln(out, "Profile creation cancelled.")
+		_, _ = fmt.Fprintln(out, "Profile creation cancelled.")
 		return nil
 	}
 
@@ -237,7 +237,7 @@ func ProfileDelete(cfg *config.Config, name string, out io.Writer, dryRun bool) 
 	}
 
 	if dryRun {
-		fmt.Fprintf(out, "[dry-run] Would delete profile %q.\n", name)
+		_, _ = fmt.Fprintf(out, "[dry-run] Would delete profile %q.\n", name)
 		return nil
 	}
 
@@ -247,6 +247,6 @@ func ProfileDelete(cfg *config.Config, name string, out io.Writer, dryRun bool) 
 		return fmt.Errorf("save config: %w", err)
 	}
 
-	fmt.Fprintf(out, "Profile %q deleted.\n", name)
+	_, _ = fmt.Fprintf(out, "Profile %q deleted.\n", name)
 	return nil
 }

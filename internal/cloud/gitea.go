@@ -160,7 +160,7 @@ func (p *GiteaProvider) Pull(id string) ([]byte, error) {
 	if err != nil {
 		return nil, p.errf("pull: request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -211,7 +211,7 @@ func (p *GiteaProvider) List() ([]BackupMeta, error) {
 	if err != nil {
 		return nil, p.errf("list: request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -269,7 +269,7 @@ func (p *GiteaProvider) getFileSHA(filePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("check file: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return "", nil
@@ -335,7 +335,7 @@ func (p *GiteaProvider) writeFile(method, filePath, content, message, sha string
 	if err != nil {
 		return fmt.Errorf("request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

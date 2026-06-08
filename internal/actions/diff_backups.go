@@ -43,7 +43,7 @@ func (a *DiffBackupsAction) Run(id1, id2 string) error {
 
 	out := a.Stdout
 	if len(entries) == 0 {
-		fmt.Fprintf(out, "Backups %q and %q are identical — no differences.\n", id1, id2)
+		_, _ = fmt.Fprintf(out, "Backups %q and %q are identical — no differences.\n", id1, id2)
 		return nil
 	}
 
@@ -73,14 +73,14 @@ func (a *DiffBackupsAction) Run(id1, id2 string) error {
 		if len(items) == 0 {
 			continue
 		}
-		fmt.Fprintf(out, "%s:\n", cat)
+		_, _ = fmt.Fprintf(out, "%s:\n", cat)
 		for _, e := range items {
-			fmt.Fprintf(out, "  %s (%s)\n", e.SourcePath, e.Adapter)
+			_, _ = fmt.Fprintf(out, "  %s (%s)\n", e.SourcePath, e.Adapter)
 		}
-		fmt.Fprintln(out)
+		_, _ = fmt.Fprintln(out)
 	}
 
-	fmt.Fprintf(out, "Summary: %d added, %d removed, %d modified, %d unchanged, %d total\n",
+	_, _ = fmt.Fprintf(out, "Summary: %d added, %d removed, %d modified, %d unchanged, %d total\n",
 		counts[diff.CategoryAdded],
 		counts[diff.CategoryRemoved],
 		counts[diff.CategoryModified],

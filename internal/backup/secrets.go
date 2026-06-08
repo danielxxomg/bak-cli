@@ -50,7 +50,7 @@ func ScanFile(filePath string, patterns []*regexp.Regexp) ([]ScanResult, error) 
 	if err != nil {
 		return nil, fmt.Errorf("open: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var results []ScanResult
 	scanner := bufio.NewScanner(f)

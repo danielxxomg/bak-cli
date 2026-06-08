@@ -108,7 +108,7 @@ func tarGzDir(dir string, w io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("open %s: %w", walkPath, err)
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 
 		if _, err := io.Copy(tw, f); err != nil {
 			return fmt.Errorf("copy %s: %w", walkPath, err)
@@ -124,7 +124,7 @@ func untarGzDir(r io.Reader, targetDir string) error {
 	if err != nil {
 		return fmt.Errorf("gzip reader: %w", err)
 	}
-	defer gr.Close()
+	defer func() { _ = gr.Close() }()
 
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", targetDir, err)
@@ -166,10 +166,10 @@ func untarGzDir(r io.Reader, targetDir string) error {
 				return fmt.Errorf("create %s: %w", target, err)
 			}
 			if _, err := io.Copy(f, tr); err != nil {
-				f.Close()
+				_ = f.Close()
 				return fmt.Errorf("write %s: %w", target, err)
 			}
-			f.Close()
+			_ = f.Close()
 
 		case tar.TypeSymlink:
 			// Symlinks may fail on some platforms; skip without error.

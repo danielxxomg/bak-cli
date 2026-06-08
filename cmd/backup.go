@@ -104,7 +104,7 @@ func runBackupWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 			if p.Encryption != nil {
 				enc = "enabled"
 			}
-			fmt.Fprintf(deps.Stderr, "Using profile %q (provider=%s, preset=%s, encryption=%s)\n",
+			_, _ = fmt.Fprintf(deps.Stderr, "Using profile %q (provider=%s, preset=%s, encryption=%s)\n",
 				backupProfile, p.Provider, preset, enc)
 		}
 	}

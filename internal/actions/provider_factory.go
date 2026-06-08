@@ -35,11 +35,11 @@ func (f *RealProviderFactory) CreateProvider(name string) (cloud.Provider, error
 	reg := cloud.NewProviderRegistry()
 
 	// Register all available providers (they'll fail at runtime if not configured).
-	reg.Register(cloud.NewGitHubGistProvider(cfg, ""))
-	reg.Register(cloud.NewGitHubRepoProvider(cfg, "", cfg.Providers["github"].Repo))
-	reg.Register(cloud.NewCodebergProvider(cfg, "", cfg.Providers["codeberg"].Repo))
-	reg.Register(cloud.NewGiteaProvider(cfg, "", cfg.Providers["gitea"].BaseURL, cfg.Providers["gitea"].Repo))
-	reg.Register(cloud.NewRcloneProvider(cfg, cfg.Providers["rclone"].Remote))
+	_ = reg.Register(cloud.NewGitHubGistProvider(cfg, ""))
+	_ = reg.Register(cloud.NewGitHubRepoProvider(cfg, "", cfg.Providers["github"].Repo))
+	_ = reg.Register(cloud.NewCodebergProvider(cfg, "", cfg.Providers["codeberg"].Repo))
+	_ = reg.Register(cloud.NewGiteaProvider(cfg, "", cfg.Providers["gitea"].BaseURL, cfg.Providers["gitea"].Repo))
+	_ = reg.Register(cloud.NewRcloneProvider(cfg, cfg.Providers["rclone"].Remote))
 	reg.SetDefault("github-gist")
 
 	return reg.Get(name)
