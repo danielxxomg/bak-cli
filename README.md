@@ -6,11 +6,22 @@
   <a href="https://goreportcard.com/report/github.com/danielxxomg/bak-cli"><img src="https://goreportcard.com/badge/github.com/danielxxomg/bak-cli" alt="Go Report Card"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://github.com/danielxxomg/bak-cli/releases/latest"><img src="https://img.shields.io/github/v/release/danielxxomg/bak-cli" alt="Release"></a>
+  <img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white" alt="Go 1.25+">
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
+  <img src="https://img.shields.io/badge/tests-1110+-brightgreen" alt="Tests">
 </p>
 
 <p align="center">
   <strong>bak</strong> is a CLI tool that backs up, restores, and syncs your AI coding configuration across machines. Supports Claude Code, Cursor, Codex, Windsurf, Kiro, KiloCode, pi.dev, and OpenCode. Never lose your skills, MCP servers, plugins, agents, or config files again.
 </p>
+
+## Supported Platforms
+
+| Platform | Install Method | Package Format |
+|----------|---------------|----------------|
+| macOS (arm64, amd64) | Homebrew, Go | `brew install --cask`, `go install` |
+| Linux (arm64, amd64) | Homebrew, .deb, .rpm, Go | `brew install --cask`, `.deb`, `.rpm`, `go install` |
+| Windows (arm64, amd64) | Scoop, Go | `scoop install`, `go install` |
 
 ## Features
 
@@ -27,18 +38,21 @@
 
 ## Installation
 
-### Homebrew (macOS/Linux)
+### macOS / Linux (Recommended)
 
 ```bash
 brew install --cask danielxxomg/tap/bak
 ```
 
-### Scoop (Windows)
+### Windows (Recommended)
 
 ```bash
 scoop bucket add danielxxomg https://github.com/danielxxomg/scoop-bucket
 scoop install bak
 ```
+
+<details>
+<summary>Alternative install methods</summary>
 
 ### Debian/Ubuntu
 
@@ -69,6 +83,8 @@ git clone https://github.com/danielxxomg/bak-cli.git
 cd bak-cli
 go build -o bak .
 ```
+
+</details>
 
 ## Quick Start
 
@@ -474,32 +490,16 @@ classDiagram
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, adapter implementation guide, and PR process.
 
-### Adding a New Adapter
+Quick start: fork → branch → commit (conventional commits) → push → PR.
 
-Implement the `Adapter` interface:
+## Next Steps
 
-```go
-type Adapter interface {
-    Name() string
-    Detect(homeDir string) (bool, string, error)
-    ListItems(homeDir string, categories []string) ([]Item, error)
-    Backup(homeDir, backupDir string, items []Item) error
-    Restore(homeDir, backupDir string) error
-}
-```
-
-Register it in `cmd/backup.go`:
-
-```go
-reg := adapters.NewRegistry()
-reg.Register(&youradapter.Adapter{})
-```
+- **Interactive setup?** Run `bak wizard` for a step-by-step TUI setup.
+- **Automated backups?** Set up a [schedule](#backup-scheduling) with `bak schedule create`.
+- **Custom backup presets?** Add YAML files to `~/.config/bak/presets/`. See [Custom Presets](#custom-presets).
+- **Support a new tool?** Register a [custom adapter](#custom-adapters) in `~/.config/bak/adapters/`.
 
 ## Roadmap
 
@@ -517,7 +517,8 @@ reg.Register(&youradapter.Adapter{})
 - [ ] winget, AUR, nix support
 - [ ] Plugin system for custom backup strategies
 
-## Brand Assets
+<details>
+<summary>Brand Assets</summary>
 
 Visual assets are in `docs/brand/`:
 
@@ -530,6 +531,8 @@ Visual assets are in `docs/brand/`:
 | Icon (friendly) | `icon-secondary/bak-icon-friendly.png` | Stickers, swag, presentations |
 | Favicon 32px | `favicon/bak-favicon-32.png` | Browser tab, small icon |
 | Favicon 16px | `favicon/bak-favicon-16.png` | Browser tab (tiny) |
+
+</details>
 
 ## License
 
