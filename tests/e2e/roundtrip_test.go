@@ -67,6 +67,7 @@ func testRoundtrip(t *testing.T, preset string, setupFixtures func(home string))
 		bakBin += ".exe"
 	}
 
+	//nolint:gosec // binary path from go build output, controlled by test
 	buildCmd := exec.Command("go", "build", "-o", bakBin, ".")
 	buildCmd.Dir = moduleRoot
 	if out, err := buildCmd.CombinedOutput(); err != nil {
@@ -139,6 +140,7 @@ func testRoundtrip(t *testing.T, preset string, setupFixtures func(home string))
 func runBakBackup(t *testing.T, bakBin string, env []string, preset string) string {
 	t.Helper()
 
+	//nolint:gosec // binary path from go build, controlled by test
 	cmd := exec.Command(bakBin, "backup", "--preset", preset)
 	cmd.Env = env
 	cmd.Stderr = os.Stderr // show errors in test output for debugging
