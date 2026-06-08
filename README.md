@@ -36,6 +36,23 @@
 - ↩️ **Undo** — Git-backed safety with `bak undo` (git revert)
 - 📦 **Export** — Export backups as portable tar.gz archives
 
+## Why bak?
+
+There are many dotfile managers. **bak** is not one of them — it's purpose-built for AI coding setups, with features generic tools don't cover.
+
+| Feature | bak | chezmoi | mackup | stow |
+|---------|-----|---------|--------|------|
+| AI agent auto-detection (8 agents) | ✅ | ❌ | ❌ | ❌ |
+| Cloud sync (Gist, Codeberg, Gitea, rclone) | ✅ | ✅ (git) | ✅ (iCloud, etc.) | ❌ |
+| Encryption at rest (AES-256-GCM) | ✅ | ❌ | ❌ | ❌ |
+| Machine profiles | ✅ | ✅ (templates) | ❌ | ❌ |
+| Secret detection (auto-exclude tokens) | ✅ | ❌ | ❌ | ❌ |
+| Mandatory dry-run before restore | ✅ | ❌ | ❌ | ❌ |
+| Git-backed undo | ✅ | ✅ (git) | ❌ | ❌ |
+| YAML extensibility (presets, adapters) | ✅ | ❌ | ❌ | ❌ |
+
+If you back up AI coding configs, bak is the only tool that auto-detects your agents, encrypts your data, and syncs across clouds — all with safety guarantees built in.
+
 ## Installation
 
 ### macOS / Linux (Recommended)
