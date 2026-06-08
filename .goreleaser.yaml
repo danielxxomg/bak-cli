@@ -52,7 +52,7 @@ changelog:
 homebrew_casks:
   - repository:
       owner: danielxxomg
-      name: homebrew-tap
+      name: bak-cli-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     name: bak
     directory: Casks
@@ -68,8 +68,9 @@ homebrew_casks:
 scoops:
   - repository:
       owner: danielxxomg
-      name: scoop-bucket
+      name: bak-cli-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: bucket
     homepage: "https://github.com/danielxxomg/bak-cli"
     description: "Backup and restore your AI coding setup across machines"
     license: "MIT"
