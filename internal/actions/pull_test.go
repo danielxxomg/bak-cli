@@ -1,14 +1,20 @@
 package actions
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/danielxxomg/bak-cli/internal/cloud"
 	"github.com/danielxxomg/bak-cli/internal/config"
+	"github.com/danielxxomg/bak-cli/internal/crypto"
 )
 
 // --- pull tests --------------------------------------------------------
@@ -275,5 +281,277 @@ func TestPullAction_MockProvider_PullError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "pull") {
 		t.Errorf("error should mention pull: %v", err)
+	}
+}
+
+// --- encryption test helpers --------------------------------------------
+
+// buildTarGz creates a valid tar.gz archive in memory from a map
+// of filename→content and returns the raw bytes.
+func buildTarGz(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+
+	for name, content := range files {
+		hdr := &tar.Header{
+			Name: name,
+			Mode: 0644,
+			Size: int64(len(content)),
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			t.Fatalf("write tar header for %s: %v", name, err)
+		}
+		if _, err := tw.Write([]byte(content)); err != nil {
+			t.Fatalf("write tar entry for %s: %v", name, err)
+		}
+	}
+
+	if err := tw.Close(); err != nil {
+		t.Fatalf("close tar writer: %v", err)
+	}
+	if err := gw.Close(); err != nil {
+		t.Fatalf("close gzip writer: %v", err)
+	}
+
+	return buf.Bytes()
+}
+
+// buildEncryptedArchive creates a base64-encoded encrypted archive
+// suitable for use as a MockProvider PullFn return value.
+func buildEncryptedArchive(t *testing.T, files map[string]string, password string) []byte {
+	t.Helper()
+
+	rawTarGz := buildTarGz(t, files)
+	encrypted, err := crypto.Encrypt(rawTarGz, password)
+	if err != nil {
+		t.Fatalf("encrypt archive: %v", err)
+	}
+	return []byte(base64.StdEncoding.EncodeToString(encrypted))
+}
+
+// buildPlainArchive creates a base64-encoded plaintext archive
+// (no encryption magic bytes) suitable for a MockProvider PullFn.
+func buildPlainArchive(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+
+	rawTarGz := buildTarGz(t, files)
+	return []byte(base64.StdEncoding.EncodeToString(rawTarGz))
+}
+
+// verifyExtractedFiles reads the backup directory created by PullAction
+// and checks that every expected file matches its content.
+func verifyExtractedFiles(t *testing.T, home string, expected map[string]string) {
+	t.Helper()
+
+	bakDir := filepath.Join(home, ".bak", "backups")
+	entries, err := os.ReadDir(bakDir)
+	if err != nil {
+		t.Fatalf("read backups dir: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("no backup directories created")
+	}
+
+	backupPath := filepath.Join(bakDir, entries[0].Name())
+
+	for filename, want := range expected {
+		filePath := filepath.Join(backupPath, filename)
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			t.Errorf("read %s: %v", filePath, err)
+			continue
+		}
+		if string(data) != want {
+			t.Errorf("file %s: got %q, want %q", filePath, string(data), want)
+		}
+	}
+}
+
+// --- encryption integration tests ----------------------------------------
+
+func TestPull_EncryptedRoundTrip(t *testing.T) {
+	tests := []struct {
+		name  string
+		files map[string]string
+	}{
+		{
+			name: "round-trip",
+			files: map[string]string{
+				"hello.txt": "hello, encrypted world!",
+			},
+		},
+		{
+			name: "multi-file",
+			files: map[string]string{
+				"a.txt":      "content A",
+				"b.txt":      "content B",
+				"sub/c.txt":  "nested content",
+				"config.yml": "key: value\n",
+			},
+		},
+		{
+			name:  "empty archive",
+			files: map[string]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			const password = "test-password-123"
+			t.Setenv("BAK_ENCRYPTION_PASSWORD", password)
+
+			archiveData := buildEncryptedArchive(t, tt.files, password)
+			home := t.TempDir()
+
+			mockProvider := &MockProvider{
+				MockName: "mock-gist",
+				PullFn: func(id string) ([]byte, error) {
+					return archiveData, nil
+				},
+			}
+
+			factory := &MockProviderFactory{
+				Providers: map[string]cloud.Provider{
+					"mock-gist": mockProvider,
+				},
+			}
+
+			action := &PullAction{
+				FS:       newHomeFS(home),
+				Provider: "mock-gist",
+				Factory:  factory,
+				ConfigLoader: func() (*config.Config, error) {
+					return &config.Config{}, nil
+				},
+			}
+
+			err := action.Run([]string{"test-id"})
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+
+			verifyExtractedFiles(t, home, tt.files)
+		})
+	}
+}
+
+func TestPull_BackwardCompatPlaintext(t *testing.T) {
+	tests := []struct {
+		name  string
+		files map[string]string
+	}{
+		{
+			name: "plaintext",
+			files: map[string]string{
+				"readme.md": "# Plaintext Backup\n",
+			},
+		},
+		{
+			name: "non-encrypted",
+			files: map[string]string{
+				"data.bin": "\x00\x01\x02\x03",
+				"info.txt": "no magic bytes here",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Intentionally do NOT set BAK_ENCRYPTION_PASSWORD.
+			archiveData := buildPlainArchive(t, tt.files)
+			home := t.TempDir()
+
+			mockProvider := &MockProvider{
+				MockName: "mock-gist",
+				PullFn: func(id string) ([]byte, error) {
+					return archiveData, nil
+				},
+			}
+
+			factory := &MockProviderFactory{
+				Providers: map[string]cloud.Provider{
+					"mock-gist": mockProvider,
+				},
+			}
+
+			action := &PullAction{
+				FS:       newHomeFS(home),
+				Provider: "mock-gist",
+				Factory:  factory,
+				ConfigLoader: func() (*config.Config, error) {
+					return &config.Config{}, nil
+				},
+			}
+
+			err := action.Run([]string{"test-id"})
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+
+			verifyExtractedFiles(t, home, tt.files)
+		})
+	}
+}
+
+func TestPull_WrongPassword(t *testing.T) {
+	tests := []struct {
+		name         string
+		envPassword  string
+		wantContains string
+	}{
+		{
+			name:         "wrong password",
+			envPassword:  "bad-password",
+			wantContains: "decrypt archive",
+		},
+		{
+			name:         "empty password",
+			envPassword:  "",
+			wantContains: "decrypt archive",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			const encryptPassword = "correct-password"
+			t.Setenv("BAK_ENCRYPTION_PASSWORD", tt.envPassword)
+
+			files := map[string]string{"secret.txt": "classified"}
+			archiveData := buildEncryptedArchive(t, files, encryptPassword)
+			home := t.TempDir()
+
+			mockProvider := &MockProvider{
+				MockName: "mock-gist",
+				PullFn: func(id string) ([]byte, error) {
+					return archiveData, nil
+				},
+			}
+
+			factory := &MockProviderFactory{
+				Providers: map[string]cloud.Provider{
+					"mock-gist": mockProvider,
+				},
+			}
+
+			action := &PullAction{
+				FS:       newHomeFS(home),
+				Provider: "mock-gist",
+				Factory:  factory,
+				ConfigLoader: func() (*config.Config, error) {
+					return &config.Config{}, nil
+				},
+			}
+
+			err := action.Run([]string{"test-id"})
+			if err == nil {
+				t.Fatal("expected error for wrong/empty password")
+			}
+			if !strings.Contains(err.Error(), tt.wantContains) {
+				t.Errorf("error should contain %q, got: %v", tt.wantContains, err)
+			}
+		})
 	}
 }
