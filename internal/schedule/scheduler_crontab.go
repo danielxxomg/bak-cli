@@ -55,7 +55,7 @@ func (s *CronScheduler) Remove(profile string) error {
 	current, err := readCrontab()
 	if err != nil {
 		// No crontab, nothing to remove.
-		return nil
+		return nil //nolint:nilerr
 	}
 
 	var lines []string
@@ -84,7 +84,7 @@ func (s *CronScheduler) List() ([]ScheduleEntry, error) {
 	current, err := readCrontab()
 	if err != nil {
 		// No crontab = no entries.
-		return nil, nil
+		return nil, nil //nolint:nilerr
 	}
 
 	var entries []ScheduleEntry

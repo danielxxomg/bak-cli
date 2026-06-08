@@ -50,7 +50,7 @@ func IsValidInterval(interval string) bool {
 }
 
 // CronScheduler implements Scheduler using crontab on Unix-like systems.
-// Build constraint: !windows (see scheduler_unix.go).
+// Build constraint: !windows (see scheduler_crontab.go).
 type CronScheduler struct{}
 
 // SchtasksScheduler implements Scheduler using schtasks.exe on Windows.

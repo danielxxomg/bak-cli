@@ -146,11 +146,16 @@ func (e *Engine) Run() (*Result, error) {
 		}
 
 		// Scan for secrets in the backed-up files.
-		secretFiles := scanBackupForSecrets(backupDir, filepath.Join(backupDir, d.Adapter.Name()), patterns)
+		secretFiles := scanBackupForSecrets(backupDir, filepath.Join(backupDir, d.Adapter.Name()), patterns, e.Verbose)
 		allSecretFiles = append(allSecretFiles, secretFiles...)
 
 		// Exclude secret-containing files from backup (security requirement).
+		// Build a set of relative backup paths to skip when building the manifest.
+		secretRelPaths := make(map[string]bool)
 		for _, secretFile := range secretFiles {
+			if rel, err := filepath.Rel(backupDir, secretFile); err == nil {
+				secretRelPaths[strings.ReplaceAll(rel, "\\", "/")] = true
+			}
 			if err := os.Remove(secretFile); err != nil && e.Verbose {
 				fmt.Fprintf(os.Stderr, "warning: could not remove secret file: %v\n", err)
 			}
@@ -163,24 +168,31 @@ func (e *Engine) Run() (*Result, error) {
 				continue // manifest tracks files only
 			}
 
+			backupPath := strings.ReplaceAll(filepath.Join(d.Adapter.Name(), item.RelPath), "\\", "/")
+
+			// Skip items whose backup file was removed (contained secrets).
+			if secretRelPaths[backupPath] {
+				continue
+			}
+
 			// Security: validate source path stays under home directory.
 			// SourcePath may be canonical (~/...) or absolute — normalize both.
 			absSource := item.SourcePath
 			if strings.HasPrefix(absSource, "~/") {
 				absSource = paths.FromCanonical(absSource, e.HomeDir)
 			}
-			cleanSource := path.Clean(filepath.ToSlash(absSource))
-			cleanHome := path.Clean(filepath.ToSlash(e.HomeDir)) + "/"
+			cleanSource := path.Clean(strings.ReplaceAll(absSource, "\\", "/"))
+			cleanHome := path.Clean(strings.ReplaceAll(e.HomeDir, "\\", "/")) + "/"
 			// Case-insensitive comparison for Windows (case-insensitive FS).
 			if !strings.HasPrefix(strings.ToLower(cleanSource), strings.ToLower(cleanHome)) &&
-				!strings.EqualFold(cleanSource, path.Clean(filepath.ToSlash(e.HomeDir))) {
+				!strings.EqualFold(cleanSource, path.Clean(strings.ReplaceAll(e.HomeDir, "\\", "/"))) {
 				return nil, fmt.Errorf("adapter %q returned source path outside home directory", d.Adapter.Name())
 			}
 
 			manifestItems = append(manifestItems, manifest.Item{
 				Category:   item.Category,
 				SourcePath: item.SourcePath,
-				BackupPath: filepath.ToSlash(filepath.Join(d.Adapter.Name(), item.RelPath)),
+				BackupPath: backupPath,
 				Hash:       item.Hash,
 				Size:       item.Size,
 			})
@@ -220,16 +232,27 @@ func (e *Engine) Run() (*Result, error) {
 
 // scanBackupForSecrets walks the adapter's backup directory and collects
 // paths of files that contain secrets.
-func scanBackupForSecrets(backupRoot, adapterBackupDir string, patterns []*regexp.Regexp) []string {
+func scanBackupForSecrets(backupRoot, adapterBackupDir string, patterns []*regexp.Regexp, verbose bool) []string {
 	var secretFiles []string
 
 	if err := filepath.WalkDir(adapterBackupDir, func(fpath string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+		if err != nil {
+			if verbose {
+				fmt.Fprintf(os.Stderr, "warning: walk %s: %v\n", fpath, err)
+			}
+			// Skip entries with access errors and continue walking.
+			return nil //nolint:nilerr
+		}
+		if d.IsDir() {
 			return nil
 		}
 		results, scanErr := ScanFile(fpath, patterns)
 		if scanErr != nil {
-			return nil // skip unreadable files
+			if verbose {
+				fmt.Fprintf(os.Stderr, "warning: scan %s: %v\n", fpath, scanErr)
+			}
+			// Skip unreadable files and continue walking.
+			return nil //nolint:nilerr
 		}
 		if len(results) > 0 {
 			secretFiles = append(secretFiles, fpath)
