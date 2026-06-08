@@ -7,7 +7,7 @@ context: |
   Description: Backup and restore your OpenCode skills, MCP servers, plugins,
     agents, and AI coding configuration across machines.
   Tagline: Pack your AI coding setup. Move anywhere.
-  Stack: Go 1.26+ CLI (cobra, bubbletea, go-git/v5, goreleaser)
+  Stack: Go 1.25+ CLI (cobra, bubbletea, go-git/v5, goreleaser)
   Repo: https://github.com/danielxxomg/bak-cli
   Architecture: CLI tool for configuration backup/restore — adapter pattern
     with Engine/Registry for OpenCode v1 (extensible to Claude, Cursor, etc.)
