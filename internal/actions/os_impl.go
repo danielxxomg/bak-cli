@@ -58,7 +58,7 @@ func (o *OSFileSystem) CopyFile(src, dst string) error {
 	if err != nil {
 		return fmt.Errorf("open source: %w", err)
 	}
-	defer sf.Close()
+	defer func() { _ = sf.Close() }()
 
 	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
 		return fmt.Errorf("mkdir destination: %w", err)
@@ -68,7 +68,7 @@ func (o *OSFileSystem) CopyFile(src, dst string) error {
 	if err != nil {
 		return fmt.Errorf("create destination: %w", err)
 	}
-	defer df.Close()
+	defer func() { _ = df.Close() }()
 
 	if _, err := io.Copy(df, sf); err != nil {
 		return fmt.Errorf("copy: %w", err)

@@ -276,7 +276,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return fmt.Errorf("open src: %w", err)
 	}
-	defer sf.Close()
+	defer func() { _ = sf.Close() }()
 
 	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
 		return fmt.Errorf("mkdir: %w", err)
@@ -286,7 +286,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return fmt.Errorf("create dst: %w", err)
 	}
-	defer df.Close()
+	defer func() { _ = df.Close() }()
 
 	if _, err := io.Copy(df, sf); err != nil {
 		return fmt.Errorf("copy: %w", err)
@@ -302,7 +302,7 @@ func fileHash(path string) (hash string, size int64, err error) {
 	if err != nil {
 		return "", 0, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	info, err := f.Stat()
 	if err != nil {

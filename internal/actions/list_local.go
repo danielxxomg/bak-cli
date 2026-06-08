@@ -20,7 +20,7 @@ func RunListLocal(bakDir string, verbose bool, out, errOut io.Writer) error {
 	// Check if backups directory exists.
 	if _, err := os.Stat(backupsDir); err != nil {
 		if os.IsNotExist(err) {
-			fmt.Fprintln(out, "No backups found. Run 'bak backup' first.")
+			_, _ = fmt.Fprintln(out, "No backups found. Run 'bak backup' first.")
 			return nil
 		}
 		return fmt.Errorf("stat backups dir: %w", err)
@@ -40,14 +40,14 @@ func RunListLocal(bakDir string, verbose bool, out, errOut io.Writer) error {
 	}
 
 	if len(backupDirs) == 0 {
-		fmt.Fprintln(out, "No backups found. Run 'bak backup' first.")
+		_, _ = fmt.Fprintln(out, "No backups found. Run 'bak backup' first.")
 		return nil
 	}
 
 	// Create tabwriter for formatted output.
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tDATE\tPRESET\tFILES\tSIZE\tADAPTERS")
-	fmt.Fprintln(w, "--\t----\t------\t-----\t----\t--------")
+	_, _ = fmt.Fprintln(w, "ID\tDATE\tPRESET\tFILES\tSIZE\tADAPTERS")
+	_, _ = fmt.Fprintln(w, "--\t----\t------\t-----\t----\t--------")
 
 	for _, entry := range backupDirs {
 		backupID := entry.Name()
@@ -57,7 +57,7 @@ func RunListLocal(bakDir string, verbose bool, out, errOut io.Writer) error {
 		m, err := manifest.Load(backupPath)
 		if err != nil {
 			if verbose {
-				fmt.Fprintf(errOut, "warning: skipping %s: %v\n", backupID, err)
+				_, _ = fmt.Fprintf(errOut, "warning: skipping %s: %v\n", backupID, err)
 			}
 			continue
 		}
@@ -87,7 +87,7 @@ func RunListLocal(bakDir string, verbose bool, out, errOut io.Writer) error {
 		// Format size.
 		sizeStr := FormatSizeBytes(m.TotalSize)
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n",
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n",
 			backupID, date, m.Preset, m.FileCount, sizeStr, adapterStr)
 	}
 

@@ -117,7 +117,7 @@ func (p *GitHubRepoProvider) Pull(id string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("pull github-repo: request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -168,7 +168,7 @@ func (p *GitHubRepoProvider) List() ([]BackupMeta, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list github-repo: request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -225,7 +225,7 @@ func (p *GitHubRepoProvider) getFileSHA(filePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("check file: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return "", nil
@@ -282,7 +282,7 @@ func (p *GitHubRepoProvider) putFile(filePath, content, message, sha string) err
 	if err != nil {
 		return fmt.Errorf("request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

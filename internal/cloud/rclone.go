@@ -58,7 +58,7 @@ func (p *RcloneProvider) Push(archive []byte, meta PushMeta) (string, error) {
 		return "", fmt.Errorf("push rclone: create temp file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
-	defer os.Remove(tmpPath)
+	defer func() { _ = os.Remove(tmpPath) }()
 
 	if _, err := tmpFile.Write(archive); err != nil {
 		if closeErr := tmpFile.Close(); closeErr != nil {

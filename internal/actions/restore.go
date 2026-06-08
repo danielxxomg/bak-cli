@@ -72,18 +72,18 @@ func (a *RestoreAction) Run(cmd *cobra.Command, args []string) error {
 
 	// 4. Show diffs.
 	if len(diffs) > 0 {
-		fmt.Fprintln(out, "Dry-run diff:")
+		_, _ = fmt.Fprintln(out, "Dry-run diff:")
 		for _, d := range diffs {
-			fmt.Fprintf(out, "  [%s] %s\n", d.Status, d.SourcePath)
+			_, _ = fmt.Fprintf(out, "  [%s] %s\n", d.Status, d.SourcePath)
 			if d.Status == restorepkg.DiffModified && d.Diff != "" && a.Verbose {
-				fmt.Fprint(out, d.Diff)
+				_, _ = fmt.Fprint(out, d.Diff)
 			}
 		}
-		fmt.Fprintln(out)
+		_, _ = fmt.Fprintln(out)
 	}
 
 	if a.DryRun {
-		fmt.Fprintf(out, "Dry-run complete. %d file(s) would be restored, %d unchanged, %d missing.\n",
+		_, _ = fmt.Fprintf(out, "Dry-run complete. %d file(s) would be restored, %d unchanged, %d missing.\n",
 			countByStatus(diffs, restorepkg.DiffNew)+countByStatus(diffs, restorepkg.DiffModified),
 			countByStatus(diffs, restorepkg.DiffUnchanged),
 			countByStatus(diffs, restorepkg.DiffMissing),
@@ -97,13 +97,13 @@ func (a *RestoreAction) Run(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("manifest validation failed (use --force to override): %w", err)
 		}
 		if a.Verbose {
-			fmt.Fprintf(errOut, "warning: manifest validation: %v\n", err)
+			_, _ = fmt.Fprintf(errOut, "warning: manifest validation: %v\n", err)
 		}
 	}
 
 	// 6. Confirmation prompt (unless --force).
 	if !a.Force {
-		fmt.Fprint(out, "Apply restore? [y/N]: ")
+		_, _ = fmt.Fprint(out, "Apply restore? [y/N]: ")
 		stdin := a.Stdin
 		if stdin == nil {
 			stdin = os.Stdin
@@ -115,7 +115,7 @@ func (a *RestoreAction) Run(cmd *cobra.Command, args []string) error {
 		}
 		answer = strings.TrimSpace(strings.ToLower(answer))
 		if answer != "y" && answer != "yes" {
-			fmt.Fprintln(errOut, "Restore cancelled.")
+			_, _ = fmt.Fprintln(errOut, "Restore cancelled.")
 			return nil
 		}
 	}
@@ -128,7 +128,7 @@ func (a *RestoreAction) Run(cmd *cobra.Command, args []string) error {
 			if err := a.restoreFile(d); err != nil {
 				failed++
 				if a.Verbose {
-					fmt.Fprintf(errOut, "restore %s: %v\n", d.SourcePath, err)
+					_, _ = fmt.Fprintf(errOut, "restore %s: %v\n", d.SourcePath, err)
 				}
 			} else {
 				restored++
@@ -138,17 +138,17 @@ func (a *RestoreAction) Run(cmd *cobra.Command, args []string) error {
 		case restorepkg.DiffMissing:
 			skipped++
 			if a.Verbose {
-				fmt.Fprintf(errOut, "warning: missing backup file %s\n", d.BackupPath)
+				_, _ = fmt.Fprintf(errOut, "warning: missing backup file %s\n", d.BackupPath)
 			}
 		}
 	}
 
 	// 8. Report results.
-	fmt.Fprintf(out, "Restore complete: %s\n", m.ID)
-	fmt.Fprintf(out, "  Restored: %d\n", restored)
-	fmt.Fprintf(out, "  Skipped:  %d\n", skipped)
+	_, _ = fmt.Fprintf(out, "Restore complete: %s\n", m.ID)
+	_, _ = fmt.Fprintf(out, "  Restored: %d\n", restored)
+	_, _ = fmt.Fprintf(out, "  Skipped:  %d\n", skipped)
 	if failed > 0 {
-		fmt.Fprintf(out, "  Failed:   %d\n", failed)
+		_, _ = fmt.Fprintf(out, "  Failed:   %d\n", failed)
 	}
 
 	return nil

@@ -57,7 +57,7 @@ func RunExport(homeDir, backupID, outputPath string, out io.Writer) error {
 		return fmt.Errorf("close output file: %w", err)
 	}
 
-	fmt.Fprintf(out, "Exported backup %q to %s\n", backupID, outputPath)
+	_, _ = fmt.Fprintf(out, "Exported backup %q to %s\n", backupID, outputPath)
 	return nil
 }
 
@@ -117,7 +117,7 @@ func CreateTarGz(srcDir string, w io.Writer) (retErr error) {
 		}
 
 		if _, err := io.Copy(tw, src); err != nil {
-			src.Close()
+			_ = src.Close()
 			return fmt.Errorf("copy %q to tar: %w", walkPath, err)
 		}
 

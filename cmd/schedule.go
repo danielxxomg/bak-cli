@@ -43,7 +43,7 @@ Examples:
 func init() {
 	scheduleCreateCmd.Flags().StringVar(&scheduleCreateEvery, "every", "",
 		"scheduling interval: daily, weekly, every-12h, every-6h (required)")
-	scheduleCreateCmd.MarkFlagRequired("every")
+	_ = scheduleCreateCmd.MarkFlagRequired("every")
 
 	scheduleCmd.AddCommand(scheduleCreateCmd)
 	rootCmd.AddCommand(scheduleCmd)

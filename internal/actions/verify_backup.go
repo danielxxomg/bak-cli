@@ -35,13 +35,13 @@ func (a *VerifyBackupAction) Run(backupID string) error {
 	}
 
 	if a.Verbose {
-		fmt.Fprintf(a.Stderr, "Verifying %d files in backup %q...\n", m.FileCount, backupID)
+		_, _ = fmt.Fprintf(a.Stderr, "Verifying %d files in backup %q...\n", m.FileCount, backupID)
 	}
 
 	var progressFn func(string)
 	if a.Verbose {
 		progressFn = func(path string) {
-			fmt.Fprintf(a.Stderr, "  verifying %s\n", path)
+			_, _ = fmt.Fprintf(a.Stderr, "  verifying %s\n", path)
 		}
 	}
 
@@ -49,6 +49,6 @@ func (a *VerifyBackupAction) Run(backupID string) error {
 		return err
 	}
 
-	fmt.Fprintf(a.Stdout, "✓ backup %q verified (%d files)\n", backupID, m.FileCount)
+	_, _ = fmt.Fprintf(a.Stdout, "✓ backup %q verified (%d files)\n", backupID, m.FileCount)
 	return nil
 }

@@ -56,6 +56,6 @@ func (a *UndoAction) Run() error {
 		}
 	}
 
-	fmt.Fprintln(a.Stdout, "✅ Reverted to previous state")
+	_, _ = fmt.Fprintln(a.Stdout, "✅ Reverted to previous state")
 	return nil
 }
