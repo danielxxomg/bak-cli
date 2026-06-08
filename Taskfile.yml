@@ -2,7 +2,8 @@
 version: '3'
 
 vars:
-  BINARY: bak.exe
+  BINARY:
+    sh: echo '{{if eq .OS "windows"}}bak.exe{{else}}bak{{end}}'
   COVERAGE_FILE: coverage.out
   COVERAGE_THRESHOLD: 75
 
