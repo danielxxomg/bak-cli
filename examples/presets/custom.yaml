@@ -6,10 +6,10 @@
 # Categories: skills, commands, config, mcp, plugins, agents
 #
 # Usage:
-#   bak backup --preset my-full
-#   bak backup --preset my-full --override  # prefer over same-named built-in
+#   bak backup --preset custom
+#   bak backup --preset custom --override  # prefer over same-named built-in
 
-name: my-full
+name: custom
 categories:
   - config
   - skills
