@@ -422,6 +422,8 @@ func TestGitHubRepoProvider_PushIntegration(t *testing.T) {
 }
 
 func TestGitHubRepoProvider_ConfigTokenResolution(t *testing.T) {
+	// Clear GITHUB_TOKEN to ensure test isolation in CI
+	t.Setenv("GITHUB_TOKEN", "")
 	cfg := &config.Config{}
 	_ = cfg.Set("providers.github-repo.token", "config-token")
 	p := NewGitHubRepoProvider(cfg, "", "user/repo")
