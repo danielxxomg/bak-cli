@@ -2,6 +2,7 @@ package cloud
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -21,20 +22,12 @@ var execCommandContext = exec.CommandContext
 // binary. Backups are stored as files in the configured rclone remote
 // path using "rclone copyto", "rclone cat", and "rclone lsf".
 type RcloneProvider struct {
-	cfg       *config.Config
-	remote    string
-	rcloneBin string
-}
-
-// NewRcloneProvider creates a provider that shells out to rclone.
-// The remote parameter is the rclone remote path (e.g., "gdrive:bak").
-// rclone must be installed and available in PATH.
-func NewRcloneProvider(cfg *config.Config, remote string) *RcloneProvider {
-	return &RcloneProvider{
-		cfg:       cfg,
-		remote:    remote,
-		rcloneBin: "rclone",
-	}
+	// Cfg is the loaded configuration.
+	Cfg *config.Config
+	// Remote is the rclone remote path (e.g., "gdrive:bak").
+	Remote string
+	// RcloneBin is the path to the rclone binary. Defaults to "rclone".
+	RcloneBin string
 }
 
 // Name returns "rclone".
@@ -46,23 +39,27 @@ func (p *RcloneProvider) Name() string {
 // The archive is written to a temp file, copied via "rclone copyto",
 // and then the temp file is cleaned up.
 func (p *RcloneProvider) Push(archive []byte, meta PushMeta) (string, error) {
-	if p.remote == "" {
+	if p.Remote == "" {
 		return "", fmt.Errorf("push rclone: remote is required")
 	}
 
 	filename := fmt.Sprintf("%s.tar.gz", meta.BackupID)
-	remotePath := fmt.Sprintf("%s/%s", p.remote, filename)
+	remotePath := fmt.Sprintf("%s/%s", p.Remote, filename)
 
 	tmpFile, err := os.CreateTemp("", "bak-push-*.tar.gz")
 	if err != nil {
 		return "", fmt.Errorf("push rclone: create temp file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
-	defer func() { _ = os.Remove(tmpPath) }()
+	defer func() {
+		if err := os.Remove(tmpPath); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: push rclone: remove temp file: %v\n", err)
+		}
+	}()
 
 	if _, err := tmpFile.Write(archive); err != nil {
 		if closeErr := tmpFile.Close(); closeErr != nil {
-			return "", fmt.Errorf("push rclone: write temp file: %w (close error: %v)", err, closeErr)
+			return "", fmt.Errorf("push rclone: write temp file; close error: %w", errors.Join(err, closeErr))
 		}
 		return "", fmt.Errorf("push rclone: write temp file: %w", err)
 	}
@@ -73,7 +70,7 @@ func (p *RcloneProvider) Push(archive []byte, meta PushMeta) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), rcloneTimeout)
 	defer cancel()
 
-	cmd := execCommandContext(ctx, p.rcloneBin, "copyto", tmpPath, remotePath)
+	cmd := execCommandContext(ctx, p.RcloneBin, "copyto", tmpPath, remotePath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		stderr := strings.TrimSpace(string(output))
@@ -89,7 +86,7 @@ func (p *RcloneProvider) Push(archive []byte, meta PushMeta) (string, error) {
 // Pull downloads a backup archive from the rclone remote by its
 // backup ID using "rclone cat".
 func (p *RcloneProvider) Pull(id string) ([]byte, error) {
-	if p.remote == "" {
+	if p.Remote == "" {
 		return nil, fmt.Errorf("pull rclone: remote is required")
 	}
 	if id == "" {
@@ -97,16 +94,17 @@ func (p *RcloneProvider) Pull(id string) ([]byte, error) {
 	}
 
 	filename := fmt.Sprintf("%s.tar.gz", id)
-	remotePath := fmt.Sprintf("%s/%s", p.remote, filename)
+	remotePath := fmt.Sprintf("%s/%s", p.Remote, filename)
 
 	ctx, cancel := context.WithTimeout(context.Background(), rcloneTimeout)
 	defer cancel()
 
-	cmd := execCommandContext(ctx, p.rcloneBin, "cat", remotePath)
+	cmd := execCommandContext(ctx, p.RcloneBin, "cat", remotePath)
 	output, err := cmd.Output()
 	if err != nil {
 		var stderr string
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			stderr = strings.TrimSpace(string(exitErr.Stderr))
 		}
 		if stderr == "" {
@@ -122,18 +120,19 @@ func (p *RcloneProvider) Pull(id string) ([]byte, error) {
 // List returns metadata for all bak backups stored in the rclone
 // remote using "rclone lsf".
 func (p *RcloneProvider) List() ([]BackupMeta, error) {
-	if p.remote == "" {
+	if p.Remote == "" {
 		return nil, fmt.Errorf("list rclone: remote is required")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), rcloneTimeout)
 	defer cancel()
 
-	cmd := execCommandContext(ctx, p.rcloneBin, "lsf", p.remote)
+	cmd := execCommandContext(ctx, p.RcloneBin, "lsf", p.Remote)
 	output, err := cmd.Output()
 	if err != nil {
 		var stderr string
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			stderr = strings.TrimSpace(string(exitErr.Stderr))
 		}
 		if stderr == "" {
@@ -159,7 +158,7 @@ func (p *RcloneProvider) List() ([]BackupMeta, error) {
 		metas = append(metas, BackupMeta{
 			ID:       backupID,
 			BackupID: backupID,
-			URL:      fmt.Sprintf("%s/%s", p.remote, line),
+			URL:      fmt.Sprintf("%s/%s", p.Remote, line),
 		})
 	}
 

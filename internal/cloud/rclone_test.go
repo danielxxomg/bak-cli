@@ -70,7 +70,7 @@ esac
 }
 
 func TestRcloneProvider_Name(t *testing.T) {
-	p := NewRcloneProvider(nil, "myremote")
+	p := &RcloneProvider{Remote: "myremote", RcloneBin: "rclone"}
 	if p.Name() != "rclone" {
 		t.Errorf("Name() = %q, want rclone", p.Name())
 	}
@@ -81,9 +81,9 @@ func TestRcloneProvider_Push(t *testing.T) {
 	rcloneBin := createMockRclone(t, tmpDir, "")
 
 	p := &RcloneProvider{
-		cfg:       nil,
-		remote:    "myremote:backups",
-		rcloneBin: rcloneBin,
+		Cfg:       nil,
+		Remote:    "myremote:backups",
+		RcloneBin: rcloneBin,
 	}
 
 	id, err := p.Push([]byte("archive-data"), PushMeta{
@@ -101,9 +101,9 @@ func TestRcloneProvider_Push(t *testing.T) {
 
 func TestRcloneProvider_Push_NoRemote(t *testing.T) {
 	p := &RcloneProvider{
-		cfg:       nil,
-		remote:    "",
-		rcloneBin: "rclone",
+		Cfg:       nil,
+		Remote:    "",
+		RcloneBin: "rclone",
 	}
 	_, err := p.Push([]byte("data"), PushMeta{BackupID: "test"})
 	if err == nil {
@@ -116,9 +116,9 @@ func TestRcloneProvider_Push_NoRemote(t *testing.T) {
 
 func TestRcloneProvider_Push_MissingBinary(t *testing.T) {
 	p := &RcloneProvider{
-		cfg:       nil,
-		remote:    "myremote:path",
-		rcloneBin: "rclone-nonexistent-xyz",
+		Cfg:       nil,
+		Remote:    "myremote:path",
+		RcloneBin: "rclone-nonexistent-xyz",
 	}
 	_, err := p.Push([]byte("data"), PushMeta{BackupID: "test"})
 	if err == nil {
@@ -134,9 +134,9 @@ func TestRcloneProvider_Push_RcloneError(t *testing.T) {
 	t.Setenv("RCLONE_MOCK_FAIL", "1")
 
 	p := &RcloneProvider{
-		cfg:       nil,
-		remote:    "myremote:backups",
-		rcloneBin: rcloneBin,
+		Cfg:       nil,
+		Remote:    "myremote:backups",
+		RcloneBin: rcloneBin,
 	}
 
 	_, err := p.Push([]byte("data"), PushMeta{BackupID: "test"})
@@ -153,9 +153,9 @@ func TestRcloneProvider_Pull(t *testing.T) {
 	rcloneBin := createMockRclone(t, tmpDir, "pulled-backup-data")
 
 	p := &RcloneProvider{
-		cfg:       nil,
-		remote:    "myremote:backups",
-		rcloneBin: rcloneBin,
+		Cfg:       nil,
+		Remote:    "myremote:backups",
+		RcloneBin: rcloneBin,
 	}
 
 	data, err := p.Pull("20260605-120000")
@@ -169,9 +169,9 @@ func TestRcloneProvider_Pull(t *testing.T) {
 
 func TestRcloneProvider_Pull_NoRemote(t *testing.T) {
 	p := &RcloneProvider{
-		cfg:       nil,
-		remote:    "",
-		rcloneBin: "rclone",
+		Cfg:       nil,
+		Remote:    "",
+		RcloneBin: "rclone",
 	}
 	_, err := p.Pull("some-id")
 	if err == nil {
@@ -181,9 +181,9 @@ func TestRcloneProvider_Pull_NoRemote(t *testing.T) {
 
 func TestRcloneProvider_Pull_EmptyID(t *testing.T) {
 	p := &RcloneProvider{
-		cfg:       nil,
-		remote:    "myremote:path",
-		rcloneBin: "rclone",
+		Cfg:       nil,
+		Remote:    "myremote:path",
+		RcloneBin: "rclone",
 	}
 	_, err := p.Pull("")
 	if err == nil {
@@ -193,9 +193,9 @@ func TestRcloneProvider_Pull_EmptyID(t *testing.T) {
 
 func TestRcloneProvider_Pull_MissingBinary(t *testing.T) {
 	p := &RcloneProvider{
-		cfg:       nil,
-		remote:    "myremote:path",
-		rcloneBin: "rclone-nonexistent-xyz",
+		Cfg:       nil,
+		Remote:    "myremote:path",
+		RcloneBin: "rclone-nonexistent-xyz",
 	}
 	_, err := p.Pull("some-id")
 	if err == nil {
@@ -208,9 +208,9 @@ func TestRcloneProvider_List(t *testing.T) {
 	rcloneBin := createMockRclone(t, tmpDir, "20260605-120000.tar.gz\n20260604-100000.tar.gz")
 
 	p := &RcloneProvider{
-		cfg:       nil,
-		remote:    "myremote:backups",
-		rcloneBin: rcloneBin,
+		Cfg:       nil,
+		Remote:    "myremote:backups",
+		RcloneBin: rcloneBin,
 	}
 
 	metas, err := p.List()
@@ -233,9 +233,9 @@ func TestRcloneProvider_List_Empty(t *testing.T) {
 	rcloneBin := createMockRclone(t, tmpDir, "")
 
 	p := &RcloneProvider{
-		cfg:       nil,
-		remote:    "myremote:backups",
-		rcloneBin: rcloneBin,
+		Cfg:       nil,
+		Remote:    "myremote:backups",
+		RcloneBin: rcloneBin,
 	}
 
 	metas, err := p.List()
@@ -249,9 +249,9 @@ func TestRcloneProvider_List_Empty(t *testing.T) {
 
 func TestRcloneProvider_List_NoRemote(t *testing.T) {
 	p := &RcloneProvider{
-		cfg:       nil,
-		remote:    "",
-		rcloneBin: "rclone",
+		Cfg:       nil,
+		Remote:    "",
+		RcloneBin: "rclone",
 	}
 	_, err := p.List()
 	if err == nil {
@@ -261,9 +261,9 @@ func TestRcloneProvider_List_NoRemote(t *testing.T) {
 
 func TestRcloneProvider_List_MissingBinary(t *testing.T) {
 	p := &RcloneProvider{
-		cfg:       nil,
-		remote:    "myremote:path",
-		rcloneBin: "rclone-nonexistent-xyz",
+		Cfg:       nil,
+		Remote:    "myremote:path",
+		RcloneBin: "rclone-nonexistent-xyz",
 	}
 	_, err := p.List()
 	if err == nil {
@@ -272,25 +272,25 @@ func TestRcloneProvider_List_MissingBinary(t *testing.T) {
 }
 
 func TestRcloneProvider_TokenResolution(t *testing.T) {
-	p := NewRcloneProvider(nil, "myremote")
+	p := &RcloneProvider{Remote: "myremote", RcloneBin: "rclone"}
 	if p == nil {
 		t.Fatal("expected non-nil provider")
 	}
-	if p.remote != "myremote" {
-		t.Errorf("remote = %q, want myremote", p.remote)
+	if p.Remote != "myremote" {
+		t.Errorf("remote = %q, want myremote", p.Remote)
 	}
 }
 
 func TestRcloneProvider_ConfigRemote(t *testing.T) {
-	p := NewRcloneProvider(nil, "gdrive:bak")
-	if p.remote != "gdrive:bak" {
-		t.Errorf("remote = %q, want gdrive:bak", p.remote)
+	p := &RcloneProvider{Remote: "gdrive:bak", RcloneBin: "rclone"}
+	if p.Remote != "gdrive:bak" {
+		t.Errorf("remote = %q, want gdrive:bak", p.Remote)
 	}
 }
 
-func TestNewRcloneProvider_DefaultBinary(t *testing.T) {
-	p := NewRcloneProvider(nil, "myremote")
-	if p.rcloneBin != "rclone" {
-		t.Errorf("rcloneBin = %q, want rclone", p.rcloneBin)
+func TestRcloneProvider_DefaultBinary(t *testing.T) {
+	p := &RcloneProvider{Remote: "myremote", RcloneBin: "rclone"}
+	if p.RcloneBin != "rclone" {
+		t.Errorf("rcloneBin = %q, want rclone", p.RcloneBin)
 	}
 }
