@@ -89,6 +89,8 @@ func TestLoginAction_ReplaceNo(t *testing.T) {
 }
 
 func TestLoginAction_EmptyToken(t *testing.T) {
+	// Clear GITHUB_TOKEN to ensure test isolation in CI
+	t.Setenv("GITHUB_TOKEN", "")
 	_, cfg := setupConfigDir(t, nil)
 
 	saver := &fakeConfigSaver{cfg: cfg}
@@ -112,6 +114,8 @@ func TestLoginAction_EmptyToken(t *testing.T) {
 }
 
 func TestLoginAction_ValidationFailure(t *testing.T) {
+	// Clear GITHUB_TOKEN to ensure test isolation in CI
+	t.Setenv("GITHUB_TOKEN", "")
 	_, cfg := setupConfigDir(t, nil)
 
 	saver := &fakeConfigSaver{cfg: cfg}
@@ -137,6 +141,8 @@ func TestLoginAction_ValidationFailure(t *testing.T) {
 }
 
 func TestLoginAction_NoTokenYet(t *testing.T) {
+	// Clear GITHUB_TOKEN to ensure test isolation in CI
+	t.Setenv("GITHUB_TOKEN", "")
 	_, cfg := setupConfigDir(t, nil)
 
 	saver := &fakeConfigSaver{cfg: cfg}
