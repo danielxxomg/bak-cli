@@ -5,7 +5,7 @@ All notable changes to bak-cli will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.0] — 2026-06-08
 
 ### Added
 
@@ -19,12 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     presets/adapters over same-named built-ins.
   - See `examples/presets/custom.yaml` and `examples/adapters/myapp.yaml` for
     annotated samples.
-- **Extracted action structs** — Core workflows (backup, restore, push, pull)
-  moved to `internal/actions/` with injectable filesystem and config dependencies.
-  Enables full unit-test coverage with mock implementations.
-- **`internal/actions` package** — `BackupAction`, `RestoreAction`, `PushAction`,
-  `PullAction` with `FileSystem` and `ConfigLoader` interfaces. Tests use
-  `MockFileSystem` and `MockConfigLoader` for deterministic, isolated coverage.
 - **`internal/presets` package** — YAML preset loader (`LoadFromDir`) with type
   definitions (`YAMLPreset`, `YAMLMetadata`). `ResolveAll()` merges custom and
   built-in presets with conflict detection.
@@ -33,7 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and parses adapter definitions. `RegisterOrReplace()` handles override logic.
 - **`internal/adapters/register` package** — `LoadYAMLAdapters()` wraps
   `adapter.LoadYAMLAdapters()` with registry integration and override warnings.
-
 - **Backup scheduling** — `bak schedule` commands manage OS-native backup schedules
   using crontab on Unix and schtasks on Windows. Schedules run `bak backup && bak push`
   for a profile at configurable intervals.
@@ -55,12 +48,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`--interactive` flag** on `profile create` and `login` commands — launches the
   wizard instead of requiring CLI flags. Provider list auto-populated from configured
   providers.
-
-### Changed
-
-- `config.ProfileConfig` now includes `Schedule *ScheduleConfig` field for persisting
-  schedule state per profile.
-
 - **`bak verify <id>` command** — verifies backup integrity by checking SHA-256 hashes
   of every file in the manifest against files on disk. Exits 0 on success, 1 on first
   hash mismatch. Supports `--verbose` for per-file progress.
@@ -70,16 +57,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   canonical path maps and categorizes items by presence and SHA-256 hash comparison.
 - **`internal/backup.ResolveBackupID()` shared helper** — validates backup IDs with
   path traversal prevention, replacing duplicated logic in `restore` command.
-- **`cmd/restore.go`** refactored to use shared `ResolveBackupID()` instead of inline
-  BakDir + traversal guard + existence check. Behavior-preserving.
 
-- `cmd/backup.go` — thin wire to `BackupAction`; calls `presets.ResolveAll()`
-  and `register.LoadYAMLAdapters()` for YAML integration.
-- `cmd/restore.go` — thin wire to `RestoreAction`; supports `--override` flag.
-- `cmd/push.go` — thin wire to `PushAction`.
-- `cmd/pull.go` — thin wire to `PullAction`.
+### Changed
+
+- `config.ProfileConfig` now includes `Schedule *ScheduleConfig` field for persisting
+  schedule state per profile.
+- `cmd/restore.go` refactored to use shared `ResolveBackupID()` instead of inline
+  BakDir + traversal guard + existence check. Behavior-preserving.
+- `cmd/backup.go` — thin wire updated to call `presets.ResolveAll()` and
+  `register.LoadYAMLAdapters()` for YAML integration.
+- `cmd/restore.go` — supports `--override` flag.
 - `internal/adapters/registry.go` — added `RegisterOrReplace()` for conflict
   resolution with YAML adapter overrides.
+
+## [1.2.0] — 2026-06-07
+
+### Added
+
+- **Extracted action structs** — Core workflows (backup, restore, push, pull)
+  moved to `internal/actions/` with injectable filesystem and config dependencies.
+  Enables full unit-test coverage with mock implementations.
+- **`internal/actions` package** — `BackupAction`, `RestoreAction`, `PushAction`,
+  `PullAction` with `FileSystem` and `ConfigLoader` interfaces. Tests use
+  `MockFileSystem` and `MockConfigLoader` for deterministic, isolated coverage.
+
+### Changed
+
+- `cmd/backup.go` — thin wire to `BackupAction`.
+- `cmd/restore.go` — thin wire to `RestoreAction`.
+- `cmd/push.go` — thin wire to `PushAction`.
+- `cmd/pull.go` — thin wire to `PullAction`.
+
+## [1.1.0] — 2026-06-06
+
+### Added
+
+- **QA stack** — Taskfile development workflow, golangci-lint integration,
+  E2E test suite, fuzz testing, and benchmark framework.
+
+## [1.0.0] — 2026-06-05
+
+### Added
+
+- **Stable release** — Production-grade CLI with 8 AI coding agent adapters,
+  5 cloud backends, AES-256-GCM encryption, and machine profiles.
+- All features from v0.1.0 through v0.3.0 stabilized and hardened.
 
 ## [0.3.0] — 2026-06-05
 
@@ -122,6 +144,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and decrypts on the fly. Plaintext archives from v0.2.0 are handled transparently.
 - `internal/manifest/manifest.go` adds `Encryption` struct (algorithm, KDF, salt,
   nonce, iterations, memory, parallelism) for encrypted backup auditability.
+
+## [0.2.0] — 2026-06-05
 
 ### Added
 
@@ -182,7 +206,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`--verbose` flag** on all commands for diagnostic output
 - **CI pipeline** — GoReleaser cross-platform build matrix (Linux, macOS, Windows × amd64, arm64)
 - **Full test suite** with table-driven tests, >80% coverage target, and cross-platform path tests
-
-## Roadmap
-
-See [README.md](README.md#roadmap) for planned features in v0.2.0 and v1.0.0.
