@@ -309,7 +309,7 @@ func TestAdapter_Restore_CopyError(t *testing.T) {
 }
 
 func TestAdapter_fileHash_Error(t *testing.T) {
-	_, _, err := fileHash(filepath.Join(t.TempDir(), "nonexistent.txt"))
+	_, _, err := adapters.FileHash(filepath.Join(t.TempDir(), "nonexistent.txt"))
 	if err == nil {
 		t.Error("expected error for missing file, got nil")
 	}
