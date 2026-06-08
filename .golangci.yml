@@ -7,23 +7,30 @@ linters:
     - errcheck
     - errorlint
     - gocritic
-    # - gosec  # temporarily disabled — too many false positives in test files
+    - gosec
     - govet
     - ineffassign
     - nilerr
     - staticcheck
     - unused
 
+  settings:
+    gosec:
+      excludes:
+        - G301  # directory permissions (false positive for backup tool)
+        - G306  # WriteFile permissions (false positive for backup tool)
+        - G304  # file inclusion via variable (backup tool MUST read dynamic paths)
+
+  exclusions:
+    rules:
+      - path: '(.+_test\.go)'
+        linters:
+          - errcheck
+          - gosec  # tests don't need security scanning
+
 run:
   timeout: 5m
   tests: true
-
-issues:
-  exclude-use-default: false
-  exclude-rules:
-    - path: _test\\.go
-      linters:
-        - errcheck
 
 formatters:
   enable:

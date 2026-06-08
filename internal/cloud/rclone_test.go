@@ -273,9 +273,6 @@ func TestRcloneProvider_List_MissingBinary(t *testing.T) {
 
 func TestRcloneProvider_TokenResolution(t *testing.T) {
 	p := &RcloneProvider{Remote: "myremote", RcloneBin: "rclone"}
-	if p == nil {
-		t.Fatal("expected non-nil provider")
-	}
 	if p.Remote != "myremote" {
 		t.Errorf("remote = %q, want myremote", p.Remote)
 	}

@@ -46,10 +46,10 @@ func RunExport(homeDir, backupID, outputPath string, out io.Writer) error {
 		closeErr := outFile.Close()
 		removeErr := os.Remove(outputPath)
 		if closeErr != nil {
-			return fmt.Errorf("create archive; close error: %w", errors.Join(err, closeErr))
+			return fmt.Errorf("create archive: close: %w", errors.Join(err, closeErr))
 		}
 		if removeErr != nil {
-			return fmt.Errorf("create archive; remove partial output error: %w", errors.Join(err, removeErr))
+			return fmt.Errorf("create archive: remove partial: %w", errors.Join(err, removeErr))
 		}
 		return fmt.Errorf("create archive: %w", err)
 	}
@@ -58,7 +58,9 @@ func RunExport(homeDir, backupID, outputPath string, out io.Writer) error {
 		return fmt.Errorf("close output file: %w", err)
 	}
 
-	_, _ = fmt.Fprintf(out, "Exported backup %q to %s\n", backupID, outputPath)
+	if _, err := fmt.Fprintf(out, "Exported backup %q to %s\n", backupID, outputPath); err != nil {
+		return fmt.Errorf("write confirmation: %w", err)
+	}
 	return nil
 }
 
@@ -112,13 +114,16 @@ func CreateTarGz(srcDir string, w io.Writer) (retErr error) {
 		}
 
 		// Copy file contents into the tar stream.
+		//nolint:gosec // G122: Walk callback reads files for export tar — backup tool must traverse directories
 		src, err := os.Open(walkPath)
 		if err != nil {
 			return fmt.Errorf("open %q: %w", walkPath, err)
 		}
 
 		if _, err := io.Copy(tw, src); err != nil {
-			_ = src.Close()
+			if cerr := src.Close(); cerr != nil {
+				return fmt.Errorf("copy %q to tar: %w; close error: %w", walkPath, err, cerr)
+			}
 			return fmt.Errorf("copy %q to tar: %w", walkPath, err)
 		}
 
