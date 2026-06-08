@@ -4,9 +4,9 @@ package presets
 
 // YAMLPreset represents a user-defined preset loaded from YAML.
 type YAMLPreset struct {
-	Name        string        `yaml:"name"`
-	Categories  []string      `yaml:"categories"`
-	Metadata    YAMLMetadata  `yaml:"metadata,omitempty"`
+	Name       string       `yaml:"name"`
+	Categories []string     `yaml:"categories"`
+	Metadata   YAMLMetadata `yaml:"metadata,omitempty"`
 }
 
 // YAMLMetadata holds optional descriptive fields for a YAML preset.

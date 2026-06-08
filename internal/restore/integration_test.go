@@ -17,11 +17,11 @@ func TestIntegration_RestoreRoundTrip(t *testing.T) {
 
 		// Set up backup files with known content.
 		backupFiles := map[string]string{
-			"opencode/opencode.json":                    `{"theme":"dark","version":"1.0"}`,
-			"opencode/skills/go/SKILL.md":               "# Go Skill\n\nGo development patterns.",
-			"opencode/skills/typescript/SKILL.md":       "# TypeScript Skill",
-			"opencode/commands/build.md":                "## Build Command\n\nRuns the build.",
-			"opencode/AGENTS.md":                        "You are a helpful assistant.",
+			"opencode/opencode.json":              `{"theme":"dark","version":"1.0"}`,
+			"opencode/skills/go/SKILL.md":         "# Go Skill\n\nGo development patterns.",
+			"opencode/skills/typescript/SKILL.md": "# TypeScript Skill",
+			"opencode/commands/build.md":          "## Build Command\n\nRuns the build.",
+			"opencode/AGENTS.md":                  "You are a helpful assistant.",
 		}
 
 		var manifestItems []manifestItem

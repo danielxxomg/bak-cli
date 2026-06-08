@@ -17,10 +17,10 @@ import (
 
 // OSInfo holds platform metadata for the current host.
 type OSInfo struct {
-	OS       string // "windows", "darwin", "linux"
-	Arch     string // "amd64", "arm64"
-	HomeDir  string // absolute path to user home
-	Sep      string // path separator as string
+	OS      string // "windows", "darwin", "linux"
+	Arch    string // "amd64", "arm64"
+	HomeDir string // absolute path to user home
+	Sep     string // path separator as string
 }
 
 // DetectOS returns platform metadata for the current host.

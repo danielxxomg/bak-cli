@@ -216,4 +216,3 @@ func TestAll_AdapterCount(t *testing.T) {
 		t.Errorf("All() adapter count = %d, want 8", got)
 	}
 }
-

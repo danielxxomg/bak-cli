@@ -11,8 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/danielxxomg/bak-cli/internal/cloud"
 	"github.com/spf13/cobra"
+
+	"github.com/danielxxomg/bak-cli/internal/cloud"
 )
 
 // PushAction encapsulates the push-to-cloud workflow with injectable

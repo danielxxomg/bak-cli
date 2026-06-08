@@ -4,9 +4,10 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/spf13/cobra"
+
 	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/danielxxomg/bak-cli/internal/cloud"
-	"github.com/spf13/cobra"
 )
 
 var loginProvider string

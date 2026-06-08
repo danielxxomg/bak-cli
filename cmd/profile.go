@@ -4,8 +4,9 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/spf13/cobra"
+
+	"github.com/danielxxomg/bak-cli/internal/actions"
 )
 
 // profileCmd is the parent command for profile management.

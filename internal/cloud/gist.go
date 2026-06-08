@@ -38,24 +38,24 @@ type gistFileAPI struct {
 
 // gistCreateRequest is the JSON body for POST /gists.
 type gistCreateRequest struct {
-	Description string                  `json:"description"`
-	Public      bool                    `json:"public"`
-	Files       map[string]gistFileAPI  `json:"files"`
+	Description string                 `json:"description"`
+	Public      bool                   `json:"public"`
+	Files       map[string]gistFileAPI `json:"files"`
 }
 
 // gistUpdateRequest is the JSON body for PATCH /gists/{id}.
 type gistUpdateRequest struct {
-	Description string                  `json:"description,omitempty"`
-	Files       map[string]gistFileAPI  `json:"files,omitempty"`
+	Description string                 `json:"description,omitempty"`
+	Files       map[string]gistFileAPI `json:"files,omitempty"`
 }
 
 // gistResponse is the JSON shape returned by the GitHub Gist API.
 type gistResponse struct {
-	ID          string                  `json:"id"`
-	Description string                  `json:"description"`
-	Public      bool                    `json:"public"`
-	HTMLURL     string                  `json:"html_url"`
-	Files       map[string]gistFileAPI  `json:"files"`
+	ID          string                 `json:"id"`
+	Description string                 `json:"description"`
+	Public      bool                   `json:"public"`
+	HTMLURL     string                 `json:"html_url"`
+	Files       map[string]gistFileAPI `json:"files"`
 }
 
 // defaultTimeout is the HTTP client timeout for Gist API calls.

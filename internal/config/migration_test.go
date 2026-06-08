@@ -170,8 +170,8 @@ func TestConfig_Get_NestedKeys(t *testing.T) {
 	cfg := &Config{
 		SchemaVersion: "0.2.0",
 		Providers: map[string]ProviderConfig{
-			"github":    {Token: "ghp_nested", GistID: "nest123"},
-			"codeberg":  {Token: "cb_token"},
+			"github":   {Token: "ghp_nested", GistID: "nest123"},
+			"codeberg": {Token: "cb_token"},
 		},
 	}
 

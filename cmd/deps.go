@@ -4,8 +4,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/spf13/cobra"
+
+	"github.com/danielxxomg/bak-cli/internal/config"
 )
 
 // cmdDeps holds injectable dependencies for command execution.

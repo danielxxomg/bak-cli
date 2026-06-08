@@ -293,5 +293,3 @@ func TestEngine_Run_BackupFilesExist(t *testing.T) {
 		t.Error("no backed-up files found in backup dir")
 	}
 }
-
-

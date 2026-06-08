@@ -13,10 +13,10 @@ import (
 
 func TestResolve(t *testing.T) {
 	tests := []struct {
-		name      string
-		preset    string
-		wantCats  []string
-		wantErr   bool
+		name     string
+		preset   string
+		wantCats []string
+		wantErr  bool
 	}{
 		{
 			name:     "quick preset",

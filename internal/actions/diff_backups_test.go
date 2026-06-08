@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/danielxxomg/bak-cli/internal/config/testutil"
+	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
 
@@ -87,7 +87,7 @@ func TestDiffBackupsAction_Added(t *testing.T) {
 	})
 	// Backup 2: has config.yaml AND new skill.md.
 	setupDiffFixture(t, homeDir, "backup-v2", map[string]string{
-		"config.yaml":  "version: 1",
+		"config.yaml":   "version: 1",
 		"skills/new.md": "# New Skill",
 	})
 
@@ -115,8 +115,8 @@ func TestDiffBackupsAction_Removed(t *testing.T) {
 
 	// Backup 1: has old-file.txt and config.yaml.
 	setupDiffFixture(t, homeDir, "backup-v1", map[string]string{
-		"config.yaml":   "version: 1",
-		"old-file.txt":  "old content",
+		"config.yaml":  "version: 1",
+		"old-file.txt": "old content",
 	})
 	// Backup 2: only has config.yaml (old-file.txt was deleted).
 	setupDiffFixture(t, homeDir, "backup-v2", map[string]string{
@@ -284,14 +284,14 @@ func TestDiffBackupsAction_Summary(t *testing.T) {
 
 	// Create two backups with all categories represented.
 	setupDiffFixture(t, homeDir, "backup-v1", map[string]string{
-		"config.yaml":   "version: 1",
-		"old-file.txt":  "will be removed",
-		"shared.json":   `{"key": "old"}`,
+		"config.yaml":  "version: 1",
+		"old-file.txt": "will be removed",
+		"shared.json":  `{"key": "old"}`,
 	})
 	setupDiffFixture(t, homeDir, "backup-v2", map[string]string{
-		"config.yaml":  "version: 1",
-		"new-file.go":  "package main",
-		"shared.json":  `{"key": "new"}`,
+		"config.yaml": "version: 1",
+		"new-file.go": "package main",
+		"shared.json": `{"key": "new"}`,
 	})
 
 	var out strings.Builder

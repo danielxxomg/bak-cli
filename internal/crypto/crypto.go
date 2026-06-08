@@ -30,7 +30,7 @@ const (
 
 // Exported constants for archive layout offsets and KDF parameters.
 const (
-	MagicLen    = 8  // len(magicBytes)
+	MagicLen    = 8 // len(magicBytes)
 	SaltLen     = saltLen
 	NonceLen    = nonceLen
 	ArgonMemory = memoryKiB

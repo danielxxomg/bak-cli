@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/danielxxomg/bak-cli/internal/config/testutil"
+	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
 
@@ -87,7 +87,7 @@ func sumSizes(items []manifest.Item) int64 {
 func TestVerifyBackupAction_Success(t *testing.T) {
 	homeDir := t.TempDir()
 	files := map[string]string{
-		"skills/skill-one.md":  "# Skill One\n\nContent here.",
+		"skills/skill-one.md":   "# Skill One\n\nContent here.",
 		"commands/cmd-one.toml": "[command]\nname = \"test\"",
 	}
 	setupVerifyFixture(t, homeDir, "20260101-120000", files)

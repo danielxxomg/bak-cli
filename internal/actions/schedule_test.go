@@ -62,8 +62,8 @@ func TestScheduleCreate_Success(t *testing.T) {
 		ConfigLoader: func() (*config.Config, error) {
 			return cfg, nil
 		},
-		Stdout:  &out,
-		Stderr:  &errOut,
+		Stdout: &out,
+		Stderr: &errOut,
 		NewScheduler: func() schedule.Scheduler {
 			return sched
 		},

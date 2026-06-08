@@ -1,9 +1,10 @@
 package cmd
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/danielxxomg/bak-cli/internal/config"
-	"github.com/spf13/cobra"
 )
 
 var pullProvider string

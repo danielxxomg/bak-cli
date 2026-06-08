@@ -278,7 +278,7 @@ func scanCategoryDir(dir, category, configDir string) ([]Item, error) {
 		}
 
 		item := Item{
-			Category: category,
+			Category:   category,
 			SourcePath: absPath,
 			RelPath:    filepath.ToSlash(relPath),
 			IsDir:      d.IsDir(),

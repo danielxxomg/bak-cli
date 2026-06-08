@@ -170,4 +170,3 @@ func TestRunPush_TooManyArgs(t *testing.T) {
 		t.Fatal("expected push command to reject 2 args")
 	}
 }
-

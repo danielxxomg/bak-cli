@@ -68,9 +68,9 @@ func TestRestoreAction_DryRun(t *testing.T) {
 	backupID := createBackupForRestore(t, home)
 
 	action := &RestoreAction{
-		FS:        newHomeFS(home),
-		DryRun:    true,
-		Verbose:   false,
+		FS:      newHomeFS(home),
+		DryRun:  true,
+		Verbose: false,
 	}
 
 	bakDir := filepath.Join(home, ".bak")
@@ -458,5 +458,3 @@ func TestRestoreAction_Stdin_Injected(t *testing.T) {
 		t.Log("Stdin is nil — will fall back to os.Stdin")
 	}
 }
-
-

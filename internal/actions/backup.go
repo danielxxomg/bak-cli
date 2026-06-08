@@ -11,12 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 	"github.com/danielxxomg/bak-cli/internal/backup"
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 	"github.com/danielxxomg/bak-cli/internal/paths"
 	"github.com/danielxxomg/bak-cli/internal/presets"
-	"github.com/spf13/cobra"
 )
 
 // BackupAction encapsulates the backup workflow with injectable
@@ -28,11 +29,11 @@ type BackupAction struct {
 	Registry *adapters.Registry
 
 	// Parameters (from CLI flags).
-	Preset          string
-	AdapterFilter   []string
-	Verbose         bool
-	BakVersion      string
-	SecretPatterns  []*regexp.Regexp
+	Preset           string
+	AdapterFilter    []string
+	Verbose          bool
+	BakVersion       string
+	SecretPatterns   []*regexp.Regexp
 	CustomCategories []string
 
 	// HostnameFn returns the current hostname. Nil falls back to os.Hostname.

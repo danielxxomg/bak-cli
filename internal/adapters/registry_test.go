@@ -12,8 +12,10 @@ type mockAdapter struct {
 	configDir string
 }
 
-func (m *mockAdapter) Name() string                                    { return m.name }
-func (m *mockAdapter) Detect(homeDir string) (bool, string, error)     { return m.installed, m.configDir, nil }
+func (m *mockAdapter) Name() string { return m.name }
+func (m *mockAdapter) Detect(homeDir string) (bool, string, error) {
+	return m.installed, m.configDir, nil
+}
 func (m *mockAdapter) ListItems(homeDir string, categories []string) ([]Item, error) {
 	return nil, nil
 }

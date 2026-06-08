@@ -170,7 +170,9 @@ type MockProvider struct {
 
 var _ cloud.Provider = (*MockProvider)(nil)
 
-func (m *MockProvider) Name() string                                                     { return m.MockName }
-func (m *MockProvider) Push(archive []byte, meta cloud.PushMeta) (string, error)         { return m.PushFn(archive, meta) }
-func (m *MockProvider) Pull(id string) ([]byte, error)                                   { return m.PullFn(id) }
-func (m *MockProvider) List() ([]cloud.BackupMeta, error)                                { return m.ListFn() }
+func (m *MockProvider) Name() string { return m.MockName }
+func (m *MockProvider) Push(archive []byte, meta cloud.PushMeta) (string, error) {
+	return m.PushFn(archive, meta)
+}
+func (m *MockProvider) Pull(id string) ([]byte, error)    { return m.PullFn(id) }
+func (m *MockProvider) List() ([]cloud.BackupMeta, error) { return m.ListFn() }

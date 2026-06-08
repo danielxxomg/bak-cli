@@ -10,11 +10,11 @@ import (
 
 // TestIntegration_FullBackupFlow creates a realistic OpenCode config directory
 // with multiple categories, runs a full backup, and verifies:
-//   1. The manifest is valid JSON and includes all expected metadata.
-//   2. Every file listed in the manifest exists at its backup path.
-//   3. File content integrity via SHA-256 hash comparison.
-//   4. The .env.example is generated when secrets are present.
-//   5. File count and total size are accurate.
+//  1. The manifest is valid JSON and includes all expected metadata.
+//  2. Every file listed in the manifest exists at its backup path.
+//  3. File content integrity via SHA-256 hash comparison.
+//  4. The .env.example is generated when secrets are present.
+//  5. File count and total size are accurate.
 func TestIntegration_FullBackupFlow(t *testing.T) {
 	// --- Arrange: create a realistic OpenCode directory -------------------
 	home := t.TempDir()
@@ -82,9 +82,9 @@ func TestIntegration_FullBackupFlow(t *testing.T) {
 
 	// Verify manifest metadata.
 	checks := map[string]interface{}{
-		"version":    "0.3.0",
-		"preset":     "full",
-		"os_source":  engine.HomeDir, // not really — os_source is runtime.GOOS
+		"version":     "0.3.0",
+		"preset":      "full",
+		"os_source":   engine.HomeDir, // not really — os_source is runtime.GOOS
 		"bak_version": "test",
 	}
 	for key, expected := range checks {

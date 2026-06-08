@@ -15,7 +15,7 @@ type mockProvider struct {
 	listFn func() ([]BackupMeta, error)
 }
 
-func (m *mockProvider) Name() string                              { return m.name }
+func (m *mockProvider) Name() string { return m.name }
 func (m *mockProvider) Push(a []byte, meta PushMeta) (string, error) {
 	if m.pushFn != nil {
 		return m.pushFn(a, meta)

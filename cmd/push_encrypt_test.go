@@ -27,9 +27,9 @@ func TestPushEncrypt_RoundTrip(t *testing.T) {
 			name:     "multiple files",
 			password: "another-secret!",
 			files: map[string]string{
-				"config.json":    `{"schema_version":"0.3.0"}`,
-				"manifest.json":  `{"version":"0.3.0","id":"abc"}`,
-				"data/settings":  `enabled=true`,
+				"config.json":   `{"schema_version":"0.3.0"}`,
+				"manifest.json": `{"version":"0.3.0","id":"abc"}`,
+				"data/settings": `enabled=true`,
 			},
 		},
 		{

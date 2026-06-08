@@ -6,8 +6,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/spf13/cobra"
+
+	"github.com/danielxxomg/bak-cli/internal/actions"
 )
 
 // pickCmd represents the interactive category picker command.

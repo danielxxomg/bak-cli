@@ -140,11 +140,11 @@ func (p *GitHubGistProvider) List() ([]BackupMeta, error) {
 		}
 
 		metas = append(metas, BackupMeta{
-			ID:        g.ID,
-			BackupID:  backupID,
-			Hostname:  "",
-			Size:      size,
-			URL:       g.HTMLURL,
+			ID:       g.ID,
+			BackupID: backupID,
+			Hostname: "",
+			Size:     size,
+			URL:      g.HTMLURL,
 		})
 	}
 

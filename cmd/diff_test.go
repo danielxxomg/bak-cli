@@ -9,8 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/danielxxomg/bak-cli/internal/manifest"
 	"github.com/spf13/cobra"
+
+	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
 
 // stageDiffBackups creates two backup directories and returns their IDs.

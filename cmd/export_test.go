@@ -91,9 +91,9 @@ func TestCreateTarGz_RoundTrip(t *testing.T) {
 
 	// Create test files.
 	testFiles := map[string]string{
-		"file1.txt":           "content of file 1",
-		"subdir/file2.txt":    "content of file 2",
-		"subdir/deep/file3":   "deep file content",
+		"file1.txt":         "content of file 1",
+		"subdir/file2.txt":  "content of file 2",
+		"subdir/deep/file3": "deep file content",
 	}
 
 	for relPath, content := range testFiles {
@@ -290,4 +290,3 @@ func TestCreateTarGz_EmptyDir(t *testing.T) {
 		t.Errorf("Expected EOF after directory entry, got %v", err)
 	}
 }
-

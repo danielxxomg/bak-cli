@@ -18,13 +18,13 @@ const (
 
 // Available categories. Each adapter maps these to actual file paths.
 const (
-	CatSkills    = "skills"
-	CatCommands  = "commands"
-	CatConfig    = "config"
-	CatMCP       = "mcp"
-	CatPlugins   = "plugins"
-	CatAgents    = "agents"
-	CatSecrets   = "secrets" // not backed up by default
+	CatSkills   = "skills"
+	CatCommands = "commands"
+	CatConfig   = "config"
+	CatMCP      = "mcp"
+	CatPlugins  = "plugins"
+	CatAgents   = "agents"
+	CatSecrets  = "secrets" // not backed up by default
 )
 
 // AllCategories lists every category known to the system.
