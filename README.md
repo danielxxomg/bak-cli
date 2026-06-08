@@ -8,7 +8,7 @@
   <a href="https://github.com/danielxxomg/bak-cli/releases/latest"><img src="https://img.shields.io/github/v/release/danielxxomg/bak-cli" alt="Release"></a>
   <img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white" alt="Go 1.25+">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
-  <img src="https://img.shields.io/badge/tests-1110+-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-1128+-brightgreen" alt="Tests">
 </p>
 
 <p align="center">
