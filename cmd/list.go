@@ -74,5 +74,3 @@ func runListCloudWithDeps(providerName string, deps cmdDeps) error {
 
 	return action.Run(providerName)
 }
-
-

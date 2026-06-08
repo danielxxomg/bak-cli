@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	gitutil "github.com/danielxxomg/bak-cli/internal/git"
 	"github.com/danielxxomg/bak-cli/internal/actions"
+	gitutil "github.com/danielxxomg/bak-cli/internal/git"
 	"github.com/spf13/cobra"
 )
 

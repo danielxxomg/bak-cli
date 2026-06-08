@@ -95,7 +95,7 @@ func TestFromCanonical(t *testing.T) {
 			name:      "home root",
 			canonical: "~/",
 			homeDir:   "/home/bob",
-			want:      filepath.Join("/home/bob"),
+			want:      filepath.Join("/home/bob"), //nolint:gocritic // intentional: normalizes path for current OS
 		},
 	}
 
@@ -177,7 +177,7 @@ func TestConfigDir(t *testing.T) {
 		t.Error("ConfigDir returned empty string")
 	}
 	// Verify it ends with the expected relative path.
-	expectedSuffix := filepath.Join("bak")
+	expectedSuffix := "bak"
 	if len(dir) < len(expectedSuffix) {
 		t.Errorf("ConfigDir too short: %q", dir)
 	}
@@ -376,7 +376,7 @@ func TestFromCanonical_EdgeCases(t *testing.T) {
 			name:      "tilde with empty relative",
 			canonical: "~/",
 			homeDir:   "/home/alice",
-			want:      filepath.Join("/home/alice"),
+			want:      filepath.Join("/home/alice"), //nolint:gocritic // intentional: normalizes path for current OS
 		},
 	}
 

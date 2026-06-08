@@ -163,10 +163,8 @@ func TestIntegration_FullBackupFlow(t *testing.T) {
 	exampleData, err := os.ReadFile(examplePath)
 	if err != nil {
 		t.Errorf(".env.example not found: %v", err)
-	} else {
-		if len(exampleData) == 0 {
-			t.Error(".env.example is empty")
-		}
+	} else if len(exampleData) == 0 {
+		t.Error(".env.example is empty")
 	}
 
 	// 5. File count consistency.
