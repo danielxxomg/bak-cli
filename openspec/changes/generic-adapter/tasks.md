@@ -39,8 +39,8 @@ Chain strategy: stacked-to-main
 2. Delete all `scanDir`, `scanRootFiles`, `categoryDir` type — now in `generic.go`.
 3. Run `go test ./...` — zero failures (existing tests must pass unmodified).
 
-- [ ] 2.1 **Migrate codex** — `internal/adapters/codex/adapter.go`: adapterName=`"codex"`, configRelPath=`".codex"`, categories={config, instructions}, DetectErrContext=`"stat codex config dir"`. Verify: `go test ./internal/adapters/codex/... ./...`
-- [ ] 2.2 **COMMIT** — `refactor: migrate codex adapter to GenericAdapter`
+- [x] 2.1 **Migrate codex** — `internal/adapters/codex/adapter.go`: adapterName=`"codex"`, configRelPath=`".codex"`, categories={config, instructions}, DetectErrContext=`"stat codex config dir"`. Verify: `go test ./internal/adapters/codex/... ./...`
+- [x] 2.2 **COMMIT** — `refactor: migrate codex adapter to GenericAdapter`
 - [ ] 2.3 **Migrate kiro** — `internal/adapters/kiro/adapter.go`: adapterName=`"kiro"`, configRelPath=`".kiro"`, categories={config, hooks}, DetectErrContext=`"stat kiro config dir"`. Verify: `go test ./...`
 - [ ] 2.4 **COMMIT** — `refactor: migrate kiro adapter to GenericAdapter`
 - [ ] 2.5 **Migrate kilocode** — `internal/adapters/kilocode/adapter.go`: adapterName=`"kilocode"`, configRelPath=`".kilocode"`, categories={config, rules}, DetectErrContext=`"stat kilocode config dir"`. Verify: `go test ./...`
