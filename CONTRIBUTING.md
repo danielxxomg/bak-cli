@@ -16,7 +16,7 @@ Thank you for your interest in contributing to **bak** — the CLI that backs up
 
 ### Prerequisites
 
-- **Go 1.24+** — [download](https://go.dev/dl/)
+- **Go 1.25+** — [download](https://go.dev/dl/)
 - **Git** — [download](https://git-scm.com/)
 - **golangci-lint** (optional, for linting) — [install](https://golangci-lint.run/welcome/install/)
 
@@ -53,10 +53,10 @@ choco install golangci-lint
 golangci-lint run
 ```
 
-Or use the Makefile target:
+Or use the Task target:
 
 ```bash
-make lint
+task lint
 ```
 
 ## Running Tests
@@ -76,12 +76,12 @@ go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
 ```
 
-Or use Makefile targets:
+Or use Task targets:
 
 ```bash
-make test           # go test ./...
-make test-verbose   # go test -v ./...
-make test-cover     # go test -cover ./...
+task test           # go test ./...
+task test-verbose   # go test -v ./...
+task cover          # go test -cover ./...
 ```
 
 ### Test Requirements
@@ -125,8 +125,8 @@ go build -o bak .
 # With version info (matching release builds)
 go build -ldflags "-s -w -X github.com/danielxxomg/bak-cli/cmd.Version=dev -X github.com/danielxxomg/bak-cli/cmd.Commit=$(git rev-parse --short HEAD) -X github.com/danielxxomg/bak-cli/cmd.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o bak .
 
-# Using Makefile (recommended)
-make build
+# Using Task (recommended)
+task build
 ```
 
 ### Build Verification
@@ -144,10 +144,10 @@ Releases are built with [GoReleaser](https://goreleaser.com/). Configuration is 
 
 ```bash
 # Dry-run (snapshot)
-make release-snapshot
+task goreleaser-verify
 
 # Full release
-make release
+task goreleaser-verify
 ```
 
 The release matrix covers:
@@ -181,11 +181,11 @@ The project follows the conventions documented in **[AGENTS.md](AGENTS.md)**. Ke
 - Validate all paths stay under user home directory (path traversal prevention)
 - Never include secrets/API keys/tokens in backups
 - Use `os.UserHomeDir()` — never hardcode home paths
-- Use `path.Clean` + `filepath.ToSlash` for canonical path comparison
+- Use `path.Clean` + `strings.ReplaceAll(path, "\\", "/")` for canonical path comparison
 
 ## Adding a New Adapter
 
-The project uses an **adapter pattern** to support multiple AI coding tools. Currently, only OpenCode is implemented, but the interface is designed for extension.
+The project uses an **adapter pattern** to support multiple AI coding tools. Currently, 8 adapters are implemented (Claude Code, Cursor, Codex, Windsurf, Kiro, KiloCode, pi.dev, and OpenCode), and the interface is designed for extension.
 
 ### Step 1: Understand the Interface
 
@@ -305,7 +305,7 @@ Check the Opencode adapter test (`internal/adapters/opencode/adapter_test.go`) f
 ```bash
 go test ./internal/adapters/...
 go test ./...
-make all    # vet + test + build
+task ci    # vet + test + build
 ```
 
 ## Commit Conventions
@@ -354,9 +354,9 @@ refactor: extract path sanitization into paths package
 
 ### Before Opening
 
-1. **Run the full pipeline**: `make all` (vet → test → build)
-2. **Check coverage**: `make test-cover` — ensure >80% for new code
-3. **Lint**: `make lint` (if golangci-lint is installed)
+1. **Run the full pipeline**: `task ci` (vet → test → build)
+2. **Check coverage**: `task cover` — ensure >80% for new code
+3. **Lint**: `task lint` (if golangci-lint is installed)
 4. **Self-review**: Go through the PR checklist in the [PR template](.github/pull_request_template.md)
 5. **Update docs**: If your change affects the CLI interface, update `README.md`
 
@@ -420,9 +420,8 @@ bak-cli/
 │   ├── git/                # Git operations (go-git)
 │   ├── config/             # Configuration management
 │   └── presets/            # Preset definitions
-├── scripts/                # Build and CI helper scripts
 ├── main.go                 # Entry point
-├── Makefile                # Development workflow targets
+├── Taskfile.yml            # Development workflow targets
 ├── .goreleaser.yaml        # Cross-platform release config
 ├── go.mod                  # Go module definition
 └── go.sum                  # Dependency checksums
