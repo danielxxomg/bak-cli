@@ -3,6 +3,7 @@ package cursor
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/danielxxomg/bak-cli/internal/adapters"
@@ -235,5 +236,116 @@ func TestAdapter_InterfaceCompliance(t *testing.T) {
 	}
 	if configDir == "" {
 		t.Error("configDir should not be empty even when not installed")
+	}
+}
+
+func TestAdapter_Backup_DirectoryItems(t *testing.T) {
+	a := &Adapter{}
+	home := t.TempDir()
+	configDir := filepath.Join(home, ".cursor")
+	subDir := filepath.Join(configDir, "myskills")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(subDir, "code-review.md"), []byte("# Code Review"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	items := []adapters.Item{
+		{Category: "skills", SourcePath: "~/.cursor/myskills", RelPath: "myskills", IsDir: true},
+		{Category: "skills", SourcePath: "~/.cursor/myskills/code-review.md", RelPath: "myskills/code-review.md", IsDir: false, Hash: "sha256:abc", Size: 13},
+	}
+
+	backupDir := filepath.Join(t.TempDir(), "backup")
+	if err := a.Backup(home, backupDir, items); err != nil {
+		t.Fatalf("Backup: %v", err)
+	}
+
+	dirDst := filepath.Join(backupDir, "cursor", "myskills")
+	info, err := os.Stat(dirDst)
+	if err != nil {
+		t.Fatalf("backup dir not created: %v", err)
+	}
+	if !info.IsDir() {
+		t.Error("backup path should be a directory")
+	}
+
+	fileDst := filepath.Join(backupDir, "cursor", "myskills", "code-review.md")
+	data, err := os.ReadFile(fileDst)
+	if err != nil {
+		t.Fatalf("read backup file: %v", err)
+	}
+	if string(data) != "# Code Review" {
+		t.Errorf("backup content = %q, want %q", string(data), "# Code Review")
+	}
+}
+
+func TestAdapter_Backup_CopyError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod not applicable on Windows")
+	}
+	a := &Adapter{}
+	home := t.TempDir()
+	configDir := filepath.Join(home, ".cursor")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	unreadableFile := filepath.Join(configDir, "unreadable.txt")
+	if err := os.WriteFile(unreadableFile, []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(unreadableFile, 0000); err != nil {
+		t.Fatal(err)
+	}
+
+	items := []adapters.Item{
+		{Category: "config", SourcePath: "~/.cursor/unreadable.txt", RelPath: "unreadable.txt", IsDir: false, Hash: "sha256:abc", Size: 4},
+	}
+
+	backupDir := filepath.Join(t.TempDir(), "backup")
+	err := a.Backup(home, backupDir, items)
+	if err == nil {
+		t.Error("expected error for unreadable file, got nil")
+	}
+}
+
+func TestAdapter_Restore_CopyError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod not applicable on Windows")
+	}
+	a := &Adapter{}
+	home := t.TempDir()
+	configDir := filepath.Join(home, ".cursor")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(configDir, 0500); err != nil {
+		t.Fatal(err)
+	}
+
+	backupDir := filepath.Join(t.TempDir(), "backup")
+	srcFile := filepath.Join(backupDir, "cursor", "secret.json")
+	if err := os.MkdirAll(filepath.Dir(srcFile), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(srcFile, []byte(`{"key":"secret"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	items := []adapters.Item{
+		{Category: "config", SourcePath: "~/.cursor/secret.json", RelPath: "secret.json", IsDir: false, Hash: "sha256:xyz", Size: 16},
+	}
+
+	err := a.Restore(backupDir, home, items)
+	if err == nil {
+		t.Error("expected error for copy to read-only dir, got nil")
+	}
+}
+
+func TestAdapter_fileHash_Error(t *testing.T) {
+	_, _, err := fileHash(filepath.Join(t.TempDir(), "nonexistent.txt"))
+	if err == nil {
+		t.Error("expected error for missing file, got nil")
 	}
 }
