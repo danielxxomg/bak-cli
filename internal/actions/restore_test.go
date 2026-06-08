@@ -3,6 +3,7 @@ package actions
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -456,5 +457,104 @@ func TestRestoreAction_Stdin_Injected(t *testing.T) {
 		t.Log("Stdin field is injectable on RestoreAction")
 	} else {
 		t.Log("Stdin is nil — will fall back to os.Stdin")
+	}
+}
+
+func TestResolveBackup(t *testing.T) {
+	tests := []struct {
+		name        string
+		setup       func(home string) (backupID string)
+		wantErr     bool
+		errContains string
+		wantDir     func(home string) string
+	}{
+		{
+			name: "valid_resolution",
+			setup: func(home string) string {
+				dir := filepath.Join(home, ".bak", "backups", "20260101-120000")
+				if err := os.MkdirAll(dir, 0755); err != nil {
+					t.Fatal(err)
+				}
+				return "20260101-120000"
+			},
+			wantErr: false,
+			wantDir: func(home string) string {
+				return filepath.Join(home, ".bak", "backups", "20260101-120000")
+			},
+		},
+		{
+			name: "missing_backup",
+			setup: func(home string) string {
+				if err := os.MkdirAll(filepath.Join(home, ".bak", "backups"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				return "20260101-120000"
+			},
+			wantErr:     true,
+			errContains: "not found",
+		},
+		{
+			name: "traversal_dotdot_blocked",
+			setup: func(home string) string {
+				if err := os.MkdirAll(filepath.Join(home, ".bak", "backups"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				return "../etc"
+			},
+			wantErr:     true,
+			errContains: "outside",
+		},
+		{
+			name: "traversal_nested_blocked",
+			setup: func(home string) string {
+				if err := os.MkdirAll(filepath.Join(home, ".bak", "backups"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				return "../../etc"
+			},
+			wantErr:     true,
+			errContains: "outside",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+
+			// Override home directory for BakDir() resolution.
+			switch runtime.GOOS {
+			case "windows":
+				t.Setenv("USERPROFILE", home)
+			default:
+				t.Setenv("HOME", home)
+			}
+
+			backupID := tt.setup(home)
+
+			action := &RestoreAction{
+				FS: newHomeFS(home),
+			}
+
+			err := action.ResolveBackup(backupID)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.errContains)
+				}
+				if !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("error = %v, want substring %q", err, tt.errContains)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			wantDir := tt.wantDir(home)
+			if action.BackupDir != wantDir {
+				t.Errorf("BackupDir = %q, want %q", action.BackupDir, wantDir)
+			}
+		})
 	}
 }
