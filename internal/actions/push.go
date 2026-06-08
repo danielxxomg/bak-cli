@@ -14,6 +14,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/danielxxomg/bak-cli/internal/cloud"
+	"github.com/danielxxomg/bak-cli/internal/config"
+	"github.com/danielxxomg/bak-cli/internal/crypto"
 )
 
 // PushAction encapsulates the push-to-cloud workflow with injectable
@@ -30,6 +32,10 @@ type PushAction struct {
 
 	// HostnameFn returns the current hostname. Nil falls back to os.Hostname.
 	HostnameFn HostnameFunc
+
+	// ConfigLoader loads the bak-cli configuration. When nil, falls back
+	// to config.Load(). Injected via struct field for testability.
+	ConfigLoader func() (*config.Config, error)
 }
 
 // Run packages a local backup and pushes it to a cloud backend.
@@ -50,8 +56,8 @@ func (a *PushAction) Run(cmd *cobra.Command, args []string) error {
 	backupPath := filepath.Join(backupsDir, backupID)
 
 	// Security: validate resolved path stays under backupsDir.
-	cleanBackup := path.Clean(filepath.ToSlash(backupPath))
-	cleanBase := path.Clean(filepath.ToSlash(backupsDir)) + "/"
+	cleanBackup := path.Clean(strings.ReplaceAll(backupPath, "\\", "/"))
+	cleanBase := path.Clean(strings.ReplaceAll(backupsDir, "\\", "/")) + "/"
 	if !strings.HasPrefix(cleanBackup, cleanBase) {
 		return fmt.Errorf("backup ID %q resolves outside backups directory", backupID)
 	}
@@ -100,6 +106,23 @@ func (a *PushAction) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("decode archive: %w", err)
 	}
 
+	// 5. Encrypt archive if the profile has encryption enabled.
+	if encrypt, err := a.shouldEncrypt(); err != nil {
+		return fmt.Errorf("load config: %w", err)
+	} else if encrypt {
+		password, err := crypto.GetPassword("Enter encryption password: ")
+		if err != nil {
+			return fmt.Errorf("encryption password: %w", err)
+		}
+		rawArchive, err = crypto.Encrypt(rawArchive, password)
+		if err != nil {
+			return fmt.Errorf("encrypt archive: %w", err)
+		}
+		if a.Verbose {
+			fmt.Fprintf(os.Stderr, "Archive encrypted\n")
+		}
+	}
+
 	id, err := provider.Push(rawArchive, cloud.PushMeta{
 		BackupID:  backupID,
 		CreatedAt: time.Now().UTC(),
@@ -112,6 +135,34 @@ func (a *PushAction) Run(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("✅ Pushed to %s: %s\n", provider.Name(), id)
 	return nil
+}
+
+// shouldEncrypt checks whether the configured profile has encryption
+// enabled. It returns (true, nil) when the profile exists and has
+// Encryption.Enabled set, (false, nil) when the profile is missing or
+// encryption is not enabled, and (false, err) when config loading fails.
+func (a *PushAction) shouldEncrypt() (bool, error) {
+	var cfg *config.Config
+	var err error
+	if a.ConfigLoader != nil {
+		cfg, err = a.ConfigLoader()
+	} else {
+		cfg, err = config.Load()
+	}
+	if err != nil {
+		return false, err
+	}
+
+	profile, ok := cfg.Profiles[a.Profile]
+	if !ok {
+		return false, nil
+	}
+
+	if profile.Encryption != nil && profile.Encryption.Enabled {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // resolveBackupID returns the backup ID from args or finds the most

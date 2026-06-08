@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/danielxxomg/bak-cli/internal/cloud"
+	"github.com/danielxxomg/bak-cli/internal/config"
+	"github.com/danielxxomg/bak-cli/internal/crypto"
 )
 
 // mockFileInfo implements os.FileInfo for testing.
@@ -427,5 +429,265 @@ func TestPushAction_MockProvider_PushError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "push") {
 		t.Errorf("error should mention push: %v", err)
+	}
+}
+
+// --- encryption tests ---------------------------------------------------
+
+func TestPushAction_EncryptionEnabled(t *testing.T) {
+	home := t.TempDir()
+
+	// Create a real backup to package.
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-120000"
+	backupPath := filepath.Join(backupsDir, backupID)
+	os.MkdirAll(backupPath, 0755)
+	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644)
+
+	t.Setenv("BAK_ENCRYPTION_PASSWORD", "test-password-123")
+
+	var pushedArchive []byte
+	mockProvider := &MockProvider{
+		MockName: "mock-gist",
+		PushFn: func(archive []byte, meta cloud.PushMeta) (string, error) {
+			pushedArchive = archive
+			return "mock-id-123", nil
+		},
+	}
+
+	factory := &MockProviderFactory{
+		Providers: map[string]cloud.Provider{
+			"mock-gist": mockProvider,
+		},
+	}
+
+	action := &PushAction{
+		FS:       newHomeFS(home),
+		Provider: "mock-gist",
+		Profile:  "default",
+		Factory:  factory,
+		ConfigLoader: func() (*config.Config, error) {
+			return &config.Config{
+				Profiles: map[string]config.ProfileConfig{
+					"default": {
+						Encryption: &config.EncryptionConfig{
+							Enabled: true,
+						},
+					},
+				},
+			}, nil
+		},
+	}
+
+	err := action.Run(nil, []string{backupID})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if !crypto.IsEncrypted(pushedArchive) {
+		t.Fatal("expected pushed archive to be encrypted, but magic bytes not found")
+	}
+}
+
+func TestPushAction_EncryptionDisabled(t *testing.T) {
+	home := t.TempDir()
+
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-120000"
+	backupPath := filepath.Join(backupsDir, backupID)
+	os.MkdirAll(backupPath, 0755)
+	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644)
+
+	var pushedArchive []byte
+	mockProvider := &MockProvider{
+		MockName: "mock-gist",
+		PushFn: func(archive []byte, meta cloud.PushMeta) (string, error) {
+			pushedArchive = archive
+			return "mock-id-123", nil
+		},
+	}
+
+	factory := &MockProviderFactory{
+		Providers: map[string]cloud.Provider{
+			"mock-gist": mockProvider,
+		},
+	}
+
+	action := &PushAction{
+		FS:       newHomeFS(home),
+		Provider: "mock-gist",
+		Profile:  "default",
+		Factory:  factory,
+		ConfigLoader: func() (*config.Config, error) {
+			return &config.Config{
+				Profiles: map[string]config.ProfileConfig{
+					"default": {
+						// Encryption not set — disabled.
+					},
+				},
+			}, nil
+		},
+	}
+
+	err := action.Run(nil, []string{backupID})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if crypto.IsEncrypted(pushedArchive) {
+		t.Fatal("expected pushed archive to be plaintext, but magic bytes found")
+	}
+}
+
+func TestPushAction_NonexistentProfile(t *testing.T) {
+	home := t.TempDir()
+
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-120000"
+	backupPath := filepath.Join(backupsDir, backupID)
+	os.MkdirAll(backupPath, 0755)
+	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644)
+
+	var pushedArchive []byte
+	mockProvider := &MockProvider{
+		MockName: "mock-gist",
+		PushFn: func(archive []byte, meta cloud.PushMeta) (string, error) {
+			pushedArchive = archive
+			return "mock-id-123", nil
+		},
+	}
+
+	factory := &MockProviderFactory{
+		Providers: map[string]cloud.Provider{
+			"mock-gist": mockProvider,
+		},
+	}
+
+	action := &PushAction{
+		FS:       newHomeFS(home),
+		Provider: "mock-gist",
+		Profile:  "nonexistent",
+		Factory:  factory,
+		ConfigLoader: func() (*config.Config, error) {
+			return &config.Config{
+				Profiles: map[string]config.ProfileConfig{
+					"default": {
+						Encryption: &config.EncryptionConfig{
+							Enabled: true,
+						},
+					},
+				},
+			}, nil
+		},
+	}
+
+	err := action.Run(nil, []string{backupID})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// Nonexistent profile should gracefully fall back to plaintext.
+	if crypto.IsEncrypted(pushedArchive) {
+		t.Fatal("expected plaintext for nonexistent profile, but archive is encrypted")
+	}
+}
+
+func TestPushAction_ConfigLoadError(t *testing.T) {
+	home := t.TempDir()
+
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-120000"
+	backupPath := filepath.Join(backupsDir, backupID)
+	os.MkdirAll(backupPath, 0755)
+	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644)
+
+	mockProvider := &MockProvider{
+		MockName: "mock-gist",
+		PushFn: func(archive []byte, meta cloud.PushMeta) (string, error) {
+			return "mock-id-123", nil
+		},
+	}
+
+	factory := &MockProviderFactory{
+		Providers: map[string]cloud.Provider{
+			"mock-gist": mockProvider,
+		},
+	}
+
+	action := &PushAction{
+		FS:       newHomeFS(home),
+		Provider: "mock-gist",
+		Profile:  "default",
+		Factory:  factory,
+		ConfigLoader: func() (*config.Config, error) {
+			return nil, errors.New("config file corrupted")
+		},
+	}
+
+	err := action.Run(nil, []string{backupID})
+	if err == nil {
+		t.Fatal("expected error from config loader")
+	}
+	if !strings.Contains(err.Error(), "load config") {
+		t.Errorf("error should mention load config: %v", err)
+	}
+}
+
+func TestPushAction_PasswordError(t *testing.T) {
+	home := t.TempDir()
+
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-120000"
+	backupPath := filepath.Join(backupsDir, backupID)
+	os.MkdirAll(backupPath, 0755)
+	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644)
+
+	// Unset the env var so GetPassword falls through to stdin.
+	// In a non-interactive test environment, stdin returns io.EOF,
+	// triggering the password error.
+	os.Unsetenv("BAK_ENCRYPTION_PASSWORD")
+
+	mockProvider := &MockProvider{
+		MockName: "mock-gist",
+		PushFn: func(archive []byte, meta cloud.PushMeta) (string, error) {
+			return "mock-id-123", nil
+		},
+	}
+
+	factory := &MockProviderFactory{
+		Providers: map[string]cloud.Provider{
+			"mock-gist": mockProvider,
+		},
+	}
+
+	action := &PushAction{
+		FS:       newHomeFS(home),
+		Provider: "mock-gist",
+		Profile:  "default",
+		Factory:  factory,
+		ConfigLoader: func() (*config.Config, error) {
+			return &config.Config{
+				Profiles: map[string]config.ProfileConfig{
+					"default": {
+						Encryption: &config.EncryptionConfig{
+							Enabled: true,
+						},
+					},
+				},
+			}, nil
+		},
+	}
+
+	err := action.Run(nil, []string{backupID})
+	if err == nil {
+		t.Fatal("expected error from password prompt")
+	}
+	if !strings.Contains(err.Error(), "encryption password") {
+		t.Errorf("error should mention encryption password: %v", err)
 	}
 }

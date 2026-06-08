@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
+	"github.com/danielxxomg/bak-cli/internal/config"
 )
 
 var pushProvider string
@@ -49,11 +50,12 @@ func runPush(cmd *cobra.Command, args []string) error {
 // (the action wires its own FS/Factory).
 func runPushWithDeps(cmd *cobra.Command, args []string, _ cmdDeps) error {
 	action := &actions.PushAction{
-		FS:       &actions.OSFileSystem{},
-		Provider: pushProvider,
-		Profile:  pushProfile,
-		Verbose:  verbose,
-		Factory:  &actions.RealProviderFactory{},
+		FS:           &actions.OSFileSystem{},
+		Provider:     pushProvider,
+		Profile:      pushProfile,
+		Verbose:      verbose,
+		Factory:      &actions.RealProviderFactory{},
+		ConfigLoader: config.Load,
 	}
 
 	return action.Run(cmd, args)
