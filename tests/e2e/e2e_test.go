@@ -45,6 +45,7 @@ func setupEnv(e *testscript.Env) error {
 		bakBin += ".exe"
 	}
 	// go build from the module root (testscript sets GOPATH correctly).
+	//nolint:gosec // binary path controlled by test, not user input
 	buildCmd := exec.Command("go", "build", "-o", bakBin, ".")
 	buildCmd.Dir = e.WorkDir
 	// We need the module source available. testscript copies testdata scripts

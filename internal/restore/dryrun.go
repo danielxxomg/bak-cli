@@ -10,6 +10,10 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
 
+// readFile is a package-level variable so tests can replace it with a mock.
+// Default points to os.ReadFile.
+var readFile = os.ReadFile
+
 // DiffStatus classifies the relationship between a backup file and its
 // corresponding target file on disk.
 type DiffStatus string
@@ -64,7 +68,7 @@ func ComputeDryRun(m *manifest.Manifest, backupDir, homeDir string) ([]FileDiff,
 			}
 
 			// Check if backup file exists on disk.
-			backupData, err := os.ReadFile(backupFilePath)
+			backupData, err := readFile(backupFilePath)
 			if err != nil {
 				d.Status = DiffMissing
 				diffs = append(diffs, d)
@@ -72,7 +76,7 @@ func ComputeDryRun(m *manifest.Manifest, backupDir, homeDir string) ([]FileDiff,
 			}
 
 			// Check if target file exists.
-			targetData, err := os.ReadFile(targetPath)
+			targetData, err := readFile(targetPath)
 			if err != nil {
 				// Target doesn't exist — this is a new file.
 				d.Status = DiffNew
@@ -106,8 +110,8 @@ func unifiedDiff(path, current, incoming string) string {
 	}
 
 	var out strings.Builder
-	out.WriteString(fmt.Sprintf("--- a/%s\n", path))
-	out.WriteString(fmt.Sprintf("+++ b/%s\n", path))
+	fmt.Fprintf(&out, "--- a/%s\n", path)
+	fmt.Fprintf(&out, "+++ b/%s\n", path)
 
 	// Simple line-by-line diff: mark lines unique to current as removed,
 	// lines unique to incoming as added.
@@ -127,14 +131,14 @@ func unifiedDiff(path, current, incoming string) string {
 		}
 
 		if cur == inc {
-			out.WriteString(fmt.Sprintf("  %s\n", cur))
+			fmt.Fprintf(&out, "  %s\n", cur)
 		} else {
 			if cur != "" || inc != "" {
 				if cur != "" {
-					out.WriteString(fmt.Sprintf("- %s\n", cur))
+					fmt.Fprintf(&out, "- %s\n", cur)
 				}
 				if inc != "" {
-					out.WriteString(fmt.Sprintf("+ %s\n", inc))
+					fmt.Fprintf(&out, "+ %s\n", inc)
 				}
 			}
 		}

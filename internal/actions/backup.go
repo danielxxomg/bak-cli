@@ -167,17 +167,17 @@ func (a *BackupAction) Run(cmd *cobra.Command, args []string) error {
 			if strings.HasPrefix(absSource, "~/") {
 				absSource = paths.FromCanonical(absSource, homeDir)
 			}
-			cleanSource := path.Clean(filepath.ToSlash(absSource))
-			cleanHome := path.Clean(filepath.ToSlash(homeDir)) + "/"
+			cleanSource := path.Clean(strings.ReplaceAll(absSource, "\\", "/"))
+			cleanHome := path.Clean(strings.ReplaceAll(homeDir, "\\", "/")) + "/"
 			if !strings.HasPrefix(strings.ToLower(cleanSource), strings.ToLower(cleanHome)) &&
-				!strings.EqualFold(cleanSource, path.Clean(filepath.ToSlash(homeDir))) {
+				!strings.EqualFold(cleanSource, path.Clean(strings.ReplaceAll(homeDir, "\\", "/"))) {
 				return fmt.Errorf("adapter %q returned source path outside home directory", d.Adapter.Name())
 			}
 
 			manifestItems = append(manifestItems, manifest.Item{
 				Category:   item.Category,
 				SourcePath: item.SourcePath,
-				BackupPath: filepath.ToSlash(filepath.Join(d.Adapter.Name(), item.RelPath)),
+				BackupPath: strings.ReplaceAll(filepath.Join(d.Adapter.Name(), item.RelPath), "\\", "/"),
 				Hash:       item.Hash,
 				Size:       item.Size,
 			})
@@ -234,13 +234,16 @@ func (a *BackupAction) saveManifest(m *manifest.Manifest, dir string) error {
 func (a *BackupAction) scanBackupForSecrets(adapterBackupDir string, patterns []*regexp.Regexp) []string {
 	var secretFiles []string
 
-	if err := a.FS.WalkDir(adapterBackupDir, func(fpath string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+	if err := a.FS.WalkDir(adapterBackupDir, func(fpath string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
 			return nil
 		}
 		results, scanErr := backup.ScanFile(fpath, patterns)
 		if scanErr != nil {
-			return nil
+			return scanErr
 		}
 		if len(results) > 0 {
 			secretFiles = append(secretFiles, fpath)
