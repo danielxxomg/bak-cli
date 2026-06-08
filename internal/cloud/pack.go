@@ -77,12 +77,12 @@ func tarGzDir(dir string, w io.Writer) (retErr error) {
 
 		info, err := d.Info()
 		if err != nil {
-			return fmt.Errorf("stat %s: %w", walkPath, err)
+			return fmt.Errorf("stat %s: %w", rel, err)
 		}
 
 		hdr, err := tar.FileInfoHeader(info, "")
 		if err != nil {
-			return fmt.Errorf("tar header for %s: %w", walkPath, err)
+			return fmt.Errorf("tar header for %s: %w", rel, err)
 		}
 		hdr.Name = rel
 
@@ -91,7 +91,7 @@ func tarGzDir(dir string, w io.Writer) (retErr error) {
 				hdr.Name += "/"
 			}
 			if err := tw.WriteHeader(hdr); err != nil {
-				return fmt.Errorf("write tar header for %s: %w", walkPath, err)
+				return fmt.Errorf("write tar header for %s: %w", rel, err)
 			}
 			return nil
 		}
@@ -100,35 +100,35 @@ func tarGzDir(dir string, w io.Writer) (retErr error) {
 		if info.Mode()&os.ModeSymlink != 0 {
 			link, err := os.Readlink(walkPath)
 			if err != nil {
-				return fmt.Errorf("readlink %s: %w", walkPath, err)
+				return fmt.Errorf("readlink %s: %w", rel, err)
 			}
 			hdr.Linkname = link
 			hdr.Typeflag = tar.TypeSymlink
 			if err := tw.WriteHeader(hdr); err != nil {
-				return fmt.Errorf("write tar header for %s: %w", walkPath, err)
+				return fmt.Errorf("write tar header for %s: %w", rel, err)
 			}
 			return nil
 		}
 
 		if err := tw.WriteHeader(hdr); err != nil {
-			return fmt.Errorf("write tar header for %s: %w", walkPath, err)
+			return fmt.Errorf("write tar header for %s: %w", rel, err)
 		}
 
 		//nolint:gosec // G122: Walk callback reads files for backup tar — backup tool must traverse directories
 		f, err := os.Open(walkPath)
 		if err != nil {
-			return fmt.Errorf("open %s: %w", walkPath, err)
+			return fmt.Errorf("open %s: %w", rel, err)
 		}
 
 		if _, err := io.Copy(tw, f); err != nil {
 			if cerr := f.Close(); cerr != nil {
-				return fmt.Errorf("copy %s: %w; close error: %w", walkPath, err, cerr)
+				return fmt.Errorf("copy %s: %w; close error: %w", rel, err, cerr)
 			}
-			return fmt.Errorf("copy %s: %w", walkPath, err)
+			return fmt.Errorf("copy %s: %w", rel, err)
 		}
 
 		if err := f.Close(); err != nil {
-			return fmt.Errorf("close %s: %w", walkPath, err)
+			return fmt.Errorf("close %s: %w", rel, err)
 		}
 
 		return nil
@@ -148,7 +148,7 @@ func untarGzDir(r io.Reader, targetDir string) (retErr error) {
 	}()
 
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", targetDir, err)
+		return fmt.Errorf("mkdir: %w", err)
 	}
 
 	tr := tar.NewReader(gr)
@@ -159,6 +159,11 @@ func untarGzDir(r io.Reader, targetDir string) (retErr error) {
 		}
 		if err != nil {
 			return fmt.Errorf("tar next: %w", err)
+		}
+
+		// Security: reject absolute paths in tar entries.
+		if filepath.IsAbs(hdr.Name) || path.IsAbs(hdr.Name) {
+			return fmt.Errorf("absolute path in tar entry not allowed: %s", hdr.Name)
 		}
 
 		target := filepath.Join(targetDir, filepath.FromSlash(hdr.Name))
@@ -173,28 +178,28 @@ func untarGzDir(r io.Reader, targetDir string) (retErr error) {
 		switch hdr.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, 0755); err != nil {
-				return fmt.Errorf("mkdir %s: %w", target, err)
+				return fmt.Errorf("mkdir %s: %w", hdr.Name, err)
 			}
 
 		case tar.TypeReg:
 			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
-				return fmt.Errorf("mkdir parent %s: %w", target, err)
+				return fmt.Errorf("mkdir parent %s: %w", hdr.Name, err)
 			}
 			mode := hdr.FileInfo().Mode() // safe: fetches os.FileMode directly, no overflow
 			//nolint:gosec // G115: hdr.Mode is tar permission bits (max 0777), fits within uint32
 			f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 			if err != nil {
-				return fmt.Errorf("create %s: %w", target, err)
+				return fmt.Errorf("create %s: %w", hdr.Name, err)
 			}
 			//nolint:gosec // G110: io.Copy within untar — tar entries are bounded by archive size; restore is expected
 			if _, err := io.Copy(f, tr); err != nil {
 				if cerr := f.Close(); cerr != nil {
-					return fmt.Errorf("write %s: %w; close error: %w", target, err, cerr)
+					return fmt.Errorf("write %s: %w; close error: %w", hdr.Name, err, cerr)
 				}
-				return fmt.Errorf("write %s: %w", target, err)
+				return fmt.Errorf("write %s: %w", hdr.Name, err)
 			}
 			if err := f.Close(); err != nil {
-				return fmt.Errorf("close %s: %w", target, err)
+				return fmt.Errorf("close %s: %w", hdr.Name, err)
 			}
 
 		case tar.TypeSymlink:

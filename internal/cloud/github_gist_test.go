@@ -76,6 +76,8 @@ func TestGitHubGistProvider_Push_Update(t *testing.T) {
 }
 
 func TestGitHubGistProvider_Push_NoToken(t *testing.T) {
+	// Clear GITHUB_TOKEN to ensure test isolation in CI
+	t.Setenv("GITHUB_TOKEN", "")
 	p := NewGitHubGistProvider(nil, "") // empty token
 	_, err := p.Push([]byte("data"), PushMeta{BackupID: "test"})
 	if err == nil {
