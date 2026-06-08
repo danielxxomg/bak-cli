@@ -399,7 +399,7 @@ bak-cli/
 │   ├── presets/            # Preset definitions
 │   └── schedule/           # OS-native task scheduling (crontab / schtasks)
 ├── .goreleaser.yaml        # Cross-platform release config
-└── Makefile                # Development workflow
+└── Taskfile.yml             # Development workflow targets
 ```
 
 ### Data Flow
@@ -503,25 +503,18 @@ reg.Register(&youradapter.Adapter{})
 
 ## Roadmap
 
-### v0.2.0 ✅ (current)
-- [x] Multi-agent support — Claude Code, Cursor, Codex, Windsurf, Kiro, pi.dev, KiloCode, OpenCode
-- [x] Cloud backends — GitHub private repo, Codeberg, rclone (Google Drive, OneDrive, S3), Gitea/Forgejo
-- [x] `--provider` flag on push/pull/list/login
-- [x] Config migration v0.1.0 → v0.2.0 with auto-backup
-- [x] Provider abstraction with `ProviderRegistry`
-- [x] Logo and banner image — see `docs/brand/`
-- [ ] GitHub Actions release workflow (goreleaser)
+### Completed ✅
+- v1.3.0 — Multi-OS package manager support (Homebrew, Scoop, deb, rpm)
+- v1.2.x — DI refactor, CI hardening, test coverage bump
+- v1.1.0 — QA stack (Taskfile, golangci-lint, E2E, fuzz, benchmarks)
+- v1.0.0 — Stable release (8 adapters, 5 cloud backends, encryption, profiles)
+- v0.3.0 — Encryption at rest + machine profiles
+- v0.2.0 — Multi-agent + cloud backends
 
-### v0.3.0 ✅ (current)
-- [x] **Encryption at rest** — AES-256-GCM with Argon2id key derivation, opt-in per profile
-- [x] **Machine-specific profiles** — `bak profile create work-laptop`, `bak profile create home-pc`
-- [x] **Profile-scoped backups** — `bak backup --profile work` resolves preset, categories, and adapters
-- [ ] **GUI** — Optional terminal UI with bubbletea (beyond `bak pick`)
-
-### v1.0.0 (long-term)
-- [x] Backup scheduling (cron integration)
-- [ ] Diff between backups (`bak diff <id1> <id2>`)
-- [ ] Backup verification (`bak verify <id>`)
+### Future
+- [ ] homebrew-core submission
+- [ ] scoop-extras submission
+- [ ] winget, AUR, nix support
 - [ ] Plugin system for custom backup strategies
 
 ## Brand Assets

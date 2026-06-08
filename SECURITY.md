@@ -51,7 +51,7 @@ All file paths written during restore operations are validated to stay within th
 ```
 Implementation:
 - os.UserHomeDir() for the base directory (never hardcoded)
-- path.Clean + filepath.ToSlash for canonical path comparison
+- path.Clean + strings.ReplaceAll(path, "\\", "/") for canonical path comparison
 - Reject paths that do not start with the canonical home prefix
 ```
 
@@ -107,7 +107,7 @@ This prevents accidental overwrites. There is no silent restoration path.
 
 - **Local Git required**: The undo feature requires Git to be installed and the config directory to be a Git repository
 - **Token in environment**: `GITHUB_TOKEN` environment variable is readable by any process with access to the user's environment
-- **No encryption at rest**: Backups stored in `~/.bak/backups/` are not encrypted on disk; rely on filesystem permissions and disk encryption for confidentiality
+- **Local backups at rest**: Backups stored in `~/.bak/backups/` are not encrypted on disk by default. Cloud archives (push/pull) support AES-256-GCM encryption per profile. Rely on filesystem permissions and disk encryption for local backup confidentiality
 
 ## Dependencies
 
