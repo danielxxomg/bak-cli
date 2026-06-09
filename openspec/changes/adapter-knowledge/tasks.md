@@ -18,18 +18,18 @@ Chain strategy: size-exception
 
 ## Phase 1: Foundation — Knowledge Test (RED)
 
-- [ ] 1.1 Export `AdapterName`, `ConfigRelPath`, `CategoryMap` from each adapter package (claudecode, cursor, codex, windsurf, kiro, kilocode, pidev)
-- [ ] 1.2 Create `internal/adapters/knowledge_test.go` — table-driven test validating configRelPath and categoryMap against documented values from design.md
+- [x] 1.1 Export `AdapterName`, `ConfigRelPath`, `CategoryMap` from each adapter package (claudecode, cursor, codex, windsurf, kiro, kilocode, pidev)
+- [x] 1.2 Create `internal/adapters/knowledge_test.go` — table-driven test validating configRelPath and categoryMap against documented values from design.md
 
 ## Phase 2: Fix Adapters (GREEN)
 
-- [ ] 2.1 Fix claudecode — add `agents` and `plugins` to CategoryMap
-- [ ] 2.2 Fix cursor — add `mcp` (root file) to CategoryMap
-- [ ] 2.3 Fix codex — replace `instructions` dir with `agents` (root AGENTS.md)
-- [ ] 2.4 Fix windsurf — fix rules subpath to `memories`, add `skills`
-- [ ] 2.5 Fix kiro — replace `hooks` with `agents`, `steering`, `specs`
-- [ ] 2.6 Fix kilocode — add `workflows` and `skills` to CategoryMap
-- [ ] 2.7 Fix pidev — change ConfigRelPath from `.pi` to `.pi/agent`
+- [x] 2.1 Fix claudecode — add `agents` and `plugins` to CategoryMap
+- [x] 2.2 Fix cursor — add `mcp` (root file) to CategoryMap
+- [x] 2.3 Fix codex — replace `instructions` dir with `agents` (root AGENTS.md)
+- [x] 2.4 Fix windsurf — fix rules subpath to `memories`, add `skills`
+- [x] 2.5 Fix kiro — replace `hooks` with `agents`, `steering`, `specs`
+- [x] 2.6 Fix kilocode — add `workflows` and `skills` to CategoryMap
+- [x] 2.7 Fix pidev — change ConfigRelPath from `.pi` to `.pi/agent`
 
 ## Phase 3: Verify
 
