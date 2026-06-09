@@ -10,9 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -89,9 +87,24 @@ func CreateGist(token, description string, files []GistFile) (string, error) {
 		Files:       filesMap,
 	}
 
-	resp, err := gistAPI(token, http.MethodPost, GistAPIBase+"/gists", body)
+	data, err := json.Marshal(body)
+	if err != nil {
+		return "", fmt.Errorf("create gist: marshal request: %w", err)
+	}
+
+	url := GistAPIBase + "/gists"
+	req, err := newRequest(http.MethodPost, url, token, "application/vnd.github+json", "application/json", bytes.NewReader(data))
 	if err != nil {
 		return "", fmt.Errorf("create gist: %w", err)
+	}
+
+	resp, status, err := doRequest(httpClient, req)
+	if err != nil {
+		return "", fmt.Errorf("create gist: %w", err)
+	}
+
+	if status < 200 || status >= 300 {
+		return "", fmt.Errorf("create gist: %w", formatAPIError(resp, status))
 	}
 
 	var gist gistResponse
@@ -123,10 +136,24 @@ func UpdateGist(token, gistID, description string, files []GistFile) error {
 		Files:       filesMap,
 	}
 
+	data, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("update gist %q: marshal request: %w", gistID, err)
+	}
+
 	url := GistAPIBase + "/gists/" + gistID
-	_, err := gistAPI(token, http.MethodPatch, url, body)
+	req, err := newRequest(http.MethodPatch, url, token, "application/vnd.github+json", "application/json", bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("update gist %q: %w", gistID, err)
+	}
+
+	resp, status, err := doRequest(httpClient, req)
+	if err != nil {
+		return fmt.Errorf("update gist %q: %w", gistID, err)
+	}
+
+	if status < 200 || status >= 300 {
+		return fmt.Errorf("update gist %q: %w", gistID, formatAPIError(resp, status))
 	}
 
 	return nil
@@ -143,9 +170,18 @@ func GetGist(token, gistID string) ([]GistFile, error) {
 	}
 
 	url := GistAPIBase + "/gists/" + gistID
-	resp, err := gistAPI(token, http.MethodGet, url, nil)
+	req, err := newRequest(http.MethodGet, url, token, "application/vnd.github+json", "", nil)
+	if err != nil {
+		return nil, fmt.Errorf("get gist %q: build request: %w", gistID, err)
+	}
+
+	resp, status, err := doRequest(httpClient, req)
 	if err != nil {
 		return nil, fmt.Errorf("get gist %q: %w", gistID, err)
+	}
+
+	if status < 200 || status >= 300 {
+		return nil, fmt.Errorf("get gist %q: %w", gistID, formatAPIError(resp, status))
 	}
 
 	var gist gistResponse
@@ -174,70 +210,21 @@ func DeleteGist(token, gistID string) error {
 	}
 
 	url := GistAPIBase + "/gists/" + gistID
-	_, err := gistAPI(token, http.MethodDelete, url, nil)
+	req, err := newRequest(http.MethodDelete, url, token, "application/vnd.github+json", "", nil)
+	if err != nil {
+		return fmt.Errorf("delete gist %q: build request: %w", gistID, err)
+	}
+
+	resp, status, err := doRequest(httpClient, req)
 	if err != nil {
 		return fmt.Errorf("delete gist %q: %w", gistID, err)
+	}
+
+	if status < 200 || status >= 300 {
+		return fmt.Errorf("delete gist %q: %w", gistID, formatAPIError(resp, status))
 	}
 
 	return nil
 }
 
-// apiError represents a GitHub API error response.
-type apiError struct {
-	StatusCode int
-	Message    string
-	Body       string
-}
 
-func (e *apiError) Error() string {
-	return fmt.Sprintf("GitHub API error %d: %s", e.StatusCode, e.Message)
-}
-
-// gistAPI performs an authenticated request against the GitHub Gist API.
-func gistAPI(token, method, url string, body interface{}) ([]byte, error) {
-	var bodyReader io.Reader
-	if body != nil {
-		data, err := json.Marshal(body)
-		if err != nil {
-			return nil, fmt.Errorf("marshal request: %w", err)
-		}
-		bodyReader = bytes.NewReader(data)
-	}
-
-	req, err := http.NewRequest(method, url, bodyReader)
-	if err != nil {
-		return nil, fmt.Errorf("build request: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "bak-cli")
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		msg := strings.TrimSpace(string(respData))
-		if msg == "" {
-			msg = http.StatusText(resp.StatusCode)
-		}
-		return nil, &apiError{
-			StatusCode: resp.StatusCode,
-			Message:    msg,
-			Body:       string(respData),
-		}
-	}
-
-	return respData, nil
-}

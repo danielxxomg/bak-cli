@@ -116,9 +116,19 @@ func (p *GitHubGistProvider) List() ([]BackupMeta, error) {
 		return nil, fmt.Errorf("list gists: token is required")
 	}
 
-	data, err := gistAPI(p.token, http.MethodGet, GistAPIBase+"/gists", nil)
+	url := GistAPIBase + "/gists"
+	req, err := newRequest(http.MethodGet, url, p.token, "application/vnd.github+json", "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("list gists: %w", err)
+	}
+
+	data, status, err := doRequest(httpClient, req)
+	if err != nil {
+		return nil, fmt.Errorf("list gists: %w", err)
+	}
+
+	if status < 200 || status >= 300 {
+		return nil, fmt.Errorf("list gists: %w", formatAPIError(data, status))
 	}
 
 	var gists []gistResponse
@@ -135,7 +145,7 @@ func (p *GitHubGistProvider) List() ([]BackupMeta, error) {
 
 		// Extract backup ID from description "bak backup YYYYMMDD-HHMMSS"
 		backupID := ""
-		if strings.HasPrefix(g.Description, "bak backup ") && len(g.Description) >= 27 {
+		if strings.HasPrefix(g.Description, "bak backup ") && len(g.Description) >= 26 {
 			backupID = g.Description[11:26] // YYYYMMDD-HHMMSS
 		}
 

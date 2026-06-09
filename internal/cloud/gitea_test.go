@@ -44,8 +44,8 @@ func TestGiteaProvider_Push_Create(t *testing.T) {
 		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/contents/") {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(giteaContentResponse{
-				Content: giteaContentFile{
+			json.NewEncoder(w).Encode(contentResponse{
+				Content: contentFile{
 					Name: "20260605-120000.tar.gz",
 					Path: "bak-backups/20260605-120000.tar.gz",
 					SHA:  "sha-new-001",
@@ -86,8 +86,8 @@ func TestGiteaProvider_Push_Update(t *testing.T) {
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") {
 			getCalled = true
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(giteaContentResponse{
-				Content: giteaContentFile{
+			json.NewEncoder(w).Encode(contentResponse{
+				Content: contentFile{
 					Name: "20260605-120000.tar.gz",
 					Path: "bak-backups/20260605-120000.tar.gz",
 					SHA:  "sha-existing-001",
@@ -97,7 +97,7 @@ func TestGiteaProvider_Push_Update(t *testing.T) {
 		}
 		// PUT to update with SHA
 		if r.Method == http.MethodPut && strings.Contains(r.URL.Path, "/contents/") {
-			var req giteaContentRequest
+			var req contentRequest
 			json.NewDecoder(r.Body).Decode(&req)
 			if req.SHA != "sha-existing-001" {
 				w.WriteHeader(http.StatusConflict)
@@ -105,8 +105,8 @@ func TestGiteaProvider_Push_Update(t *testing.T) {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(giteaContentResponse{
-				Content: giteaContentFile{
+			json.NewEncoder(w).Encode(contentResponse{
+				Content: contentFile{
 					Name: "20260605-120000.tar.gz",
 					Path: "bak-backups/20260605-120000.tar.gz",
 					SHA:  "sha-new-002",
@@ -175,8 +175,8 @@ func TestGiteaProvider_Pull(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(giteaContentResponse{
-				Content: giteaContentFile{
+			json.NewEncoder(w).Encode(contentResponse{
+				Content: contentFile{
 					Name:     "20260605-120000.tar.gz",
 					Path:     "bak-backups/20260605-120000.tar.gz",
 					SHA:      "sha-pull-001",
@@ -256,7 +256,7 @@ func TestGiteaProvider_Pull_EmptyID(t *testing.T) {
 func TestGiteaProvider_List(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]giteaContentResponse{
+		json.NewEncoder(w).Encode([]contentResponse{
 			{
 				Name: "20260605-120000.tar.gz",
 				Path: "bak-backups/20260605-120000.tar.gz",
@@ -302,7 +302,7 @@ func TestGiteaProvider_List(t *testing.T) {
 func TestGiteaProvider_List_Empty(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]giteaContentResponse{})
+		json.NewEncoder(w).Encode([]contentResponse{})
 	}))
 	defer srv.Close()
 
@@ -370,8 +370,8 @@ func TestGiteaProvider_PushIntegration(t *testing.T) {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			json.NewEncoder(w).Encode(giteaContentResponse{
-				Content: giteaContentFile{
+			json.NewEncoder(w).Encode(contentResponse{
+				Content: contentFile{
 					Name:     "20260605-120000.tar.gz",
 					Path:     "bak-backups/20260605-120000.tar.gz",
 					SHA:      storedSHA,
@@ -381,26 +381,26 @@ func TestGiteaProvider_PushIntegration(t *testing.T) {
 			})
 
 		case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/contents/"):
-			var req giteaContentRequest
+			var req contentRequest
 			json.NewDecoder(r.Body).Decode(&req)
 			storedContent = req.Content
 			storedSHA = "sha-created-001"
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(giteaContentResponse{
-				Content: giteaContentFile{
+			json.NewEncoder(w).Encode(contentResponse{
+				Content: contentFile{
 					Path: "bak-backups/20260605-120000.tar.gz",
 					SHA:  storedSHA,
 				},
 			})
 
 		case r.Method == http.MethodPut && strings.Contains(r.URL.Path, "/contents/"):
-			var req giteaContentRequest
+			var req contentRequest
 			json.NewDecoder(r.Body).Decode(&req)
 			storedContent = req.Content
 			storedSHA = "sha-updated-002"
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(giteaContentResponse{
-				Content: giteaContentFile{
+			json.NewEncoder(w).Encode(contentResponse{
+				Content: contentFile{
 					Path: "bak-backups/20260605-120000.tar.gz",
 					SHA:  storedSHA,
 				},

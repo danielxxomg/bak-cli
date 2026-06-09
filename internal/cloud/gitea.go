@@ -1,7 +1,6 @@
 package cloud
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -161,7 +160,7 @@ func (p *GiteaProvider) Pull(id string) ([]byte, error) {
 		return nil, p.errf("pull: %w", formatAPIError(body, status))
 	}
 
-	var cr giteaContentResponse
+	var cr contentResponse
 	if err := json.Unmarshal(body, &cr); err != nil {
 		return nil, p.errf("pull: parse response: %w", err)
 	}
@@ -204,7 +203,7 @@ func (p *GiteaProvider) List() ([]BackupMeta, error) {
 		return nil, p.errf("list: %w", formatAPIError(body, status))
 	}
 
-	var items []giteaContentResponse
+	var items []contentResponse
 	if err := json.Unmarshal(body, &items); err != nil {
 		return nil, p.errf("list: parse response: %w", err)
 	}
@@ -229,31 +228,7 @@ func (p *GiteaProvider) List() ([]BackupMeta, error) {
 // Returns the file SHA if it exists, or empty string if not found.
 func (p *GiteaProvider) getFileSHA(filePath string) (string, error) {
 	url := fmt.Sprintf("%s/api/v1/repos/%s/contents/%s", p.baseURL, p.repo, filePath)
-
-	req, err := newRequest(http.MethodGet, url, p.token, "application/json", "", nil)
-	if err != nil {
-		return "", fmt.Errorf("check file: %w", err)
-	}
-
-	body, status, err := doRequest(p.client, req)
-	if err != nil {
-		return "", fmt.Errorf("check file: %w", err)
-	}
-
-	if status == http.StatusNotFound {
-		return "", nil
-	}
-
-	if status < 200 || status >= 300 {
-		return "", fmt.Errorf("check file: %w", formatAPIError(body, status))
-	}
-
-	var cr giteaContentResponse
-	if err := json.Unmarshal(body, &cr); err != nil {
-		return "", fmt.Errorf("parse response: %w", err)
-	}
-
-	return cr.Content.SHA, nil
+	return getFileSHA(p.client, p.token, url)
 }
 
 // postFile creates a new file in the Gitea repository.
@@ -270,60 +245,11 @@ func (p *GiteaProvider) putFile(filePath, content, message, sha string) error {
 // contents API.
 func (p *GiteaProvider) writeFile(method, filePath, content, message, sha string) error {
 	url := fmt.Sprintf("%s/api/v1/repos/%s/contents/%s", p.baseURL, p.repo, filePath)
-
-	reqBody := giteaContentRequest{
+	req := contentRequest{
 		Content: content,
 		Message: message,
 		Branch:  p.branch,
 		SHA:     sha,
 	}
-	bodyBytes, err := json.Marshal(reqBody)
-	if err != nil {
-		return fmt.Errorf("marshal request: %w", err)
-	}
-
-	req, err := newRequest(method, url, p.token, "application/json", "application/json", bytes.NewReader(bodyBytes))
-	if err != nil {
-		return fmt.Errorf("build request: %w", err)
-	}
-
-	body, status, err := doRequest(p.client, req)
-	if err != nil {
-		return fmt.Errorf("write file: %w", err)
-	}
-
-	if status < 200 || status >= 300 {
-		return fmt.Errorf("write file: %w", formatAPIError(body, status))
-	}
-
-	return nil
-}
-
-// giteaContentRequest is the JSON body for creating/updating a file
-// via the Gitea repository contents API.
-type giteaContentRequest struct {
-	Content string `json:"content"`
-	Message string `json:"message"`
-	Branch  string `json:"branch"`
-	SHA     string `json:"sha,omitempty"`
-}
-
-// giteaContentResponse is the JSON response from the Gitea contents API.
-type giteaContentResponse struct {
-	Name    string           `json:"name"`
-	Path    string           `json:"path"`
-	SHA     string           `json:"sha"`
-	Size    int64            `json:"size"`
-	Content giteaContentFile `json:"content"`
-}
-
-// giteaContentFile holds the file metadata and content from a
-// Gitea contents API response.
-type giteaContentFile struct {
-	Name     string `json:"name"`
-	Path     string `json:"path"`
-	SHA      string `json:"sha"`
-	Size     int64  `json:"size"`
-	Encoding string `json:"encoding"`
-	Content  string `json:"content"`
+	return writeContentFile(p.client, p.token, method, "application/json", url, req)
 }
