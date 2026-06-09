@@ -91,11 +91,11 @@ func (a *PushAction) Run(args []string) error {
 		return fmt.Errorf("provider: %w", err)
 	}
 	if a.Verbose {
-		fmt.Fprintf(errOut, "Using provider: %s\n", provider.Name())
+		warnf(errOut, "Using provider: %s\n", provider.Name())
 	}
 
 	// 4. Package backup as tar.gz.
-	fmt.Fprintf(out, "Packaging backup %s...\n", backupID)
+	infof(out, "Packaging backup %s...\n", backupID)
 	archiveData, err := cloud.TarGzDirectory(backupPath)
 	if err != nil {
 		return fmt.Errorf("package backup: %w", err)
@@ -107,13 +107,13 @@ func (a *PushAction) Run(args []string) error {
 		if h, err := a.HostnameFn(); err == nil {
 			hostname = h
 		} else if a.Verbose {
-			fmt.Fprintf(errOut, "warning: hostname: %v\n", err)
+			warnf(errOut, "warning: hostname: %v\n", err)
 		}
 	} else {
 		if h, err := os.Hostname(); err == nil {
 			hostname = h
 		} else if a.Verbose {
-			fmt.Fprintf(errOut, "warning: hostname: %v\n", err)
+			warnf(errOut, "warning: hostname: %v\n", err)
 		}
 	}
 	rawArchive, err := base64.StdEncoding.DecodeString(archiveData)
@@ -134,7 +134,7 @@ func (a *PushAction) Run(args []string) error {
 			return fmt.Errorf("encrypt archive: %w", err)
 		}
 		if a.Verbose {
-			fmt.Fprintf(errOut, "Archive encrypted\n")
+			warnf(errOut, "Archive encrypted\n")
 		}
 	}
 
@@ -148,7 +148,7 @@ func (a *PushAction) Run(args []string) error {
 		return fmt.Errorf("push: %w", err)
 	}
 
-	fmt.Fprintf(out, "✅ Pushed to %s: %s\n", provider.Name(), id)
+	infof(out, "✅ Pushed to %s: %s\n", provider.Name(), id)
 	return nil
 }
 
@@ -212,7 +212,7 @@ func (a *PushAction) resolveBackupID(backupsDir string, args []string) (string, 
 		if stderr == nil {
 			stderr = os.Stderr
 		}
-		fmt.Fprintf(stderr, "Found %d backup(s), using latest: %s\n", len(ids), ids[0])
+		warnf(stderr, "Found %d backup(s), using latest: %s\n", len(ids), ids[0])
 	}
 
 	return ids[0], nil

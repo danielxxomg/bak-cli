@@ -20,11 +20,11 @@ type contentRequest struct {
 // contentResponse is the JSON response from a Contents API
 // single-file endpoint. Used by GitHubRepoProvider and GiteaProvider.
 type contentResponse struct {
-	Name    string       `json:"name"`
-	Path    string       `json:"path"`
-	SHA     string       `json:"sha"`
-	Size    int64        `json:"size"`
-	Content contentFile  `json:"content"`
+	Name    string      `json:"name"`
+	Path    string      `json:"path"`
+	SHA     string      `json:"sha"`
+	Size    int64       `json:"size"`
+	Content contentFile `json:"content"`
 }
 
 // contentFile holds the file metadata and decoded/encoded content

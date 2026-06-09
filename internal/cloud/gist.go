@@ -226,5 +226,3 @@ func DeleteGist(token, gistID string) error {
 
 	return nil
 }
-
-

@@ -77,7 +77,7 @@ func TestPushAction_ReadDirError(t *testing.T) {
 	}
 
 	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
-	err := action.Run( nil)
+	err := action.Run(nil)
 	if err == nil {
 		t.Fatal("expected error when backups dir missing")
 	}
@@ -96,7 +96,7 @@ func TestPushAction_NoBackupsFound(t *testing.T) {
 	}
 
 	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
-	err := action.Run( nil)
+	err := action.Run(nil)
 	if err == nil {
 		t.Fatal("expected error when no backups found")
 	}
@@ -118,7 +118,7 @@ func TestPushAction_StatError(t *testing.T) {
 	}
 
 	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
-	err := action.Run( nil)
+	err := action.Run(nil)
 	if err == nil {
 		t.Fatal("expected error when backup not found")
 	}
@@ -132,7 +132,7 @@ func TestPushAction_LatestBackup(t *testing.T) {
 
 	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist", Verbose: true}
 	// This will fail at the cloud push step, which is expected.
-	err := action.Run( nil)
+	err := action.Run(nil)
 	if err == nil {
 		t.Log("push succeeded (unexpected — may have real credentials)")
 	} else {
@@ -155,7 +155,7 @@ func TestPushAction_ExplicitBackupID(t *testing.T) {
 	}
 
 	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
-	err := action.Run( []string{"20260101-120000"})
+	err := action.Run([]string{"20260101-120000"})
 	if err == nil {
 		t.Log("push succeeded with explicit ID")
 	} else {
@@ -175,7 +175,7 @@ func TestPushAction_InvalidBackupID(t *testing.T) {
 	}
 
 	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
-	err := action.Run( []string{"nonexistent"})
+	err := action.Run([]string{"nonexistent"})
 	if err == nil {
 		t.Fatal("expected error for nonexistent backup")
 	}
@@ -190,7 +190,7 @@ func TestPushAction_VerboseLogging(t *testing.T) {
 	}
 
 	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist", Verbose: true}
-	_ = action.Run( []string{"nonexistent"})
+	_ = action.Run([]string{"nonexistent"})
 	// Just exercises the verbose code path. Error expected.
 }
 
@@ -202,7 +202,7 @@ func TestPushAction_UnknownProvider(t *testing.T) {
 	}
 
 	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "unknown-backend-xyz"}
-	err := action.Run( nil)
+	err := action.Run(nil)
 	if err == nil {
 		t.Fatal("expected error for unknown provider")
 	}
@@ -224,7 +224,7 @@ func TestPushAction_PathTraversal_Latest(t *testing.T) {
 	}
 
 	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
-	err := action.Run( nil)
+	err := action.Run(nil)
 	if err == nil {
 		t.Fatal("expected error for path traversal")
 	}
@@ -245,7 +245,7 @@ func TestPushAction_ExplicitArgResolvesID(t *testing.T) {
 
 	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
 	// Explicit arg should resolve without reading dir.
-	err := action.Run( []string{"20260101-120000"})
+	err := action.Run([]string{"20260101-120000"})
 	if err != nil {
 		t.Logf("push with explicit arg: %v", err)
 	}
@@ -270,7 +270,7 @@ func TestPushAction_EmptyArgFallsback(t *testing.T) {
 
 	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
 	// Empty string arg should fall back to latest.
-	err := action.Run( []string{""})
+	err := action.Run([]string{""})
 	if err != nil {
 		t.Logf("push with empty arg: %v", err)
 	}
@@ -286,7 +286,7 @@ func TestPushAction_HomeDirError(t *testing.T) {
 	}
 
 	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
-	err := action.Run( []string{"nonexistent"})
+	err := action.Run([]string{"nonexistent"})
 	if err == nil {
 		t.Fatal("expected error for nonexistent backup")
 	}
@@ -303,7 +303,7 @@ func TestPushAction_ReadDirErrorOnFallback(t *testing.T) {
 	}
 
 	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
-	err := action.Run( nil) // no args → fallback to ReadDir
+	err := action.Run(nil) // no args → fallback to ReadDir
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -347,13 +347,13 @@ func TestPushAction_MockProvider_HappyPath(t *testing.T) {
 	action := &PushAction{
 		FS:         newHomeFS(home),
 		Provider:   "mock-gist",
-		Stdout:   io.Discard,
-		Stderr:   io.Discard,
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
 		Factory:    factory,
 		HostnameFn: func() (string, error) { return "testbox", nil },
 	}
 
-	err := action.Run( []string{backupID})
+	err := action.Run([]string{backupID})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -394,7 +394,7 @@ func TestPushAction_MockProvider_ProviderError(t *testing.T) {
 		Factory:  factory,
 	}
 
-	err := action.Run( []string{backupID})
+	err := action.Run([]string{backupID})
 	if err == nil {
 		t.Fatal("expected error from factory")
 	}
@@ -431,7 +431,7 @@ func TestPushAction_MockProvider_PushError(t *testing.T) {
 		Factory:  factory,
 	}
 
-	err := action.Run( []string{backupID})
+	err := action.Run([]string{backupID})
 	if err == nil {
 		t.Fatal("expected error from provider push")
 	}
@@ -488,7 +488,7 @@ func TestPushAction_EncryptionEnabled(t *testing.T) {
 		},
 	}
 
-	err := action.Run( []string{backupID})
+	err := action.Run([]string{backupID})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -539,7 +539,7 @@ func TestPushAction_EncryptionDisabled(t *testing.T) {
 		},
 	}
 
-	err := action.Run( []string{backupID})
+	err := action.Run([]string{backupID})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -592,7 +592,7 @@ func TestPushAction_NonexistentProfile(t *testing.T) {
 		},
 	}
 
-	err := action.Run( []string{backupID})
+	err := action.Run([]string{backupID})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -636,7 +636,7 @@ func TestPushAction_ConfigLoadError(t *testing.T) {
 		},
 	}
 
-	err := action.Run( []string{backupID})
+	err := action.Run([]string{backupID})
 	if err == nil {
 		t.Fatal("expected error from config loader")
 	}
@@ -691,7 +691,7 @@ func TestPushAction_PasswordError(t *testing.T) {
 		},
 	}
 
-	err := action.Run( []string{backupID})
+	err := action.Run([]string{backupID})
 	if err == nil {
 		t.Fatal("expected error from password prompt")
 	}

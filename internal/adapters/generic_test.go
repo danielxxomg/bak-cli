@@ -3,7 +3,6 @@ package adapters_test
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -14,8 +13,8 @@ import (
 // a ".test" config directory under homeDir.
 func newTestAdapter(name string) adapters.GenericAdapter {
 	return adapters.GenericAdapter{
-		AdapterName:      name,
-		ConfigRelPath:    ".test",
+		AdapterName:   name,
+		ConfigRelPath: ".test",
 		Categories: map[string]adapters.CategoryDir{
 			"config":  {SubPath: "", IsDir: false},
 			"scripts": {SubPath: "scripts", IsDir: true},
@@ -124,22 +123,37 @@ func TestGenericAdapter_Detect(t *testing.T) {
 	})
 
 	t.Run("stat error", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
-			t.Skip("chmod not applicable on Windows")
-		}
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".test")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Chmod(configDir, 0000); err != nil {
-			t.Fatal(err)
-		}
-		defer os.Chmod(configDir, 0755)
 
-		_, _, err := ga.Detect(home)
+		gaStat := newTestAdapter("stat-test")
+		gaStat.StatFn = func(path string) (os.FileInfo, error) {
+			return nil, &os.PathError{Op: "stat", Path: path, Err: os.ErrPermission}
+		}
+
+		_, _, err := gaStat.Detect(home)
 		if err == nil {
-			t.Error("expected error for unreadable dir, got nil")
+			t.Error("expected error from injected StatFn, got nil")
+		}
+	})
+
+	t.Run("stat not exist via injection", func(t *testing.T) {
+		home := t.TempDir()
+
+		gaStat := newTestAdapter("notexist-test")
+		gaStat.StatFn = func(path string) (os.FileInfo, error) {
+			return nil, &os.PathError{Op: "stat", Path: path, Err: os.ErrNotExist}
+		}
+
+		installed, _, err := gaStat.Detect(home)
+		if err != nil {
+			t.Fatalf("Detect should not error on injected not-exist: %v", err)
+		}
+		if installed {
+			t.Error("expected installed=false when StatFn returns not-exist")
 		}
 	})
 
@@ -337,32 +351,23 @@ func TestGenericAdapter_Backup(t *testing.T) {
 		}
 	})
 
-	t.Run("copy error on unreadable source", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
-			t.Skip("chmod not applicable on Windows")
-		}
+	t.Run("copy error on missing source", func(t *testing.T) {
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".test")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
 			t.Fatal(err)
 		}
 
-		unreadableFile := filepath.Join(configDir, "unreadable.txt")
-		if err := os.WriteFile(unreadableFile, []byte("data"), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Chmod(unreadableFile, 0000); err != nil {
-			t.Fatal(err)
-		}
-
+		// Do NOT create the source file — Backup copies items from
+		// configDir, so a missing source triggers an open error in CopyFile.
 		items := []adapters.Item{
-			{Category: "config", SourcePath: "~/.test/unreadable.txt", RelPath: "unreadable.txt", IsDir: false, Hash: "sha256:abc", Size: 4},
+			{Category: "config", SourcePath: "~/.test/missing.txt", RelPath: "missing.txt", IsDir: false, Hash: "sha256:abc", Size: 4},
 		}
 
 		backupDir := filepath.Join(t.TempDir(), "backup")
 		err := ga.Backup(home, backupDir, items)
 		if err == nil {
-			t.Error("expected error for unreadable file, got nil")
+			t.Error("expected error for missing source file, got nil")
 		}
 	})
 }
@@ -426,15 +431,12 @@ func TestGenericAdapter_Restore(t *testing.T) {
 	})
 
 	t.Run("copy error on restore", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
-			t.Skip("chmod not applicable on Windows")
-		}
 		home := t.TempDir()
-		configDir := filepath.Join(home, ".test")
-		if err := os.MkdirAll(configDir, 0755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Chmod(configDir, 0500); err != nil {
+		// Create a file at the config path instead of a directory.
+		// This causes os.MkdirAll inside copyItems to fail because
+		// the parent is not a directory — works cross-platform.
+		configPath := filepath.Join(home, ".test")
+		if err := os.WriteFile(configPath, []byte("not-a-dir"), 0644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -453,7 +455,7 @@ func TestGenericAdapter_Restore(t *testing.T) {
 
 		err := ga.Restore(backupDir, home, items)
 		if err == nil {
-			t.Error("expected error for copy to read-only dir, got nil")
+			t.Error("expected error for copy to file path, got nil")
 		}
 	})
 }

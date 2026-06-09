@@ -116,12 +116,12 @@ func (a *BackupAction) Run() error {
 		if h, err := a.HostnameFn(); err == nil {
 			hostname = h
 		} else if a.Verbose {
-			fmt.Fprintf(errOut, "warning: could not get hostname: %v\n", err)
+			warnf(errOut, "warning: could not get hostname: %v\n", err)
 		}
 	} else if h, err := os.Hostname(); err == nil {
 		hostname = h
 	} else if a.Verbose {
-		fmt.Fprintf(errOut, "warning: could not get hostname: %v\n", err)
+		warnf(errOut, "warning: could not get hostname: %v\n", err)
 	}
 
 	m := manifest.New(backupID, runtime.GOOS, hostname, a.BakVersion, a.Preset, categories)
@@ -134,7 +134,7 @@ func (a *BackupAction) Run() error {
 	defer func() {
 		if cleanupOnError {
 			if err := a.FS.RemoveAll(backupDir); err != nil && a.Verbose {
-				fmt.Fprintf(errOut, "warning: cleanup failed: %v\n", err)
+				warnf(errOut, "warning: cleanup failed: %v\n", err)
 			}
 		}
 	}()
@@ -164,7 +164,7 @@ func (a *BackupAction) Run() error {
 		// Remove secret-bearing files.
 		for _, sf := range secretFiles {
 			if err := a.FS.RemoveAll(sf); err != nil && a.Verbose {
-				fmt.Fprintf(errOut, "warning: could not remove secret file: %v\n", err)
+				warnf(errOut, "warning: could not remove secret file: %v\n", err)
 			}
 		}
 
@@ -215,14 +215,14 @@ func (a *BackupAction) Run() error {
 	cleanupOnError = false
 
 	// 8. Report.
-	fmt.Fprintf(out, "Backup created: %s\n", backupID)
-	fmt.Fprintf(out, "  Preset:     %s\n", a.Preset)
-	fmt.Fprintf(out, "  Adapters:   %d\n", len(detected))
-	fmt.Fprintf(out, "  Files:      %d\n", m.FileCount)
-	fmt.Fprintf(out, "  Size:       %s\n", formatSize(m.TotalSize))
-	fmt.Fprintf(out, "  Location:   %s\n", backupDir)
+	infof(out, "Backup created: %s\n", backupID)
+	infof(out, "  Preset:     %s\n", a.Preset)
+	infof(out, "  Adapters:   %d\n", len(detected))
+	infof(out, "  Files:      %d\n", m.FileCount)
+	infof(out, "  Size:       %s\n", formatSize(m.TotalSize))
+	infof(out, "  Location:   %s\n", backupDir)
 	if m.SecretsExcluded {
-		fmt.Fprintf(out, "  ⚠ Secrets detected in %d file(s) — .env.example created\n", len(allSecretFiles))
+		infof(out, "  ⚠ Secrets detected in %d file(s) — .env.example created\n", len(allSecretFiles))
 	}
 
 	return nil
@@ -266,7 +266,7 @@ func (a *BackupAction) scanBackupForSecrets(adapterBackupDir string, patterns []
 		if stderr == nil {
 			stderr = os.Stderr
 		}
-		fmt.Fprintf(stderr, "warning: secret scan walk: %v\n", err)
+		warnf(stderr, "warning: secret scan walk: %v\n", err)
 	}
 
 	return secretFiles
@@ -290,4 +290,16 @@ func formatSize(bytes int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+// warnf writes a formatted warning to w. Write errors are silently
+// discarded — warnings are non-critical diagnostics.
+func warnf(w io.Writer, format string, args ...any) {
+	fmt.Fprintf(w, format, args...) //nolint:errcheck
+}
+
+// infof writes a formatted info message to w. Write errors are silently
+// discarded — info output is non-critical.
+func infof(w io.Writer, format string, args ...any) {
+	fmt.Fprintf(w, format, args...) //nolint:errcheck
 }

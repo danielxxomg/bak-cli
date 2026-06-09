@@ -28,6 +28,11 @@ type GenericAdapter struct {
 	ConfigRelPath    string
 	Categories       map[string]CategoryDir
 	DetectErrContext string // e.g. "stat codex config dir"
+
+	// StatFn replaces os.Stat in Detect. When nil, Detect falls back
+	// to os.Stat. Inject a custom function to simulate stat failures
+	// in tests without relying on OS-level permissions (chmod).
+	StatFn func(string) (os.FileInfo, error)
 }
 
 // Compile-time check: GenericAdapter satisfies the Adapter interface.
@@ -42,7 +47,12 @@ func (ga *GenericAdapter) Detect(homeDir string) (installed bool, configDir stri
 	if !pathUnderHome(configDir, homeDir) {
 		return false, configDir, fmt.Errorf("config path escapes home: %s", ga.ConfigRelPath)
 	}
-	info, err := os.Stat(configDir)
+
+	statFn := ga.StatFn
+	if statFn == nil {
+		statFn = os.Stat
+	}
+	info, err := statFn(configDir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, configDir, nil
