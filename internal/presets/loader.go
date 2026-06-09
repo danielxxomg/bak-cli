@@ -5,11 +5,12 @@ package presets
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/danielxxomg/bak-cli/internal/paths"
 )
 
 // LoadFromDir scans a directory for *.yaml files and parses them as
@@ -22,8 +23,8 @@ func LoadFromDir(dir string) ([]YAMLPreset, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get home dir: %w", err)
 	}
-	cleanDir := path.Clean(filepath.ToSlash(dir))
-	cleanHome := path.Clean(filepath.ToSlash(home))
+	cleanDir := paths.CanonicalPath(dir)
+	cleanHome := paths.CanonicalPath(home)
 	if !strings.HasPrefix(cleanDir, cleanHome+"/") && cleanDir != cleanHome {
 		return nil, fmt.Errorf("path traversal: directory outside home")
 	}

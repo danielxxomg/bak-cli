@@ -390,6 +390,121 @@ func TestFromCanonical_EdgeCases(t *testing.T) {
 	}
 }
 
+// TestSlash verifies the Slash helper that replaces all backslashes
+// with forward slashes regardless of host OS.
+func TestSlash(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "windows path",
+			input: `C:\Users\alice\.config`,
+			want:  "C:/Users/alice/.config",
+		},
+		{
+			name:  "empty string",
+			input: "",
+			want:  "",
+		},
+		{
+			name:  "unix path unchanged",
+			input: "/home/alice/.config",
+			want:  "/home/alice/.config",
+		},
+		{
+			name:  "double backslashes",
+			input: `a\\b\\c`,
+			want:  "a//b//c",
+		},
+		{
+			name:  "single backslash",
+			input: `\`,
+			want:  "/",
+		},
+		{
+			name:  "no backslashes",
+			input: "no-backslash",
+			want:  "no-backslash",
+		},
+		{
+			name:  "mixed separators",
+			input: `C:\Users\alice/.config`,
+			want:  "C:/Users/alice/.config",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Slash(tt.input)
+			if got != tt.want {
+				t.Errorf("Slash(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestCanonicalPath verifies the CanonicalPath helper that combines
+// Slash normalization with path.Clean for cross-platform canonical form.
+func TestCanonicalPath(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "windows path with dot-dot",
+			input: `C:\Users\alice\.config\..\.config`,
+			want:  "C:/Users/alice/.config",
+		},
+		{
+			name:  "empty string",
+			input: "",
+			want:  ".",
+		},
+		{
+			name:  "redundant slashes",
+			input: "/home/alice//.config",
+			want:  "/home/alice/.config",
+		},
+		{
+			name:  "mixed separators with redundant segments",
+			input: `C:\Users\alice//.config`,
+			want:  "C:/Users/alice/.config",
+		},
+		{
+			name:  "trailing dot segment",
+			input: "/foo/bar/.",
+			want:  "/foo/bar",
+		},
+		{
+			name:  "root slash",
+			input: "/",
+			want:  "/",
+		},
+		{
+			name:  "no normalization needed",
+			input: "/home/alice/.config",
+			want:  "/home/alice/.config",
+		},
+		{
+			name:  "double backslashes cleaned",
+			input: `a\\b\\c`,
+			want:  "a/b/c",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CanonicalPath(tt.input)
+			if got != tt.want {
+				t.Errorf("CanonicalPath(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 // TestConfigDir_EdgeCases verifies ConfigDir with various relative paths.
 func TestConfigDir_EdgeCases(t *testing.T) {
 	tests := []struct {

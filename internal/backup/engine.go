@@ -3,7 +3,6 @@ package backup
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -154,7 +153,7 @@ func (e *Engine) Run() (*Result, error) {
 		secretRelPaths := make(map[string]bool)
 		for _, secretFile := range secretFiles {
 			if rel, err := filepath.Rel(backupDir, secretFile); err == nil {
-				secretRelPaths[strings.ReplaceAll(rel, "\\", "/")] = true
+				secretRelPaths[paths.Slash(rel)] = true
 			}
 			if err := os.Remove(secretFile); err != nil && e.Verbose {
 				fmt.Fprintf(os.Stderr, "warning: could not remove secret file: %v\n", err)
@@ -168,7 +167,7 @@ func (e *Engine) Run() (*Result, error) {
 				continue // manifest tracks files only
 			}
 
-			backupPath := strings.ReplaceAll(filepath.Join(d.Adapter.Name(), item.RelPath), "\\", "/")
+			backupPath := paths.Slash(filepath.Join(d.Adapter.Name(), item.RelPath))
 
 			// Skip items whose backup file was removed (contained secrets).
 			if secretRelPaths[backupPath] {
@@ -181,11 +180,11 @@ func (e *Engine) Run() (*Result, error) {
 			if strings.HasPrefix(absSource, "~/") {
 				absSource = paths.FromCanonical(absSource, e.HomeDir)
 			}
-			cleanSource := path.Clean(strings.ReplaceAll(absSource, "\\", "/"))
-			cleanHome := path.Clean(strings.ReplaceAll(e.HomeDir, "\\", "/")) + "/"
+			cleanSource := paths.CanonicalPath(absSource)
+			cleanHome := paths.CanonicalPath(e.HomeDir) + "/"
 			// Case-insensitive comparison for Windows (case-insensitive FS).
 			if !strings.HasPrefix(strings.ToLower(cleanSource), strings.ToLower(cleanHome)) &&
-				!strings.EqualFold(cleanSource, path.Clean(strings.ReplaceAll(e.HomeDir, "\\", "/"))) {
+				!strings.EqualFold(cleanSource, paths.CanonicalPath(e.HomeDir)) {
 				return nil, fmt.Errorf("adapter %q returned source path outside home directory", d.Adapter.Name())
 			}
 

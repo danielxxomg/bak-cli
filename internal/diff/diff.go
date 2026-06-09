@@ -3,11 +3,10 @@
 package diff
 
 import (
-	"path"
 	"sort"
-	"strings"
 
 	"github.com/danielxxomg/bak-cli/internal/manifest"
+	"github.com/danielxxomg/bak-cli/internal/paths"
 )
 
 // Category labels the type of difference for a single entry.
@@ -25,11 +24,6 @@ type DiffEntry struct {
 	SourcePath string // canonical path (path.Clean + strings.ReplaceAll)
 	Category   Category
 	Adapter    string // adapter name from the manifest where the item was found
-}
-
-// canonicalPath normalizes a path for cross-platform comparison.
-func canonicalPath(p string) string {
-	return path.Clean(strings.ReplaceAll(p, "\\", "/"))
 }
 
 // indexedItem pairs a manifest item with its adapter name for diff computation.
@@ -102,7 +96,7 @@ func flatten(m *manifest.Manifest) map[string]indexedItem {
 	out := make(map[string]indexedItem)
 	for adapterName, am := range m.Adapters {
 		for _, item := range am.Items {
-			key := canonicalPath(item.SourcePath)
+			key := paths.CanonicalPath(item.SourcePath)
 			out[key] = indexedItem{Item: item, Adapter: adapterName}
 		}
 	}

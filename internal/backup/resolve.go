@@ -3,9 +3,10 @@ package backup
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/danielxxomg/bak-cli/internal/paths"
 )
 
 // ResolveBackupID validates the id, builds the backup directory path,
@@ -20,9 +21,9 @@ func ResolveBackupID(id string) (backupDir string, err error) {
 	backupDir = filepath.Join(backupsDir, id)
 
 	// Security: validate the resolved path stays under backupsDir.
-	cleanBackup := path.Clean(filepath.ToSlash(backupDir))
-	cleanBase := path.Clean(filepath.ToSlash(backupsDir)) + "/"
-	if !strings.HasPrefix(cleanBackup, cleanBase) && cleanBackup != path.Clean(filepath.ToSlash(backupsDir)) {
+	cleanBackup := paths.CanonicalPath(backupDir)
+	cleanBase := paths.CanonicalPath(backupsDir) + "/"
+	if !strings.HasPrefix(cleanBackup, cleanBase) && cleanBackup != paths.CanonicalPath(backupsDir) {
 		return "", fmt.Errorf("backup ID %q resolves outside backups directory", id)
 	}
 

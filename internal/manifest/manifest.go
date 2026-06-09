@@ -9,10 +9,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/danielxxomg/bak-cli/internal/paths"
 )
 
 // ManifestVersion is the current schema version written by this tool.
@@ -147,8 +148,8 @@ func (m *Manifest) Validate(backupDir string, progressFn func(string)) error {
 			}
 			diskPath := filepath.Join(backupDir, item.BackupPath)
 			// Prevent path traversal: ensure resolved path stays under backupDir.
-			cleanDisk := path.Clean(filepath.ToSlash(diskPath))
-			cleanBackup := path.Clean(filepath.ToSlash(backupDir)) + "/"
+			cleanDisk := paths.CanonicalPath(diskPath)
+			cleanBackup := paths.CanonicalPath(backupDir) + "/"
 			if !strings.HasPrefix(strings.ToLower(cleanDisk), strings.ToLower(cleanBackup)) {
 				return fmt.Errorf("adapter %q, file %q: path traversal detected", adapterName, item.BackupPath)
 			}

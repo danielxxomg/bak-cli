@@ -148,7 +148,7 @@ func scanDir(dir, category, configDir, homeDir string) ([]adapters.Item, error) 
 		item := adapters.Item{
 			Category:   category,
 			SourcePath: canonical,
-			RelPath:    filepath.ToSlash(relPath),
+			RelPath:    paths.Slash(relPath),
 			IsDir:      d.IsDir(),
 		}
 
