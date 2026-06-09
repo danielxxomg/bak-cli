@@ -404,25 +404,48 @@ bak-cli/
 │   ├── push.go             # bak push
 │   ├── pull.go             # bak pull
 │   ├── pick.go             # bak pick (interactive TUI)
+│   ├── wizard.go           # bak wizard (guided setup TUI)
 │   ├── export.go           # bak export
 │   ├── list.go             # bak list
 │   ├── login.go            # bak login
 │   ├── undo.go             # bak undo
+│   ├── verify.go           # bak verify
+│   ├── diff.go             # bak diff
+│   ├── schedule.go         # bak schedule
 │   └── version.go          # bak version
 ├── internal/
-│   ├── adapters/           # Agent adapter interface + registry
-│   │   └── opencode/       # OpenCode adapter implementation
-│   ├── backup/             # Backup engine + presets + secret detection
+│   ├── adapters/           # Agent adapter interface + registry + GenericAdapter
+│   │   ├── generic.go      # GenericAdapter base struct
+│   │   ├── knowledge_test.go # Adapter knowledge validation
+│   │   ├── claudecode/     # Claude Code adapter
+│   │   ├── codex/          # OpenAI Codex adapter
+│   │   ├── cursor/         # Cursor adapter
+│   │   ├── kiro/           # Kiro adapter
+│   │   ├── kilocode/       # KiloCode adapter
+│   │   ├── opencode/       # OpenCode adapter
+│   │   ├── pidev/          # pi.dev adapter
+│   │   ├── windsurf/       # Windsurf adapter
+│   │   └── register/       # Adapter registration
+│   ├── actions/            # Business logic (cobra-free, io.Writer injection)
+│   ├── backup/             # Backup engine + secret detection
 │   ├── restore/            # Restore engine + dry-run + git safety
 │   ├── manifest/           # Manifest schema + validation
-│   ├── cloud/              # GitHub Gist client
-│   ├── paths/              # Cross-platform path normalization
+│   ├── cloud/              # Cloud providers (Gist, GitHub Repo, Gitea, rclone)
+│   │   ├── content_types.go # Shared content API types + helpers
+│   │   └── httputil.go     # Shared HTTP helpers
+│   ├── paths/              # Cross-platform path normalization (Slash, CanonicalPath)
 │   ├── git/                # Git operations (go-git)
 │   ├── config/             # Configuration management
-│   └── presets/            # Preset definitions
+│   ├── crypto/             # AES-256-GCM encryption
+│   ├── diff/               # Backup diff engine
+│   ├── presets/            # Preset definitions + loader
+│   └── schedule/           # Scheduled backup (cron)
+├── tests/
+│   └── e2e/                # End-to-end testscript tests
 ├── main.go                 # Entry point
 ├── Taskfile.yml            # Development workflow targets
 ├── .goreleaser.yaml        # Cross-platform release config
+├── AGENTS.md               # Code review rules (GGA enforced)
 ├── go.mod                  # Go module definition
 └── go.sum                  # Dependency checksums
 ```

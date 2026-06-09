@@ -6,7 +6,7 @@ Security updates are provided for the latest release only.
 
 | Version | Supported          |
 |---------|--------------------|
-| 1.0.x   | :white_check_mark: |
+| 1.3.x   | :white_check_mark: |
 
 When a new major version is released, the previous version stops receiving security patches.
 
