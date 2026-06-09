@@ -12,6 +12,7 @@ import (
 
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 	opencodeadapter "github.com/danielxxomg/bak-cli/internal/adapters/opencode"
+	"github.com/danielxxomg/bak-cli/internal/backup"
 )
 
 // --- test helpers ------------------------------------------------------
@@ -702,5 +703,88 @@ func TestBackupAction_StdoutNotLeaked(t *testing.T) {
 	err := action.Run()
 	if err != nil {
 		t.Fatalf("Run with io.Discard: %v", err)
+	}
+}
+
+// --- scanBackupForSecrets tests ----------------------------------------
+
+func TestBackupAction_ScanBackupForSecrets_DetectsPattern(t *testing.T) {
+	home := t.TempDir()
+	adapterDir := filepath.Join(home, "adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Write a file containing a GitHub PAT pattern (ghp_ prefix).
+	secretFile := filepath.Join(adapterDir, "config.json")
+	if err := os.WriteFile(secretFile,
+		[]byte(`{"token":"ghp_abcdef1234567890123456789012345678901234"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	action := &BackupAction{FS: &OSFileSystem{}}
+	patterns := backup.DefaultPatterns()
+
+	got := action.scanBackupForSecrets(adapterDir, patterns)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 secret file, got %d: %v", len(got), got)
+	}
+	if got[0] != secretFile {
+		t.Errorf("expected %q, got %q", secretFile, got[0])
+	}
+}
+
+func TestBackupAction_ScanBackupForSecrets_NoSecrets(t *testing.T) {
+	home := t.TempDir()
+	adapterDir := filepath.Join(home, "adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Write a file with no secret patterns.
+	cleanFile := filepath.Join(adapterDir, "settings.json")
+	if err := os.WriteFile(cleanFile, []byte(`{"theme":"dark"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	action := &BackupAction{FS: &OSFileSystem{}}
+	patterns := backup.DefaultPatterns()
+
+	got := action.scanBackupForSecrets(adapterDir, patterns)
+	if len(got) != 0 {
+		t.Errorf("expected 0 secret files, got %d: %v", len(got), got)
+	}
+}
+
+func TestBackupAction_ScanBackupForSecrets_EmptyDir(t *testing.T) {
+	home := t.TempDir()
+	adapterDir := filepath.Join(home, "adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	action := &BackupAction{FS: &OSFileSystem{}}
+	patterns := backup.DefaultPatterns()
+
+	got := action.scanBackupForSecrets(adapterDir, patterns)
+	if len(got) != 0 {
+		t.Errorf("expected 0 secret files in empty dir, got %d: %v", len(got), got)
+	}
+}
+
+func TestBackupAction_ScanBackupForSecrets_WalkError(t *testing.T) {
+	mockFS := &MockFileSystem{
+		HomeDir:    "/home/test",
+		StatResult: make(map[string]MockStatResult),
+		Files:      make(map[string][]byte),
+		WalkErrors: map[string]error{
+			"/home/test/adapter": errors.New("permission denied"),
+		},
+	}
+
+	action := &BackupAction{FS: mockFS}
+	patterns := backup.DefaultPatterns()
+
+	got := action.scanBackupForSecrets("/home/test/adapter", patterns)
+	if len(got) != 0 {
+		t.Errorf("expected 0 secret files on walk error, got %d: %v", len(got), got)
 	}
 }
