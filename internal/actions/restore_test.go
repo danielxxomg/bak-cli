@@ -2,6 +2,8 @@ package actions
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -43,12 +45,14 @@ func createBackupForRestore(t *testing.T, home string) string {
 		t.Fatal(err)
 	}
 
+	h := sha256.Sum256(testContent)
+
 	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
 		{
 			Category:   "config",
 			SourcePath: "~/.config/bak/config.json",
 			BackupPath: "test-adapter/config.json",
-			Hash:       "sha256:abc",
+			Hash:       fmt.Sprintf("sha256:%x", h),
 			Size:       int64(len(testContent)),
 		},
 	})
@@ -635,5 +639,172 @@ func TestRestoreAction_NilWritersFallback(t *testing.T) {
 	err := action.Run()
 	if err != nil {
 		t.Fatalf("Run with nil writers: %v", err)
+	}
+}
+
+// --- confirmation prompt tests -----------------------------------------
+
+// errorReader returns an error on every Read call.
+type errorReader struct{}
+
+func (e *errorReader) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
+
+func TestRestoreAction_CancelPrompt_AnswerNo(t *testing.T) {
+	home := t.TempDir()
+	backupID := createBackupForRestore(t, home)
+
+	bakDir := filepath.Join(home, ".bak")
+	backupDir := filepath.Join(bakDir, "backups", backupID)
+
+	var stdout, stderr bytes.Buffer
+
+	action := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: backupDir,
+		DryRun:    false,
+		Force:     false,
+		Stdin:     strings.NewReader("n\n"),
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+	}
+
+	err := action.Run()
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "Apply restore?") {
+		t.Error("expected confirmation prompt in stdout")
+	}
+	if !strings.Contains(stderr.String(), "Restore cancelled") {
+		t.Error("expected 'Restore cancelled' in stderr")
+	}
+}
+
+func TestRestoreAction_CancelPrompt_EmptyInput(t *testing.T) {
+	home := t.TempDir()
+	backupID := createBackupForRestore(t, home)
+
+	bakDir := filepath.Join(home, ".bak")
+	backupDir := filepath.Join(bakDir, "backups", backupID)
+
+	var stderr bytes.Buffer
+
+	action := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: backupDir,
+		DryRun:    false,
+		Force:     false,
+		Stdin:     strings.NewReader("\n"),
+		Stdout:    io.Discard,
+		Stderr:    &stderr,
+	}
+
+	err := action.Run()
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if !strings.Contains(stderr.String(), "Restore cancelled") {
+		t.Error("expected 'Restore cancelled' for empty input")
+	}
+}
+
+func TestRestoreAction_CancelPrompt_ReadError(t *testing.T) {
+	home := t.TempDir()
+	backupID := createBackupForRestore(t, home)
+
+	bakDir := filepath.Join(home, ".bak")
+	backupDir := filepath.Join(bakDir, "backups", backupID)
+
+	action := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: backupDir,
+		DryRun:    false,
+		Force:     false,
+		Stdin:     &errorReader{},
+		Stdout:    io.Discard,
+		Stderr:    io.Discard,
+	}
+
+	err := action.Run()
+	if err == nil {
+		t.Fatal("expected error from stdin read failure")
+	}
+	if !strings.Contains(err.Error(), "read input") {
+		t.Errorf("error should mention 'read input': %v", err)
+	}
+}
+
+func TestRestoreAction_ConfirmPrompt_AnswerYes(t *testing.T) {
+	home := t.TempDir()
+	backupID := createBackupForRestore(t, home)
+
+	bakDir := filepath.Join(home, ".bak")
+	backupDir := filepath.Join(bakDir, "backups", backupID)
+
+	var stdout bytes.Buffer
+
+	action := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: backupDir,
+		DryRun:    false,
+		Force:     false,
+		Stdin:     strings.NewReader("y\n"),
+		Stdout:    &stdout,
+		Stderr:    io.Discard,
+	}
+
+	err := action.Run()
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "Apply restore?") {
+		t.Error("expected confirmation prompt in stdout")
+	}
+	if !strings.Contains(out, "Restore complete") {
+		t.Errorf("expected 'Restore complete' for confirmed restore, got: %s", out)
+	}
+
+	// Verify the file was actually restored.
+	targetPath := filepath.Join(home, ".config", "bak", "config.json")
+	if _, err := os.Stat(targetPath); err != nil {
+		t.Errorf("restored file not found: %v", err)
+	}
+}
+
+func TestRestoreAction_ForceSkipsPrompt(t *testing.T) {
+	home := t.TempDir()
+	backupID := createBackupForRestore(t, home)
+
+	bakDir := filepath.Join(home, ".bak")
+	backupDir := filepath.Join(bakDir, "backups", backupID)
+
+	var stdout bytes.Buffer
+
+	action := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: backupDir,
+		DryRun:    false,
+		Force:     true,
+		Stdout:    &stdout,
+		Stderr:    io.Discard,
+		// Stdin is nil — Force=true should skip the prompt entirely.
+	}
+
+	err := action.Run()
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	out := stdout.String()
+	if strings.Contains(out, "Apply restore?") {
+		t.Error("expected NO confirmation prompt when Force=true")
+	}
+	if !strings.Contains(out, "Restore complete") {
+		t.Errorf("expected 'Restore complete' with Force=true, got: %s", out)
 	}
 }
