@@ -7,19 +7,25 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 )
 
-const adapterName = "claude-code"
-const configRelPath = ".claude"
+// AdapterName is the adapter identifier exposed for knowledge validation.
+const AdapterName = "claude-code"
 
-var categoryMap = map[string]adapters.CategoryDir{
+// ConfigRelPath is the adapter config directory relative to the user home, exposed for knowledge validation.
+const ConfigRelPath = ".claude"
+
+// CategoryMap maps category names to their subdirectory/file patterns, exposed for knowledge validation.
+var CategoryMap = map[string]adapters.CategoryDir{
 	"config":   {SubPath: "", IsDir: false},
 	"skills":   {SubPath: "skills", IsDir: true},
 	"commands": {SubPath: "commands", IsDir: true},
+	"agents":   {SubPath: "agents", IsDir: true},
+	"plugins":  {SubPath: "plugins", IsDir: true},
 }
 
 var base = adapters.GenericAdapter{
-	AdapterName:      adapterName,
-	ConfigRelPath:    configRelPath,
-	Categories:       categoryMap,
+	AdapterName:      AdapterName,
+	ConfigRelPath:    ConfigRelPath,
+	Categories:       CategoryMap,
 	DetectErrContext: "stat claude-code config dir",
 }
 
