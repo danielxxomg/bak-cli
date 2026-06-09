@@ -2,12 +2,60 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
+
+	"github.com/danielxxomg/bak-cli/internal/config"
 )
 
 // --- login command execution tests ---
+
+func TestRunLoginWithDeps_ConfigLoaderError(t *testing.T) {
+	deps, _, _ := setupTestDeps(t)
+	deps.ConfigLoader = func() (*config.Config, error) {
+		return nil, errors.New("disk failure")
+	}
+
+	cmd := &cobra.Command{}
+	err := runLoginWithDeps(cmd, nil, deps)
+
+	if err == nil {
+		t.Fatal("expected error from failing ConfigLoader")
+	}
+	if !strings.Contains(err.Error(), "load config") {
+		t.Errorf("error should contain 'load config', got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "disk failure") {
+		t.Errorf("error should wrap 'disk failure', got: %v", err)
+	}
+}
+
+func TestRunLoginWithDeps_NonTTYGuard(t *testing.T) {
+	// Override isTTY to simulate non-interactive terminal.
+	origIsTTY := isTTY
+	isTTY = func() bool { return false }
+	defer func() { isTTY = origIsTTY }()
+
+	// Enable interactive mode.
+	origInteractive := loginInteractive
+	loginInteractive = true
+	defer func() { loginInteractive = origInteractive }()
+
+	deps, _, _ := setupTestDeps(t)
+	cmd := &cobra.Command{}
+	err := runLoginWithDeps(cmd, nil, deps)
+
+	if err == nil {
+		t.Fatal("expected error from non-TTY interactive login")
+	}
+	if !strings.Contains(err.Error(), "TTY") {
+		t.Errorf("error should contain 'TTY', got: %v", err)
+	}
+}
 
 func TestRunLogin_EmptyToken(t *testing.T) {
 	if os.Getenv("GITHUB_TOKEN") != "" {
@@ -32,36 +80,28 @@ func TestRunLogin_EmptyToken(t *testing.T) {
 	}
 }
 
-func TestRunLogin_NonGitHubProvider(t *testing.T) {
-	// Test the guard logic in runLogin directly by setting the package variable.
-	orig := loginProvider
-	loginProvider = "codeberg"
-	defer func() { loginProvider = orig }()
-
-	err := runLogin(nil, nil)
-
-	if err == nil {
-		t.Fatal("expected error for non-GitHub provider login")
+func TestRunLogin_NonGitHubProviders(t *testing.T) {
+	tests := []struct {
+		provider string
+	}{
+		{"codeberg"},
+		{"gitea"},
 	}
-	errStr := err.Error()
-	if !strings.Contains(errStr, "config set") {
-		t.Errorf("error should mention 'config set', got: %v", err)
-	}
-}
 
-func TestRunLogin_GiteaProvider(t *testing.T) {
-	orig := loginProvider
-	loginProvider = "gitea"
-	defer func() { loginProvider = orig }()
+	for _, tt := range tests {
+		t.Run(tt.provider, func(t *testing.T) {
+			orig := loginProvider
+			loginProvider = tt.provider
+			defer func() { loginProvider = orig }()
 
-	err := runLogin(nil, nil)
-
-	if err == nil {
-		t.Fatal("expected error for gitea provider login")
-	}
-	errStr := err.Error()
-	if !strings.Contains(errStr, "config set") {
-		t.Errorf("error should mention 'config set', got: %v", err)
+			err := runLogin(nil, nil)
+			if err == nil {
+				t.Fatal("expected error for non-GitHub provider login")
+			}
+			if !strings.Contains(err.Error(), "config set") {
+				t.Errorf("error should mention 'config set', got: %v", err)
+			}
+		})
 	}
 }
 

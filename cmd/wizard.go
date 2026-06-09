@@ -325,6 +325,8 @@ func renderCursorList(items []string, cursor int) string {
 }
 
 // isTTY reports whether stdin is a terminal.
-func isTTY() bool {
+// Exposed as a package-level variable so tests can override it
+// (follows the var execCommand pattern from AGENTS.md).
+var isTTY = func() bool {
 	return isatty.IsTerminal(os.Stdin.Fd())
 }
