@@ -3,19 +3,18 @@ package actions
 import (
 	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	"github.com/danielxxomg/bak-cli/internal/cloud"
 	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/danielxxomg/bak-cli/internal/crypto"
+	"github.com/danielxxomg/bak-cli/internal/paths"
 )
 
 // PushAction encapsulates the push-to-cloud workflow with injectable
@@ -25,6 +24,11 @@ type PushAction struct {
 	Provider string
 	Profile  string
 	Verbose  bool
+
+	// Stdout receives informational output. Nil falls back to os.Stdout.
+	Stdout io.Writer
+	// Stderr receives warnings and error diagnostics. Nil falls back to os.Stderr.
+	Stderr io.Writer
 
 	// Factory creates cloud providers on demand. When nil, the action
 	// falls back to the real cloud provider registry (backward compat).
@@ -39,7 +43,15 @@ type PushAction struct {
 }
 
 // Run packages a local backup and pushes it to a cloud backend.
-func (a *PushAction) Run(cmd *cobra.Command, args []string) error {
+func (a *PushAction) Run(args []string) error {
+	out := a.Stdout
+	if out == nil {
+		out = os.Stdout
+	}
+	errOut := a.Stderr
+	if errOut == nil {
+		errOut = os.Stderr
+	}
 	// 1. Determine backups directory.
 	if a.FS == nil {
 		return fmt.Errorf("filesystem not configured")
@@ -59,8 +71,8 @@ func (a *PushAction) Run(cmd *cobra.Command, args []string) error {
 	backupPath := filepath.Join(backupsDir, backupID)
 
 	// Security: validate resolved path stays under backupsDir.
-	cleanBackup := path.Clean(strings.ReplaceAll(backupPath, "\\", "/"))
-	cleanBase := path.Clean(strings.ReplaceAll(backupsDir, "\\", "/")) + "/"
+	cleanBackup := paths.CanonicalPath(backupPath)
+	cleanBase := paths.CanonicalPath(backupsDir) + "/"
 	if !strings.HasPrefix(cleanBackup, cleanBase) {
 		return fmt.Errorf("backup ID %q resolves outside backups directory", backupID)
 	}
@@ -79,11 +91,11 @@ func (a *PushAction) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("provider: %w", err)
 	}
 	if a.Verbose {
-		fmt.Fprintf(os.Stderr, "Using provider: %s\n", provider.Name())
+		fmt.Fprintf(errOut, "Using provider: %s\n", provider.Name())
 	}
 
 	// 4. Package backup as tar.gz.
-	fmt.Printf("Packaging backup %s...\n", backupID)
+	fmt.Fprintf(out, "Packaging backup %s...\n", backupID)
 	archiveData, err := cloud.TarGzDirectory(backupPath)
 	if err != nil {
 		return fmt.Errorf("package backup: %w", err)
@@ -95,13 +107,13 @@ func (a *PushAction) Run(cmd *cobra.Command, args []string) error {
 		if h, err := a.HostnameFn(); err == nil {
 			hostname = h
 		} else if a.Verbose {
-			fmt.Fprintf(os.Stderr, "warning: hostname: %v\n", err)
+			fmt.Fprintf(errOut, "warning: hostname: %v\n", err)
 		}
 	} else {
 		if h, err := os.Hostname(); err == nil {
 			hostname = h
 		} else if a.Verbose {
-			fmt.Fprintf(os.Stderr, "warning: hostname: %v\n", err)
+			fmt.Fprintf(errOut, "warning: hostname: %v\n", err)
 		}
 	}
 	rawArchive, err := base64.StdEncoding.DecodeString(archiveData)
@@ -122,7 +134,7 @@ func (a *PushAction) Run(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("encrypt archive: %w", err)
 		}
 		if a.Verbose {
-			fmt.Fprintf(os.Stderr, "Archive encrypted\n")
+			fmt.Fprintf(errOut, "Archive encrypted\n")
 		}
 	}
 
@@ -136,7 +148,7 @@ func (a *PushAction) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("push: %w", err)
 	}
 
-	fmt.Printf("✅ Pushed to %s: %s\n", provider.Name(), id)
+	fmt.Fprintf(out, "✅ Pushed to %s: %s\n", provider.Name(), id)
 	return nil
 }
 
@@ -196,7 +208,11 @@ func (a *PushAction) resolveBackupID(backupsDir string, args []string) (string, 
 	})
 
 	if a.Verbose {
-		fmt.Fprintf(os.Stderr, "Found %d backup(s), using latest: %s\n", len(ids), ids[0])
+		stderr := a.Stderr
+		if stderr == nil {
+			stderr = os.Stderr
+		}
+		fmt.Fprintf(stderr, "Found %d backup(s), using latest: %s\n", len(ids), ids[0])
 	}
 
 	return ids[0], nil

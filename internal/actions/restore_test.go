@@ -1,6 +1,8 @@
 package actions
 
 import (
+	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -70,6 +72,8 @@ func TestRestoreAction_DryRun(t *testing.T) {
 
 	action := &RestoreAction{
 		FS:      newHomeFS(home),
+		Stdout:   io.Discard,
+		Stderr:   io.Discard,
 		DryRun:  true,
 		Verbose: false,
 	}
@@ -77,7 +81,7 @@ func TestRestoreAction_DryRun(t *testing.T) {
 	bakDir := filepath.Join(home, ".bak")
 	action.BackupDir = filepath.Join(bakDir, "backups", backupID)
 
-	err := action.Run(nil, []string{backupID})
+	err := action.Run()
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -100,7 +104,7 @@ func TestRestoreAction_MissingManifest(t *testing.T) {
 		BackupDir: backupDir,
 	}
 
-	err := action.Run(nil, []string{backupID})
+	err := action.Run()
 	if err == nil {
 		t.Fatal("expected error for missing manifest")
 	}
@@ -117,7 +121,7 @@ func TestRestoreAction_MissingBackup(t *testing.T) {
 		BackupDir: filepath.Join(home, ".bak", "backups", "nonexistent"),
 	}
 
-	err := action.Run(nil, []string{"nonexistent"})
+	err := action.Run()
 	if err == nil {
 		t.Fatal("expected error for missing backup")
 	}
@@ -143,7 +147,7 @@ func TestRestoreAction_ChecksumMismatch(t *testing.T) {
 		Verbose:   false,
 	}
 
-	err := action.Run(nil, []string{backupID})
+	err := action.Run()
 	if err == nil {
 		t.Fatal("expected checksum mismatch error")
 	}
@@ -159,10 +163,12 @@ func TestRestoreAction_DryRunShowsDiff(t *testing.T) {
 	action := &RestoreAction{
 		FS:        newHomeFS(home),
 		BackupDir: backupDir,
+		Stdout:   io.Discard,
+		Stderr:   io.Discard,
 		DryRun:    true,
 	}
 
-	err := action.Run(nil, []string{backupID})
+	err := action.Run()
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -181,7 +187,7 @@ func TestRestoreAction_ApplyRestore(t *testing.T) {
 		Force:     true, // skip confirmation
 	}
 
-	err := action.Run(nil, []string{backupID})
+	err := action.Run()
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -206,7 +212,7 @@ func TestRestoreAction_UserHomeDirError(t *testing.T) {
 		BackupDir: "/home/test/.bak/backups/nonexistent",
 	}
 
-	err := action.Run(nil, []string{"nonexistent"})
+	err := action.Run()
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -223,10 +229,12 @@ func TestRestoreAction_VerboseOutput(t *testing.T) {
 		FS:        newHomeFS(home),
 		BackupDir: backupDir,
 		Verbose:   true,
+		Stdout:   io.Discard,
+		Stderr:   io.Discard,
 		DryRun:    true,
 	}
 
-	err := action.Run(nil, []string{backupID})
+	err := action.Run()
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -242,11 +250,13 @@ func TestRestoreAction_DryRunWithDiffs(t *testing.T) {
 	action := &RestoreAction{
 		FS:        newHomeFS(home),
 		BackupDir: backupDir,
+		Stdout:   io.Discard,
+		Stderr:   io.Discard,
 		DryRun:    true,
 		Verbose:   false,
 	}
 
-	err := action.Run(nil, []string{backupID})
+	err := action.Run()
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -275,7 +285,7 @@ func TestRestoreAction_RestoreFile_MkdirError(t *testing.T) {
 		Verbose:   true,
 	}
 
-	err := action.Run(nil, []string{backupID})
+	err := action.Run()
 	if err != nil {
 		t.Logf("restore with mkdir error returned: %v", err)
 	}
@@ -365,7 +375,7 @@ func TestRestoreAction_UserHomeDir_Error(t *testing.T) {
 		Force:     true,
 	}
 
-	err := action.Run(nil, []string{"test"})
+	err := action.Run()
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -556,5 +566,74 @@ func TestResolveBackup(t *testing.T) {
 				t.Errorf("BackupDir = %q, want %q", action.BackupDir, wantDir)
 			}
 		})
+	}
+}
+
+func TestRestoreAction_StdoutInjection(t *testing.T) {
+	home := t.TempDir()
+	backupID := createBackupForRestore(t, home)
+
+	bakDir := filepath.Join(home, ".bak")
+	backupDir := filepath.Join(bakDir, "backups", backupID)
+
+	var stdout, stderr bytes.Buffer
+
+	action := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: backupDir,
+		DryRun:    true,
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+	}
+
+	err := action.Run()
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "Dry-run") {
+		t.Errorf("Stdout should contain dry-run output, got: %s", out)
+	}
+}
+
+func TestRestoreAction_StdoutNotLeaked(t *testing.T) {
+	home := t.TempDir()
+	backupID := createBackupForRestore(t, home)
+
+	bakDir := filepath.Join(home, ".bak")
+	backupDir := filepath.Join(bakDir, "backups", backupID)
+
+	action := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: backupDir,
+		DryRun:    true,
+		Stdout:    io.Discard,
+		Stderr:    io.Discard,
+	}
+
+	err := action.Run()
+	if err != nil {
+		t.Fatalf("Run with io.Discard: %v", err)
+	}
+}
+
+func TestRestoreAction_NilWritersFallback(t *testing.T) {
+	home := t.TempDir()
+	backupID := createBackupForRestore(t, home)
+
+	bakDir := filepath.Join(home, ".bak")
+	backupDir := filepath.Join(bakDir, "backups", backupID)
+
+	action := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: backupDir,
+		DryRun:    true,
+		// Stdout/Stderr are nil — must fall back to os.Stdout/os.Stderr.
+	}
+
+	err := action.Run()
+	if err != nil {
+		t.Fatalf("Run with nil writers: %v", err)
 	}
 }

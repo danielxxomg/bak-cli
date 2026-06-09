@@ -1,7 +1,9 @@
 package actions
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -74,8 +76,8 @@ func TestPushAction_ReadDirError(t *testing.T) {
 		Files:      make(map[string][]byte),
 	}
 
-	action := &PushAction{FS: mockFS, Provider: "github-gist"}
-	err := action.Run(nil, nil)
+	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
+	err := action.Run( nil)
 	if err == nil {
 		t.Fatal("expected error when backups dir missing")
 	}
@@ -93,8 +95,8 @@ func TestPushAction_NoBackupsFound(t *testing.T) {
 		Files:      make(map[string][]byte),
 	}
 
-	action := &PushAction{FS: mockFS, Provider: "github-gist"}
-	err := action.Run(nil, nil)
+	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
+	err := action.Run( nil)
 	if err == nil {
 		t.Fatal("expected error when no backups found")
 	}
@@ -115,8 +117,8 @@ func TestPushAction_StatError(t *testing.T) {
 		Files:      make(map[string][]byte),
 	}
 
-	action := &PushAction{FS: mockFS, Provider: "github-gist"}
-	err := action.Run(nil, nil)
+	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
+	err := action.Run( nil)
 	if err == nil {
 		t.Fatal("expected error when backup not found")
 	}
@@ -128,9 +130,9 @@ func TestPushAction_StatError(t *testing.T) {
 func TestPushAction_LatestBackup(t *testing.T) {
 	mockFS := setupPushMockFS("/home/test")
 
-	action := &PushAction{FS: mockFS, Provider: "github-gist", Verbose: true}
+	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist", Verbose: true}
 	// This will fail at the cloud push step, which is expected.
-	err := action.Run(nil, nil)
+	err := action.Run( nil)
 	if err == nil {
 		t.Log("push succeeded (unexpected — may have real credentials)")
 	} else {
@@ -152,8 +154,8 @@ func TestPushAction_ExplicitBackupID(t *testing.T) {
 		Files: make(map[string][]byte),
 	}
 
-	action := &PushAction{FS: mockFS, Provider: "github-gist"}
-	err := action.Run(nil, []string{"20260101-120000"})
+	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
+	err := action.Run( []string{"20260101-120000"})
 	if err == nil {
 		t.Log("push succeeded with explicit ID")
 	} else {
@@ -172,8 +174,8 @@ func TestPushAction_InvalidBackupID(t *testing.T) {
 		DirEntries: map[string][]os.DirEntry{backupsDir: {}},
 	}
 
-	action := &PushAction{FS: mockFS, Provider: "github-gist"}
-	err := action.Run(nil, []string{"nonexistent"})
+	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
+	err := action.Run( []string{"nonexistent"})
 	if err == nil {
 		t.Fatal("expected error for nonexistent backup")
 	}
@@ -187,8 +189,8 @@ func TestPushAction_VerboseLogging(t *testing.T) {
 		Files:      make(map[string][]byte),
 	}
 
-	action := &PushAction{FS: mockFS, Provider: "github-gist", Verbose: true}
-	_ = action.Run(nil, []string{"nonexistent"})
+	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist", Verbose: true}
+	_ = action.Run( []string{"nonexistent"})
 	// Just exercises the verbose code path. Error expected.
 }
 
@@ -199,8 +201,8 @@ func TestPushAction_UnknownProvider(t *testing.T) {
 		Files:      make(map[string][]byte),
 	}
 
-	action := &PushAction{FS: mockFS, Provider: "unknown-backend-xyz"}
-	err := action.Run(nil, nil)
+	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "unknown-backend-xyz"}
+	err := action.Run( nil)
 	if err == nil {
 		t.Fatal("expected error for unknown provider")
 	}
@@ -221,8 +223,8 @@ func TestPushAction_PathTraversal_Latest(t *testing.T) {
 		Files:      make(map[string][]byte),
 	}
 
-	action := &PushAction{FS: mockFS, Provider: "github-gist"}
-	err := action.Run(nil, nil)
+	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
+	err := action.Run( nil)
 	if err == nil {
 		t.Fatal("expected error for path traversal")
 	}
@@ -241,9 +243,9 @@ func TestPushAction_ExplicitArgResolvesID(t *testing.T) {
 		Files: make(map[string][]byte),
 	}
 
-	action := &PushAction{FS: mockFS, Provider: "github-gist"}
+	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
 	// Explicit arg should resolve without reading dir.
-	err := action.Run(nil, []string{"20260101-120000"})
+	err := action.Run( []string{"20260101-120000"})
 	if err != nil {
 		t.Logf("push with explicit arg: %v", err)
 	}
@@ -266,9 +268,9 @@ func TestPushAction_EmptyArgFallsback(t *testing.T) {
 		Files: make(map[string][]byte),
 	}
 
-	action := &PushAction{FS: mockFS, Provider: "github-gist"}
+	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
 	// Empty string arg should fall back to latest.
-	err := action.Run(nil, []string{""})
+	err := action.Run( []string{""})
 	if err != nil {
 		t.Logf("push with empty arg: %v", err)
 	}
@@ -283,8 +285,8 @@ func TestPushAction_HomeDirError(t *testing.T) {
 		Files:      make(map[string][]byte),
 	}
 
-	action := &PushAction{FS: mockFS, Provider: "github-gist"}
-	err := action.Run(nil, []string{"nonexistent"})
+	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
+	err := action.Run( []string{"nonexistent"})
 	if err == nil {
 		t.Fatal("expected error for nonexistent backup")
 	}
@@ -300,8 +302,8 @@ func TestPushAction_ReadDirErrorOnFallback(t *testing.T) {
 		Files:      make(map[string][]byte),
 	}
 
-	action := &PushAction{FS: mockFS, Provider: "github-gist"}
-	err := action.Run(nil, nil) // no args → fallback to ReadDir
+	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist"}
+	err := action.Run( nil) // no args → fallback to ReadDir
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -345,11 +347,13 @@ func TestPushAction_MockProvider_HappyPath(t *testing.T) {
 	action := &PushAction{
 		FS:         newHomeFS(home),
 		Provider:   "mock-gist",
+		Stdout:   io.Discard,
+		Stderr:   io.Discard,
 		Factory:    factory,
 		HostnameFn: func() (string, error) { return "testbox", nil },
 	}
 
-	err := action.Run(nil, []string{backupID})
+	err := action.Run( []string{backupID})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -385,10 +389,12 @@ func TestPushAction_MockProvider_ProviderError(t *testing.T) {
 	action := &PushAction{
 		FS:       newHomeFS(home),
 		Provider: "mock-gist",
+		Stdout:   io.Discard,
+		Stderr:   io.Discard,
 		Factory:  factory,
 	}
 
-	err := action.Run(nil, []string{backupID})
+	err := action.Run( []string{backupID})
 	if err == nil {
 		t.Fatal("expected error from factory")
 	}
@@ -420,10 +426,12 @@ func TestPushAction_MockProvider_PushError(t *testing.T) {
 	action := &PushAction{
 		FS:       newHomeFS(home),
 		Provider: "mock-gist",
+		Stdout:   io.Discard,
+		Stderr:   io.Discard,
 		Factory:  factory,
 	}
 
-	err := action.Run(nil, []string{backupID})
+	err := action.Run( []string{backupID})
 	if err == nil {
 		t.Fatal("expected error from provider push")
 	}
@@ -480,7 +488,7 @@ func TestPushAction_EncryptionEnabled(t *testing.T) {
 		},
 	}
 
-	err := action.Run(nil, []string{backupID})
+	err := action.Run( []string{backupID})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -531,7 +539,7 @@ func TestPushAction_EncryptionDisabled(t *testing.T) {
 		},
 	}
 
-	err := action.Run(nil, []string{backupID})
+	err := action.Run( []string{backupID})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -584,7 +592,7 @@ func TestPushAction_NonexistentProfile(t *testing.T) {
 		},
 	}
 
-	err := action.Run(nil, []string{backupID})
+	err := action.Run( []string{backupID})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -628,7 +636,7 @@ func TestPushAction_ConfigLoadError(t *testing.T) {
 		},
 	}
 
-	err := action.Run(nil, []string{backupID})
+	err := action.Run( []string{backupID})
 	if err == nil {
 		t.Fatal("expected error from config loader")
 	}
@@ -683,11 +691,91 @@ func TestPushAction_PasswordError(t *testing.T) {
 		},
 	}
 
-	err := action.Run(nil, []string{backupID})
+	err := action.Run( []string{backupID})
 	if err == nil {
 		t.Fatal("expected error from password prompt")
 	}
 	if !strings.Contains(err.Error(), "encryption password") {
 		t.Errorf("error should mention encryption password: %v", err)
+	}
+}
+
+func TestPushAction_StdoutInjection(t *testing.T) {
+	home := t.TempDir()
+
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-120000"
+	backupPath := filepath.Join(backupsDir, backupID)
+	os.MkdirAll(backupPath, 0755)
+	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644)
+
+	var stdout, stderr bytes.Buffer
+
+	mockProvider := &MockProvider{
+		MockName: "mock-gist",
+		PushFn: func(archive []byte, meta cloud.PushMeta) (string, error) {
+			return "mock-id-123", nil
+		},
+	}
+
+	factory := &MockProviderFactory{
+		Providers: map[string]cloud.Provider{"mock-gist": mockProvider},
+	}
+
+	action := &PushAction{
+		FS:       newHomeFS(home),
+		Provider: "mock-gist",
+		Stdout:   &stdout,
+		Stderr:   &stderr,
+		Factory:  factory,
+	}
+
+	err := action.Run([]string{backupID})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "Packaging backup") {
+		t.Errorf("Stdout should contain packaging message, got: %s", out)
+	}
+	if !strings.Contains(out, "Pushed to") {
+		t.Errorf("Stdout should contain pushed message, got: %s", out)
+	}
+}
+
+func TestPushAction_StdoutNotLeaked(t *testing.T) {
+	home := t.TempDir()
+
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-120000"
+	backupPath := filepath.Join(backupsDir, backupID)
+	os.MkdirAll(backupPath, 0755)
+	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644)
+
+	mockProvider := &MockProvider{
+		MockName: "mock-gist",
+		PushFn: func(archive []byte, meta cloud.PushMeta) (string, error) {
+			return "mock-id-123", nil
+		},
+	}
+
+	factory := &MockProviderFactory{
+		Providers: map[string]cloud.Provider{"mock-gist": mockProvider},
+	}
+
+	action := &PushAction{
+		FS:       newHomeFS(home),
+		Provider: "mock-gist",
+		Stdout:   io.Discard,
+		Stderr:   io.Discard,
+		Factory:  factory,
+	}
+
+	err := action.Run([]string{backupID})
+	if err != nil {
+		t.Fatalf("Run with io.Discard: %v", err)
 	}
 }

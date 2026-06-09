@@ -3,15 +3,13 @@ package actions
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
 	"time"
-
-	"github.com/spf13/cobra"
 
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 	"github.com/danielxxomg/bak-cli/internal/backup"
@@ -28,6 +26,11 @@ type BackupAction struct {
 	Config   ConfigLoader
 	Registry *adapters.Registry
 
+	// Stdout receives informational output. Nil falls back to os.Stdout.
+	Stdout io.Writer
+	// Stderr receives warnings and error diagnostics. Nil falls back to os.Stderr.
+	Stderr io.Writer
+
 	// Parameters (from CLI flags).
 	Preset           string
 	AdapterFilter    []string
@@ -43,7 +46,15 @@ type BackupAction struct {
 // Run executes the backup workflow: resolve preset, detect adapters,
 // copy files, scan secrets, and write manifest. All OS operations go
 // through a.FS.
-func (a *BackupAction) Run(cmd *cobra.Command, args []string) error {
+func (a *BackupAction) Run() error {
+	out := a.Stdout
+	if out == nil {
+		out = os.Stdout
+	}
+	errOut := a.Stderr
+	if errOut == nil {
+		errOut = os.Stderr
+	}
 	// 1. Determine home directory via injected FS.
 	homeDir, err := a.FS.UserHomeDir()
 	if err != nil {
@@ -105,12 +116,12 @@ func (a *BackupAction) Run(cmd *cobra.Command, args []string) error {
 		if h, err := a.HostnameFn(); err == nil {
 			hostname = h
 		} else if a.Verbose {
-			fmt.Fprintf(os.Stderr, "warning: could not get hostname: %v\n", err)
+			fmt.Fprintf(errOut, "warning: could not get hostname: %v\n", err)
 		}
 	} else if h, err := os.Hostname(); err == nil {
 		hostname = h
 	} else if a.Verbose {
-		fmt.Fprintf(os.Stderr, "warning: could not get hostname: %v\n", err)
+		fmt.Fprintf(errOut, "warning: could not get hostname: %v\n", err)
 	}
 
 	m := manifest.New(backupID, runtime.GOOS, hostname, a.BakVersion, a.Preset, categories)
@@ -123,7 +134,7 @@ func (a *BackupAction) Run(cmd *cobra.Command, args []string) error {
 	defer func() {
 		if cleanupOnError {
 			if err := a.FS.RemoveAll(backupDir); err != nil && a.Verbose {
-				fmt.Fprintf(os.Stderr, "warning: cleanup failed: %v\n", err)
+				fmt.Fprintf(errOut, "warning: cleanup failed: %v\n", err)
 			}
 		}
 	}()
@@ -153,7 +164,7 @@ func (a *BackupAction) Run(cmd *cobra.Command, args []string) error {
 		// Remove secret-bearing files.
 		for _, sf := range secretFiles {
 			if err := a.FS.RemoveAll(sf); err != nil && a.Verbose {
-				fmt.Fprintf(os.Stderr, "warning: could not remove secret file: %v\n", err)
+				fmt.Fprintf(errOut, "warning: could not remove secret file: %v\n", err)
 			}
 		}
 
@@ -168,17 +179,17 @@ func (a *BackupAction) Run(cmd *cobra.Command, args []string) error {
 			if strings.HasPrefix(absSource, "~/") {
 				absSource = paths.FromCanonical(absSource, homeDir)
 			}
-			cleanSource := path.Clean(strings.ReplaceAll(absSource, "\\", "/"))
-			cleanHome := path.Clean(strings.ReplaceAll(homeDir, "\\", "/")) + "/"
+			cleanSource := paths.CanonicalPath(absSource)
+			cleanHome := paths.CanonicalPath(homeDir) + "/"
 			if !strings.HasPrefix(strings.ToLower(cleanSource), strings.ToLower(cleanHome)) &&
-				!strings.EqualFold(cleanSource, path.Clean(strings.ReplaceAll(homeDir, "\\", "/"))) {
+				!strings.EqualFold(cleanSource, paths.CanonicalPath(homeDir)) {
 				return fmt.Errorf("adapter %q returned source path outside home directory", d.Adapter.Name())
 			}
 
 			manifestItems = append(manifestItems, manifest.Item{
 				Category:   item.Category,
 				SourcePath: item.SourcePath,
-				BackupPath: strings.ReplaceAll(filepath.Join(d.Adapter.Name(), item.RelPath), "\\", "/"),
+				BackupPath: paths.Slash(filepath.Join(d.Adapter.Name(), item.RelPath)),
 				Hash:       item.Hash,
 				Size:       item.Size,
 			})
@@ -204,14 +215,14 @@ func (a *BackupAction) Run(cmd *cobra.Command, args []string) error {
 	cleanupOnError = false
 
 	// 8. Report.
-	fmt.Printf("Backup created: %s\n", backupID)
-	fmt.Printf("  Preset:     %s\n", a.Preset)
-	fmt.Printf("  Adapters:   %d\n", len(detected))
-	fmt.Printf("  Files:      %d\n", m.FileCount)
-	fmt.Printf("  Size:       %s\n", formatSize(m.TotalSize))
-	fmt.Printf("  Location:   %s\n", backupDir)
+	fmt.Fprintf(out, "Backup created: %s\n", backupID)
+	fmt.Fprintf(out, "  Preset:     %s\n", a.Preset)
+	fmt.Fprintf(out, "  Adapters:   %d\n", len(detected))
+	fmt.Fprintf(out, "  Files:      %d\n", m.FileCount)
+	fmt.Fprintf(out, "  Size:       %s\n", formatSize(m.TotalSize))
+	fmt.Fprintf(out, "  Location:   %s\n", backupDir)
 	if m.SecretsExcluded {
-		fmt.Printf("  ⚠ Secrets detected in %d file(s) — .env.example created\n", len(allSecretFiles))
+		fmt.Fprintf(out, "  ⚠ Secrets detected in %d file(s) — .env.example created\n", len(allSecretFiles))
 	}
 
 	return nil
@@ -251,7 +262,11 @@ func (a *BackupAction) scanBackupForSecrets(adapterBackupDir string, patterns []
 		}
 		return nil
 	}); err != nil && a.Verbose {
-		fmt.Fprintf(os.Stderr, "warning: secret scan walk: %v\n", err)
+		stderr := a.Stderr
+		if stderr == nil {
+			stderr = os.Stderr
+		}
+		fmt.Fprintf(stderr, "warning: secret scan walk: %v\n", err)
 	}
 
 	return secretFiles

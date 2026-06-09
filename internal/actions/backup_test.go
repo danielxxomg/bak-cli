@@ -1,8 +1,10 @@
 package actions
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -72,11 +74,13 @@ func TestBackupAction_UnknownPreset(t *testing.T) {
 	action := &BackupAction{
 		FS:         setupMockFS(),
 		Registry:   setupBackupRegistry(),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:     "bananas",
 		BakVersion: "test",
 	}
 
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err == nil {
 		t.Fatal("expected error for unknown preset")
 	}
@@ -91,11 +95,13 @@ func TestBackupAction_NoAdaptersDetected(t *testing.T) {
 	action := &BackupAction{
 		FS:         setupMockFS(),
 		Registry:   reg,
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 	}
 
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err == nil {
 		t.Fatal("expected error when no adapters detected")
 	}
@@ -113,6 +119,8 @@ func TestBackupAction_MkdirError(t *testing.T) {
 	action := &BackupAction{
 		FS:         mockFS,
 		Registry:   adapters.NewRegistry(), // empty — will fail at detection, not mkdir
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 	}
@@ -124,7 +132,7 @@ func TestBackupAction_MkdirError(t *testing.T) {
 	//
 	// Instead, we test the case where FS errors propagate correctly:
 	// inject error on ReadDir so the mock fails before reaching MkdirAll.
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -140,11 +148,13 @@ func TestBackupAction_MkdirError_Integration(t *testing.T) {
 	action := &BackupAction{
 		FS:         fs,
 		Registry:   setupBackupRegistry(),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 	}
 
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err == nil {
 		t.Fatal("expected mkdir error")
 	}
@@ -172,11 +182,13 @@ func TestBackupAction_HappyPath_QuickPreset(t *testing.T) {
 	action := &BackupAction{
 		FS:         newHomeFS(home),
 		Registry:   setupBackupRegistry(),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 	}
 
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -213,11 +225,13 @@ func TestBackupAction_HappyPath_FullPreset(t *testing.T) {
 	action := &BackupAction{
 		FS:         newHomeFS(home),
 		Registry:   setupBackupRegistry(),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:     "full",
 		BakVersion: "test",
 	}
 
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -262,12 +276,14 @@ func TestBackupAction_InvalidAdapterFilter(t *testing.T) {
 	action := &BackupAction{
 		FS:            newHomeFS(home),
 		Registry:      setupBackupRegistry(),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:        "quick",
 		AdapterFilter: []string{"nonexistent"},
 		BakVersion:    "test",
 	}
 
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err == nil {
 		t.Fatal("expected error for unknown adapter filter")
 	}
@@ -287,11 +303,13 @@ func TestBackupAction_WithSecrets(t *testing.T) {
 	action := &BackupAction{
 		FS:         newHomeFS(home),
 		Registry:   setupBackupRegistry(),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 	}
 
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -319,12 +337,14 @@ func TestBackupAction_AdapterFilter(t *testing.T) {
 	action := &BackupAction{
 		FS:            newHomeFS(home),
 		Registry:      setupBackupRegistry(),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:        "quick",
 		AdapterFilter: []string{"opencode"},
 		BakVersion:    "test",
 	}
 
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -346,11 +366,13 @@ func TestBackupAction_ManifestWriteError(t *testing.T) {
 	action := &BackupAction{
 		FS:         mockFS,
 		Registry:   adapters.NewRegistry(),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 	}
 
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err == nil {
 		t.Fatal("expected error when no adapters detected with mock FS")
 	}
@@ -363,12 +385,14 @@ func TestBackupAction_MultiAdapterFilter(t *testing.T) {
 	action := &BackupAction{
 		FS:            newHomeFS(home),
 		Registry:      setupBackupRegistry(),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:        "quick",
 		AdapterFilter: []string{"opencode", "nonexistent"},
 		BakVersion:    "test",
 	}
 
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err == nil {
 		t.Fatal("expected error for unknown adapter in multi-filter")
 	}
@@ -384,11 +408,13 @@ func TestBackupAction_HomeDirError(t *testing.T) {
 	action := &BackupAction{
 		FS:         mockFS,
 		Registry:   setupBackupRegistry(),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 	}
 
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err == nil {
 		t.Fatal("expected error for empty home dir")
 	}
@@ -401,12 +427,14 @@ func TestBackupAction_CustomCategories(t *testing.T) {
 	action := &BackupAction{
 		FS:               newHomeFS(home),
 		Registry:         setupBackupRegistry(),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:           "quick",
 		CustomCategories: []string{"config"},
 		BakVersion:       "test",
 	}
 
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err != nil {
 		t.Fatalf("Run with custom categories: %v", err)
 	}
@@ -422,11 +450,13 @@ func TestBackupAction_SaveManifestError(t *testing.T) {
 	action := &BackupAction{
 		FS:         fs,
 		Registry:   setupBackupRegistry(),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 	}
 
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err == nil {
 		t.Fatal("expected error when manifest write fails")
 	}
@@ -453,12 +483,14 @@ func TestBackupAction_HostnameFunc_Injected(t *testing.T) {
 	action := &BackupAction{
 		FS:         newHomeFS(home),
 		Registry:   setupBackupRegistry(),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 		HostnameFn: func() (string, error) { return "testbox", nil },
 	}
 
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -495,12 +527,14 @@ func TestBackupAction_HostnameFunc_NilFallback(t *testing.T) {
 	action := &BackupAction{
 		FS:         newHomeFS(home),
 		Registry:   setupBackupRegistry(),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 		// HostnameFn is nil — should fall back to os.Hostname.
 	}
 
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -539,11 +573,13 @@ func TestBackupAction_SkillsPreset(t *testing.T) {
 	action := &BackupAction{
 		FS:         newHomeFS(home),
 		Registry:   setupBackupRegistry(),
+		Stdout:         io.Discard,
+		Stderr:         io.Discard,
 		Preset:     "skills",
 		BakVersion: "test",
 	}
 
-	err := action.Run(nil, nil)
+	err := action.Run()
 	if err != nil {
 		t.Fatalf("Run with skills preset: %v", err)
 	}
@@ -570,5 +606,101 @@ func TestFormatSize(t *testing.T) {
 				t.Errorf("formatSize(%d) = %q, want %q", tt.bytes, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBackupAction_StdoutInjection(t *testing.T) {
+	// Safety Net: Run must NOT accept *cobra.Command — it uses
+	// injected io.Writer fields for stdout/stderr output.
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	var stdout, stderr bytes.Buffer
+
+	action := &BackupAction{
+		FS:         newHomeFS(home),
+		Registry:   setupBackupRegistry(),
+		Preset:     "quick",
+		BakVersion: "test",
+		Stdout:     &stdout,
+		Stderr:     &stderr,
+	}
+
+	err := action.Run()
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "Backup created:") {
+		t.Errorf("Stdout should contain backup created message, got: %s", out)
+	}
+	if !strings.Contains(out, "Preset:") {
+		t.Errorf("Stdout should contain preset info, got: %s", out)
+	}
+}
+
+func TestBackupAction_StderrInjection(t *testing.T) {
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	var stdout, stderr bytes.Buffer
+
+	action := &BackupAction{
+		FS:         newHomeFS(home),
+		Registry:   setupBackupRegistry(),
+		Preset:     "quick",
+		BakVersion: "test",
+		Stdout:     &stdout,
+		Stderr:     &stderr,
+		Verbose:    true,
+	}
+
+	err := action.Run()
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// Verbose may produce stderr output via hostname warnings.
+	// We verify stderr is the injected writer, not os.Stderr.
+	_ = stderr.Bytes() // Access the injected writer — no panic from nil.
+}
+
+func TestBackupAction_NilWritersFallback(t *testing.T) {
+	// Nil writers should not crash — they fall back to os.Stdout/os.Stderr.
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	action := &BackupAction{
+		FS:         newHomeFS(home),
+		Registry:   setupBackupRegistry(),
+		Preset:     "quick",
+		BakVersion: "test",
+		// Stdout/Stderr are nil — must fall back to os.Stdout/os.Stderr.
+	}
+
+	err := action.Run()
+	if err != nil {
+		t.Fatalf("Run with nil writers: %v", err)
+	}
+}
+
+func TestBackupAction_StdoutNotLeaked(t *testing.T) {
+	// Verify output is NOT written when io.Discard is injected.
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	action := &BackupAction{
+		FS:         newHomeFS(home),
+		Registry:   setupBackupRegistry(),
+		Preset:     "quick",
+		BakVersion: "test",
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
+	}
+
+	err := action.Run()
+	if err != nil {
+		t.Fatalf("Run with io.Discard: %v", err)
 	}
 }

@@ -61,11 +61,13 @@ func runRestoreWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 		Force:   restoreForce,
 		Verbose: verbose,
 		Stdin:   deps.Stdin,
+		Stdout:  deps.Stdout,
+		Stderr:  deps.Stderr,
 	}
 
 	if err := action.ResolveBackup(backupID); err != nil {
 		return err
 	}
 
-	return action.Run(cmd, args)
+	return action.Run()
 }

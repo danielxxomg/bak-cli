@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
-	"github.com/spf13/cobra"
-
 	"github.com/danielxxomg/bak-cli/internal/backup"
 	"github.com/danielxxomg/bak-cli/internal/manifest"
+	"github.com/danielxxomg/bak-cli/internal/paths"
 	restorepkg "github.com/danielxxomg/bak-cli/internal/restore"
 )
 
@@ -29,6 +27,10 @@ type RestoreAction struct {
 
 	// Stdin is the reader for confirmation prompts. Nil falls back to os.Stdin.
 	Stdin io.Reader
+	// Stdout receives informational output. Nil falls back to os.Stdout.
+	Stdout io.Writer
+	// Stderr receives warnings and error diagnostics. Nil falls back to os.Stderr.
+	Stderr io.Writer
 }
 
 // ResolveBackup resolves the backup ID to a directory path and sets a.BackupDir.
@@ -43,13 +45,15 @@ func (a *RestoreAction) ResolveBackup(backupID string) error {
 
 // Run executes the restore workflow: load manifest, compute diffs, and
 // optionally apply changes.
-func (a *RestoreAction) Run(cmd *cobra.Command, args []string) error {
-	// Resolve output writers — fall back to os.Stdout/Stderr when cmd is nil.
-	var out io.Writer = os.Stdout
-	var errOut io.Writer = os.Stderr
-	if cmd != nil {
-		out = cmd.OutOrStdout()
-		errOut = cmd.ErrOrStderr()
+func (a *RestoreAction) Run() error {
+	// Resolve output writers — fall back to os.Stdout/Stderr when nil.
+	out := a.Stdout
+	if out == nil {
+		out = os.Stdout
+	}
+	errOut := a.Stderr
+	if errOut == nil {
+		errOut = os.Stderr
 	}
 
 	// 1. Load manifest.
@@ -161,8 +165,8 @@ func (a *RestoreAction) restoreFile(d restorepkg.FileDiff) error {
 	src := filepath.Join(a.BackupDir, d.BackupPath)
 
 	// Security: validate source path stays under backup directory.
-	cleanSrc := path.Clean(strings.ReplaceAll(src, "\\", "/"))
-	cleanBackupDir := path.Clean(strings.ReplaceAll(a.BackupDir, "\\", "/")) + "/"
+	cleanSrc := paths.CanonicalPath(src)
+	cleanBackupDir := paths.CanonicalPath(a.BackupDir) + "/"
 	if !strings.HasPrefix(cleanSrc, cleanBackupDir) {
 		return fmt.Errorf("source path escapes backup directory")
 	}
@@ -172,8 +176,8 @@ func (a *RestoreAction) restoreFile(d restorepkg.FileDiff) error {
 	if err != nil {
 		return fmt.Errorf("home dir: %w", err)
 	}
-	cleanTarget := path.Clean(strings.ReplaceAll(d.TargetPath, "\\", "/"))
-	cleanHome := path.Clean(strings.ReplaceAll(homeDir, "\\", "/")) + "/"
+	cleanTarget := paths.CanonicalPath(d.TargetPath)
+	cleanHome := paths.CanonicalPath(homeDir) + "/"
 	if !strings.HasPrefix(cleanTarget, cleanHome) {
 		return fmt.Errorf("target path escapes home directory")
 	}

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
-	"strings"
+
+	"github.com/danielxxomg/bak-cli/internal/paths"
 )
 
 // RunExport creates a gzipped tar archive of the specified backup and writes
@@ -91,7 +91,7 @@ func CreateTarGz(srcDir string, w io.Writer) (retErr error) {
 		if err != nil {
 			return fmt.Errorf("relative path: %w", err)
 		}
-		rel = path.Clean(strings.ReplaceAll(rel, "\\", "/"))
+		rel = paths.CanonicalPath(rel)
 
 		info, err := d.Info()
 		if err != nil {
