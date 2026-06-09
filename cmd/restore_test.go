@@ -134,6 +134,41 @@ func TestRestoreCmd_Use(t *testing.T) {
 
 // --- runRestore execution tests ---
 
+func TestRunRestoreWithDeps_InvalidBackupID(t *testing.T) {
+	deps, _, _ := setupTestDeps(t)
+
+	cmd := findSubcommand(t, "restore")
+	if cmd == nil {
+		t.Fatal("restore command not found")
+	}
+	err := runRestoreWithDeps(cmd, []string{"not-a-valid-id"}, deps)
+
+	if err == nil {
+		t.Fatal("expected error for invalid backup ID")
+	}
+	errStr := err.Error()
+	if !strings.Contains(errStr, "invalid") && !strings.Contains(errStr, "backup") {
+		t.Errorf("error should mention invalid backup ID, got: %v", err)
+	}
+}
+
+func TestRunRestoreWithDeps_BackupNotFound(t *testing.T) {
+	deps, _, _ := setupTestDeps(t)
+
+	cmd := findSubcommand(t, "restore")
+	if cmd == nil {
+		t.Fatal("restore command not found")
+	}
+	err := runRestoreWithDeps(cmd, []string{"20250101-000000"}, deps)
+
+	if err == nil {
+		t.Skip("backup 20250101-000000 exists")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("error should mention 'not found', got: %v", err)
+	}
+}
+
 func TestRunRestore_MissingArgs(t *testing.T) {
 	// Restore requires exactly 1 arg. Direct args validation was tested above.
 	bufOut := new(bytes.Buffer)

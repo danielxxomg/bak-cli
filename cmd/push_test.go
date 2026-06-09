@@ -112,6 +112,32 @@ func TestResolveBackupID_SingleBackup(t *testing.T) {
 
 // --- push command execution tests ---
 
+func TestRunPushWithDeps_Delegation(t *testing.T) {
+	// Verify runPushWithDeps creates PushAction and delegates without panic.
+	// The actual Run() result depends on token/config state — any error is fine.
+	deps, _, _ := setupTestDeps(t)
+
+	cmd := findSubcommand(t, "push")
+	if cmd == nil {
+		t.Fatal("push command not found")
+	}
+	err := runPushWithDeps(cmd, []string{"20250101-000000"}, deps)
+
+	// We expect an error (no real token, backup doesn't exist), but not a panic.
+	// The key assertion: the wrapper successfully created the action and called Run.
+	if err == nil {
+		t.Skip("push succeeded — valid GitHub token configured")
+	}
+	// Verify error is from the actions layer, not a nil pointer or wiring issue.
+	errStr := err.Error()
+	if !strings.Contains(errStr, "not found") &&
+		!strings.Contains(errStr, "token") &&
+		!strings.Contains(errStr, "backup") &&
+		!strings.Contains(errStr, "resolve") {
+		t.Errorf("unexpected error from push delegation: %v", err)
+	}
+}
+
 func TestRunPush_ErrorsAppropriately(t *testing.T) {
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)

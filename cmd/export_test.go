@@ -81,7 +81,7 @@ func TestFormatBackupIDError(t *testing.T) {
 	if msg == "" {
 		t.Error("Error message should not be empty")
 	}
-	if !contains(msg, "invalid") {
+	if !strings.Contains(msg, "invalid") {
 		t.Error("Error message should contain the invalid ID")
 	}
 }

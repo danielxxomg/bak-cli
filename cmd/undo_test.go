@@ -104,6 +104,32 @@ func TestUndoCmd_Use(t *testing.T) {
 
 // --- runUndo execution tests ---
 
+func TestRunUndoWithDeps_Delegation(t *testing.T) {
+	// Verify runUndoWithDeps creates UndoAction and delegates without panic.
+	deps, _, _ := setupTestDeps(t)
+
+	cmd := findSubcommand(t, "undo")
+	if cmd == nil {
+		t.Fatal("undo command not found")
+	}
+	err := runUndoWithDeps(cmd, nil, deps)
+
+	// Undo requires a git repo in ~/.bak. If none exists, it errors.
+	// The key assertion: the wrapper successfully delegated — no nil panic.
+	if err == nil {
+		t.Log("undo succeeded — .bak git repo exists")
+		return
+	}
+	errStr := err.Error()
+	if !strings.Contains(errStr, "repository") &&
+		!strings.Contains(errStr, "repo") &&
+		!strings.Contains(errStr, "bak") &&
+		!strings.Contains(errStr, "git") &&
+		!strings.Contains(errStr, "undo") {
+		t.Errorf("unexpected error from undo delegation: %v", err)
+	}
+}
+
 func TestRunUndo_NoBakRepo(t *testing.T) {
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)

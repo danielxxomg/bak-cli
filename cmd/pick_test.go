@@ -1,10 +1,32 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/spf13/cobra"
 )
+
+// --- runPickWithDeps wrapper tests ---
+
+func TestRunPickWithDeps_NonTTYGuard(t *testing.T) {
+	// Override isTTY to simulate non-interactive terminal.
+	origIsTTY := isTTY
+	isTTY = func() bool { return false }
+	defer func() { isTTY = origIsTTY }()
+
+	deps, _, _ := setupTestDeps(t)
+	cmd := &cobra.Command{}
+	err := runPickWithDeps(cmd, nil, deps)
+
+	if err == nil {
+		t.Fatal("expected error from non-TTY pick")
+	}
+	if !strings.Contains(err.Error(), "TTY") {
+		t.Errorf("error should contain 'TTY', got: %v", err)
+	}
+}
 
 func TestPickModel_Init(t *testing.T) {
 	m := pickModel{
@@ -129,10 +151,10 @@ func TestPickModel_View(t *testing.T) {
 	if view == "" {
 		t.Error("View should not be empty")
 	}
-	if !contains(view, "skills") {
+	if !strings.Contains(view, "skills") {
 		t.Error("View should contain 'skills'")
 	}
-	if !contains(view, "config") {
+	if !strings.Contains(view, "config") {
 		t.Error("View should contain 'config'")
 	}
 }
@@ -171,17 +193,4 @@ func TestPickCmd_Args(t *testing.T) {
 	if pickCmd.Args != nil {
 		t.Error("Pick command should not require arguments")
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsSubstring(s, substr))
-}
-
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
