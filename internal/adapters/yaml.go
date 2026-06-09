@@ -60,12 +60,12 @@ func (a *ConfigAdapter) Detect(homeDir string) (installed bool, configDir string
 func (a *ConfigAdapter) ListItems(homeDir string, categories []string) ([]Item, error) {
 	configDir := filepath.Join(homeDir, filepath.FromSlash(a.def.ConfigPath))
 
-		// Security: validate configDir stays under homeDir.
-		cleanCfg := paths.CanonicalPath(configDir)
-		cleanHome := paths.CanonicalPath(homeDir)
-		if !strings.HasPrefix(cleanCfg, cleanHome+"/") && cleanCfg != cleanHome {
-			return nil, fmt.Errorf("path traversal: config path %q escapes home dir", a.def.ConfigPath)
-		}
+	// Security: validate configDir stays under homeDir.
+	cleanCfg := paths.CanonicalPath(configDir)
+	cleanHome := paths.CanonicalPath(homeDir)
+	if !strings.HasPrefix(cleanCfg, cleanHome+"/") && cleanCfg != cleanHome {
+		return nil, fmt.Errorf("path traversal: config path %q escapes home dir", a.def.ConfigPath)
+	}
 
 	catSet := make(map[string]bool, len(categories))
 	for _, c := range categories {

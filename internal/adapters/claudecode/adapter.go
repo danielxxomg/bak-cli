@@ -36,8 +36,8 @@ type Adapter struct{}
 // Compile-time check: Adapter satisfies the adapters.Adapter interface.
 var _ adapters.Adapter = (*Adapter)(nil)
 
-func (a *Adapter) Name() string                                                { return base.Name() }
-func (a *Adapter) Detect(homeDir string) (bool, string, error)                 { return base.Detect(homeDir) }
+func (a *Adapter) Name() string                                { return base.Name() }
+func (a *Adapter) Detect(homeDir string) (bool, string, error) { return base.Detect(homeDir) }
 func (a *Adapter) ListItems(homeDir string, cats []string) ([]adapters.Item, error) {
 	return base.ListItems(homeDir, cats)
 }

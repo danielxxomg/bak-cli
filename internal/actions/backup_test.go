@@ -74,8 +74,8 @@ func TestBackupAction_UnknownPreset(t *testing.T) {
 	action := &BackupAction{
 		FS:         setupMockFS(),
 		Registry:   setupBackupRegistry(),
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
 		Preset:     "bananas",
 		BakVersion: "test",
 	}
@@ -95,8 +95,8 @@ func TestBackupAction_NoAdaptersDetected(t *testing.T) {
 	action := &BackupAction{
 		FS:         setupMockFS(),
 		Registry:   reg,
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 	}
@@ -119,8 +119,8 @@ func TestBackupAction_MkdirError(t *testing.T) {
 	action := &BackupAction{
 		FS:         mockFS,
 		Registry:   adapters.NewRegistry(), // empty — will fail at detection, not mkdir
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 	}
@@ -148,8 +148,8 @@ func TestBackupAction_MkdirError_Integration(t *testing.T) {
 	action := &BackupAction{
 		FS:         fs,
 		Registry:   setupBackupRegistry(),
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 	}
@@ -182,8 +182,8 @@ func TestBackupAction_HappyPath_QuickPreset(t *testing.T) {
 	action := &BackupAction{
 		FS:         newHomeFS(home),
 		Registry:   setupBackupRegistry(),
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 	}
@@ -225,8 +225,8 @@ func TestBackupAction_HappyPath_FullPreset(t *testing.T) {
 	action := &BackupAction{
 		FS:         newHomeFS(home),
 		Registry:   setupBackupRegistry(),
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
 		Preset:     "full",
 		BakVersion: "test",
 	}
@@ -276,8 +276,8 @@ func TestBackupAction_InvalidAdapterFilter(t *testing.T) {
 	action := &BackupAction{
 		FS:            newHomeFS(home),
 		Registry:      setupBackupRegistry(),
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:        io.Discard,
+		Stderr:        io.Discard,
 		Preset:        "quick",
 		AdapterFilter: []string{"nonexistent"},
 		BakVersion:    "test",
@@ -303,8 +303,8 @@ func TestBackupAction_WithSecrets(t *testing.T) {
 	action := &BackupAction{
 		FS:         newHomeFS(home),
 		Registry:   setupBackupRegistry(),
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 	}
@@ -337,8 +337,8 @@ func TestBackupAction_AdapterFilter(t *testing.T) {
 	action := &BackupAction{
 		FS:            newHomeFS(home),
 		Registry:      setupBackupRegistry(),
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:        io.Discard,
+		Stderr:        io.Discard,
 		Preset:        "quick",
 		AdapterFilter: []string{"opencode"},
 		BakVersion:    "test",
@@ -366,8 +366,8 @@ func TestBackupAction_ManifestWriteError(t *testing.T) {
 	action := &BackupAction{
 		FS:         mockFS,
 		Registry:   adapters.NewRegistry(),
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 	}
@@ -385,8 +385,8 @@ func TestBackupAction_MultiAdapterFilter(t *testing.T) {
 	action := &BackupAction{
 		FS:            newHomeFS(home),
 		Registry:      setupBackupRegistry(),
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:        io.Discard,
+		Stderr:        io.Discard,
 		Preset:        "quick",
 		AdapterFilter: []string{"opencode", "nonexistent"},
 		BakVersion:    "test",
@@ -408,8 +408,8 @@ func TestBackupAction_HomeDirError(t *testing.T) {
 	action := &BackupAction{
 		FS:         mockFS,
 		Registry:   setupBackupRegistry(),
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 	}
@@ -427,8 +427,8 @@ func TestBackupAction_CustomCategories(t *testing.T) {
 	action := &BackupAction{
 		FS:               newHomeFS(home),
 		Registry:         setupBackupRegistry(),
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:           io.Discard,
+		Stderr:           io.Discard,
 		Preset:           "quick",
 		CustomCategories: []string{"config"},
 		BakVersion:       "test",
@@ -450,8 +450,8 @@ func TestBackupAction_SaveManifestError(t *testing.T) {
 	action := &BackupAction{
 		FS:         fs,
 		Registry:   setupBackupRegistry(),
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 	}
@@ -483,8 +483,8 @@ func TestBackupAction_HostnameFunc_Injected(t *testing.T) {
 	action := &BackupAction{
 		FS:         newHomeFS(home),
 		Registry:   setupBackupRegistry(),
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 		HostnameFn: func() (string, error) { return "testbox", nil },
@@ -527,8 +527,8 @@ func TestBackupAction_HostnameFunc_NilFallback(t *testing.T) {
 	action := &BackupAction{
 		FS:         newHomeFS(home),
 		Registry:   setupBackupRegistry(),
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
 		Preset:     "quick",
 		BakVersion: "test",
 		// HostnameFn is nil — should fall back to os.Hostname.
@@ -573,8 +573,8 @@ func TestBackupAction_SkillsPreset(t *testing.T) {
 	action := &BackupAction{
 		FS:         newHomeFS(home),
 		Registry:   setupBackupRegistry(),
-		Stdout:         io.Discard,
-		Stderr:         io.Discard,
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
 		Preset:     "skills",
 		BakVersion: "test",
 	}

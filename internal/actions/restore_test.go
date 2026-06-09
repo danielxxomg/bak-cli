@@ -72,8 +72,8 @@ func TestRestoreAction_DryRun(t *testing.T) {
 
 	action := &RestoreAction{
 		FS:      newHomeFS(home),
-		Stdout:   io.Discard,
-		Stderr:   io.Discard,
+		Stdout:  io.Discard,
+		Stderr:  io.Discard,
 		DryRun:  true,
 		Verbose: false,
 	}
@@ -163,8 +163,8 @@ func TestRestoreAction_DryRunShowsDiff(t *testing.T) {
 	action := &RestoreAction{
 		FS:        newHomeFS(home),
 		BackupDir: backupDir,
-		Stdout:   io.Discard,
-		Stderr:   io.Discard,
+		Stdout:    io.Discard,
+		Stderr:    io.Discard,
 		DryRun:    true,
 	}
 
@@ -229,8 +229,8 @@ func TestRestoreAction_VerboseOutput(t *testing.T) {
 		FS:        newHomeFS(home),
 		BackupDir: backupDir,
 		Verbose:   true,
-		Stdout:   io.Discard,
-		Stderr:   io.Discard,
+		Stdout:    io.Discard,
+		Stderr:    io.Discard,
 		DryRun:    true,
 	}
 
@@ -250,8 +250,8 @@ func TestRestoreAction_DryRunWithDiffs(t *testing.T) {
 	action := &RestoreAction{
 		FS:        newHomeFS(home),
 		BackupDir: backupDir,
-		Stdout:   io.Discard,
-		Stderr:   io.Discard,
+		Stdout:    io.Discard,
+		Stderr:    io.Discard,
 		DryRun:    true,
 		Verbose:   false,
 	}

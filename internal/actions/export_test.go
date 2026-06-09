@@ -122,8 +122,8 @@ func TestFormatBackupIDError(t *testing.T) {
 
 func TestRunExport_EdgeCases(t *testing.T) {
 	tests := []struct {
-		name        string
-		setup       func(home string) (backupID string, expectErr bool, errContains string)
+		name  string
+		setup func(home string) (backupID string, expectErr bool, errContains string)
 	}{
 		{
 			name: "empty_directory",
