@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/danielxxomg/bak-cli/internal/manifest"
+	"github.com/danielxxomg/bak-cli/internal/paths"
 )
 
 // makeManifest builds a minimal manifest with items keyed by adapter name.
@@ -43,7 +44,7 @@ func TestCompare(t *testing.T) {
 				item("skills/new-skill.md", "sha256:abc123", "opencode"),
 			}),
 			want: []DiffEntry{
-				{SourcePath: canonicalPath("skills/new-skill.md"), Category: CategoryAdded, Adapter: "opencode"},
+				{SourcePath: paths.CanonicalPath("skills/new-skill.md"), Category: CategoryAdded, Adapter: "opencode"},
 			},
 		},
 		{
@@ -53,7 +54,7 @@ func TestCompare(t *testing.T) {
 			}),
 			b: makeManifest("opencode", nil),
 			want: []DiffEntry{
-				{SourcePath: canonicalPath("skills/old-skill.md"), Category: CategoryRemoved, Adapter: "opencode"},
+				{SourcePath: paths.CanonicalPath("skills/old-skill.md"), Category: CategoryRemoved, Adapter: "opencode"},
 			},
 		},
 		{
@@ -65,7 +66,7 @@ func TestCompare(t *testing.T) {
 				item("skills/config.json", "sha256:bbb222", "opencode"),
 			}),
 			want: []DiffEntry{
-				{SourcePath: canonicalPath("skills/config.json"), Category: CategoryModified, Adapter: "opencode"},
+				{SourcePath: paths.CanonicalPath("skills/config.json"), Category: CategoryModified, Adapter: "opencode"},
 			},
 		},
 		{
@@ -77,7 +78,7 @@ func TestCompare(t *testing.T) {
 				item("skills/stable.md", "sha256:same", "opencode"),
 			}),
 			want: []DiffEntry{
-				{SourcePath: canonicalPath("skills/stable.md"), Category: CategoryUnchanged, Adapter: "opencode"},
+				{SourcePath: paths.CanonicalPath("skills/stable.md"), Category: CategoryUnchanged, Adapter: "opencode"},
 			},
 		},
 		{
@@ -93,10 +94,10 @@ func TestCompare(t *testing.T) {
 				item("d/added.md", "sha256:a1", "opencode"),
 			}),
 			want: []DiffEntry{
-				{SourcePath: canonicalPath("a/removed.md"), Category: CategoryRemoved, Adapter: "opencode"},
-				{SourcePath: canonicalPath("b/modified.md"), Category: CategoryModified, Adapter: "opencode"},
-				{SourcePath: canonicalPath("c/unchanged.md"), Category: CategoryUnchanged, Adapter: "opencode"},
-				{SourcePath: canonicalPath("d/added.md"), Category: CategoryAdded, Adapter: "opencode"},
+				{SourcePath: paths.CanonicalPath("a/removed.md"), Category: CategoryRemoved, Adapter: "opencode"},
+				{SourcePath: paths.CanonicalPath("b/modified.md"), Category: CategoryModified, Adapter: "opencode"},
+				{SourcePath: paths.CanonicalPath("c/unchanged.md"), Category: CategoryUnchanged, Adapter: "opencode"},
+				{SourcePath: paths.CanonicalPath("d/added.md"), Category: CategoryAdded, Adapter: "opencode"},
 			},
 		},
 		{
@@ -110,8 +111,8 @@ func TestCompare(t *testing.T) {
 				item("b.md", "sha256:h2", "opencode"),
 			}),
 			want: []DiffEntry{
-				{SourcePath: canonicalPath("a.md"), Category: CategoryUnchanged, Adapter: "opencode"},
-				{SourcePath: canonicalPath("b.md"), Category: CategoryUnchanged, Adapter: "opencode"},
+				{SourcePath: paths.CanonicalPath("a.md"), Category: CategoryUnchanged, Adapter: "opencode"},
+				{SourcePath: paths.CanonicalPath("b.md"), Category: CategoryUnchanged, Adapter: "opencode"},
 			},
 		},
 		{
@@ -129,7 +130,7 @@ func TestCompare(t *testing.T) {
 				{SourcePath: "skills/win-path.md", Hash: "sha256:h1", BackupPath: "opencode/skills/win-path.md"},
 			}),
 			want: []DiffEntry{
-				{SourcePath: canonicalPath("skills/win-path.md"), Category: CategoryUnchanged, Adapter: "opencode"},
+				{SourcePath: paths.CanonicalPath("skills/win-path.md"), Category: CategoryUnchanged, Adapter: "opencode"},
 			},
 		},
 		{
@@ -141,8 +142,8 @@ func TestCompare(t *testing.T) {
 				item("cursor/b.md", "sha256:h2", "cursor"),
 			}),
 			want: []DiffEntry{
-				{SourcePath: canonicalPath("cursor/b.md"), Category: CategoryAdded, Adapter: "cursor"},
-				{SourcePath: canonicalPath("skills/a.md"), Category: CategoryRemoved, Adapter: "opencode"},
+				{SourcePath: paths.CanonicalPath("cursor/b.md"), Category: CategoryAdded, Adapter: "cursor"},
+				{SourcePath: paths.CanonicalPath("skills/a.md"), Category: CategoryRemoved, Adapter: "opencode"},
 			},
 		},
 		{
@@ -156,8 +157,8 @@ func TestCompare(t *testing.T) {
 				item("a.md", "sha256:a", "opencode"),
 			}),
 			want: []DiffEntry{
-				{SourcePath: canonicalPath("a.md"), Category: CategoryUnchanged, Adapter: "opencode"},
-				{SourcePath: canonicalPath("z.md"), Category: CategoryModified, Adapter: "opencode"},
+				{SourcePath: paths.CanonicalPath("a.md"), Category: CategoryUnchanged, Adapter: "opencode"},
+				{SourcePath: paths.CanonicalPath("z.md"), Category: CategoryModified, Adapter: "opencode"},
 			},
 		},
 	}
@@ -184,78 +185,6 @@ func TestCompare(t *testing.T) {
 				if got[i].Adapter != tt.want[i].Adapter {
 					t.Errorf("[%d] Adapter = %q, want %q", i, got[i].Adapter, tt.want[i].Adapter)
 				}
-			}
-		})
-	}
-}
-
-func TestCanonicalPath(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{
-			name:  "already clean unix path",
-			input: "skills/foo.md",
-			want:  "skills/foo.md",
-		},
-		{
-			name:  "windows backslash normalized",
-			input: `skills\foo.md`,
-			want:  "skills/foo.md",
-		},
-		{
-			name:  "dot segments cleaned",
-			input: "skills/./foo.md",
-			want:  "skills/foo.md",
-		},
-		{
-			name:  "double dot segments cleaned",
-			input: "skills/a/../foo.md",
-			want:  "skills/foo.md",
-		},
-		{
-			name:  "trailing slash removed",
-			input: "skills/",
-			want:  "skills",
-		},
-		{
-			name:  "windows absolute path",
-			input: `C:\Users\alice\.config\opencode`,
-			want:  "C:/Users/alice/.config/opencode",
-		},
-		{
-			name:  "unix absolute path",
-			input: "/home/alice/.config/opencode",
-			want:  "/home/alice/.config/opencode",
-		},
-		{
-			name:  "mixed slashes",
-			input: `C:/Users\alice/.config\opencode`,
-			want:  "C:/Users/alice/.config/opencode",
-		},
-		{
-			name:  "relative dot-dot path",
-			input: "../config",
-			want:  "../config",
-		},
-		{
-			name:  "empty string",
-			input: "",
-			want:  ".",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Skip Windows-specific test cases on non-Windows platforms.
-			if strings.Contains(tt.name, "windows") && runtime.GOOS != "windows" {
-				t.Skip("skipping Windows-specific test on non-Windows platform")
-			}
-			got := canonicalPath(tt.input)
-			if got != tt.want {
-				t.Errorf("canonicalPath(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}

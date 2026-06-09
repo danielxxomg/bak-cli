@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/danielxxomg/bak-cli/internal/paths"
 )
 
 // ConfigAdapter implements the Adapter interface for tools discovered via
@@ -35,8 +36,8 @@ func (a *ConfigAdapter) Detect(homeDir string) (installed bool, configDir string
 	configDir = filepath.Join(homeDir, filepath.FromSlash(a.def.ConfigPath))
 
 	// Security: validate configDir stays under homeDir.
-	cleanCfg := path.Clean(filepath.ToSlash(configDir))
-	cleanHome := path.Clean(filepath.ToSlash(homeDir))
+	cleanCfg := paths.CanonicalPath(configDir)
+	cleanHome := paths.CanonicalPath(homeDir)
 	if !strings.HasPrefix(cleanCfg, cleanHome+"/") && cleanCfg != cleanHome {
 		return false, configDir, fmt.Errorf("path traversal: config path %q escapes home dir", a.def.ConfigPath)
 	}
@@ -59,12 +60,12 @@ func (a *ConfigAdapter) Detect(homeDir string) (installed bool, configDir string
 func (a *ConfigAdapter) ListItems(homeDir string, categories []string) ([]Item, error) {
 	configDir := filepath.Join(homeDir, filepath.FromSlash(a.def.ConfigPath))
 
-	// Security: validate configDir stays under homeDir.
-	cleanCfg := path.Clean(filepath.ToSlash(configDir))
-	cleanHome := path.Clean(filepath.ToSlash(homeDir))
-	if !strings.HasPrefix(cleanCfg, cleanHome+"/") && cleanCfg != cleanHome {
-		return nil, fmt.Errorf("path traversal: config path %q escapes home dir", a.def.ConfigPath)
-	}
+		// Security: validate configDir stays under homeDir.
+		cleanCfg := paths.CanonicalPath(configDir)
+		cleanHome := paths.CanonicalPath(homeDir)
+		if !strings.HasPrefix(cleanCfg, cleanHome+"/") && cleanCfg != cleanHome {
+			return nil, fmt.Errorf("path traversal: config path %q escapes home dir", a.def.ConfigPath)
+		}
 
 	catSet := make(map[string]bool, len(categories))
 	for _, c := range categories {
@@ -124,14 +125,14 @@ func (a *ConfigAdapter) ListItems(homeDir string, categories []string) ([]Item, 
 // directory, preserving relative structure under an adapter-named prefix.
 func (a *ConfigAdapter) Backup(homeDir, backupDir string, items []Item) error {
 	configDir := filepath.Join(homeDir, filepath.FromSlash(a.def.ConfigPath))
-	cleanBackup := path.Clean(filepath.ToSlash(backupDir))
+	cleanBackup := paths.CanonicalPath(backupDir)
 
 	for _, item := range items {
 		src := filepath.Join(configDir, filepath.FromSlash(item.RelPath))
 		dst := filepath.Join(backupDir, a.def.Name, filepath.FromSlash(item.RelPath))
 
 		// Security: validate dst stays under backupDir.
-		cleanDst := path.Clean(filepath.ToSlash(dst))
+		cleanDst := paths.CanonicalPath(dst)
 		if !strings.HasPrefix(cleanDst, cleanBackup+"/") && cleanDst != cleanBackup {
 			return fmt.Errorf("path traversal: item %q escapes backup dir", item.RelPath)
 		}
@@ -154,14 +155,14 @@ func (a *ConfigAdapter) Backup(homeDir, backupDir string, items []Item) error {
 // Restore copies items from the backup directory back to the user's home.
 func (a *ConfigAdapter) Restore(backupDir, homeDir string, items []Item) error {
 	configDir := filepath.Join(homeDir, filepath.FromSlash(a.def.ConfigPath))
-	cleanHome := path.Clean(filepath.ToSlash(homeDir))
+	cleanHome := paths.CanonicalPath(homeDir)
 
 	for _, item := range items {
 		src := filepath.Join(backupDir, a.def.Name, filepath.FromSlash(item.RelPath))
 		dst := filepath.Join(configDir, filepath.FromSlash(item.RelPath))
 
 		// Security: validate dst stays under homeDir.
-		cleanDst := path.Clean(filepath.ToSlash(dst))
+		cleanDst := paths.CanonicalPath(dst)
 		if !strings.HasPrefix(cleanDst, cleanHome+"/") && cleanDst != cleanHome {
 			return fmt.Errorf("path traversal: item %q escapes home dir", item.RelPath)
 		}
@@ -189,8 +190,8 @@ func (a *ConfigAdapter) Restore(backupDir, homeDir string, items []Item) error {
 // does not exist.
 func LoadYAMLAdapters(dir, homeDir string) ([]*ConfigAdapter, error) {
 	// Security: validate path stays under user home BEFORE any filesystem access.
-	cleanDir := path.Clean(filepath.ToSlash(dir))
-	cleanHome := path.Clean(filepath.ToSlash(homeDir))
+	cleanDir := paths.CanonicalPath(dir)
+	cleanHome := paths.CanonicalPath(homeDir)
 	if !strings.HasPrefix(cleanDir, cleanHome+"/") && cleanDir != cleanHome {
 		return nil, fmt.Errorf("path traversal: directory outside home")
 	}
@@ -278,7 +279,7 @@ func scanCategoryDir(dir, category, configDir string) ([]Item, error) {
 		item := Item{
 			Category:   category,
 			SourcePath: absPath,
-			RelPath:    filepath.ToSlash(relPath),
+			RelPath:    paths.Slash(relPath),
 			IsDir:      d.IsDir(),
 		}
 

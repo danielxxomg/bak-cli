@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	pathsutil "github.com/danielxxomg/bak-cli/internal/paths"
 )
 
 func TestIntegration_RestoreRoundTrip(t *testing.T) {
@@ -29,7 +31,7 @@ func TestIntegration_RestoreRoundTrip(t *testing.T) {
 			fullPath := filepath.Join(backupDir, backupPath)
 			mustWrite(t, fullPath, content)
 			// Derive canonical source path: opencode/<rest> → ~/.config/<rest>
-			sourcePath := "~/.config/" + filepath.ToSlash(backupPath)
+			sourcePath := "~/.config/" + pathsutil.Slash(backupPath)
 			manifestItems = append(manifestItems, manifestItem{
 				source: sourcePath,
 				backup: backupPath,
