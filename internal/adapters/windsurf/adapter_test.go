@@ -81,12 +81,12 @@ func TestAdapter_ListItems(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(configDir, "settings.json"), []byte(`{"ai":"enabled"}`), 0644); err != nil {
 			t.Fatal(err)
 		}
-		// Rules directory
-		rulesDir := filepath.Join(configDir, "rules")
-		if err := os.MkdirAll(rulesDir, 0755); err != nil {
+		// Rules (memories) directory
+		memoriesDir := filepath.Join(configDir, "memories")
+		if err := os.MkdirAll(memoriesDir, 0755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(rulesDir, "global.md"), []byte("# Global Rules"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(memoriesDir, "global.md"), []byte("# Global Rules"), 0644); err != nil {
 			t.Fatal(err)
 		}
 		return home
