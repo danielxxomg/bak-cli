@@ -123,6 +123,8 @@ func runBackupWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 		FS:               fs,
 		Config:           cfgLoader,
 		Registry:         reg,
+		Stdout:           deps.Stdout,
+		Stderr:           deps.Stderr,
 		Preset:           preset,
 		AdapterFilter:    adapterFilter,
 		Verbose:          verbose,
@@ -130,5 +132,5 @@ func runBackupWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 		CustomCategories: customCategories,
 	}
 
-	return action.Run(cmd, args)
+	return action.Run()
 }
