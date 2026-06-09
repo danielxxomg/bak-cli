@@ -168,8 +168,15 @@ jobs:
         with:
           version: 3.42.1
 
-      - name: Build binary
-        run: task build
+      - name: Build binary (Unix)
+        if: runner.os != 'Windows'
+        run: go build -o bak .
+        shell: bash
+
+      - name: Build binary (Windows)
+        if: runner.os == 'Windows'
+        run: go build -o bak.exe .
+        shell: pwsh
 
       - name: Verify binary (Unix)
         if: runner.os != 'Windows'
