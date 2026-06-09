@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/danielxxomg/bak-cli/internal/manifest"
+	pathsutil "github.com/danielxxomg/bak-cli/internal/paths"
 
 	gitutil "github.com/danielxxomg/bak-cli/internal/git"
 )
@@ -161,15 +161,15 @@ func (e *Engine) writeRestoreLog(backupID string, result *RestoreResult) {
 func (e *Engine) restoreFile(d FileDiff) error {
 	// Security: validate source path stays under backup directory.
 	src := filepath.Join(e.BackupDir, d.BackupPath)
-	cleanSrc := path.Clean(filepath.ToSlash(src))
-	cleanBackupDir := path.Clean(filepath.ToSlash(e.BackupDir)) + "/"
+	cleanSrc := pathsutil.CanonicalPath(src)
+	cleanBackupDir := pathsutil.CanonicalPath(e.BackupDir) + "/"
 	if !strings.HasPrefix(cleanSrc, cleanBackupDir) {
 		return fmt.Errorf("source path %q escapes backup directory", d.BackupPath)
 	}
 
 	// Security: validate target path stays under home directory.
-	cleanTarget := path.Clean(filepath.ToSlash(d.TargetPath))
-	cleanHome := path.Clean(filepath.ToSlash(e.HomeDir)) + "/"
+	cleanTarget := pathsutil.CanonicalPath(d.TargetPath)
+	cleanHome := pathsutil.CanonicalPath(e.HomeDir) + "/"
 	if !strings.HasPrefix(cleanTarget, cleanHome) {
 		return fmt.Errorf("target path %q escapes home directory", d.TargetPath)
 	}

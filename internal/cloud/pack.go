@@ -11,6 +11,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/danielxxomg/bak-cli/internal/paths"
 )
 
 // TarGzDirectory creates a base64-encoded tar.gz from the given
@@ -70,10 +72,9 @@ func tarGzDir(dir string, w io.Writer) (retErr error) {
 		if err != nil {
 			return fmt.Errorf("relative path: %w", err)
 		}
-		// Normalize to forward slashes and clean for archive portability.
-		// Use path.Clean + strings.ReplaceAll instead of filepath.ToSlash
-		// for consistent cross-platform canonical paths.
-		rel = path.Clean(strings.ReplaceAll(rel, "\\", "/"))
+		// Normalize to forward slashes and clean for archive portability
+		// using paths.CanonicalPath for consistent cross-platform canonical paths.
+		rel = paths.CanonicalPath(rel)
 
 		info, err := d.Info()
 		if err != nil {
@@ -169,8 +170,8 @@ func untarGzDir(r io.Reader, targetDir string) (retErr error) {
 		target := filepath.Join(targetDir, filepath.FromSlash(hdr.Name))
 
 		// Security: prevent path traversal using canonical path comparison.
-		cleanTarget := path.Clean(strings.ReplaceAll(target, "\\", "/"))
-		cleanDir := path.Clean(strings.ReplaceAll(targetDir, "\\", "/")) + "/"
+		cleanTarget := paths.CanonicalPath(target)
+		cleanDir := paths.CanonicalPath(targetDir) + "/"
 		if !strings.HasPrefix(cleanTarget, cleanDir) {
 			return fmt.Errorf("path traversal detected: %s", hdr.Name)
 		}

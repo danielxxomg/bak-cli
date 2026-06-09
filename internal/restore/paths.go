@@ -5,8 +5,6 @@ package restore
 
 import (
 	"fmt"
-	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/danielxxomg/bak-cli/internal/manifest"
@@ -23,7 +21,7 @@ func ResolvePath(canonical, homeDir string) (string, error) {
 	// Preserve the separator style of the target home directory so
 	// cross-platform tests produce consistent output.
 	if isUnixHome(homeDir) {
-		resolved = filepath.ToSlash(resolved)
+		resolved = pathsutil.Slash(resolved)
 	}
 
 	// Security: refuse paths outside the home directory.
@@ -58,8 +56,8 @@ func ResolveManifestPaths(m *manifest.Manifest, homeDir string) (map[string]stri
 func isUnderHomeDir(absPath, homeDir string) bool {
 	// Normalize both to forward slashes for cross-platform safety.
 	// Use path.Clean (not filepath.Clean) to avoid OS separator re-conversion.
-	absClean := path.Clean(filepath.ToSlash(absPath))
-	homeClean := path.Clean(filepath.ToSlash(homeDir))
+	absClean := pathsutil.CanonicalPath(absPath)
+	homeClean := pathsutil.CanonicalPath(homeDir)
 
 	// Equal to home directory is allowed.
 	if absClean == homeClean {
