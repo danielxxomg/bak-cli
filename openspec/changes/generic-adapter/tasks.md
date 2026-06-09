@@ -41,23 +41,23 @@ Chain strategy: stacked-to-main
 
 - [x] 2.1 **Migrate codex** — `internal/adapters/codex/adapter.go`: adapterName=`"codex"`, configRelPath=`".codex"`, categories={config, instructions}, DetectErrContext=`"stat codex config dir"`. Verify: `go test ./internal/adapters/codex/... ./...`
 - [x] 2.2 **COMMIT** — `refactor: migrate codex adapter to GenericAdapter`
-- [ ] 2.3 **Migrate kiro** — `internal/adapters/kiro/adapter.go`: adapterName=`"kiro"`, configRelPath=`".kiro"`, categories={config, hooks}, DetectErrContext=`"stat kiro config dir"`. Verify: `go test ./...`
-- [ ] 2.4 **COMMIT** — `refactor: migrate kiro adapter to GenericAdapter`
-- [ ] 2.5 **Migrate kilocode** — `internal/adapters/kilocode/adapter.go`: adapterName=`"kilocode"`, configRelPath=`".kilocode"`, categories={config, rules}, DetectErrContext=`"stat kilocode config dir"`. Verify: `go test ./...`
-- [ ] 2.6 **COMMIT** — `refactor: migrate kilocode adapter to GenericAdapter`
-- [ ] 2.7 **Migrate pidev** — `internal/adapters/pidev/adapter.go`: adapterName=`"pidev"`, configRelPath=`".pi"`, categories={config, agents}, DetectErrContext=`"stat pidev config dir"`. Verify: `go test ./...`
-- [ ] 2.8 **COMMIT** — `refactor: migrate pidev adapter to GenericAdapter`
-- [ ] 2.9 **Migrate windsurf** — `internal/adapters/windsurf/adapter.go`: adapterName=`"windsurf"`, configRelPath=`".codeium/windsurf"` (nested path), categories={config, rules}, DetectErrContext=`"stat windsurf config dir"`. Verify: `go test ./...`
-- [ ] 2.10 **COMMIT** — `refactor: migrate windsurf adapter to GenericAdapter`
-- [ ] 2.11 **Migrate cursor** — `internal/adapters/cursor/adapter.go`: adapterName=`"cursor"`, configRelPath=`".cursor"`, categories={config, extensions}, DetectErrContext=`"stat cursor config dir"`. Verify: `go test ./...`
-- [ ] 2.12 **COMMIT** — `refactor: migrate cursor adapter to GenericAdapter`
-- [ ] 2.13 **Migrate claudecode** — `internal/adapters/claudecode/adapter.go`: adapterName=`"claude-code"`, configRelPath=`".claude"`, categories={config, skills, commands} (3 categories), DetectErrContext=`"stat claude-code config dir"`. Verify: `go test ./...`
-- [ ] 2.14 **COMMIT** — `refactor: migrate claudecode adapter to GenericAdapter`
+- [x] 2.3 **Migrate kiro** — `internal/adapters/kiro/adapter.go`: adapterName=`"kiro"`, configRelPath=`".kiro"`, categories={config, hooks}, DetectErrContext=`"stat kiro config dir"`. Verify: `go test ./...`
+- [x] 2.4 **COMMIT** — `refactor: migrate kiro adapter to GenericAdapter`
+- [x] 2.5 **Migrate kilocode** — `internal/adapters/kilocode/adapter.go`: adapterName=`"kilocode"`, configRelPath=`".kilocode"`, categories={config, rules}, DetectErrContext=`"stat kilocode config dir"`. Verify: `go test ./...`
+- [x] 2.6 **COMMIT** — `refactor: migrate kilocode adapter to GenericAdapter`
+- [x] 2.7 **Migrate pidev** — `internal/adapters/pidev/adapter.go`: adapterName=`"pidev"`, configRelPath=`".pi"`, categories={config, agents}, DetectErrContext=`"stat pidev config dir"`. Verify: `go test ./...`
+- [x] 2.8 **COMMIT** — `refactor: migrate pidev adapter to GenericAdapter`
+- [x] 2.9 **Migrate windsurf** — `internal/adapters/windsurf/adapter.go`: adapterName=`"windsurf"`, configRelPath=`".codeium/windsurf"` (nested path), categories={config, rules}, DetectErrContext=`"stat windsurf config dir"`. Verify: `go test ./...`
+- [x] 2.10 **COMMIT** — `refactor: migrate windsurf adapter to GenericAdapter`
+- [x] 2.11 **Migrate cursor** — `internal/adapters/cursor/adapter.go`: adapterName=`"cursor"`, configRelPath=`".cursor"`, categories={config, extensions}, DetectErrContext=`"stat cursor config dir"`. Verify: `go test ./...`
+- [x] 2.12 **COMMIT** — `refactor: migrate cursor adapter to GenericAdapter`
+- [x] 2.13 **Migrate claudecode** — `internal/adapters/claudecode/adapter.go`: adapterName=`"claude-code"`, configRelPath=`".claude"`, categories={config, skills, commands} (3 categories), DetectErrContext=`"stat claude-code config dir"`. Verify: `go test ./...`
+- [x] 2.14 **COMMIT** — `refactor: migrate claudecode adapter to GenericAdapter`
 
 ## Phase 3: Final Verification
 
-- [ ] 3.1 Run `go test ./...` — zero failures across all packages.
-- [ ] 3.2 Run `go vet ./...` — clean.
-- [ ] 3.3 Verify `register/register.go` is **unchanged** — still uses `&codex.Adapter{}` etc.
-- [ ] 3.4 Verify no test files were modified (`git diff --name-only | grep _test.go` should be empty except `generic_test.go`).
-- [ ] 3.5 Verify net line reduction ≥700 lines (`git diff --stat main`).
+- [x] 3.1 Run `go test ./...` — zero failures across all packages.
+- [x] 3.2 Run `go vet ./...` — clean.
+- [x] 3.3 Verify `register/register.go` is **unchanged** — still uses `&codex.Adapter{}` etc.
+- [x] 3.4 Verify no test files were modified (`git diff --name-only | grep _test.go` should be empty except `generic_test.go`).
+- [x] 3.5 Verify net line reduction ≥700 lines (`git diff --stat main`).
