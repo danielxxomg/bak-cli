@@ -2,10 +2,13 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/danielxxomg/bak-cli/internal/config"
 )
 
 // resetBackupVars resets package-level flag variables between tests.
@@ -17,38 +20,70 @@ func resetBackupVars() {
 
 // --- backup command execution tests ---
 
-func TestRunBackup_InvalidPreset(t *testing.T) {
-	resetBackupVars()
-	backupPreset = "nonexistent_xyz"
-	defer func() { backupPreset = "quick" }()
-
-	deps, _, _ := setupTestDeps(t)
-
-	cmd := &cobra.Command{}
-	err := runBackupWithDeps(cmd, nil, deps)
-
-	if err == nil {
-		t.Fatal("expected backup with invalid preset to error")
+func TestRunBackup_InvalidInputs(t *testing.T) {
+	tests := []struct {
+		name       string
+		setupFlags func()
+		setupDeps  func(deps cmdDeps) cmdDeps
+		wantErrSub string
+	}{
+		{
+			name: "invalid preset",
+			setupFlags: func() {
+				backupPreset = "nonexistent_xyz"
+			},
+			wantErrSub: "preset",
+		},
+		{
+			name: "invalid adapter",
+			setupFlags: func() {
+				backupAdapter = "nonexistent_adapter_xyz"
+			},
+			wantErrSub: "nonexistent_adapter_xyz",
+		},
+		{
+			name: "profile not found",
+			setupFlags: func() {
+				backupProfile = "nonexistent_profile_xyz"
+			},
+			wantErrSub: "not found",
+		},
+		{
+			name: "config loader error",
+			setupFlags: func() {
+				backupProfile = "test-profile"
+			},
+			setupDeps: func(deps cmdDeps) cmdDeps {
+				deps.ConfigLoader = func() (*config.Config, error) {
+					return nil, errors.New("disk failure")
+				}
+				return deps
+			},
+			wantErrSub: "load config for profile",
+		},
 	}
-	if !strings.Contains(err.Error(), "preset") {
-		t.Errorf("error should mention preset issue, got: %v", err)
-	}
-}
 
-func TestRunBackup_InvalidAdapter(t *testing.T) {
-	resetBackupVars()
-	backupAdapter = "nonexistent_adapter_xyz"
-	defer func() { backupAdapter = "" }()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resetBackupVars()
+			tt.setupFlags()
+			defer resetBackupVars()
 
-	deps, _, _ := setupTestDeps(t)
-	cmd := &cobra.Command{}
-	err := runBackupWithDeps(cmd, nil, deps)
+			deps, _, _ := setupTestDeps(t)
+			if tt.setupDeps != nil {
+				deps = tt.setupDeps(deps)
+			}
 
-	if err == nil {
-		t.Fatal("expected backup with invalid adapter to error")
-	}
-	if !strings.Contains(err.Error(), "nonexistent_adapter_xyz") {
-		t.Errorf("error should mention adapter name, got: %v", err)
+			cmd := &cobra.Command{}
+			err := runBackupWithDeps(cmd, nil, deps)
+
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !strings.Contains(err.Error(), tt.wantErrSub) {
+				t.Errorf("error should contain %q, got: %v", tt.wantErrSub, err)
+			}
+		})
 	}
 }
 
@@ -112,25 +147,6 @@ func TestBackupCmd_FlagsAfterInit(t *testing.T) {
 	}
 	if profileFlag.DefValue != "" {
 		t.Errorf("--profile default = %q, want ''", profileFlag.DefValue)
-	}
-}
-
-func TestRunBackup_ProfileNotFound(t *testing.T) {
-	resetBackupVars()
-	backupProfile = "nonexistent_profile_xyz"
-	defer func() { backupProfile = "" }()
-
-	deps, _, _ := setupTestDeps(t)
-
-	cmd := &cobra.Command{}
-	err := runBackupWithDeps(cmd, nil, deps)
-
-	if err == nil {
-		t.Fatal("expected backup with nonexistent profile to error")
-	}
-	errStr := err.Error()
-	if !strings.Contains(errStr, "not found") {
-		t.Errorf("error should mention not found, got: %v", err)
 	}
 }
 
