@@ -7,18 +7,23 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 )
 
-const adapterName = "windsurf"
-const configRelPath = ".codeium/windsurf"
+// AdapterName is the adapter identifier exposed for knowledge validation.
+const AdapterName = "windsurf"
 
-var categoryMap = map[string]adapters.CategoryDir{
+// ConfigRelPath is the adapter config directory relative to the user home, exposed for knowledge validation.
+const ConfigRelPath = ".codeium/windsurf"
+
+// CategoryMap maps category names to their subdirectory/file patterns, exposed for knowledge validation.
+var CategoryMap = map[string]adapters.CategoryDir{
 	"config": {SubPath: "", IsDir: false},
-	"rules":  {SubPath: "rules", IsDir: true},
+	"rules":  {SubPath: "memories", IsDir: true},
+	"skills": {SubPath: "skills", IsDir: true},
 }
 
 var base = adapters.GenericAdapter{
-	AdapterName:      adapterName,
-	ConfigRelPath:    configRelPath,
-	Categories:       categoryMap,
+	AdapterName:      AdapterName,
+	ConfigRelPath:    ConfigRelPath,
+	Categories:       CategoryMap,
 	DetectErrContext: "stat windsurf config dir",
 }
 

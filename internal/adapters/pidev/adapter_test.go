@@ -21,7 +21,7 @@ func TestAdapter_Detect(t *testing.T) {
 
 	t.Run("installed", func(t *testing.T) {
 		home := t.TempDir()
-		configDir := filepath.Join(home, ".pi")
+		configDir := filepath.Join(home, ".pi", "agent")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
 			t.Fatal(err)
 		}
@@ -50,7 +50,11 @@ func TestAdapter_Detect(t *testing.T) {
 
 	t.Run("exists but is file not dir", func(t *testing.T) {
 		home := t.TempDir()
-		configPath := filepath.Join(home, ".pi")
+		piDir := filepath.Join(home, ".pi")
+		if err := os.MkdirAll(piDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		configPath := filepath.Join(piDir, "agent")
 		if err := os.WriteFile(configPath, []byte("not a dir"), 0644); err != nil {
 			t.Fatal(err)
 		}
@@ -70,7 +74,7 @@ func TestAdapter_ListItems(t *testing.T) {
 	setupHome := func(t *testing.T) string {
 		t.Helper()
 		home := t.TempDir()
-		configDir := filepath.Join(home, ".pi")
+		configDir := filepath.Join(home, ".pi", "agent")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
 			t.Fatal(err)
 		}
@@ -130,7 +134,7 @@ func TestAdapter_ListItems(t *testing.T) {
 func TestAdapter_Backup(t *testing.T) {
 	a := &Adapter{}
 	home := t.TempDir()
-	configDir := filepath.Join(home, ".pi")
+	configDir := filepath.Join(home, ".pi", "agent")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +142,7 @@ func TestAdapter_Backup(t *testing.T) {
 		t.Fatal(err)
 	}
 	items := []adapters.Item{
-		{Category: "config", SourcePath: "~/.pi/config.json", RelPath: "config.json", IsDir: false, Hash: "sha256:abc", Size: 17},
+		{Category: "config", SourcePath: "~/.pi/agent/config.json", RelPath: "config.json", IsDir: false, Hash: "sha256:abc", Size: 17},
 	}
 	backupDir := filepath.Join(t.TempDir(), "backup")
 	if err := a.Backup(home, backupDir, items); err != nil {
@@ -165,13 +169,13 @@ func TestAdapter_Restore(t *testing.T) {
 		t.Fatal(err)
 	}
 	items := []adapters.Item{
-		{Category: "config", SourcePath: "~/.pi/config.json", RelPath: "config.json", IsDir: false, Hash: "sha256:xyz", Size: 18},
+		{Category: "config", SourcePath: "~/.pi/agent/config.json", RelPath: "config.json", IsDir: false, Hash: "sha256:xyz", Size: 18},
 	}
 	home := t.TempDir()
 	if err := a.Restore(backupDir, home, items); err != nil {
 		t.Fatalf("Restore: %v", err)
 	}
-	restoredFile := filepath.Join(home, ".pi", "config.json")
+	restoredFile := filepath.Join(home, ".pi", "agent", "config.json")
 	data, err := os.ReadFile(restoredFile)
 	if err != nil {
 		t.Fatalf("read restored file: %v", err)
@@ -202,7 +206,7 @@ func TestAdapter_InterfaceCompliance(t *testing.T) {
 func TestAdapter_Backup_DirectoryItems(t *testing.T) {
 	a := &Adapter{}
 	home := t.TempDir()
-	configDir := filepath.Join(home, ".pi")
+	configDir := filepath.Join(home, ".pi", "agent")
 	subDir := filepath.Join(configDir, "myskills")
 	if err := os.MkdirAll(subDir, 0755); err != nil {
 		t.Fatal(err)
@@ -212,8 +216,8 @@ func TestAdapter_Backup_DirectoryItems(t *testing.T) {
 	}
 
 	items := []adapters.Item{
-		{Category: "skills", SourcePath: "~/.pi/myskills", RelPath: "myskills", IsDir: true},
-		{Category: "skills", SourcePath: "~/.pi/myskills/code-review.md", RelPath: "myskills/code-review.md", IsDir: false, Hash: "sha256:abc", Size: 13},
+		{Category: "skills", SourcePath: "~/.pi/agent/myskills", RelPath: "myskills", IsDir: true},
+		{Category: "skills", SourcePath: "~/.pi/agent/myskills/code-review.md", RelPath: "myskills/code-review.md", IsDir: false, Hash: "sha256:abc", Size: 13},
 	}
 
 	backupDir := filepath.Join(t.TempDir(), "backup")
@@ -246,7 +250,7 @@ func TestAdapter_Backup_CopyError(t *testing.T) {
 	}
 	a := &Adapter{}
 	home := t.TempDir()
-	configDir := filepath.Join(home, ".pi")
+	configDir := filepath.Join(home, ".pi", "agent")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -260,7 +264,7 @@ func TestAdapter_Backup_CopyError(t *testing.T) {
 	}
 
 	items := []adapters.Item{
-		{Category: "config", SourcePath: "~/.pi/unreadable.txt", RelPath: "unreadable.txt", IsDir: false, Hash: "sha256:abc", Size: 4},
+		{Category: "config", SourcePath: "~/.pi/agent/unreadable.txt", RelPath: "unreadable.txt", IsDir: false, Hash: "sha256:abc", Size: 4},
 	}
 
 	backupDir := filepath.Join(t.TempDir(), "backup")
@@ -276,7 +280,7 @@ func TestAdapter_Restore_CopyError(t *testing.T) {
 	}
 	a := &Adapter{}
 	home := t.TempDir()
-	configDir := filepath.Join(home, ".pi")
+	configDir := filepath.Join(home, ".pi", "agent")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -294,7 +298,7 @@ func TestAdapter_Restore_CopyError(t *testing.T) {
 	}
 
 	items := []adapters.Item{
-		{Category: "config", SourcePath: "~/.pi/secret.json", RelPath: "secret.json", IsDir: false, Hash: "sha256:xyz", Size: 16},
+		{Category: "config", SourcePath: "~/.pi/agent/secret.json", RelPath: "secret.json", IsDir: false, Hash: "sha256:xyz", Size: 16},
 	}
 
 	err := a.Restore(backupDir, home, items)

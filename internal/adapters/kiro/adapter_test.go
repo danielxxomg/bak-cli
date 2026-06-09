@@ -77,12 +77,12 @@ func TestAdapter_ListItems(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(configDir, "config.json"), []byte(`{"model":"gpt-4"}`), 0644); err != nil {
 			t.Fatal(err)
 		}
-		// Hooks directory
-		hooksDir := filepath.Join(configDir, "hooks")
-		if err := os.MkdirAll(hooksDir, 0755); err != nil {
+		// Agents directory
+		agentsDir := filepath.Join(configDir, "agents")
+		if err := os.MkdirAll(agentsDir, 0755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(hooksDir, "pre-commit.sh"), []byte("#!/bin/sh"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(agentsDir, "default.md"), []byte("#!/bin/sh"), 0644); err != nil {
 			t.Fatal(err)
 		}
 		return home
@@ -99,25 +99,25 @@ func TestAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("hooks category", func(t *testing.T) {
+	t.Run("agents category", func(t *testing.T) {
 		home := setupHome(t)
-		items, err := a.ListItems(home, []string{"hooks"})
+		items, err := a.ListItems(home, []string{"agents"})
 		if err != nil {
 			t.Fatalf("ListItems: %v", err)
 		}
 		if len(items) < 1 {
-			t.Fatal("expected at least 1 hooks item")
+			t.Fatal("expected at least 1 agents item")
 		}
 		for _, item := range items {
-			if item.Category != "hooks" {
-				t.Errorf("item %q has category %q, want hooks", item.RelPath, item.Category)
+			if item.Category != "agents" {
+				t.Errorf("item %q has category %q, want agents", item.RelPath, item.Category)
 			}
 		}
 	})
 
 	t.Run("all categories", func(t *testing.T) {
 		home := setupHome(t)
-		items, err := a.ListItems(home, []string{"config", "hooks"})
+		items, err := a.ListItems(home, []string{"config", "agents"})
 		if err != nil {
 			t.Fatalf("ListItems: %v", err)
 		}

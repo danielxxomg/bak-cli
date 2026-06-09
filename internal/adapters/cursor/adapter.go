@@ -7,18 +7,23 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 )
 
-const adapterName = "cursor"
-const configRelPath = ".cursor"
+// AdapterName is the adapter identifier exposed for knowledge validation.
+const AdapterName = "cursor"
 
-var categoryMap = map[string]adapters.CategoryDir{
+// ConfigRelPath is the adapter config directory relative to the user home, exposed for knowledge validation.
+const ConfigRelPath = ".cursor"
+
+// CategoryMap maps category names to their subdirectory/file patterns, exposed for knowledge validation.
+var CategoryMap = map[string]adapters.CategoryDir{
 	"config":     {SubPath: "", IsDir: false},
 	"extensions": {SubPath: "extensions", IsDir: true},
+	"mcp":        {SubPath: "", IsDir: false},
 }
 
 var base = adapters.GenericAdapter{
-	AdapterName:      adapterName,
-	ConfigRelPath:    configRelPath,
-	Categories:       categoryMap,
+	AdapterName:      AdapterName,
+	ConfigRelPath:    ConfigRelPath,
+	Categories:       CategoryMap,
 	DetectErrContext: "stat cursor config dir",
 }
 

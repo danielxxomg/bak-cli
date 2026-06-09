@@ -7,18 +7,24 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 )
 
-const adapterName = "kilocode"
-const configRelPath = ".kilocode"
+// AdapterName is the adapter identifier exposed for knowledge validation.
+const AdapterName = "kilocode"
 
-var categoryMap = map[string]adapters.CategoryDir{
-	"config": {SubPath: "", IsDir: false},
-	"rules":  {SubPath: "rules", IsDir: true},
+// ConfigRelPath is the adapter config directory relative to the user home, exposed for knowledge validation.
+const ConfigRelPath = ".kilocode"
+
+// CategoryMap maps category names to their subdirectory/file patterns, exposed for knowledge validation.
+var CategoryMap = map[string]adapters.CategoryDir{
+	"config":    {SubPath: "", IsDir: false},
+	"rules":     {SubPath: "rules", IsDir: true},
+	"workflows": {SubPath: "workflows", IsDir: true},
+	"skills":    {SubPath: "skills", IsDir: true},
 }
 
 var base = adapters.GenericAdapter{
-	AdapterName:      adapterName,
-	ConfigRelPath:    configRelPath,
-	Categories:       categoryMap,
+	AdapterName:      AdapterName,
+	ConfigRelPath:    ConfigRelPath,
+	Categories:       CategoryMap,
 	DetectErrContext: "stat kilocode config dir",
 }
 

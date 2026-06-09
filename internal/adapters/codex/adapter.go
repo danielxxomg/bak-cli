@@ -7,18 +7,22 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 )
 
-const adapterName = "codex"
-const configRelPath = ".codex"
+// AdapterName is the adapter identifier exposed for knowledge validation.
+const AdapterName = "codex"
 
-var categoryMap = map[string]adapters.CategoryDir{
-	"config":       {SubPath: "", IsDir: false},
-	"instructions": {SubPath: "instructions", IsDir: true},
+// ConfigRelPath is the adapter config directory relative to the user home, exposed for knowledge validation.
+const ConfigRelPath = ".codex"
+
+// CategoryMap maps category names to their subdirectory/file patterns, exposed for knowledge validation.
+var CategoryMap = map[string]adapters.CategoryDir{
+	"config": {SubPath: "", IsDir: false},
+	"agents": {SubPath: "", IsDir: false},
 }
 
 var base = adapters.GenericAdapter{
-	AdapterName:      adapterName,
-	ConfigRelPath:    configRelPath,
-	Categories:       categoryMap,
+	AdapterName:      AdapterName,
+	ConfigRelPath:    ConfigRelPath,
+	Categories:       CategoryMap,
 	DetectErrContext: "stat codex config dir",
 }
 

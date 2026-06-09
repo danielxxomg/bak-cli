@@ -7,18 +7,22 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 )
 
-const adapterName = "pidev"
-const configRelPath = ".pi"
+// AdapterName is the adapter identifier exposed for knowledge validation.
+const AdapterName = "pidev"
 
-var categoryMap = map[string]adapters.CategoryDir{
+// ConfigRelPath is the adapter config directory relative to the user home, exposed for knowledge validation.
+const ConfigRelPath = ".pi/agent"
+
+// CategoryMap maps category names to their subdirectory/file patterns, exposed for knowledge validation.
+var CategoryMap = map[string]adapters.CategoryDir{
 	"config": {SubPath: "", IsDir: false},
 	"agents": {SubPath: "agents", IsDir: true},
 }
 
 var base = adapters.GenericAdapter{
-	AdapterName:      adapterName,
-	ConfigRelPath:    configRelPath,
-	Categories:       categoryMap,
+	AdapterName:      AdapterName,
+	ConfigRelPath:    ConfigRelPath,
+	Categories:       CategoryMap,
 	DetectErrContext: "stat pidev config dir",
 }
 
