@@ -36,6 +36,8 @@
 - MUST redact sensitive patterns (ghp_*, sk-*, sk-ant-*) in any output
 - MUST use `os.UserHomeDir()` — never hardcode home paths
 - MUST use `path.Clean` + `strings.ReplaceAll(path, "\\", "/")` for canonical path comparison — NOT `filepath.ToSlash` (OS-dependent, fails on Linux)
+  - ❌ Violation: `path.Clean(filepath.ToSlash(x))`
+  - ✅ Correct: `path.Clean(strings.ReplaceAll(x, "\\", "/"))`
 - MUST NOT use `filepath.Clean` for cross-platform canonical paths
 
 ### Cross-Platform
@@ -58,6 +60,12 @@
 - SHOULD provide `--verbose` flag for debugging
 - MUST provide `--dry-run` for any destructive operation (restore)
 - MUST delegate all business logic from cobra `RunE` to `internal/actions/` — no logic in `cmd/`
+
+### Architecture Boundaries
+- `internal/actions/` MUST NOT import `github.com/spf13/cobra` — cobra is a `cmd/` concern only
+- Actions MUST accept `io.Writer`/`io.Reader` and plain parameters, not framework types
+- `cmd/` is the ONLY package that translates cobra types to action parameters
+- `internal/cloud/` MUST reuse existing helpers (`httputil.go`) — MUST NOT reimplement HTTP request/response logic
 
 ### Testing
 - MUST achieve >80% coverage for new code
@@ -102,6 +110,12 @@
 - SHOULD prefer concrete types for function parameters, interfaces for struct fields
 - MUST use consistent naming: `Config` not `Configuration`, `Run` not `Execute`
 - SHOULD return structs instead of multiple return values for complex results
+
+### DRY (Don't Repeat Yourself)
+- MUST NOT duplicate utility functions across packages — extract to a shared package (e.g., `adapters/util.go`, `cloud/httputil.go`)
+- MUST use existing helpers instead of reimplementing logic (e.g., use `httputil.go` for HTTP, `adapters/util.go` for file ops)
+- SHOULD extract common patterns into base implementations (e.g., generic adapter struct with configurable constants)
+- If two functions share >70% of their logic, they MUST be consolidated into a parameterized implementation
 
 ### Performance
 - SHOULD avoid unnecessary allocations in hot paths
