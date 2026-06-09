@@ -54,6 +54,19 @@ func ConfigDir(relPath string) (string, error) {
 	return filepath.Join(base, relPath), nil
 }
 
+// Slash replaces all backslashes with forward slashes.
+// Unlike filepath.ToSlash, this is OS-independent: it always converts
+// regardless of the host platform.
+func Slash(p string) string {
+	return strings.ReplaceAll(p, "\\", "/")
+}
+
+// CanonicalPath returns a cleaned, forward-slash path suitable for
+// cross-platform comparison. Equivalent to path.Clean(Slash(p)).
+func CanonicalPath(p string) string {
+	return path.Clean(Slash(p))
+}
+
 // ToCanonical converts an absolute path to its canonical "~/" form.
 //
 //	"C:\Users\alice\.config\opencode" → "~/.config/opencode"
@@ -70,9 +83,9 @@ func ToCanonical(absPath string) string {
 
 // toCanonical is the testable core that accepts an explicit homeDir.
 func toCanonical(absPath, homeDir string) string {
-	// Use path.Clean (forward-slash) for canonical form.
-	cleanedAbs := path.Clean(filepath.ToSlash(absPath))
-	cleanedHome := path.Clean(filepath.ToSlash(homeDir))
+	// Use CanonicalPath (cross-platform) for canonical form.
+	cleanedAbs := CanonicalPath(absPath)
+	cleanedHome := CanonicalPath(homeDir)
 
 	// Case-insensitive prefix check for Windows.
 	if strings.EqualFold(cleanedAbs, cleanedHome) {
@@ -84,7 +97,7 @@ func toCanonical(absPath, homeDir string) string {
 	if err != nil || strings.HasPrefix(rel, "..") {
 		return absPath
 	}
-	return "~/" + filepath.ToSlash(rel)
+	return "~/" + Slash(rel)
 }
 
 // FromCanonical resolves a canonical "~/" path back to an absolute
@@ -112,8 +125,8 @@ func IsUnderHome(absPath string) bool {
 
 // isUnder is the testable core with explicit homeDir.
 func isUnder(absPath, homeDir string) bool {
-	cleanedAbs := path.Clean(filepath.ToSlash(absPath))
-	cleanedHome := path.Clean(filepath.ToSlash(homeDir))
+	cleanedAbs := CanonicalPath(absPath)
+	cleanedHome := CanonicalPath(homeDir)
 
 	rel, err := filepath.Rel(cleanedHome, cleanedAbs)
 	if err != nil {
