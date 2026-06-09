@@ -1,0 +1,36 @@
+# undo after restore roundtrip
+# Sets up a git repository in .bak/ with two commits, runs bak undo,
+# and verifies the working tree reverts to the previous state.
+
+# Initialize git repository in .bak/
+exec git init .bak
+exec git -C .bak config user.email test@bak-cli.local
+exec git -C .bak config user.name bak-test
+
+# First commit: initial state (v1).
+cp test-v1.txt .bak/test.txt
+exec git -C .bak add test.txt
+exec git -C .bak commit -m bak:initial
+
+# Second commit: modified state (v2).
+cp test-v2.txt .bak/test.txt
+exec git -C .bak add test.txt
+exec git -C .bak commit -m bak:modified
+
+# Run bak undo — should revert the last commit.
+exec bak undo
+stdout 'Reverted to previous state'
+
+# Verify the working tree file content is back to v1.
+exec git -C .bak show HEAD:test.txt
+stdout 'v1'
+
+# Verify the revert commit message follows bak convention.
+exec git -C .bak log -1 --format=%s
+stdout 'bak: undo'
+
+# Fixture files for git commits.
+-- test-v1.txt --
+v1
+-- test-v2.txt --
+v2

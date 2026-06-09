@@ -1,0 +1,70 @@
+# export roundtrip
+# Pre-creates a backup fixture, exports it, and verifies the tar.gz output.
+# Also tests error paths: invalid ID and non-existent backup.
+
+# Happy path: export a valid backup with default output name.
+exec bak export 20250609-120000
+stdout 'Exported backup'
+exists bak-export.tar.gz
+
+# Export with custom output path.
+exec bak export 20250609-120000 --output out.tar.gz
+stdout 'Exported backup'
+exists out.tar.gz
+
+# Custom output using -o shorthand.
+exec bak export 20250609-120000 -o custom.tar.gz
+stdout 'Exported backup'
+exists custom.tar.gz
+
+# Error: invalid backup ID (wrong format).
+! exec bak export bad-id
+stderr 'invalid backup ID'
+
+# Error: invalid backup ID (wrong length).
+! exec bak export 20250101
+stderr 'invalid backup ID'
+
+# Error: non-existent backup (valid format but not on disk).
+! exec bak export 20250101-000000
+stderr 'not found'
+
+# Verify export --help shows usage.
+exec bak export --help
+stdout 'export <backup-id>'
+
+# Pre-created backup fixture with manifest and test file.
+-- .bak/backups/20250609-120000/manifest.json --
+{
+  "version": "0.3.0",
+  "id": "20250609-120000",
+  "preset": "quick",
+  "os": "windows",
+  "hostname": "test-host",
+  "bak_version": "0.4.0",
+  "created_at": "2025-06-09T12:00:00Z",
+  "categories": [
+    "config"
+  ],
+  "file_count": 1,
+  "total_size": 22,
+  "secrets_excluded": false,
+  "adapters": {
+    "opencode": {
+      "config_dir": "",
+      "items": [
+        {
+          "category": "config",
+          "source_path": ".config/opencode/opencode.json",
+          "backup_path": "config/opencode.json",
+          "hash": "sha256:a94a8fe5ccb19ba61c4c0873d391e987982fbbd3",
+          "size": 22
+        }
+      ],
+      "file_count": 1,
+      "total_size": 22
+    }
+  }
+}
+-- .bak/backups/20250609-120000/config/opencode.json --
+{"version":"1.0"}
