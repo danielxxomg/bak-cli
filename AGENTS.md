@@ -78,8 +78,9 @@
 - MUST NOT assume `os.UserConfigDir()` respects `XDG_CONFIG_HOME` on macOS — it always returns `$HOME/Library/Application Support`
 - SHOULD test cross-platform path behavior
 - MUST maintain per-package coverage ≥80% for `internal/` packages
-- MUST NOT unit-test `os.Exit` paths — test via integration/E2E only
-- MUST NOT test `bubbletea.Program.Run()` directly — test model `Update()`/`View()` logic instead
+- MUST NOT unit-test `os.Exit` paths — test via integration/E2E only (E2E tests in `tests/e2e/` cover cmd/ entry points)
+- MUST NOT test `bubbletea.Program.Run()` directly — test model `Update()`/`View()` logic instead (these are pure functions, easy to unit-test)
+- MUST test TUI model `Update()` and `View()` methods — they contain business logic that deserves coverage
 
 ### Backup/Restore Specifics
 - MUST create manifest before copying files (fail-fast on invalid state)
