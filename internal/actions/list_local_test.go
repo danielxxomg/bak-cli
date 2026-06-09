@@ -2,6 +2,7 @@ package actions
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -197,5 +198,54 @@ func TestRunListLocal_VerboseWarns(t *testing.T) {
 	}
 	if !strings.Contains(errOut.String(), "corrupt-backup") {
 		t.Errorf("verbose warning should mention corrupt backup, errOut=%q", errOut.String())
+	}
+}
+
+func TestFormatSizeBytes(t *testing.T) {
+	tests := []struct {
+		name  string
+		bytes int64
+		want  string
+	}{
+		// Zero and sub-KB range.
+		{name: "zero", bytes: 0, want: "0 B"},
+		{name: "one byte", bytes: 1, want: "1 B"},
+		{name: "sub-KB max", bytes: 1023, want: "1023 B"},
+
+		// KB boundary.
+		{name: "exactly 1 KB", bytes: 1024, want: "1.0 KB"},
+		{name: "just above 1 KB", bytes: 1025, want: "1.0 KB"},
+		{name: "1.5 KB", bytes: 1536, want: "1.5 KB"},
+
+		// MB boundary.
+		{name: "exactly 1 MB", bytes: 1048576, want: "1.0 MB"},
+		{name: "just below 1 MB", bytes: 1048575, want: "1024.0 KB"},
+		{name: "just above 1 MB", bytes: 1048577, want: "1.0 MB"},
+
+		// GB boundary.
+		{name: "exactly 1 GB", bytes: 1073741824, want: "1.0 GB"},
+		{name: "just below 1 GB", bytes: 1073741823, want: "1024.0 MB"},
+		{name: "just above 1 GB", bytes: 1073741825, want: "1.0 GB"},
+
+		// TB — exercises code beyond GB (RED: code only goes to GB).
+		{name: "exactly 1 TB", bytes: 1099511627776, want: "1.0 TB"},
+		{name: "just below 1 TB", bytes: 1099511627775, want: "1024.0 GB"},
+		{name: "1.5 TB", bytes: 1649267441664, want: "1.5 TB"},
+
+		// PB — exercises higher magnitudes.
+		{name: "exactly 1 PB", bytes: 1125899906842624, want: "1.0 PB"},
+
+		// Edge cases.
+		{name: "negative value", bytes: -500, want: "-500 B"},
+		{name: "max int64", bytes: math.MaxInt64, want: "8.0 EB"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FormatSizeBytes(tt.bytes)
+			if got != tt.want {
+				t.Errorf("FormatSizeBytes(%d) = %q, want %q", tt.bytes, got, tt.want)
+			}
+		})
 	}
 }

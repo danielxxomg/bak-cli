@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/danielxxomg/bak-cli/internal/manifest"
@@ -20,7 +21,9 @@ func RunListLocal(bakDir string, verbose bool, out, errOut io.Writer) error {
 	// Check if backups directory exists.
 	if _, err := os.Stat(backupsDir); err != nil {
 		if os.IsNotExist(err) {
-			_, _ = fmt.Fprintln(out, "No backups found. Run 'bak backup' first.")
+			if _, werr := fmt.Fprintln(out, "No backups found. Run 'bak backup' first."); werr != nil {
+				return fmt.Errorf("write output: %w", werr)
+			}
 			return nil
 		}
 		return fmt.Errorf("stat backups dir: %w", err)
@@ -40,14 +43,20 @@ func RunListLocal(bakDir string, verbose bool, out, errOut io.Writer) error {
 	}
 
 	if len(backupDirs) == 0 {
-		_, _ = fmt.Fprintln(out, "No backups found. Run 'bak backup' first.")
+		if _, err := fmt.Fprintln(out, "No backups found. Run 'bak backup' first."); err != nil {
+			return fmt.Errorf("write output: %w", err)
+		}
 		return nil
 	}
 
 	// Create tabwriter for formatted output.
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(w, "ID\tDATE\tPRESET\tFILES\tSIZE\tADAPTERS")
-	_, _ = fmt.Fprintln(w, "--\t----\t------\t-----\t----\t--------")
+	if _, err := fmt.Fprintln(w, "ID\tDATE\tPRESET\tFILES\tSIZE\tADAPTERS"); err != nil {
+		return fmt.Errorf("write header: %w", err)
+	}
+	if _, err := fmt.Fprintln(w, "--\t----\t------\t-----\t----\t--------"); err != nil {
+		return fmt.Errorf("write separator: %w", err)
+	}
 
 	for _, entry := range backupDirs {
 		backupID := entry.Name()
@@ -57,7 +66,8 @@ func RunListLocal(bakDir string, verbose bool, out, errOut io.Writer) error {
 		m, err := manifest.Load(backupPath)
 		if err != nil {
 			if verbose {
-				_, _ = fmt.Fprintf(errOut, "warning: skipping %s: %v\n", backupID, err)
+				// Best-effort verbose warning — write errors are non-fatal diagnostics.
+				fmt.Fprintf(errOut, "warning: skipping %s: %v\n", backupID, err) //nolint:errcheck
 			}
 			continue
 		}
@@ -76,19 +86,15 @@ func RunListLocal(bakDir string, verbose bool, out, errOut io.Writer) error {
 			adapterNames = append(adapterNames, name)
 		}
 		sort.Strings(adapterNames)
-		adapterStr := ""
-		for i, name := range adapterNames {
-			if i > 0 {
-				adapterStr += ", "
-			}
-			adapterStr += name
-		}
+		adapterStr := strings.Join(adapterNames, ", ")
 
 		// Format size.
 		sizeStr := FormatSizeBytes(m.TotalSize)
 
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n",
-			backupID, date, m.Preset, m.FileCount, sizeStr, adapterStr)
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n",
+			backupID, date, m.Preset, m.FileCount, sizeStr, adapterStr); err != nil {
+			return fmt.Errorf("write row: %w", err)
+		}
 	}
 
 	if err := w.Flush(); err != nil {
@@ -99,21 +105,25 @@ func RunListLocal(bakDir string, verbose bool, out, errOut io.Writer) error {
 }
 
 // FormatSizeBytes formats bytes into a human-readable string.
+// Supports magnitudes up to exabytes (EB). Negative values are
+// formatted with the raw byte count and " B" suffix.
 func FormatSizeBytes(bytes int64) string {
-	const (
-		KB = 1024
-		MB = KB * 1024
-		GB = MB * 1024
-	)
-
-	switch {
-	case bytes >= GB:
-		return fmt.Sprintf("%.1f GB", float64(bytes)/float64(GB))
-	case bytes >= MB:
-		return fmt.Sprintf("%.1f MB", float64(bytes)/float64(MB))
-	case bytes >= KB:
-		return fmt.Sprintf("%.1f KB", float64(bytes)/float64(KB))
-	default:
+	const unit = 1024
+	if bytes < unit && bytes > -unit {
 		return fmt.Sprintf("%d B", bytes)
 	}
+	// Work with absolute value for the magnitude computation, then
+	// reapply the sign in the formatted result.
+	abs := bytes
+	sign := ""
+	if bytes < 0 {
+		abs = -bytes
+		sign = "-"
+	}
+	div, exp := int64(unit), 0
+	for n := abs / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%s%.1f %cB", sign, float64(abs)/float64(div), "KMGTPE"[exp])
 }
