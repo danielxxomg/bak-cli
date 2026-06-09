@@ -8,6 +8,29 @@ import (
 
 // --- pull command execution tests ---
 
+func TestRunPullWithDeps_Delegation(t *testing.T) {
+	// Verify runPullWithDeps creates PullAction and delegates without panic.
+	deps, _, _ := setupTestDeps(t)
+
+	cmd := findSubcommand(t, "pull")
+	if cmd == nil {
+		t.Fatal("pull command not found")
+	}
+	err := runPullWithDeps(cmd, []string{"abc123"}, deps)
+
+	// We expect an error (no real token, gist doesn't exist), but not a panic.
+	if err == nil {
+		t.Skip("pull succeeded — valid GitHub token with stored gist ID configured")
+	}
+	errStr := err.Error()
+	if !strings.Contains(errStr, "token") &&
+		!strings.Contains(errStr, "gist") &&
+		!strings.Contains(errStr, "Gist") &&
+		!strings.Contains(errStr, "backup") {
+		t.Errorf("unexpected error from pull delegation: %v", err)
+	}
+}
+
 func TestRunPull_ErrorsAppropriately(t *testing.T) {
 	// pull requires a valid GitHub token. If one is configured,
 	// it will attempt the API call and may fail differently.
