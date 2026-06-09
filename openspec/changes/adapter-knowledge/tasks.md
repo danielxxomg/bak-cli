@@ -33,6 +33,13 @@ Chain strategy: size-exception
 
 ## Phase 3: Verify
 
-- [ ] 3.1 Run `go test ./internal/adapters/...` — all pass
-- [ ] 3.2 Run `go vet ./internal/adapters/...` — clean
-- [ ] 3.3 Run `go test -cover ./internal/adapters/...` — ≥80%
+- [x] 3.1 Run `go test ./internal/adapters/...` — all pass
+- [x] 3.2 Run `go vet ./internal/adapters/...` — clean
+- [x] 3.3 Run `go test -cover ./internal/adapters/...` — ≥80%
+
+## Phase 4: Verify Remediation
+
+- [x] 4.1 Validate `SubPath` and `IsDir` in `CategoryMap` — extended expectedKnowledge with per-category struct, updated test assertions
+- [x] 4.2 Replace hardcoded `allAdapters()` with `register.All()` — registry-driven adapter discovery, auto-includes new adapters
+- [x] 4.3 Add `TestAdapterKnowledge_RegistryCoverage` — cross-checks registry vs expectedKnowledge/adapterRegistry tables
+- [x] 4.4 Run `go test ./...` — 1192 passed
