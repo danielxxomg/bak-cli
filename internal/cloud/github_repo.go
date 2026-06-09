@@ -1,7 +1,6 @@
 package cloud
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -118,7 +117,7 @@ func (p *GitHubRepoProvider) Pull(id string) ([]byte, error) {
 		return nil, fmt.Errorf("pull github-repo: %w", formatAPIError(body, status))
 	}
 
-	var cr githubContentResponse
+	var cr contentResponse
 	if err := json.Unmarshal(body, &cr); err != nil {
 		return nil, fmt.Errorf("pull github-repo: parse response: %w", err)
 	}
@@ -161,7 +160,7 @@ func (p *GitHubRepoProvider) List() ([]BackupMeta, error) {
 		return nil, fmt.Errorf("list github-repo: %w", formatAPIError(body, status))
 	}
 
-	var items []githubContentResponse
+	var items []contentResponse
 	if err := json.Unmarshal(body, &items); err != nil {
 		return nil, fmt.Errorf("list github-repo: parse response: %w", err)
 	}
@@ -185,31 +184,7 @@ func (p *GitHubRepoProvider) List() ([]BackupMeta, error) {
 // GitHub API. Returns the file SHA if it exists, or empty string if not found.
 func (p *GitHubRepoProvider) getFileSHA(filePath string) (string, error) {
 	url := fmt.Sprintf("%s/repos/%s/contents/%s", p.apiBase, p.repo, filePath)
-
-	req, err := newRequest(http.MethodGet, url, p.token, "application/vnd.github+json", "", nil)
-	if err != nil {
-		return "", fmt.Errorf("check file: %w", err)
-	}
-
-	body, status, err := doRequest(p.client, req)
-	if err != nil {
-		return "", fmt.Errorf("check file: %w", err)
-	}
-
-	if status == http.StatusNotFound {
-		return "", nil
-	}
-
-	if status < 200 || status >= 300 {
-		return "", fmt.Errorf("check file: %w", formatAPIError(body, status))
-	}
-
-	var cr githubContentResponse
-	if err := json.Unmarshal(body, &cr); err != nil {
-		return "", fmt.Errorf("parse response: %w", err)
-	}
-
-	return cr.Content.SHA, nil
+	return getFileSHA(p.client, p.token, url)
 }
 
 // putFile creates or updates a file in the GitHub repository via the
@@ -217,60 +192,11 @@ func (p *GitHubRepoProvider) getFileSHA(filePath string) (string, error) {
 // update (with SHA).
 func (p *GitHubRepoProvider) putFile(filePath, content, message, sha string) error {
 	url := fmt.Sprintf("%s/repos/%s/contents/%s", p.apiBase, p.repo, filePath)
-
-	reqBody := githubContentRequest{
+	req := contentRequest{
 		Message: message,
 		Content: content,
 		Branch:  p.branch,
 		SHA:     sha,
 	}
-	bodyBytes, err := json.Marshal(reqBody)
-	if err != nil {
-		return fmt.Errorf("marshal request: %w", err)
-	}
-
-	req, err := newRequest(http.MethodPut, url, p.token, "application/vnd.github+json", "application/json", bytes.NewReader(bodyBytes))
-	if err != nil {
-		return fmt.Errorf("build request: %w", err)
-	}
-
-	body, status, err := doRequest(p.client, req)
-	if err != nil {
-		return fmt.Errorf("write file: %w", err)
-	}
-
-	if status < 200 || status >= 300 {
-		return fmt.Errorf("write file: %w", formatAPIError(body, status))
-	}
-
-	return nil
-}
-
-// githubContentRequest is the JSON body for the GitHub Contents API
-// PUT /repos/{owner}/{repo}/contents/{path}.
-type githubContentRequest struct {
-	Message string `json:"message"`
-	Content string `json:"content"`
-	Branch  string `json:"branch"`
-	SHA     string `json:"sha,omitempty"`
-}
-
-// githubContentResponse is the JSON response from the GitHub Contents API.
-type githubContentResponse struct {
-	Name    string            `json:"name"`
-	Path    string            `json:"path"`
-	SHA     string            `json:"sha"`
-	Size    int64             `json:"size"`
-	Content githubContentFile `json:"content"`
-}
-
-// githubContentFile holds the file metadata and content from a
-// GitHub Contents API response.
-type githubContentFile struct {
-	Name     string `json:"name"`
-	Path     string `json:"path"`
-	SHA      string `json:"sha"`
-	Size     int64  `json:"size"`
-	Encoding string `json:"encoding"`
-	Content  string `json:"content"`
+	return writeContentFile(p.client, p.token, http.MethodPut, "application/vnd.github+json", url, req)
 }
