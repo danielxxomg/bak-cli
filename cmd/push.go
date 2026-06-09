@@ -46,17 +46,17 @@ func runPush(cmd *cobra.Command, args []string) error {
 }
 
 // runPushWithDeps follows the *WithDeps pattern for testability.
-// deps is accepted for consistency even if not directly used here
-// (the action wires its own FS/Factory).
-func runPushWithDeps(cmd *cobra.Command, args []string, _ cmdDeps) error {
+func runPushWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 	action := &actions.PushAction{
 		FS:           &actions.OSFileSystem{},
 		Provider:     pushProvider,
 		Profile:      pushProfile,
 		Verbose:      verbose,
+		Stdout:       deps.Stdout,
+		Stderr:       deps.Stderr,
 		Factory:      &actions.RealProviderFactory{},
 		ConfigLoader: config.Load,
 	}
 
-	return action.Run(cmd, args)
+	return action.Run(args)
 }

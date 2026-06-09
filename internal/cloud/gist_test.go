@@ -201,6 +201,28 @@ func TestGist_NetworkError(t *testing.T) {
 	}
 }
 
+func TestGistAPI_422PreservesStatusAndMessage(t *testing.T) {
+	_, cleanup := setupMockGistAPI(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		json.NewEncoder(w).Encode(map[string]string{"message": "Invalid request"})
+	})
+	defer cleanup()
+
+	_, err := CreateGist("valid-token", "422 test", []GistFile{
+		{Filename: "f.txt", Content: "c"},
+	})
+	if err == nil {
+		t.Fatal("expected error for 422 status")
+	}
+	if !strings.Contains(err.Error(), "422") {
+		t.Errorf("error should contain status 422: %v", err)
+	}
+	if !strings.Contains(err.Error(), "Invalid request") {
+		t.Errorf("error should contain message 'Invalid request': %v", err)
+	}
+}
+
 func TestGist_NullInputs(t *testing.T) {
 	// GetGist with empty token.
 	_, err := GetGist("", "gist123")

@@ -48,7 +48,7 @@ The `internal/cloud` package SHALL provide a `writeContentFile` function that se
 #### Scenario: Create or update file succeeds
 
 - GIVEN valid content, message, branch, and optional SHA
-- WHEN `writeContentFile(client, token, method, url, req)` is called
+- WHEN `writeContentFile(client, token, method, accept, url, req)` is called
 - THEN it SHALL marshal the request, send it, and return nil on 2xx
 
 #### Scenario: API returns error

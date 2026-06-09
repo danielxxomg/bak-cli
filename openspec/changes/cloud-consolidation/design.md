@@ -101,7 +101,7 @@ type contentFile struct {
 }
 
 func getFileSHA(client *http.Client, token, url string) (string, error)
-func writeContentFile(client *http.Client, token, method, url string, req contentRequest) error
+func writeContentFile(client *http.Client, token, method, accept, url string, req contentRequest) error
 ```
 
 ## Testing Strategy
