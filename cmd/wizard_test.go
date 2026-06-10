@@ -119,3 +119,40 @@ func TestIsTTY_NotTerminal(t *testing.T) {
 	// Just check it doesn't panic.
 	_ = result
 }
+
+// --- WindowSizeMsg handling ---
+
+func TestWizardModel_Update_WindowSize(t *testing.T) {
+	m := newWizardModel("profile-create", []string{"github-gist"})
+
+	msg := tea.WindowSizeMsg{Width: 100, Height: 30}
+	result, _ := m.Update(msg)
+	model := result.(*wizardModel)
+
+	if model.width != 100 {
+		t.Errorf("width = %d, want 100", model.width)
+	}
+	if model.height != 30 {
+		t.Errorf("height = %d, want 30", model.height)
+	}
+}
+
+func TestWizardModel_Update_WindowSize_SecondResize(t *testing.T) {
+	m := newWizardModel("profile-create", []string{"github-gist"})
+
+	// First resize.
+	msg1 := tea.WindowSizeMsg{Width: 100, Height: 30}
+	m1, _ := m.Update(msg1)
+
+	// Second resize — values should update.
+	msg2 := tea.WindowSizeMsg{Width: 60, Height: 15}
+	m2, _ := m1.Update(msg2)
+	model := m2.(*wizardModel)
+
+	if model.width != 60 {
+		t.Errorf("width = %d, want 60", model.width)
+	}
+	if model.height != 15 {
+		t.Errorf("height = %d, want 15", model.height)
+	}
+}

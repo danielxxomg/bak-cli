@@ -194,3 +194,50 @@ func TestPickCmd_Args(t *testing.T) {
 		t.Error("Pick command should not require arguments")
 	}
 }
+
+// --- WindowSizeMsg handling ---
+
+func TestPickModel_Update_WindowSize(t *testing.T) {
+	m := pickModel{
+		items: []categoryItem{
+			{name: "skills", checked: true},
+			{name: "config", checked: false},
+		},
+	}
+
+	msg := tea.WindowSizeMsg{Width: 120, Height: 40}
+	result, _ := m.Update(msg)
+	model := result.(pickModel)
+
+	if model.width != 120 {
+		t.Errorf("width = %d, want 120", model.width)
+	}
+	if model.height != 40 {
+		t.Errorf("height = %d, want 40", model.height)
+	}
+}
+
+func TestPickModel_Update_WindowSize_SecondResize(t *testing.T) {
+	m := pickModel{
+		items: []categoryItem{
+			{name: "skills", checked: true},
+		},
+	}
+
+	// First resize.
+	msg1 := tea.WindowSizeMsg{Width: 120, Height: 40}
+	m1, _ := m.Update(msg1)
+	model1 := m1.(pickModel)
+
+	// Second resize — values should update.
+	msg2 := tea.WindowSizeMsg{Width: 80, Height: 24}
+	m2, _ := model1.Update(msg2)
+	model2 := m2.(pickModel)
+
+	if model2.width != 80 {
+		t.Errorf("width = %d, want 80", model2.width)
+	}
+	if model2.height != 24 {
+		t.Errorf("height = %d, want 24", model2.height)
+	}
+}

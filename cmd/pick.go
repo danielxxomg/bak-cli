@@ -5,10 +5,11 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
+	"github.com/danielxxomg/bak-cli/internal/tui/components"
+	"github.com/danielxxomg/bak-cli/internal/tui/styles"
 )
 
 // pickCmd represents the interactive category picker command.
@@ -43,6 +44,8 @@ type pickModel struct {
 	cursor    int
 	quitting  bool
 	confirmed bool
+	width     int
+	height    int
 }
 
 func (m pickModel) Init() tea.Cmd {
@@ -50,7 +53,13 @@ func (m pickModel) Init() tea.Cmd {
 }
 
 func (m pickModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if msg, ok := msg.(tea.KeyPressMsg); ok {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
+
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
 			m.quitting = true
@@ -85,33 +94,27 @@ func (m pickModel) View() tea.View {
 		return tea.NewView("")
 	}
 
-	var b strings.Builder
-
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
-	b.WriteString(titleStyle.Render("Select categories to backup"))
-	b.WriteString("\n\n")
-
-	checkedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	uncheckedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	cursorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
-
-	for i, item := range m.items {
-		cursor := "  "
-		if m.cursor == i {
-			cursor = cursorStyle.Render("> ")
-		}
-
-		check := uncheckedStyle.Render("[ ]")
-		if item.checked {
-			check = checkedStyle.Render("[x]")
-		}
-
-		fmt.Fprintf(&b, "%s%s %s\n", cursor, check, item.name)
+	// Guard against terminals below the minimum usable size.
+	if m.width > 0 && m.height > 0 && (m.width < 20 || m.height < 10) {
+		return tea.NewView(styles.HelpStyle.Render("Terminal too small (min 20x10)"))
 	}
 
-	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	var b strings.Builder
+
+	b.WriteString(styles.TitleStyle.Render("Select categories to backup"))
+	b.WriteString("\n\n")
+
+	for i, item := range m.items {
+		b.WriteString(components.RenderCheckbox(item.name, item.checked, i == m.cursor))
+		b.WriteByte('\n')
+	}
+
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("space: toggle • enter: confirm • q/esc: quit"))
+	b.WriteString(components.RenderHelp([]components.HelpKey{
+		{Key: "space", Desc: "toggle"},
+		{Key: "enter", Desc: "confirm"},
+		{Key: "q/esc", Desc: "quit"},
+	}))
 
 	return tea.NewView(b.String())
 }
