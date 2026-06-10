@@ -6,8 +6,10 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-isatty"
+
+	"github.com/danielxxomg/bak-cli/internal/tui/components"
+	"github.com/danielxxomg/bak-cli/internal/tui/styles"
 )
 
 // wizardStep represents the current step in the interactive wizard.
@@ -28,6 +30,8 @@ type wizardModel struct {
 	mode      string // "profile-create" or "login"
 	quitting  bool
 	confirmed bool
+	width     int
+	height    int
 
 	// Provider selection state.
 	providers      []string
@@ -97,7 +101,13 @@ func (m *wizardModel) Init() tea.Cmd {
 // Update implements bubbletea.Model. It handles keyboard input for each step
 // and manages step transitions.
 func (m *wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if msg, ok := msg.(tea.KeyPressMsg); ok {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
+
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			m.quitting = true
@@ -209,77 +219,67 @@ func (m *wizardModel) View() tea.View {
 		return tea.NewView("")
 	}
 
-	var b strings.Builder
+	// Guard against terminals below the minimum usable size.
+	if m.width > 0 && m.height > 0 && (m.width < 20 || m.height < 10) {
+		return tea.NewView(styles.HelpStyle.Render("Terminal too small (min 20x10)"))
+	}
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
-	stepStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	var b strings.Builder
 
 	switch m.step {
 	case stepProvider:
-		b.WriteString(titleStyle.Render("Create Profile — Provider"))
+		b.WriteString(styles.TitleStyle.Render("Create Profile \u2014 Provider"))
 		b.WriteString("\n\n")
-		b.WriteString(stepStyle.Render("Step 1/5: Choose a cloud provider"))
+		b.WriteString(styles.HelpStyle.Render("Step 1/5: Choose a cloud provider"))
 		b.WriteString("\n\n")
-		b.WriteString(m.renderProviderList())
+		b.WriteString(components.RenderMenu(m.providers, m.providerCursor))
 
 	case stepPreset:
-		b.WriteString(titleStyle.Render("Create Profile — Preset"))
+		b.WriteString(styles.TitleStyle.Render("Create Profile \u2014 Preset"))
 		b.WriteString("\n\n")
-		b.WriteString(stepStyle.Render("Step 2/5: Choose a backup preset"))
+		b.WriteString(styles.HelpStyle.Render("Step 2/5: Choose a backup preset"))
 		b.WriteString("\n\n")
-		b.WriteString(m.renderPresetList())
+		b.WriteString(components.RenderMenu(m.presets, m.presetCursor))
 
 	case stepAdapters:
-		b.WriteString(titleStyle.Render("Create Profile — Adapters"))
+		b.WriteString(styles.TitleStyle.Render("Create Profile \u2014 Adapters"))
 		b.WriteString("\n\n")
-		b.WriteString(stepStyle.Render("Step 3/5: Select adapters to back up (space to toggle)"))
+		b.WriteString(styles.HelpStyle.Render("Step 3/5: Select adapters to back up (space to toggle)"))
 		b.WriteString("\n\n")
-		b.WriteString(m.renderToggleList(m.adapterItems, m.adapterCursor))
+		b.WriteString(m.renderCheckboxList(m.adapterItems, m.adapterCursor))
 
 	case stepCategories:
-		b.WriteString(titleStyle.Render("Create Profile — Categories"))
+		b.WriteString(styles.TitleStyle.Render("Create Profile \u2014 Categories"))
 		b.WriteString("\n\n")
-		b.WriteString(stepStyle.Render("Step 4/5: Select categories to back up (space to toggle)"))
+		b.WriteString(styles.HelpStyle.Render("Step 4/5: Select categories to back up (space to toggle)"))
 		b.WriteString("\n\n")
-		b.WriteString(m.renderToggleList(m.categoryItems, m.categoryCursor))
+		b.WriteString(m.renderCheckboxList(m.categoryItems, m.categoryCursor))
 
 	case stepConfirm:
-		b.WriteString(titleStyle.Render("Create Profile — Confirm"))
+		b.WriteString(styles.TitleStyle.Render("Create Profile \u2014 Confirm"))
 		b.WriteString("\n\n")
 		b.WriteString(m.renderConfirmSummary())
 	}
 
-	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("enter: next • q/esc: quit"))
+	b.WriteString(components.RenderHelp([]components.HelpKey{
+		{Key: "enter", Desc: "next"},
+		{Key: "q/esc", Desc: "quit"},
+	}))
 
 	return tea.NewView(b.String())
 }
 
-func (m *wizardModel) renderProviderList() string {
-	return renderCursorList(m.providers, m.providerCursor)
-}
-
-func (m *wizardModel) renderPresetList() string {
-	return renderCursorList(m.presets, m.presetCursor)
-}
-
-func (m *wizardModel) renderToggleList(items []toggleItem, cursor int) string {
+// renderCheckboxList renders a list of toggleable items using the shared
+// checkbox component. Each item is rendered with its checked state and
+// the focused item is highlighted via SelectedStyle.
+func (m *wizardModel) renderCheckboxList(items []toggleItem, cursor int) string {
 	var b strings.Builder
-	checkedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	uncheckedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	cursorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
-
 	for i, item := range items {
-		cursorMark := "  "
-		if cursor == i {
-			cursorMark = cursorStyle.Render("> ")
+		b.WriteString(components.RenderCheckbox(item.name, item.checked, i == cursor))
+		if i < len(items)-1 {
+			b.WriteByte('\n')
 		}
-		check := uncheckedStyle.Render("[ ]")
-		if item.checked {
-			check = checkedStyle.Render("[x]")
-		}
-		fmt.Fprintf(&b, "%s%s %s\n", cursorMark, check, item.name)
 	}
 	return b.String()
 }
@@ -306,21 +306,6 @@ func (m *wizardModel) renderConfirmSummary() string {
 	fmt.Fprintf(&b, "Categories: %s\n", strings.Join(categories, ", "))
 
 	b.WriteString("\nPress Enter to create the profile.")
-	return b.String()
-}
-
-// renderCursorList renders a simple cursor-based list.
-func renderCursorList(items []string, cursor int) string {
-	var b strings.Builder
-	cursorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
-
-	for i, item := range items {
-		cursorMark := "  "
-		if cursor == i {
-			cursorMark = cursorStyle.Render("> ")
-		}
-		fmt.Fprintf(&b, "%s%s\n", cursorMark, item)
-	}
 	return b.String()
 }
 
