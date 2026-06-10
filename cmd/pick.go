@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
@@ -50,7 +50,7 @@ func (m pickModel) Init() tea.Cmd {
 }
 
 func (m pickModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if msg, ok := msg.(tea.KeyMsg); ok {
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
 			m.quitting = true
@@ -66,7 +66,7 @@ func (m pickModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 
-		case " ":
+		case "space":
 			if len(m.items) > 0 {
 				m.items[m.cursor].checked = !m.items[m.cursor].checked
 			}
@@ -80,9 +80,9 @@ func (m pickModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m pickModel) View() string {
+func (m pickModel) View() tea.View {
 	if m.quitting {
-		return ""
+		return tea.NewView("")
 	}
 
 	var b strings.Builder
@@ -113,7 +113,7 @@ func (m pickModel) View() string {
 	b.WriteString("\n")
 	b.WriteString(helpStyle.Render("space: toggle • enter: confirm • q/esc: quit"))
 
-	return b.String()
+	return tea.NewView(b.String())
 }
 
 // Selected returns the names of checked categories.

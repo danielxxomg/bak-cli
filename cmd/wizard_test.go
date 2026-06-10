@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // --- wizardModel step transitions ---
@@ -32,7 +32,7 @@ func TestWizardModel_StepTransitions(t *testing.T) {
 		}
 		// Advance: simulate Enter key.
 		if wantStep != stepConfirm {
-			msg := tea.KeyMsg{Type: tea.KeyEnter}
+			msg := tea.KeyPressMsg{Code: tea.KeyEnter}
 			_, _ = m.Update(msg)
 		}
 	}
@@ -41,7 +41,7 @@ func TestWizardModel_StepTransitions(t *testing.T) {
 func TestWizardModel_CtrlC_Exits(t *testing.T) {
 	m := newWizardModel("profile-create", []string{"github-gist"})
 
-	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
+	msg := tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	model, cmd := m.Update(msg)
 
 	if model.(*wizardModel).quitting != true {
@@ -55,7 +55,7 @@ func TestWizardModel_CtrlC_Exits(t *testing.T) {
 func TestWizardModel_Esc_Exits(t *testing.T) {
 	m := newWizardModel("profile-create", []string{"github-gist"})
 
-	msg := tea.KeyMsg{Type: tea.KeyEsc}
+	msg := tea.KeyPressMsg{Code: tea.KeyEsc}
 	model, _ := m.Update(msg)
 
 	if model.(*wizardModel).quitting != true {
@@ -67,7 +67,7 @@ func TestWizardModel_Esc_Exits(t *testing.T) {
 
 func TestWizardModel_View_ContainsTitle(t *testing.T) {
 	m := newWizardModel("profile-create", []string{"github-gist"})
-	view := m.View()
+	view := m.View().Content
 
 	if !strings.Contains(view, "Create Profile") && !strings.Contains(view, "Profile") {
 		t.Errorf("View should contain title, got: %s", view)
@@ -78,7 +78,7 @@ func TestWizardModel_View_QuittingEmpty(t *testing.T) {
 	m := newWizardModel("profile-create", nil)
 	m.quitting = true
 
-	view := m.View()
+	view := m.View().Content
 	if view != "" {
 		t.Errorf("View should be empty when quitting, got: %q", view)
 	}
@@ -96,14 +96,14 @@ func TestWizardModel_ProviderSelection(t *testing.T) {
 	}
 
 	// Move down.
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
+	msg := tea.KeyPressMsg{Code: 'j'}
 	_, _ = m.Update(msg)
 	if m.providerCursor != 1 {
 		t.Errorf("cursor after down = %d, want 1", m.providerCursor)
 	}
 
 	// Move up.
-	msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}}
+	msg = tea.KeyPressMsg{Code: 'k'}
 	_, _ = m.Update(msg)
 	if m.providerCursor != 0 {
 		t.Errorf("cursor after up = %d, want 0", m.providerCursor)

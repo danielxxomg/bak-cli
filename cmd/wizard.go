@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-isatty"
 )
 
@@ -97,13 +97,13 @@ func (m *wizardModel) Init() tea.Cmd {
 // Update implements bubbletea.Model. It handles keyboard input for each step
 // and manages step transitions.
 func (m *wizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if msg, ok := msg.(tea.KeyMsg); ok {
-		switch msg.Type {
-		case tea.KeyCtrlC, tea.KeyEsc:
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
+		switch msg.String() {
+		case "ctrl+c", "esc":
 			m.quitting = true
 			return m, tea.Quit
 
-		case tea.KeyEnter:
+		case "enter":
 			return m.handleEnter()
 
 		default:
@@ -142,7 +142,7 @@ func (m *wizardModel) handleEnter() (tea.Model, tea.Cmd) {
 }
 
 // handleNavigation processes arrow keys, j/k, and space for toggle items.
-func (m *wizardModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *wizardModel) handleNavigation(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch m.step {
 	case stepProvider:
 		switch msg.String() {
@@ -178,7 +178,7 @@ func (m *wizardModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.adapterCursor < len(m.adapterItems)-1 {
 				m.adapterCursor++
 			}
-		case " ":
+		case "space":
 			if len(m.adapterItems) > 0 {
 				m.adapterItems[m.adapterCursor].checked = !m.adapterItems[m.adapterCursor].checked
 			}
@@ -194,7 +194,7 @@ func (m *wizardModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.categoryCursor < len(m.categoryItems)-1 {
 				m.categoryCursor++
 			}
-		case " ":
+		case "space":
 			if len(m.categoryItems) > 0 {
 				m.categoryItems[m.categoryCursor].checked = !m.categoryItems[m.categoryCursor].checked
 			}
@@ -204,9 +204,9 @@ func (m *wizardModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // View implements bubbletea.Model.
-func (m *wizardModel) View() string {
+func (m *wizardModel) View() tea.View {
 	if m.quitting {
-		return ""
+		return tea.NewView("")
 	}
 
 	var b strings.Builder
@@ -253,7 +253,7 @@ func (m *wizardModel) View() string {
 	b.WriteString("\n")
 	b.WriteString(helpStyle.Render("enter: next • q/esc: quit"))
 
-	return b.String()
+	return tea.NewView(b.String())
 }
 
 func (m *wizardModel) renderProviderList() string {

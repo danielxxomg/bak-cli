@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -49,7 +49,7 @@ func TestPickModel_Update_Quit(t *testing.T) {
 		},
 	}
 
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
+	msg := tea.KeyPressMsg{Code: 'q'}
 	result, cmd := m.Update(msg)
 	model := result.(pickModel)
 
@@ -71,7 +71,7 @@ func TestPickModel_Update_CursorDown(t *testing.T) {
 		cursor: 0,
 	}
 
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
+	msg := tea.KeyPressMsg{Code: 'j'}
 	result, _ := m.Update(msg)
 	model := result.(pickModel)
 
@@ -89,7 +89,7 @@ func TestPickModel_Update_CursorUp(t *testing.T) {
 		cursor: 1,
 	}
 
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}}
+	msg := tea.KeyPressMsg{Code: 'k'}
 	result, _ := m.Update(msg)
 	model := result.(pickModel)
 
@@ -107,7 +107,7 @@ func TestPickModel_Update_Toggle(t *testing.T) {
 		cursor: 0,
 	}
 
-	msg := tea.KeyMsg{Type: tea.KeySpace}
+	msg := tea.KeyPressMsg{Code: ' '}
 	result, _ := m.Update(msg)
 	model := result.(pickModel)
 
@@ -126,7 +126,7 @@ func TestPickModel_Update_Confirm(t *testing.T) {
 		},
 	}
 
-	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	msg := tea.KeyPressMsg{Code: tea.KeyEnter}
 	result, cmd := m.Update(msg)
 	model := result.(pickModel)
 
@@ -147,7 +147,7 @@ func TestPickModel_View(t *testing.T) {
 		cursor: 0,
 	}
 
-	view := m.View()
+	view := m.View().Content
 	if view == "" {
 		t.Error("View should not be empty")
 	}
