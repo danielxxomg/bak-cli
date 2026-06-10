@@ -21,6 +21,8 @@ const (
 	ScreenWizard
 	// ScreenSettings allows toggling cloud providers and themes.
 	ScreenSettings
+	// ScreenCloud shows the cloud sync status screen.
+	ScreenCloud
 )
 
 // screenChangeMsg is an internal message that triggers a screen transition.
@@ -118,7 +120,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKey processes key presses based on the active screen.
 func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	if m.screen == ScreenMenu {
+	switch m.screen {
+	case ScreenMenu:
 		switch msg.Code {
 		case KeyQuit, KeyEsc:
 			return m, tea.Quit
@@ -133,6 +136,12 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case KeyEnter:
 			return m.handleMenuEnter()
 		}
+	case ScreenCloud:
+		switch msg.Code {
+		case KeyQuit, KeyEsc:
+			m.screen = ScreenMenu
+			return m, nil
+		}
 	}
 	return m, nil
 }
@@ -145,8 +154,8 @@ func (m Model) handleMenuEnter() (tea.Model, tea.Cmd) {
 		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenProgress} }
 	case 2: // "Browse backups" → Dashboard
 		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenDashboard} }
-	case 3: // "Cloud sync" → (future)
-		return m, nil
+	case 3: // "Cloud sync" → Cloud
+		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenCloud} }
 	case 6: // "Quit"
 		return m, tea.Quit
 	}
@@ -173,6 +182,8 @@ func (m Model) View() tea.View {
 			if m.progress != nil {
 				content = m.progress.View().Content
 			}
+		case ScreenCloud:
+			content = screens.RenderCloudStatus(screens.CloudInfo{}, m.width)
 		default:
 			content = ""
 		}
