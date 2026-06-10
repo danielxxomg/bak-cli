@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/danielxxomg/bak-cli/internal/tui/screens"
 )
 
 // =============================================================================
@@ -490,5 +492,113 @@ func TestModel_Selection_Clamp(t *testing.T) {
 					tt.cursor, sel.Item, tt.wantItem)
 			}
 		})
+	}
+}
+
+// =============================================================================
+// PR4 Screen Routing Tests — RED (model.go updates do not exist yet)
+// =============================================================================
+
+// TestModel_Update_ScreenDashboard verifies enter on "Browse backups"
+// (menu index 2) transitions to ScreenDashboard.
+func TestModel_Update_ScreenDashboard(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.cursor = 2 // "Browse backups"
+
+	_, cmd := m.Update(tea.KeyPressMsg{Code: KeyEnter})
+
+	if cmd == nil {
+		t.Fatal("Update(enter) on Browse backups returned nil cmd")
+	}
+
+	msg := cmd()
+	switch msg := msg.(type) {
+	case screenChangeMsg:
+		if msg.screen != ScreenDashboard {
+			t.Errorf("screenChangeMsg.screen = %v, want ScreenDashboard", msg.screen)
+		}
+	default:
+		t.Errorf("Update(enter) cmd returned %T, want screenChangeMsg", msg)
+	}
+}
+
+// TestModel_Update_ScreenProgress verifies enter on "Create backup"
+// (menu index 0) transitions to ScreenProgress.
+func TestModel_Update_ScreenProgress(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.cursor = 0 // "Create backup"
+
+	_, cmd := m.Update(tea.KeyPressMsg{Code: KeyEnter})
+
+	if cmd == nil {
+		t.Fatal("Update(enter) on Create backup returned nil cmd")
+	}
+
+	msg := cmd()
+	switch msg := msg.(type) {
+	case screenChangeMsg:
+		if msg.screen != ScreenProgress {
+			t.Errorf("screenChangeMsg.screen = %v, want ScreenProgress", msg.screen)
+		}
+	default:
+		t.Errorf("Update(enter) cmd returned %T, want screenChangeMsg", msg)
+	}
+}
+
+// TestModel_View_Dashboard verifies View delegates to dashboard when screen=ScreenDashboard.
+func TestModel_View_Dashboard(t *testing.T) {
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		ListBackups: func() ([]BackupInfo, error) {
+			return []BackupInfo{
+				{ID: "test-001", Date: "2024-01-01", Size: "1MB", Status: "ok", Cloud: "none"},
+			}, nil
+		},
+	})
+	m.width = 80
+	m.height = 24
+	// Trigger screen transition to initialize the dashboard sub-model.
+	newM, _ := m.Update(screenChangeMsg{screen: ScreenDashboard})
+	model := newM.(Model)
+
+	output := model.View().Content
+
+	if !strings.Contains(output, "test-001") {
+		t.Errorf("View() dashboard missing backup ID 'test-001': %q", output)
+	}
+}
+
+// TestModel_View_Progress verifies View delegates to progress when screen=ScreenProgress.
+func TestModel_View_Progress(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	// Trigger screen transition to initialize the progress sub-model.
+	newM, _ := m.Update(screenChangeMsg{screen: ScreenProgress})
+	model := newM.(Model)
+
+	output := model.View().Content
+
+	// Progress screen should show the "Progress" heading.
+	if !strings.Contains(output, "Progress") {
+		t.Errorf("View() progress missing heading 'Progress': %q", output)
+	}
+}
+
+// TestModel_Update_BackFromDashboard verifies ScreenBackMsg returns to ScreenMenu.
+func TestModel_Update_BackFromDashboard(t *testing.T) {
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		ListBackups: func() ([]BackupInfo, error) {
+			return []BackupInfo{}, nil
+		},
+	})
+	m.screen = ScreenDashboard
+
+	newModel, _ := m.Update(screens.ScreenBackMsg{})
+	result := newModel.(Model)
+
+	if result.screen != ScreenMenu {
+		t.Errorf("after ScreenBackMsg: screen = %v, want ScreenMenu", result.screen)
 	}
 }
