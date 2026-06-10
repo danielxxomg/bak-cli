@@ -21,7 +21,16 @@ const (
 	ScreenWizard
 	// ScreenSettings allows toggling cloud providers and themes.
 	ScreenSettings
+	// ScreenCloud shows the cloud sync status screen.
+	ScreenCloud
 )
+
+// screenChangeMsg is an internal message that triggers a screen transition.
+// It is returned as a tea.Cmd from handleKey when the user presses enter
+// on a menu item that navigates to a sub-screen.
+type screenChangeMsg struct {
+	screen Screen
+}
 
 // Minimum terminal dimensions required to render the TUI layout.
 // If the terminal is smaller than these values, a "Terminal too small"
@@ -46,6 +55,10 @@ type Model struct {
 
 	// menuItems are the labels for the main menu (7 items, PR2).
 	menuItems []string
+
+	// Sub-models for complex screens (lazily initialized on first visit).
+	dashboard *screens.DashboardModel
+	progress  *screens.ProgressModel
 }
 
 // NewModel creates a root Model initialized to the main menu screen with
@@ -77,6 +90,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyPressMsg:
 		return m.handleKey(msg)
+
+	case screenChangeMsg:
+		m.screen = msg.screen
+		// Lazy-init sub-models on first screen entry.
+		switch msg.screen {
+		case ScreenDashboard:
+			if m.dashboard == nil {
+				d := m.initDashboard()
+				m.dashboard = &d
+			}
+			return m, m.dashboard.Init()
+		case ScreenProgress:
+			if m.progress == nil {
+				p := m.initProgress()
+				p.Width = m.width
+				p.Height = m.height
+				m.progress = &p
+			}
+			return m, m.progress.Init()
+		}
+		return m, nil
+
+	case screens.ScreenBackMsg:
+		m.screen = ScreenMenu
+		return m, nil
 	}
 
 	return m, nil
@@ -84,7 +122,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKey processes key presses based on the active screen.
 func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	if m.screen == ScreenMenu {
+	switch m.screen {
+	case ScreenMenu:
 		switch msg.Code {
 		case KeyQuit, KeyEsc:
 			return m, tea.Quit
@@ -96,7 +135,31 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if m.cursor > 0 {
 				m.cursor--
 			}
+		case KeyEnter:
+			return m.handleMenuEnter()
 		}
+	case ScreenCloud:
+		switch msg.Code {
+		case KeyQuit, KeyEsc:
+			m.screen = ScreenMenu
+			return m, nil
+		}
+	}
+	return m, nil
+}
+
+// handleMenuEnter routes the enter key on the main menu to the appropriate
+// screen based on the current cursor position.
+func (m Model) handleMenuEnter() (tea.Model, tea.Cmd) {
+	switch m.cursor {
+	case 0: // "Create backup" → Progress
+		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenProgress} }
+	case 2: // "Browse backups" → Dashboard
+		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenDashboard} }
+	case 3: // "Cloud sync" → Cloud
+		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenCloud} }
+	case 6: // "Quit"
+		return m, tea.Quit
 	}
 	return m, nil
 }
@@ -113,6 +176,16 @@ func (m Model) View() tea.View {
 		switch m.screen {
 		case ScreenMenu:
 			content = m.renderMenu()
+		case ScreenDashboard:
+			if m.dashboard != nil {
+				content = m.dashboard.View().Content
+			}
+		case ScreenProgress:
+			if m.progress != nil {
+				content = m.progress.View().Content
+			}
+		case ScreenCloud:
+			content = screens.RenderCloudStatus(screens.CloudInfo{}, m.width)
 		default:
 			content = ""
 		}
@@ -147,4 +220,33 @@ func (m Model) Selection() MenuSelection {
 		Cursor: cursor,
 		Item:   m.menuItems[cursor],
 	}
+}
+
+// initDashboard creates a new DashboardModel using the injected deps.
+func (m Model) initDashboard() screens.DashboardModel {
+	return screens.NewDashboardModel(func() ([]screens.BackupInfo, error) {
+		if m.deps.ListBackups == nil {
+			return nil, nil
+		}
+		backups, err := m.deps.ListBackups()
+		if err != nil {
+			return nil, err
+		}
+		var result []screens.BackupInfo
+		for _, b := range backups {
+			result = append(result, screens.BackupInfo{
+				ID:     b.ID,
+				Date:   b.Date,
+				Size:   b.Size,
+				Status: b.Status,
+				Cloud:  b.Cloud,
+			})
+		}
+		return result, nil
+	})
+}
+
+// initProgress creates a new ProgressModel.
+func (m Model) initProgress() screens.ProgressModel {
+	return screens.NewProgressModel()
 }
