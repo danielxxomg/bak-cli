@@ -145,3 +145,41 @@
 - MUST follow Conventional Commits: `feat:`, `fix:`, `test:`, `chore:`, `docs:`
 - MUST keep commits atomic — one logical change per commit
 - MUST NOT include AI attribution (Co-Authored-By) in commit messages
+
+### TUI Rules
+
+#### TUI Package Organization
+- `internal/tui/styles/` contains theme colors, package-level lipgloss styles, ASCII logo, and frame helper
+- `internal/tui/components/` contains reusable stateless render functions (menu, checkbox, radio, help)
+- `internal/tui/screens/` contains screen-specific models and layout logic (main menu, dashboard, wizard)
+- MUST NOT mix screen logic with style definitions or component renderers
+
+#### TUI Styling
+- MUST use package-level `var` for all lipgloss styles — zero per-frame allocation
+- MUST use Rose Pine semantic colors from `internal/tui/styles/` package (ColorBase, ColorText, ColorLove, etc.)
+- MUST NOT use inline `lipgloss.NewStyle()` in `View()` methods — define at package scope
+- MUST apply styles via `.Render()` method on the pre-defined style variable
+
+#### Bubbletea Version Lock
+- MUST use `charm.land/bubbletea/v2 v2.0.7` (v2 API, already pinned in go.mod)
+- MUST use `tea.KeyPressMsg{Code: 'q'}` for key events (NOT v1 `tea.KeyMsg{Type: tea.KeyRunes}`)
+- MUST use `charm.land/lipgloss/v2 v2.0.3` for all styling (already pinned in go.mod)
+
+#### Bubbles Dependency
+- MUST justify any `charm.land/bubbles/v2` import with a concrete reason (spinner, progress bar, table)
+- MUST NOT add bubbles dependency for trivial functionality achievable with lipgloss alone
+- Bubbles components are sub-models: each must have its own `Init()`, `Update()`, `View()` methods
+
+#### TUI Responsiveness
+- MUST handle `tea.WindowSizeMsg` in all TUI models
+- MUST store width and height in the model struct and update on resize
+- MUST adapt bordered content to terminal dimensions using stored width/height
+- MUST show "terminal too small" message if dimensions are below 20 columns × 10 rows
+- MUST guard logo rendering (width < 40) and frame rendering against narrow terminals
+
+#### TUI Testing
+- MUST test model `Update()` and `View()` methods as pure functions — they contain business logic
+- MUST use table-driven tests for component renderers (menu, checkbox, radio, help)
+- MUST NOT test `bubbletea.Program.Run()` directly — it launches a real TTY
+- MUST achieve ≥80% code coverage for all `internal/tui/` packages
+- MUST test edge cases: empty input, negative cursor, out-of-bounds cursor, nil slices
