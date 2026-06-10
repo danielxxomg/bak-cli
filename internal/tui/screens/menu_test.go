@@ -20,14 +20,14 @@ func TestRenderMainMenu(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		version       string
-		items         []string
-		cursor        int
-		width         int
-		wantContains  []string
+		name           string
+		version        string
+		items          []string
+		cursor         int
+		width          int
+		wantContains   []string
 		wantNotContain []string
-		wantLogo      bool // true: logo chars expected; false: must NOT appear
+		wantLogo       bool // true: logo chars expected; false: must NOT appear
 	}{
 		{
 			name:    "full menu at 80 cols",
@@ -58,20 +58,20 @@ func TestRenderMainMenu(t *testing.T) {
 			wantLogo:       false,
 		},
 		{
-			name:    "custom version subtitle",
-			version: "2.3.1",
-			items:   defaultItems,
-			cursor:  0,
-			width:   80,
+			name:         "custom version subtitle",
+			version:      "2.3.1",
+			items:        defaultItems,
+			cursor:       0,
+			width:        80,
 			wantContains: []string{"2.3.1"},
 			wantLogo:     true,
 		},
 		{
-			name:    "help bar contextual keys",
-			version: "1.0.0",
-			items:   defaultItems,
-			cursor:  0,
-			width:   80,
+			name:         "help bar contextual keys",
+			version:      "1.0.0",
+			items:        defaultItems,
+			cursor:       0,
+			width:        80,
 			wantContains: []string{"navigate", "select", "quit"},
 			wantLogo:     true,
 		},

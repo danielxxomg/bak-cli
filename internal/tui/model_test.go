@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"charm.land/bubbletea/v2"
+	tea "charm.land/bubbletea/v2"
 )
 
 // =============================================================================
@@ -175,10 +175,10 @@ func TestModel_Update_WindowSize(t *testing.T) {
 
 func TestModel_Update_MinSizeGuard(t *testing.T) {
 	tests := []struct {
-		name      string
-		width     int
-		height    int
-		tooSmall  bool
+		name     string
+		width    int
+		height   int
+		tooSmall bool
 	}{
 		{"below width", 19, 20, true},
 		{"below height", 20, 9, true},

@@ -3,7 +3,7 @@ package tui
 import (
 	"github.com/danielxxomg/bak-cli/internal/tui/screens"
 
-	"charm.land/bubbletea/v2"
+	tea "charm.land/bubbletea/v2"
 )
 
 // Screen represents the active TUI screen. The root Model routes Update
@@ -84,8 +84,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKey processes key presses based on the active screen.
 func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	switch m.screen {
-	case ScreenMenu:
+	if m.screen == ScreenMenu {
 		switch msg.Code {
 		case KeyQuit, KeyEsc:
 			return m, tea.Quit

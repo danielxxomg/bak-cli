@@ -3,8 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"charm.land/bubbletea/v2"
-
+	tea "charm.land/bubbletea/v2"
 	"github.com/danielxxomg/bak-cli/internal/tui"
 )
 
