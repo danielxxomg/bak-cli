@@ -55,6 +55,24 @@ var (
 				Foreground(ColorGold)
 )
 
+// ToastStyle is the style for toast notification messages. Toasts appear
+// at the bottom-right of the screen and auto-hide after a set duration.
+var ToastStyle = lipgloss.NewStyle().
+	Foreground(ColorText).
+	Padding(0, 1)
+
+// ScreenTitleStyle is the shared style for all screen headings
+// (settings, health, shortcuts, cloud).
+var ScreenTitleStyle = lipgloss.NewStyle().
+	Bold(true).
+	Foreground(ColorLavender).
+	Padding(0, 1)
+
+// SearchStyle is the style for the search bar overlay.
+var SearchStyle = lipgloss.NewStyle().
+	Foreground(ColorText).
+	Padding(0, 1)
+
 // CursorIndicator is the prefix character used to indicate the currently
 // selected item in menus and lists.
 const CursorIndicator = "\u25b8 "

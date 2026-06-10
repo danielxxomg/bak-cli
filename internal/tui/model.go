@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/danielxxomg/bak-cli/internal/tui/components"
 	"github.com/danielxxomg/bak-cli/internal/tui/screens"
 
 	tea "charm.land/bubbletea/v2"
@@ -23,6 +24,10 @@ const (
 	ScreenSettings
 	// ScreenCloud shows the cloud sync status screen.
 	ScreenCloud
+	// ScreenShortcuts displays the keyboard shortcut reference overlay.
+	ScreenShortcuts
+	// ScreenHealth runs the backup health diagnostic check.
+	ScreenHealth
 )
 
 // screenChangeMsg is an internal message that triggers a screen transition.
@@ -59,6 +64,12 @@ type Model struct {
 	// Sub-models for complex screens (lazily initialized on first visit).
 	dashboard *screens.DashboardModel
 	progress  *screens.ProgressModel
+	settings  *screens.SettingsModel
+	health    *screens.HealthModel
+
+	// Reusable components owned by the root model.
+	search components.Search
+	toast  components.Toast
 }
 
 // NewModel creates a root Model initialized to the main menu screen with
@@ -86,6 +97,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.tooSmall = msg.Width < minWidth || msg.Height < minHeight
+		// Forward to active sub-model.
+		switch m.screen {
+		case ScreenDashboard:
+			if m.dashboard != nil {
+				newDash, _ := m.dashboard.Update(msg)
+				nd := newDash.(screens.DashboardModel)
+				m.dashboard = &nd
+			}
+		case ScreenProgress:
+			if m.progress != nil {
+				newProg, _ := m.progress.Update(msg)
+				np := newProg.(screens.ProgressModel)
+				m.progress = &np
+			}
+		case ScreenSettings:
+			if m.settings != nil {
+				newSet, _ := m.settings.Update(msg)
+				ns := newSet.(screens.SettingsModel)
+				m.settings = &ns
+			}
+		case ScreenHealth:
+			if m.health != nil {
+				newH, _ := m.health.Update(msg)
+				nh := newH.(screens.HealthModel)
+				m.health = &nh
+			}
+		}
 		return m, nil
 
 	case tea.KeyPressMsg:
@@ -109,12 +147,63 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.progress = &p
 			}
 			return m, m.progress.Init()
+		case ScreenSettings:
+			if m.settings == nil {
+				s := screens.NewSettingsModel()
+				m.settings = &s
+			}
+			return m, m.settings.Init()
+		case ScreenHealth:
+			if m.health == nil {
+				h := screens.NewHealthModel()
+				m.health = &h
+			}
+			return m, m.health.Init()
 		}
 		return m, nil
 
 	case screens.ScreenBackMsg:
 		m.screen = ScreenMenu
 		return m, nil
+	}
+
+	// Forward remaining messages to the active sub-model.
+	switch m.screen {
+	case ScreenDashboard:
+		if m.dashboard != nil {
+			newDash, cmd := m.dashboard.Update(msg)
+			nd := newDash.(screens.DashboardModel)
+			m.dashboard = &nd
+			return m, cmd
+		}
+	case ScreenProgress:
+		if m.progress != nil {
+			newProg, cmd := m.progress.Update(msg)
+			np := newProg.(screens.ProgressModel)
+			m.progress = &np
+			return m, cmd
+		}
+	case ScreenSettings:
+		if m.settings != nil {
+			newSet, cmd := m.settings.Update(msg)
+			ns := newSet.(screens.SettingsModel)
+			m.settings = &ns
+			return m, cmd
+		}
+	case ScreenHealth:
+		if m.health != nil {
+			newH, cmd := m.health.Update(msg)
+			nh := newH.(screens.HealthModel)
+			m.health = &nh
+			return m, cmd
+		}
+	}
+
+	// Always forward tick messages to the toast component.
+	newToast, cmd := m.toast.Update(msg)
+	m.toast = newToast
+	if cmd != nil {
+		return m, cmd
 	}
 
 	return m, nil
@@ -137,12 +226,59 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 		case KeyEnter:
 			return m.handleMenuEnter()
+		case '?':
+			m.screen = ScreenShortcuts
+			return m, nil
 		}
 	case ScreenCloud:
 		switch msg.Code {
 		case KeyQuit, KeyEsc:
 			m.screen = ScreenMenu
 			return m, nil
+		}
+	case ScreenDashboard:
+		switch msg.Code {
+		case KeyQuit, KeyEsc:
+			m.screen = ScreenMenu
+			return m, nil
+		case '/':
+			m.search.Activate()
+			return m, nil
+		default:
+			// Forward to dashboard sub-model.
+			if m.dashboard != nil {
+				newDash, cmd := m.dashboard.Update(msg)
+				nd := newDash.(screens.DashboardModel)
+				m.dashboard = &nd
+				return m, cmd
+			}
+		}
+	case ScreenShortcuts:
+		switch msg.Code {
+		case KeyQuit, KeyEsc, '?':
+			m.screen = ScreenMenu
+			return m, nil
+		}
+	case ScreenSettings:
+		if m.settings != nil {
+			newSet, cmd := m.settings.Update(msg)
+			ns := newSet.(screens.SettingsModel)
+			m.settings = &ns
+			return m, cmd
+		}
+	case ScreenHealth:
+		if m.health != nil {
+			newH, cmd := m.health.Update(msg)
+			nh := newH.(screens.HealthModel)
+			m.health = &nh
+			return m, cmd
+		}
+	case ScreenProgress:
+		if m.progress != nil {
+			newProg, cmd := m.progress.Update(msg)
+			np := newProg.(screens.ProgressModel)
+			m.progress = &np
+			return m, cmd
 		}
 	}
 	return m, nil
@@ -158,6 +294,8 @@ func (m Model) handleMenuEnter() (tea.Model, tea.Cmd) {
 		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenDashboard} }
 	case 3: // "Cloud sync" → Cloud
 		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenCloud} }
+	case 5: // "Settings"
+		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenSettings} }
 	case 6: // "Quit"
 		return m, tea.Quit
 	}
@@ -186,8 +324,23 @@ func (m Model) View() tea.View {
 			}
 		case ScreenCloud:
 			content = screens.RenderCloudStatus(screens.CloudInfo{}, m.width)
+		case ScreenSettings:
+			if m.settings != nil {
+				content = m.settings.View().Content
+			}
+		case ScreenHealth:
+			if m.health != nil {
+				content = m.health.View().Content
+			}
+		case ScreenShortcuts:
+			content = screens.RenderShortcuts(m.width)
 		default:
 			content = ""
+		}
+
+		// Render toast overlay on top of screen content when visible.
+		if toastContent := m.toast.View(); toastContent != "" {
+			content += "\n" + toastContent
 		}
 	}
 	v := tea.NewView(content)
