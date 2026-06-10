@@ -368,6 +368,105 @@ func TestModel_View_TooSmall_ShowsWarningOnly(t *testing.T) {
 	}
 }
 
+// TestModel_View_AltScreen verifies that View() always returns a tea.View
+// with AltScreen=true, regardless of whether the terminal is too small.
+func TestModel_View_AltScreen(t *testing.T) {
+	tests := []struct {
+		name     string
+		width    int
+		height   int
+		tooSmall bool
+	}{
+		{"normal terminal", 80, 24, false},
+		{"too small terminal", 10, 5, true},
+		{"minimum viable", 20, 10, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewModel(Deps{Version: "1.0.0"})
+			m.width = tt.width
+			m.height = tt.height
+			m.tooSmall = tt.tooSmall
+
+			v := m.View()
+
+			if !v.AltScreen {
+				t.Errorf("View().AltScreen = false, want true (%s)", tt.name)
+			}
+
+			// Content must be non-empty regardless of AltScreen state.
+			if len(v.Content) == 0 {
+				t.Errorf("View().Content is empty (%s)", tt.name)
+			}
+		})
+	}
+}
+
+// TestModel_View_AltScreen_Triangulation verifies AltScreen is true
+// across multiple model states: different screens and after resizes.
+func TestModel_View_AltScreen_Triangulation(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+
+	// Normal menu view.
+	if !m.View().AltScreen {
+		t.Error("initial View().AltScreen = false, want true")
+	}
+
+	// After a resize, AltScreen must still be true.
+	m2, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	if !m2.(Model).View().AltScreen {
+		t.Error("View().AltScreen = false after resize, want true")
+	}
+
+	// After key navigation, AltScreen must still be true.
+	m3, _ := m.Update(tea.KeyPressMsg{Code: 'j'})
+	if !m3.(Model).View().AltScreen {
+		t.Error("View().AltScreen = false after key press, want true")
+	}
+
+	// After resize to too-small (width < 20), AltScreen must still be true.
+	m4, _ := m.Update(tea.WindowSizeMsg{Width: 10, Height: 10})
+	if !m4.(Model).View().AltScreen {
+		t.Error("View().AltScreen = false with too-small terminal, want true")
+	}
+}
+
+// TestModel_Selection_EmptyMenuItems verifies that Selection() handles
+// empty menuItems without panicking and returns a zero-value MenuSelection.
+func TestModel_Selection_EmptyMenuItems(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.menuItems = []string{}
+
+	sel := m.Selection()
+
+	if sel.Cursor != 0 {
+		t.Errorf("Selection() with empty items: Cursor = %d, want 0", sel.Cursor)
+	}
+	if sel.Item != "" {
+		t.Errorf("Selection() with empty items: Item = %q, want empty string", sel.Item)
+	}
+}
+
+// TestModel_Selection_NilMenuItems verifies that Selection() handles
+// nil menuItems without panicking (triangulation of empty case).
+func TestModel_Selection_NilMenuItems(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.menuItems = nil
+
+	// Must not panic.
+	sel := m.Selection()
+
+	if sel.Cursor != 0 {
+		t.Errorf("Selection() with nil items: Cursor = %d, want 0", sel.Cursor)
+	}
+	if sel.Item != "" {
+		t.Errorf("Selection() with nil items: Item = %q, want empty string", sel.Item)
+	}
+}
+
 // TestModel_Selection_Clamp verifies out-of-bounds cursor is clamped.
 func TestModel_Selection_Clamp(t *testing.T) {
 	tests := []struct {

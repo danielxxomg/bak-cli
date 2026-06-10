@@ -6,82 +6,113 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/danielxxomg/bak-cli/internal/tui/components"
 	"github.com/danielxxomg/bak-cli/internal/tui/styles"
 )
 
 // =============================================================================
-// TestRenderMainMenu — RED (menu.go does not exist yet)
+// TestRenderMainMenu — table-driven RED (menu.go does not exist yet)
 // =============================================================================
 
 func TestRenderMainMenu(t *testing.T) {
-	version := "1.0.0"
-	banner := ""
-	cursor := 0
-	width := 80
-
-	output := RenderMainMenu(version, banner, cursor, width)
-
-	// Output must be non-empty.
-	if len(output) == 0 {
-		t.Fatal("RenderMainMenu() returned empty string")
-	}
-
-	// Menu must contain all 7 items.
-	menuItems := []string{
+	defaultItems := []string{
 		"Create backup", "Restore", "Browse backups",
 		"Cloud sync", "Profiles", "Settings", "Quit",
 	}
-	for _, item := range menuItems {
-		if !strings.Contains(output, item) {
-			t.Errorf("RenderMainMenu output does not contain menu item %q", item)
-		}
+
+	tests := []struct {
+		name          string
+		version       string
+		items         []string
+		cursor        int
+		width         int
+		wantContains  []string
+		wantNotContain []string
+		wantLogo      bool // true: logo chars expected; false: must NOT appear
+	}{
+		{
+			name:    "full menu at 80 cols",
+			version: "1.0.0",
+			items:   defaultItems,
+			cursor:  0,
+			width:   80,
+			wantContains: []string{
+				"Create backup", "Restore", "Browse backups",
+				"Cloud sync", "Profiles", "Settings", "Quit",
+				styles.CursorIndicator,
+				"\u2191/\u2193", "enter", "q",
+				"navigate", "select", "quit",
+			},
+			wantLogo: true,
+		},
+		{
+			name:    "narrow terminal hides logo",
+			version: "1.0.0",
+			items:   defaultItems,
+			cursor:  0,
+			width:   30,
+			wantContains: []string{
+				"Create backup",
+				"navigate", "select", "quit",
+			},
+			wantNotContain: []string{"|_|", "|  _"},
+			wantLogo:       false,
+		},
+		{
+			name:    "custom version subtitle",
+			version: "2.3.1",
+			items:   defaultItems,
+			cursor:  0,
+			width:   80,
+			wantContains: []string{"2.3.1"},
+			wantLogo:     true,
+		},
+		{
+			name:    "help bar contextual keys",
+			version: "1.0.0",
+			items:   defaultItems,
+			cursor:  0,
+			width:   80,
+			wantContains: []string{"navigate", "select", "quit"},
+			wantLogo:     true,
+		},
 	}
 
-	// Must contain cursor indicator (from components.RenderMenu).
-	if !strings.Contains(output, styles.CursorIndicator) {
-		t.Errorf("RenderMainMenu output does not contain cursor indicator %q", styles.CursorIndicator)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := RenderMainMenu(tt.version, "", tt.items, tt.cursor, tt.width)
 
-	// When width >= 40, logo should be present.
-	// The logo contains ASCII art characters like "|" and "/".
-	if width >= 40 {
-		if !strings.Contains(output, "|") {
-			t.Error("RenderMainMenu(80) output missing logo characters, expected ASCII art")
-		}
-	}
+			if len(output) == 0 {
+				t.Fatal("RenderMainMenu returned empty string")
+			}
 
-	// Help bar keys must appear.
-	helpKeys := []string{"↑/↓", "enter", "q"}
-	for _, key := range helpKeys {
-		if !strings.Contains(output, key) {
-			t.Errorf("RenderMainMenu output does not contain help key %q", key)
-		}
-	}
-}
+			for _, want := range tt.wantContains {
+				if !strings.Contains(output, want) {
+					t.Errorf("output missing %q", want)
+				}
+			}
 
-// TestRenderMainMenu_NarrowTerminal verifies the logo is omitted when the
-// terminal width is below 40 columns.
-func TestRenderMainMenu_NarrowTerminal(t *testing.T) {
-	output := RenderMainMenu("1.0.0", "", 0, 30)
+			for _, notWant := range tt.wantNotContain {
+				if strings.Contains(output, notWant) {
+					t.Errorf("output unexpectedly contains %q", notWant)
+				}
+			}
 
-	// Menu items should still be present (logo hidden, not whole menu).
-	if !strings.Contains(output, "Create backup") {
-		t.Error("RenderMainMenu(30) missing menu items, want menu visible on narrow terminal")
-	}
-
-	// Verify the logo render function returned empty by checking that no
-	// styled version of the logo ASCII art is present. The logo renders
-	// with ANSI color codes; a non-empty logo would contain color sequences
-	// from the 5-band gradient. Since width=30 < 40, RenderLogo returns "".
-	if strings.Contains(output, "|_|") || strings.Contains(output, "|  _") {
-		t.Error("RenderMainMenu(30) contains logo ASCII art, want logo hidden")
+			if tt.wantLogo {
+				if !strings.Contains(output, "|") {
+					t.Error("output missing logo ASCII art characters")
+				}
+			}
+		})
 	}
 }
 
 // TestRenderMainMenu_CursorPositions verifies the cursor indicator is at
 // the correct position for different cursor values.
 func TestRenderMainMenu_CursorPositions(t *testing.T) {
+	menuItems := []string{
+		"Create backup", "Restore", "Browse backups",
+		"Cloud sync", "Profiles", "Settings", "Quit",
+	}
 	tests := []struct {
 		name     string
 		cursor   int
@@ -94,7 +125,7 @@ func TestRenderMainMenu_CursorPositions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output := RenderMainMenu("1.0.0", "", tt.cursor, 80)
+			output := RenderMainMenu("1.0.0", "", menuItems, tt.cursor, 80)
 
 			// The cursor indicator should appear before the selected item.
 			// Since RenderMenu pads non-selected items with spaces, we can
@@ -107,66 +138,118 @@ func TestRenderMainMenu_CursorPositions(t *testing.T) {
 			if !strings.Contains(output, tt.wantItem) {
 				t.Errorf("RenderMainMenu(cursor=%d) missing item %q", tt.cursor, tt.wantItem)
 			}
+		})
+	}
+}
 
-			// Verify output differs from a different cursor position by
-			// checking that the cursor indicator is adjacent to the selected item.
-			cursorLine := styles.CursorIndicator + tt.wantItem
-			if !strings.Contains(output, cursorLine) {
-				// Also check that the selected item appears near the indicator.
-				// The indicator and item may have ANSI codes between them, so
-				// we can't rely on exact adjacency. Instead, verify that both
-				// appear and the output is non-empty.
-				_ = cursorLine // used above for documentation
+// TestRenderMainMenu_EdgeCases verifies behavior with nil and empty
+// menu item slices. Even with no menu items, RenderMainMenu still produces
+// output (logo, version, help bar) — it should never panic. The key
+// validation is that menu item labels do NOT appear when the slice is
+// nil/empty, proving the menu renderer was called but returned nothing.
+func TestRenderMainMenu_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name       string
+		items      []string
+		wantOutput bool // false = menu items section empty
+	}{
+		{"nil items", nil, false},
+		{"empty items", []string{}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := RenderMainMenu("1.0.0", "", tt.items, 0, 80)
+
+			// Output must be non-empty even with no items:
+			// logo + version + help bar are always rendered when width >= 80.
+			if len(output) == 0 {
+				t.Fatal("RenderMainMenu returned empty string — expected logo/version/help")
+			}
+
+			// The help bar must still be present.
+			if !strings.Contains(output, "navigate") {
+				t.Error("output missing help bar")
+			}
+
+			// The version must still be present.
+			if !strings.Contains(output, "1.0.0") {
+				t.Error("output missing version")
+			}
+
+			// But no known menu items should appear (slice is nil/empty).
+			knownItems := []string{
+				"Create backup", "Restore", "Browse backups",
+				"Cloud sync", "Profiles", "Settings", "Quit",
+			}
+			for _, knownItem := range knownItems {
+				if strings.Contains(output, knownItem) {
+					t.Errorf("output unexpectedly contains menu item %q (items=%v)", knownItem, tt.items)
+				}
 			}
 		})
 	}
 }
 
-// TestRenderMainMenu_VersionSubtitle verifies the version string appears
-// in the menu output.
-func TestRenderMainMenu_VersionSubtitle(t *testing.T) {
-	output := RenderMainMenu("2.3.1", "", 0, 80)
-
-	if !strings.Contains(output, "2.3.1") {
-		t.Errorf("RenderMainMenu output does not contain version %q", "2.3.1")
-	}
-}
-
-// TestRenderMainMenu_HelpBarContext verifies the help bar has the correct
-// contextual keys for the menu screen.
-func TestRenderMainMenu_HelpBarContext(t *testing.T) {
-	output := RenderMainMenu("1.0.0", "", 0, 80)
-
-	// The menu help bar should contain navigate + select + quit keys.
-	required := []string{"navigate", "select", "quit"}
-	for _, r := range required {
-		if !strings.Contains(output, r) {
-			t.Errorf("RenderMainMenu help bar missing %q", r)
-		}
-	}
-}
-
-// TestRenderMainMenu_UsesComponents verifies that RenderMainMenu delegates
-// to the shared components package (indirect verification through output shape).
-func TestRenderMainMenu_UsesComponents(t *testing.T) {
-	// Build expected menu output from components.RenderMenu directly.
-	menuItems := []string{
-		"Create backup", "Restore", "Browse backups",
-		"Cloud sync", "Profiles", "Settings", "Quit",
-	}
-	expectedMenu := components.RenderMenu(menuItems, 0)
-
-	output := RenderMainMenu("1.0.0", "", 0, 80)
-
-	// The menu portion should be present within the full screen output.
-	if !strings.Contains(output, "Create backup") {
-		t.Error("RenderMainMenu missing menu items")
-	}
-
-	// The cursor indicator should be in both.
-	if !strings.Contains(output, styles.CursorIndicator) {
-		t.Error("RenderMainMenu missing cursor indicator")
+// TestRenderMainMenu_EdgeCases_Rendered verifies that out-of-bounds cursors
+// are clamped to valid range and produce deterministic, non-empty output
+// with the cursor indicator on the correct item.
+func TestRenderMainMenu_EdgeCases_Rendered(t *testing.T) {
+	tests := []struct {
+		name         string
+		items        []string
+		cursor       int
+		wantContains string // a string that MUST be present in output
+		wantLine     string // exact line that should start with cursor indicator
+	}{
+		{
+			name:         "negative cursor clamped to 0",
+			items:        []string{"A", "B", "C"},
+			cursor:       -5,
+			wantContains: styles.CursorIndicator,
+			wantLine:     "A",
+		},
+		{
+			name:         "cursor past end clamped to last",
+			items:        []string{"A", "B", "C"},
+			cursor:       99,
+			wantContains: styles.CursorIndicator,
+			wantLine:     "C",
+		},
+		{
+			name:         "negative cursor on single item",
+			items:        []string{"Only"},
+			cursor:       -1,
+			wantContains: styles.CursorIndicator,
+			wantLine:     "Only",
+		},
+		{
+			name:         "cursor past end on single item",
+			items:        []string{"Only"},
+			cursor:       5,
+			wantContains: styles.CursorIndicator,
+			wantLine:     "Only",
+		},
 	}
 
-	_ = expectedMenu // referenced above in comment
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := RenderMainMenu("1.0.0", "", tt.items, tt.cursor, 80)
+
+			if len(output) == 0 {
+				t.Fatal("RenderMainMenu returned empty string")
+			}
+			if !strings.Contains(output, tt.wantContains) {
+				t.Errorf("output missing %q", tt.wantContains)
+			}
+
+			// Verify the clamped item has the cursor indicator.
+			// The cursor indicator + selected item appears on the same line.
+			cursorLine := styles.CursorIndicator + tt.wantLine
+			styledLine := styles.CursorIndicator + styles.SelectedStyle.Render(tt.wantLine)
+			if !strings.Contains(output, cursorLine) && !strings.Contains(output, styledLine) {
+				t.Errorf("output missing cursor indicator on %q;\ngot:\n%s", tt.wantLine, output)
+			}
+		})
+	}
 }
