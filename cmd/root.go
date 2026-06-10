@@ -5,6 +5,9 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/danielxxomg/bak-cli/internal/config"
+	"github.com/danielxxomg/bak-cli/internal/tui"
 )
 
 var verbose bool
@@ -20,6 +23,31 @@ Run 'bak backup' to create a backup.
 Run 'bak restore --dry-run <id>' to preview before applying.`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Launch the interactive TUI when bak is invoked with no arguments
+		// and stdout is a terminal. Cobra handles --help before RunE, so
+		// `bak --help` still shows cobra help regardless of TTY.
+		if len(args) == 0 && isTTY() {
+			deps := tui.Deps{
+				Version:      Version,
+				ConfigExists: configExists,
+			}
+			return runTUI(deps)
+		}
+		// Fall through to cobra help output (non-TTY or non-empty args).
+		return cmd.Help()
+	},
+}
+
+// configExists returns true if the bak configuration file exists on disk.
+// Used by the TUI for first-run welcome detection.
+func configExists() bool {
+	cfgPath, err := config.DefaultPath()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(cfgPath)
+	return err == nil
 }
 
 // Execute runs the root command.
