@@ -12,6 +12,9 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/tui/styles"
 )
 
+// Package-level styles for progress screen (zero per-frame allocation).
+var spinnerStyle = lipgloss.NewStyle().Foreground(styles.ColorGold)
+
 // StepStatus represents the current state of a backup/restore step.
 type StepStatus int
 
@@ -65,7 +68,7 @@ type ProgressModel struct {
 // the progress bar uses Rose Pine colors.
 func NewProgressModel() ProgressModel {
 	sp := spinner.New(
-		spinner.WithStyle(lipgloss.NewStyle().Foreground(styles.ColorGold)),
+		spinner.WithStyle(spinnerStyle),
 	)
 	pg := progress.New(
 		progress.WithDefaultBlend(),
@@ -139,6 +142,10 @@ func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renders the progress screen with spinner, progress bar, and step list.
 func (m ProgressModel) View() tea.View {
+	if m.width < 20 || m.height < 10 {
+		return tea.NewView("Terminal too small")
+	}
+
 	var b strings.Builder
 
 	b.WriteString(styles.ProgressTitleStyle.Render("Progress"))
@@ -146,7 +153,7 @@ func (m ProgressModel) View() tea.View {
 
 	// Spinner row.
 	spin := m.spinner.View()
-	b.WriteString(fmt.Sprintf("  %s", spin))
+	fmt.Fprintf(&b, "  %s", spin)
 	b.WriteString("\n\n")
 
 	// Progress bar.
