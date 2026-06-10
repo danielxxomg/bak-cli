@@ -61,6 +61,12 @@ var ToastStyle = lipgloss.NewStyle().
 	Foreground(ColorText).
 	Padding(0, 1)
 
+// SettingsTitleStyle is the style for the settings screen heading.
+var SettingsTitleStyle = lipgloss.NewStyle().
+	Bold(true).
+	Foreground(ColorLavender).
+	Padding(0, 1)
+
 // CursorIndicator is the prefix character used to indicate the currently
 // selected item in menus and lists.
 const CursorIndicator = "\u25b8 "
