@@ -49,8 +49,7 @@ func (t Toast) Update(msg tea.Msg) (Toast, tea.Cmd) {
 	if !t.visible {
 		return t, nil
 	}
-	switch msg.(type) {
-	case toastTickMsg:
+	if _, ok := msg.(toastTickMsg); ok {
 		t.ticks++
 		if t.ticks >= t.ttl {
 			t.visible = false
