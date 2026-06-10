@@ -38,6 +38,18 @@ var (
 	// HelpStyle is used for help bars and footer text.
 	HelpStyle = lipgloss.NewStyle().
 			Foreground(ColorMuted)
+
+	// CheckedStyle is used for checked/selected checkboxes.
+	CheckedStyle = lipgloss.NewStyle().
+			Foreground(ColorPine)
+
+	// UncheckedStyle is used for unchecked checkboxes and unselected radios.
+	UncheckedStyle = lipgloss.NewStyle().
+			Foreground(ColorMuted)
+
+	// RadioSelectedStyle is used for the selected radio button indicator.
+	RadioSelectedStyle = lipgloss.NewStyle().
+			Foreground(ColorGold)
 )
 
 // CursorIndicator is the prefix character used to indicate the currently
