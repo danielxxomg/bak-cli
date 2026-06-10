@@ -49,6 +49,13 @@ func TestRenderMenu(t *testing.T) {
 			wantEmpty:  true,
 		},
 		{
+			name:       "nil items",
+			items:      nil,
+			cursor:     0,
+			wantLabels: nil,
+			wantEmpty:  true,
+		},
+		{
 			name:       "negative cursor clamped",
 			items:      []string{"Backup", "Restore"},
 			cursor:     -1,
@@ -270,8 +277,8 @@ func TestRenderHelp(t *testing.T) {
 		wantParts []string // key substrings that must appear
 	}{
 		{
-			name: "single key",
-			keys: []HelpKey{{Key: "q", Desc: "quit"}},
+			name:      "single key",
+			keys:      []HelpKey{{Key: "q", Desc: "quit"}},
 			wantParts: []string{"q", "quit"},
 		},
 		{
@@ -289,8 +296,13 @@ func TestRenderHelp(t *testing.T) {
 			wantEmpty: true,
 		},
 		{
-			name: "key with unicode",
-			keys: []HelpKey{{Key: "esc", Desc: "back"}},
+			name:      "nil keys",
+			keys:      nil,
+			wantEmpty: true,
+		},
+		{
+			name:      "key with unicode",
+			keys:      []HelpKey{{Key: "esc", Desc: "back"}},
 			wantParts: []string{"esc", "back"},
 		},
 	}

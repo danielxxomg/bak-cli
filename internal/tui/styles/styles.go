@@ -1,3 +1,6 @@
+// Package styles provides the Rose Pine color palette and shared lipgloss
+// styles for the bak-cli TUI. All styles are package-level variables to
+// avoid per-frame allocations during rendering.
 package styles
 
 import "charm.land/lipgloss/v2"
@@ -49,7 +52,7 @@ var (
 
 	// RadioSelectedStyle is used for the selected radio button indicator.
 	RadioSelectedStyle = lipgloss.NewStyle().
-			Foreground(ColorGold)
+				Foreground(ColorGold)
 )
 
 // CursorIndicator is the prefix character used to indicate the currently
