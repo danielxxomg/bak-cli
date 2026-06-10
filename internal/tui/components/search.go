@@ -49,6 +49,11 @@ func (s *Search) Deactivate() {
 	s.textinput.SetValue("")
 }
 
+// IsActive reports whether the search is currently active.
+func (s Search) IsActive() bool {
+	return s.active
+}
+
 // Query returns the current search query string.
 func (s Search) Query() string {
 	if !s.initd {

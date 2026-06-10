@@ -602,3 +602,167 @@ func TestModel_Update_BackFromDashboard(t *testing.T) {
 		t.Errorf("after ScreenBackMsg: screen = %v, want ScreenMenu", result.screen)
 	}
 }
+
+// =============================================================================
+// PR5 Screen Routing Tests — RED (model.go updates do not exist yet)
+// =============================================================================
+
+// TestModel_Update_ScreenSettings verifies enter on "Settings"
+// (menu index 5) transitions to ScreenSettings.
+func TestModel_Update_ScreenSettings(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.cursor = 5 // "Settings"
+
+	_, cmd := m.Update(tea.KeyPressMsg{Code: KeyEnter})
+
+	if cmd == nil {
+		t.Fatal("Update(enter) on Settings returned nil cmd")
+	}
+	msg := cmd()
+	switch msg := msg.(type) {
+	case screenChangeMsg:
+		if msg.screen != ScreenSettings {
+			t.Errorf("screenChangeMsg.screen = %v, want ScreenSettings", msg.screen)
+		}
+	default:
+		t.Errorf("Update(enter) cmd returned %T, want screenChangeMsg", msg)
+	}
+}
+
+// TestModel_Update_ScreenShortcuts verifies that pressing ? on the
+// main menu activates the shortcuts overlay.
+func TestModel_Update_ScreenShortcuts(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+
+	newModel, _ := m.Update(tea.KeyPressMsg{Code: '?'})
+	result := newModel.(Model)
+
+	if result.screen != ScreenShortcuts {
+		t.Errorf("after '?': screen = %v, want ScreenShortcuts", result.screen)
+	}
+}
+
+// TestModel_Update_SearchActivate verifies that pressing / on the
+// dashboard activates the search component.
+func TestModel_Update_SearchActivate(t *testing.T) {
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		ListBackups: func() ([]BackupInfo, error) {
+			return []BackupInfo{}, nil
+		},
+	})
+	m.screen = ScreenDashboard
+
+	newModel, _ := m.Update(tea.KeyPressMsg{Code: '/'})
+	result := newModel.(Model)
+
+	if !result.search.IsActive() {
+		t.Error("after '/': search is not active, want true")
+	}
+}
+
+// TestModel_Update_Toast verifies that triggering a toast sets
+// the toast message and visibility.
+func TestModel_Update_Toast(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+
+	m.toast.Show("Backup started", 3)
+
+	output := m.toast.View()
+	if !strings.Contains(output, "Backup started") {
+		t.Errorf("toast View() = %q, want to contain %q", output, "Backup started")
+	}
+	if output == "" {
+		t.Error("toast View() returned empty after Show()")
+	}
+}
+
+// TestModel_View_Settings verifies View delegates to settings when
+// screen=ScreenSettings.
+func TestModel_View_Settings(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = ScreenSettings
+	m.settings = newSettingsPtr()
+
+	// Forward WindowSizeMsg so sub-model gets dimensions.
+	m2, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = m2.(Model)
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "Settings") {
+		t.Errorf("View() settings missing heading: %q", output)
+	}
+}
+
+// TestModel_View_Shortcuts verifies View renders shortcuts overlay.
+func TestModel_View_Shortcuts(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.screen = ScreenShortcuts
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "Navigation") {
+		t.Errorf("View() shortcuts missing 'Navigation': %q", output)
+	}
+}
+
+// TestModel_View_ToastOverlay verifies toast is rendered when visible.
+func TestModel_View_ToastOverlay(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.toast.Show("Done", 3)
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "Done") {
+		t.Errorf("View() missing toast message 'Done': %q", output)
+	}
+}
+
+// TestModel_BackFromShortcuts verifies that pressing q/esc from
+// shortcuts overlay returns to ScreenMenu.
+func TestModel_BackFromShortcuts(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = ScreenShortcuts
+
+	newModel, _ := m.Update(tea.KeyPressMsg{Code: 'q'})
+	result := newModel.(Model)
+
+	if result.screen != ScreenMenu {
+		t.Errorf("after q from shortcuts: screen = %v, want ScreenMenu", result.screen)
+	}
+}
+
+// TestModel_ScreenRoute_Health tests enter on a new menu item
+// for health check (simulated via direct screen set).
+func TestModel_ScreenRoute_Health(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = ScreenHealth
+	m.health = newHealthPtr()
+
+	// Forward WindowSizeMsg so sub-model gets dimensions.
+	m2, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = m2.(Model)
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "Health") {
+		t.Errorf("View() health missing heading: %q", output)
+	}
+}
+
+// newSettingsPtr returns a pointer to a freshly initialized SettingsModel.
+func newSettingsPtr() *screens.SettingsModel {
+	sm := screens.NewSettingsModel()
+	return &sm
+}
+
+// newHealthPtr returns a pointer to a freshly initialized HealthModel.
+func newHealthPtr() *screens.HealthModel {
+	hm := screens.NewHealthModel()
+	return &hm
+}
