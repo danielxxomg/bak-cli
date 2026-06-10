@@ -6,7 +6,6 @@ package screens
 import (
 	"strings"
 
-	"github.com/danielxxomg/bak-cli/internal/tui"
 	"github.com/danielxxomg/bak-cli/internal/tui/components"
 	"github.com/danielxxomg/bak-cli/internal/tui/styles"
 )
@@ -17,7 +16,7 @@ import (
 // The logo is omitted when width < 40 to prevent overflow on narrow
 // terminals. Menu navigation keys are rendered via components.RenderMenu
 // and the help bar via components.RenderHelp.
-func RenderMainMenu(version string, banner string, cursor int, width int) string {
+func RenderMainMenu(version string, banner string, menuItems []string, cursor int, width int) string {
 	var b strings.Builder
 
 	// Logo (only on wide terminals).
@@ -40,7 +39,7 @@ func RenderMainMenu(version string, banner string, cursor int, width int) string
 	}
 
 	// Menu items with cursor.
-	b.WriteString(components.RenderMenu(tui.DefaultMenuItems, cursor))
+	b.WriteString(components.RenderMenu(menuItems, cursor))
 	b.WriteString("\n\n")
 
 	// Help bar with contextual keys.

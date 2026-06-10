@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"github.com/danielxxomg/bak-cli/internal/tui/components"
+	"github.com/danielxxomg/bak-cli/internal/tui/screens"
 
 	"charm.land/bubbletea/v2"
 )
@@ -123,16 +123,20 @@ func (m Model) View() tea.View {
 	return v
 }
 
-// renderMenu composes the main menu view from the menu items and the
-// current cursor position using the shared component renderer.
+// renderMenu composes the main menu view using the full screen renderer
+// which includes the logo, version, menu items, and help bar.
 func (m Model) renderMenu() string {
-	return components.RenderMenu(m.menuItems, m.cursor)
+	return screens.RenderMainMenu(m.deps.Version, "", m.menuItems, m.cursor, m.width)
 }
 
 // Selection returns the current menu selection. If the cursor is out of
-// bounds it is clamped to the valid range. This is the primary mechanism
-// for cmd/root.go to determine which action to run after the TUI exits.
+// bounds or menuItems is empty, a zero-value MenuSelection is returned.
+// This is the primary mechanism for cmd/root.go to determine which action
+// to run after the TUI exits.
 func (m Model) Selection() MenuSelection {
+	if len(m.menuItems) == 0 {
+		return MenuSelection{}
+	}
 	cursor := m.cursor
 	if cursor < 0 {
 		cursor = 0
