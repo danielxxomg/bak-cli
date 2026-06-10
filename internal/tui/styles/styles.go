@@ -67,6 +67,11 @@ var SettingsTitleStyle = lipgloss.NewStyle().
 	Foreground(ColorLavender).
 	Padding(0, 1)
 
+// SearchStyle is the style for the search bar overlay.
+var SearchStyle = lipgloss.NewStyle().
+	Foreground(ColorText).
+	Padding(0, 1)
+
 // CursorIndicator is the prefix character used to indicate the currently
 // selected item in menus and lists.
 const CursorIndicator = "\u25b8 "
