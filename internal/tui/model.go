@@ -104,6 +104,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case ScreenProgress:
 			if m.progress == nil {
 				p := m.initProgress()
+				p.Width = m.width
+				p.Height = m.height
 				m.progress = &p
 			}
 			return m, m.progress.Init()

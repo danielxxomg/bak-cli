@@ -59,8 +59,8 @@ type ProgressModel struct {
 	progress progress.Model
 	steps    []Step
 	running  bool
-	width    int
-	height   int
+	Width    int
+	Height   int
 }
 
 // NewProgressModel creates a ProgressModel with initialized spinner and
@@ -90,8 +90,8 @@ func (m ProgressModel) Init() tea.Cmd {
 func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
+		m.Width = msg.Width
+		m.Height = msg.Height
 		return m, nil
 
 	case tea.KeyPressMsg:
@@ -142,7 +142,7 @@ func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renders the progress screen with spinner, progress bar, and step list.
 func (m ProgressModel) View() tea.View {
-	if m.width < 20 || m.height < 10 {
+	if m.Width < 20 || m.Height < 10 {
 		return tea.NewView("Terminal too small")
 	}
 

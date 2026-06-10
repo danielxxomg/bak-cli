@@ -37,8 +37,8 @@ func TestNewProgressModel(t *testing.T) {
 
 func TestProgress_Update_StepMsg(t *testing.T) {
 	m := NewProgressModel()
-	m.width = 80
-	m.height = 24
+	m.Width = 80
+	m.Height = 24
 
 	// Send a progress step.
 	newModel, _ := m.Update(ProgressStepMsg{
@@ -156,8 +156,8 @@ func TestProgress_Update_Back(t *testing.T) {
 
 func TestProgress_View_Running(t *testing.T) {
 	m := NewProgressModel()
-	m.width = 80
-	m.height = 24
+	m.Width = 80
+	m.Height = 24
 	m.running = true
 	m.steps = []Step{
 		{Name: "Scanning files", Status: StepDone},
@@ -200,8 +200,8 @@ func TestProgress_View_Running(t *testing.T) {
 
 func TestProgress_View_Complete(t *testing.T) {
 	m := NewProgressModel()
-	m.width = 80
-	m.height = 24
+	m.Width = 80
+	m.Height = 24
 	m.running = false
 	m.steps = []Step{
 		{Name: "Scanning files", Status: StepDone},
@@ -232,8 +232,8 @@ func TestProgress_View_Complete(t *testing.T) {
 
 func TestProgress_View_EmptySteps(t *testing.T) {
 	m := NewProgressModel()
-	m.width = 80
-	m.height = 24
+	m.Width = 80
+	m.Height = 24
 
 	output := m.View().Content
 
@@ -297,10 +297,10 @@ func TestProgress_Update_WindowSize(t *testing.T) {
 	newModel, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	result := newModel.(ProgressModel)
 
-	if result.width != 100 {
-		t.Errorf("WindowSize width = %d, want 100", result.width)
+	if result.Width != 100 {
+		t.Errorf("WindowSize width = %d, want 100", result.Width)
 	}
-	if result.height != 30 {
-		t.Errorf("WindowSize height = %d, want 30", result.height)
+	if result.Height != 30 {
+		t.Errorf("WindowSize height = %d, want 30", result.Height)
 	}
 }
