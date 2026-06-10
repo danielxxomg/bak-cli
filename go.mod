@@ -3,6 +3,7 @@ module github.com/danielxxomg/bak-cli
 go 1.25.0
 
 require (
+	charm.land/bubbles/v2 v2.1.0
 	charm.land/bubbletea/v2 v2.0.7
 	charm.land/lipgloss/v2 v2.0.3
 	github.com/go-git/go-git/v5 v5.19.1
@@ -14,7 +15,6 @@ require (
 )
 
 require (
-	charm.land/bubbles/v2 v2.1.0 // indirect
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
