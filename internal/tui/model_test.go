@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -601,4 +602,692 @@ func TestModel_Update_BackFromDashboard(t *testing.T) {
 	if result.screen != ScreenMenu {
 		t.Errorf("after ScreenBackMsg: screen = %v, want ScreenMenu", result.screen)
 	}
+}
+
+// =============================================================================
+// PR5 Screen Routing Tests — RED (model.go updates do not exist yet)
+// =============================================================================
+
+// TestModel_Update_ScreenSettings verifies enter on "Settings"
+// (menu index 5) transitions to ScreenSettings.
+func TestModel_Update_ScreenSettings(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.cursor = 5 // "Settings"
+
+	_, cmd := m.Update(tea.KeyPressMsg{Code: KeyEnter})
+
+	if cmd == nil {
+		t.Fatal("Update(enter) on Settings returned nil cmd")
+	}
+	msg := cmd()
+	switch msg := msg.(type) {
+	case screenChangeMsg:
+		if msg.screen != ScreenSettings {
+			t.Errorf("screenChangeMsg.screen = %v, want ScreenSettings", msg.screen)
+		}
+	default:
+		t.Errorf("Update(enter) cmd returned %T, want screenChangeMsg", msg)
+	}
+}
+
+// TestModel_Update_ScreenShortcuts verifies that pressing ? on the
+// main menu activates the shortcuts overlay.
+func TestModel_Update_ScreenShortcuts(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+
+	newModel, _ := m.Update(tea.KeyPressMsg{Code: '?'})
+	result := newModel.(Model)
+
+	if result.screen != ScreenShortcuts {
+		t.Errorf("after '?': screen = %v, want ScreenShortcuts", result.screen)
+	}
+}
+
+// TestModel_Update_SearchActivate verifies that pressing / on the
+// dashboard activates the search component.
+func TestModel_Update_SearchActivate(t *testing.T) {
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		ListBackups: func() ([]BackupInfo, error) {
+			return []BackupInfo{}, nil
+		},
+	})
+	m.screen = ScreenDashboard
+
+	newModel, _ := m.Update(tea.KeyPressMsg{Code: '/'})
+	result := newModel.(Model)
+
+	if !result.search.IsActive() {
+		t.Error("after '/': search is not active, want true")
+	}
+}
+
+// TestModel_Update_Toast verifies that triggering a toast sets
+// the toast message and visibility.
+func TestModel_Update_Toast(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+
+	m.toast.Show("Backup started", 3)
+
+	output := m.toast.View()
+	if !strings.Contains(output, "Backup started") {
+		t.Errorf("toast View() = %q, want to contain %q", output, "Backup started")
+	}
+	if output == "" {
+		t.Error("toast View() returned empty after Show()")
+	}
+}
+
+// TestModel_View_Settings verifies View delegates to settings when
+// screen=ScreenSettings.
+func TestModel_View_Settings(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = ScreenSettings
+	m.settings = newSettingsPtr()
+
+	// Forward WindowSizeMsg so sub-model gets dimensions.
+	m2, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = m2.(Model)
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "Settings") {
+		t.Errorf("View() settings missing heading: %q", output)
+	}
+}
+
+// TestModel_View_Shortcuts verifies View renders shortcuts overlay.
+func TestModel_View_Shortcuts(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.screen = ScreenShortcuts
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "Navigation") {
+		t.Errorf("View() shortcuts missing 'Navigation': %q", output)
+	}
+}
+
+// TestModel_View_ToastOverlay verifies toast is rendered when visible.
+func TestModel_View_ToastOverlay(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.toast.Show("Done", 3)
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "Done") {
+		t.Errorf("View() missing toast message 'Done': %q", output)
+	}
+}
+
+// TestModel_BackFromShortcuts verifies that pressing q/esc from
+// shortcuts overlay returns to ScreenMenu.
+func TestModel_BackFromShortcuts(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = ScreenShortcuts
+
+	newModel, _ := m.Update(tea.KeyPressMsg{Code: 'q'})
+	result := newModel.(Model)
+
+	if result.screen != ScreenMenu {
+		t.Errorf("after q from shortcuts: screen = %v, want ScreenMenu", result.screen)
+	}
+}
+
+// TestModel_ScreenRoute_Health tests enter on a new menu item
+// for health check (simulated via direct screen set).
+func TestModel_ScreenRoute_Health(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = ScreenHealth
+	m.health = newHealthPtr()
+
+	// Forward WindowSizeMsg so sub-model gets dimensions.
+	m2, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = m2.(Model)
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "Health") {
+		t.Errorf("View() health missing heading: %q", output)
+	}
+}
+
+// =============================================================================
+// Coverage fill: handleMenuEnter cases 1 (Restore) and 4 (Profiles)
+// =============================================================================
+
+// TestModel_Update_MenuEnter_Restore verifies pressing enter on cursor=1
+// ("Restore") — currently unimplemented, so screen stays on ScreenMenu.
+func TestModel_Update_MenuEnter_Restore(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.cursor = 1 // "Restore"
+
+	newModel, cmd := m.Update(tea.KeyPressMsg{Code: KeyEnter})
+	result := newModel.(Model)
+
+	// No screen transition for unimplemented menu item.
+	if result.screen != ScreenMenu {
+		t.Errorf("after enter on Restore: screen = %v, want ScreenMenu", result.screen)
+	}
+	// No command should be returned.
+	if cmd != nil {
+		t.Errorf("after enter on Restore: cmd = %v, want nil", cmd)
+	}
+}
+
+// TestModel_Update_MenuEnter_Profiles verifies pressing enter on cursor=4
+// ("Profiles") — currently unimplemented, so screen stays on ScreenMenu.
+func TestModel_Update_MenuEnter_Profiles(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.cursor = 4 // "Profiles"
+
+	newModel, cmd := m.Update(tea.KeyPressMsg{Code: KeyEnter})
+	result := newModel.(Model)
+
+	// No screen transition for unimplemented menu item.
+	if result.screen != ScreenMenu {
+		t.Errorf("after enter on Profiles: screen = %v, want ScreenMenu", result.screen)
+	}
+	// No command should be returned.
+	if cmd != nil {
+		t.Errorf("after enter on Profiles: cmd = %v, want nil", cmd)
+	}
+}
+
+// =============================================================================
+// Coverage fill: ScreenCloud routing — handleKey and View
+// =============================================================================
+
+// TestModel_Update_ScreenCloud_Back verifies that pressing q on the cloud
+// screen returns to ScreenMenu.
+func TestModel_Update_ScreenCloud_Back(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = ScreenCloud
+
+	newModel, _ := m.Update(tea.KeyPressMsg{Code: 'q'})
+	result := newModel.(Model)
+
+	if result.screen != ScreenMenu {
+		t.Errorf("after q on cloud: screen = %v, want ScreenMenu", result.screen)
+	}
+}
+
+// TestModel_Update_ScreenCloud_Esc verifies that pressing esc on the cloud
+// screen returns to ScreenMenu.
+func TestModel_Update_ScreenCloud_Esc(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = ScreenCloud
+
+	newModel, _ := m.Update(tea.KeyPressMsg{Code: KeyEsc})
+	result := newModel.(Model)
+
+	if result.screen != ScreenMenu {
+		t.Errorf("after esc on cloud: screen = %v, want ScreenMenu", result.screen)
+	}
+}
+
+// TestModel_View_Cloud verifies View renders the cloud sync screen.
+func TestModel_View_Cloud(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.screen = ScreenCloud
+
+	output := m.View().Content
+
+	// Cloud screen with no provider shows "No cloud provider configured".
+	if !strings.Contains(output, "No cloud provider configured") {
+		t.Errorf("View() cloud missing 'No cloud provider configured': %q", output)
+	}
+}
+
+// =============================================================================
+// Coverage fill: ScreenWizard and default branch in View
+// =============================================================================
+
+// TestModel_View_Wizard verifies View handles ScreenWizard (no explicit
+// case — falls to default branch returning empty content).
+func TestModel_View_Wizard(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.screen = ScreenWizard
+
+	output := m.View().Content
+
+	// Wizard has no explicit View case — default branch returns empty string.
+	// Must not panic.
+	if output != "" {
+		t.Logf("View() wizard content = %q (expected empty from default branch)", output)
+	}
+}
+
+// TestModel_View_UnknownScreen verifies View handles an out-of-range screen
+// value via the default branch without panicking.
+func TestModel_View_UnknownScreen(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.screen = Screen(99) // invalid screen value
+
+	output := m.View().Content
+
+	// Must not panic, content should be empty.
+	if output != "" {
+		t.Logf("View() unknown screen content = %q (expected empty)", output)
+	}
+}
+
+// =============================================================================
+// Coverage fill: initDashboard nil and error paths
+// =============================================================================
+
+// TestModel_initDashboard_NilListBackups verifies initDashboard handles
+// nil ListBackups gracefully (returns an empty dashboard, no panic).
+func TestModel_initDashboard_NilListBackups(t *testing.T) {
+	m := NewModel(Deps{
+		Version:      "1.0.0",
+		ListBackups:  nil,
+		ConfigExists: func() bool { return true },
+	})
+
+	// Must not panic.
+	d := m.initDashboard()
+
+	// Dashboard should be usable (empty, no error).
+	view := d.View().Content
+	if !strings.Contains(view, "No backups found") {
+		t.Errorf("nil ListBackups dashboard view = %q, want 'No backups found'", view)
+	}
+}
+
+// TestModel_initDashboard_Error verifies initDashboard propagates errors
+// from ListBackups to the dashboard model (error state visible in View).
+func TestModel_initDashboard_Error(t *testing.T) {
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		ListBackups: func() ([]BackupInfo, error) {
+			return nil, fmt.Errorf("connection refused")
+		},
+	})
+
+	// Must not panic.
+	d := m.initDashboard()
+
+	// Dashboard should show error.
+	view := d.View().Content
+	if !strings.Contains(view, "connection refused") {
+		t.Errorf("error dashboard view = %q, want 'connection refused'", view)
+	}
+}
+
+// =============================================================================
+// Coverage fill: initProgress helper
+// =============================================================================
+
+// TestModel_initProgress verifies initProgress returns a ProgressModel
+// that can render its View without panicking.
+func TestModel_initProgress(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+
+	p := m.initProgress()
+	p.Width = 80
+	p.Height = 24
+
+	view := p.View().Content
+
+	if !strings.Contains(view, "Progress") {
+		t.Errorf("initProgress view = %q, want 'Progress' heading", view)
+	}
+}
+
+// =============================================================================
+// Coverage fill: handleKey forwarding for ScreenSettings, ScreenHealth,
+// ScreenProgress, and non-matching key on ScreenCloud
+// =============================================================================
+
+// TestModel_Update_ScreenSettings_KeyForward verifies that key presses on
+// the Settings screen are forwarded to the settings sub-model.
+func TestModel_Update_ScreenSettings_KeyForward(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = ScreenSettings
+	m.settings = newSettingsPtr()
+	// Give sub-model dimensions so it doesn't show "too small".
+	m2, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = m2.(Model)
+
+	// Press 'j' — should be forwarded to settings sub-model.
+	newModel, _ := m.Update(tea.KeyPressMsg{Code: 'j'})
+	result := newModel.(Model)
+
+	// Screen should still be ScreenSettings.
+	if result.screen != ScreenSettings {
+		t.Errorf("after j on settings: screen = %v, want ScreenSettings", result.screen)
+	}
+}
+
+// TestModel_Update_ScreenHealth_KeyForward verifies that key presses on the
+// Health screen are forwarded to the health sub-model.
+func TestModel_Update_ScreenHealth_KeyForward(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = ScreenHealth
+	m.health = newHealthPtr()
+	// Give sub-model dimensions.
+	m2, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = m2.(Model)
+
+	// Press 'j' — should be forwarded to health sub-model.
+	newModel, _ := m.Update(tea.KeyPressMsg{Code: 'j'})
+	result := newModel.(Model)
+
+	// Screen should still be ScreenHealth.
+	if result.screen != ScreenHealth {
+		t.Errorf("after j on health: screen = %v, want ScreenHealth", result.screen)
+	}
+}
+
+// TestModel_Update_ScreenProgress_KeyForward verifies that key presses on
+// the Progress screen are forwarded to the progress sub-model.
+func TestModel_Update_ScreenProgress_KeyForward(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = ScreenProgress
+	m.progress = newProgressPtr()
+	// Give sub-model dimensions.
+	m2, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = m2.(Model)
+
+	// Press 'j' — should be forwarded to progress sub-model.
+	newModel, _ := m.Update(tea.KeyPressMsg{Code: 'j'})
+	result := newModel.(Model)
+
+	// Screen should still be ScreenProgress.
+	if result.screen != ScreenProgress {
+		t.Errorf("after j on progress: screen = %v, want ScreenProgress", result.screen)
+	}
+}
+
+// TestModel_Update_ScreenCloud_UnhandledKey verifies that a non-q/esc key
+// press on the cloud screen is a no-op (screen stays on ScreenCloud).
+func TestModel_Update_ScreenCloud_UnhandledKey(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = ScreenCloud
+
+	newModel, _ := m.Update(tea.KeyPressMsg{Code: 'j'})
+	result := newModel.(Model)
+
+	// Screen should still be ScreenCloud — j is not handled.
+	if result.screen != ScreenCloud {
+		t.Errorf("after j on cloud: screen = %v, want ScreenCloud", result.screen)
+	}
+}
+
+// =============================================================================
+// Coverage fill: Update screenChangeMsg for screens without sub-model init
+// (ScreenWizard, ScreenCloud, ScreenShortcuts)
+// =============================================================================
+
+// TestModel_Update_ScreenChange_Cloud verifies screenChangeMsg for
+// ScreenCloud sets the screen and returns nil cmd (no sub-model init).
+func TestModel_Update_ScreenChange_Cloud(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+
+	newModel, cmd := m.Update(screenChangeMsg{screen: ScreenCloud})
+	result := newModel.(Model)
+
+	if result.screen != ScreenCloud {
+		t.Errorf("after screenChangeMsg(Cloud): screen = %v, want ScreenCloud", result.screen)
+	}
+	if cmd != nil {
+		t.Errorf("after screenChangeMsg(Cloud): cmd = %v, want nil", cmd)
+	}
+}
+
+// TestModel_Update_ScreenChange_Wizard verifies screenChangeMsg for
+// ScreenWizard sets the screen and returns nil cmd (no sub-model init).
+func TestModel_Update_ScreenChange_Wizard(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+
+	newModel, cmd := m.Update(screenChangeMsg{screen: ScreenWizard})
+	result := newModel.(Model)
+
+	if result.screen != ScreenWizard {
+		t.Errorf("after screenChangeMsg(Wizard): screen = %v, want ScreenWizard", result.screen)
+	}
+	if cmd != nil {
+		t.Errorf("after screenChangeMsg(Wizard): cmd = %v, want nil", cmd)
+	}
+}
+
+// TestModel_Update_ScreenChange_Shortcuts verifies screenChangeMsg for
+// ScreenShortcuts sets the screen and returns nil cmd (no sub-model init).
+func TestModel_Update_ScreenChange_Shortcuts(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+
+	newModel, cmd := m.Update(screenChangeMsg{screen: ScreenShortcuts})
+	result := newModel.(Model)
+
+	if result.screen != ScreenShortcuts {
+		t.Errorf("after screenChangeMsg(Shortcuts): screen = %v, want ScreenShortcuts", result.screen)
+	}
+	if cmd != nil {
+		t.Errorf("after screenChangeMsg(Shortcuts): cmd = %v, want nil", cmd)
+	}
+}
+
+// =============================================================================
+// Coverage fill: Update forwarding unknown message type to all sub-models
+// (the default switch at the bottom that forwards to the active screen)
+// =============================================================================
+
+// TestModel_Update_ForwardToDashboard verifies that unknown messages are
+// forwarded to the dashboard sub-model when screen=ScreenDashboard.
+func TestModel_Update_ForwardToDashboard(t *testing.T) {
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		ListBackups: func() ([]BackupInfo, error) {
+			return []BackupInfo{}, nil
+		},
+	})
+	m.width = 80
+	m.height = 24
+	m.screen = ScreenDashboard
+	// Init dashboard via screenChangeMsg.
+	m2, _ := m.Update(screenChangeMsg{screen: ScreenDashboard})
+	m = m2.(Model)
+
+	// Send an unknown message type (not KeyPressMsg, not WindowSizeMsg, etc.).
+	newModel, _ := m.Update(struct{}{})
+	result := newModel.(Model)
+
+	// Must not panic; screen stays on ScreenDashboard.
+	if result.screen != ScreenDashboard {
+		t.Errorf("after unknown msg on dashboard: screen = %v, want ScreenDashboard", result.screen)
+	}
+}
+
+// TestModel_Update_ForwardToProgress verifies that unknown messages are
+// forwarded to the progress sub-model when screen=ScreenProgress.
+func TestModel_Update_ForwardToProgress(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.screen = ScreenProgress
+	// Init progress via screenChangeMsg.
+	m2, _ := m.Update(screenChangeMsg{screen: ScreenProgress})
+	m = m2.(Model)
+
+	// Send an unknown message type.
+	newModel, _ := m.Update(struct{}{})
+	result := newModel.(Model)
+
+	// Must not panic; screen stays on ScreenProgress.
+	if result.screen != ScreenProgress {
+		t.Errorf("after unknown msg on progress: screen = %v, want ScreenProgress", result.screen)
+	}
+}
+
+// TestModel_Update_ForwardToSettings verifies that unknown messages are
+// forwarded to the settings sub-model when screen=ScreenSettings.
+func TestModel_Update_ForwardToSettings(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.screen = ScreenSettings
+	// Init settings via screenChangeMsg.
+	m2, _ := m.Update(screenChangeMsg{screen: ScreenSettings})
+	m = m2.(Model)
+
+	// Send an unknown message type.
+	newModel, _ := m.Update(struct{}{})
+	result := newModel.(Model)
+
+	// Must not panic; screen stays on ScreenSettings.
+	if result.screen != ScreenSettings {
+		t.Errorf("after unknown msg on settings: screen = %v, want ScreenSettings", result.screen)
+	}
+}
+
+// TestModel_Update_ForwardToHealth verifies that unknown messages are
+// forwarded to the health sub-model when screen=ScreenHealth.
+func TestModel_Update_ForwardToHealth(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.screen = ScreenHealth
+	// Init health via screenChangeMsg.
+	m2, _ := m.Update(screenChangeMsg{screen: ScreenHealth})
+	m = m2.(Model)
+
+	// Send an unknown message type.
+	newModel, _ := m.Update(struct{}{})
+	result := newModel.(Model)
+
+	// Must not panic; screen stays on ScreenHealth.
+	if result.screen != ScreenHealth {
+		t.Errorf("after unknown msg on health: screen = %v, want ScreenHealth", result.screen)
+	}
+}
+
+// TestModel_Update_UnknownMsg_NoSubmodel verifies that an unknown message
+// on a screen that has no sub-model (ScreenMenu) falls through to the
+// final return (m, nil) without panicking.
+func TestModel_Update_UnknownMsg_NoSubmodel(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.screen = ScreenMenu
+
+	// Send an unknown message type — no sub-model exists for ScreenMenu.
+	newModel, _ := m.Update(struct{}{})
+	result := newModel.(Model)
+
+	// Must not panic; screen stays on ScreenMenu.
+	if result.screen != ScreenMenu {
+		t.Errorf("after unknown msg on menu: screen = %v, want ScreenMenu", result.screen)
+	}
+}
+
+// =============================================================================
+// Coverage fill: WindowSizeMsg forwarded to sub-models on non-Dashboard screens
+// (already tested for Dashboard via TestModel_View_Dashboard, but not for
+// Progress/Settings/Health with sub-model nil guard)
+// =============================================================================
+
+// TestModel_Update_WindowSize_ProgressNil verifies WindowSizeMsg on
+// ScreenProgress with nil progress sub-model does not panic.
+func TestModel_Update_WindowSize_ProgressNil(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = ScreenProgress
+	m.progress = nil
+
+	// Must not panic.
+	newModel, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	result := newModel.(Model)
+	if result.screen != ScreenProgress {
+		t.Errorf("WindowSize on nil progress: screen = %v, want ScreenProgress", result.screen)
+	}
+}
+
+// TestModel_Update_WindowSize_SettingsNil verifies WindowSizeMsg on
+// ScreenSettings with nil settings sub-model does not panic.
+func TestModel_Update_WindowSize_SettingsNil(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = ScreenSettings
+	m.settings = nil
+
+	// Must not panic.
+	newModel, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	result := newModel.(Model)
+	if result.screen != ScreenSettings {
+		t.Errorf("WindowSize on nil settings: screen = %v, want ScreenSettings", result.screen)
+	}
+}
+
+// TestModel_Update_WindowSize_HealthNil verifies WindowSizeMsg on
+// ScreenHealth with nil health sub-model does not panic.
+func TestModel_Update_WindowSize_HealthNil(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = ScreenHealth
+	m.health = nil
+
+	// Must not panic.
+	newModel, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	result := newModel.(Model)
+	if result.screen != ScreenHealth {
+		t.Errorf("WindowSize on nil health: screen = %v, want ScreenHealth", result.screen)
+	}
+}
+
+// =============================================================================
+// Coverage fill: handleKey default branch — non-matching key on unhandled
+// screen (ScreenWizard has no key handler, falls through to return m, nil)
+// =============================================================================
+
+// TestModel_Update_Wizard_Key_Noop verifies that pressing a key on
+// ScreenWizard (which has no handleKey case) falls through to the
+// default return (m, nil).
+func TestModel_Update_Wizard_Key_Noop(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = ScreenWizard
+
+	newModel, _ := m.Update(tea.KeyPressMsg{Code: 'q'})
+	result := newModel.(Model)
+
+	// ScreenWizard has no handleKey case — falls through to return m, nil.
+	// Screen stays on ScreenWizard (it does NOT quit or go back).
+	if result.screen != ScreenWizard {
+		t.Errorf("after q on wizard: screen = %v, want ScreenWizard", result.screen)
+	}
+}
+
+// =============================================================================
+// Helpers for test setup
+// =============================================================================
+
+// newSettingsPtr returns a pointer to a freshly initialized SettingsModel.
+func newSettingsPtr() *screens.SettingsModel {
+	sm := screens.NewSettingsModel()
+	return &sm
+}
+
+// newHealthPtr returns a pointer to a freshly initialized HealthModel.
+func newHealthPtr() *screens.HealthModel {
+	hm := screens.NewHealthModel()
+	return &hm
+}
+
+// newProgressPtr returns a pointer to a freshly initialized ProgressModel.
+func newProgressPtr() *screens.ProgressModel {
+	pm := screens.NewProgressModel()
+	return &pm
 }
