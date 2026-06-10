@@ -61,8 +61,9 @@ var ToastStyle = lipgloss.NewStyle().
 	Foreground(ColorText).
 	Padding(0, 1)
 
-// SettingsTitleStyle is the style for the settings screen heading.
-var SettingsTitleStyle = lipgloss.NewStyle().
+// ScreenTitleStyle is the shared style for all screen headings
+// (settings, health, shortcuts, cloud).
+var ScreenTitleStyle = lipgloss.NewStyle().
 	Bold(true).
 	Foreground(ColorLavender).
 	Padding(0, 1)

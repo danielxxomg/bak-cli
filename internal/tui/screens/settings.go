@@ -10,11 +10,11 @@ import (
 )
 
 // SettingsOption represents a single configurable option in the settings screen.
-// Type "toggle" uses a boolean Value; Type "select" uses a string Value.
+// The Value field is a boolean: true means toggled on (checked).
 type SettingsOption struct {
 	Label string
 	Type  string // "toggle" or "select"
-	Value bool   // true = toggled on (for "toggle" type)
+	Value bool   // true = toggled on
 }
 
 // SettingsModel is the Bubble Tea sub-model for the interactive settings screen.
@@ -88,7 +88,7 @@ func (m SettingsModel) View() tea.View {
 
 	var b strings.Builder
 
-	b.WriteString(styles.SettingsTitleStyle.Render("Settings"))
+	b.WriteString(styles.ScreenTitleStyle.Render("Settings"))
 	b.WriteString("\n\n")
 
 	for i, opt := range m.options {
