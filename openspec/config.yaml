@@ -36,7 +36,7 @@ rules:
   verify:
     test_command: "go test ./..."
     build_command: "go build -o bak.exe ."
-    coverage_threshold: 0
+    coverage_threshold: 80
   archive:
     - Warn before merging destructive deltas
 
