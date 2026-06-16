@@ -13,12 +13,20 @@ import (
 var runTUI func(deps tui.Deps) error = defaultRunTUI
 
 // defaultRunTUI creates the root TUI model and runs the Bubble Tea
-// program loop. The alternate screen buffer is activated via the model's
-// View method (tea.View.AltScreen).
+// program loop. After the TUI exits, it dispatches the user's menu
+// selection to the appropriate action via tui.RouteSelection.
 func defaultRunTUI(deps tui.Deps) error {
 	m := tui.NewModel(deps)
 	p := tea.NewProgram(m)
-	if _, err := p.Run(); err != nil {
+	finalModel, err := p.Run()
+	if err != nil {
+		return fmt.Errorf("tui: %w", err)
+	}
+	model, ok := finalModel.(tui.Model)
+	if !ok {
+		return fmt.Errorf("tui: unexpected model type after exit")
+	}
+	if err := tui.RouteSelection(model.Selection(), deps); err != nil {
 		return fmt.Errorf("tui: %w", err)
 	}
 	return nil

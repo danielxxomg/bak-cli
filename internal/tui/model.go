@@ -18,8 +18,6 @@ const (
 	ScreenDashboard
 	// ScreenProgress shows a live backup/restore progress bar.
 	ScreenProgress
-	// ScreenWizard guides first-run configuration.
-	ScreenWizard
 	// ScreenSettings allows toggling cloud providers and themes.
 	ScreenSettings
 	// ScreenCloud shows the cloud sync status screen.
@@ -35,6 +33,13 @@ const (
 // on a menu item that navigates to a sub-screen.
 type screenChangeMsg struct {
 	screen Screen
+}
+
+// actionResultMsg is a tea.Msg that signals an action (backup/restore)
+// has completed. The err field is nil on success, non-nil on failure.
+// The root Model's Update handler displays the result via Toast.Show().
+type actionResultMsg struct {
+	err error
 }
 
 // Minimum terminal dimensions required to render the TUI layout.
@@ -165,6 +170,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case screens.ScreenBackMsg:
 		m.screen = ScreenMenu
 		return m, nil
+
+	case actionResultMsg:
+		if msg.err == nil {
+			m.toast.Show("Backup complete", 3)
+		} else {
+			m.toast.Show(msg.err.Error(), 3)
+		}
+		// Forward to toast so it starts the tick countdown immediately.
+		newToast, cmd := m.toast.Update(msg)
+		m.toast = newToast
+		return m, cmd
 	}
 
 	// Forward remaining messages to the active sub-model.
@@ -237,6 +253,28 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case ScreenDashboard:
+		// When search is active, forward keystrokes to the search component
+		// first, then filter the dashboard table with the current query.
+		if m.search.IsActive() {
+			switch msg.Code {
+			case KeyEsc:
+				// Esc deactivates search and restores all rows.
+				m.search.Deactivate()
+				if m.dashboard != nil {
+					m.dashboard.SetFilter("")
+				}
+				return m, nil
+			default:
+				newSearch, cmd := m.search.Update(msg)
+				m.search = newSearch
+				if m.dashboard != nil {
+					m.dashboard.SetFilter(m.search.Query())
+				}
+				return m, cmd
+			}
+		}
+
+		// When search is inactive, handle normal dashboard navigation.
 		switch msg.Code {
 		case KeyQuit, KeyEsc:
 			m.screen = ScreenMenu
@@ -290,10 +328,16 @@ func (m Model) handleMenuEnter() (tea.Model, tea.Cmd) {
 	switch m.cursor {
 	case 0: // "Create backup" → Progress
 		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenProgress} }
+	case 1: // "Restore" → not yet implemented
+		m.toast.Show("Restore: coming soon", 3)
+		return m, nil
 	case 2: // "Browse backups" → Dashboard
 		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenDashboard} }
 	case 3: // "Cloud sync" → Cloud
 		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenCloud} }
+	case 4: // "Profiles" → not yet implemented
+		m.toast.Show("Profiles: coming soon", 3)
+		return m, nil
 	case 5: // "Settings"
 		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenSettings} }
 	case 6: // "Quit"
