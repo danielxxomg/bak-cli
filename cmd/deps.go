@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/danielxxomg/bak-cli/internal/config"
+	"github.com/danielxxomg/bak-cli/internal/schedule"
 )
 
 // cmdDeps holds injectable dependencies for command execution.
@@ -16,6 +17,11 @@ type cmdDeps struct {
 	Stdout       io.Writer
 	Stderr       io.Writer
 	Stdin        io.Reader
+
+	// NewScheduler creates a scheduler instance. Nil falls through to
+	// schedule.NewScheduler (production default), enabling mock injection
+	// without changing production behavior.
+	NewScheduler func() schedule.Scheduler
 }
 
 // defaultDeps provides production defaults using real OS handles
@@ -39,5 +45,6 @@ func depsFromCmd(cmd *cobra.Command) cmdDeps {
 		Stdout:       cmd.OutOrStdout(),
 		Stderr:       cmd.ErrOrStderr(),
 		Stdin:        cmd.InOrStdin(),
+		// NewScheduler is nil → production default (schedule.NewScheduler).
 	}
 }

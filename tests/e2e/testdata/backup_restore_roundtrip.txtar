@@ -1,5 +1,6 @@
 # backup + restore roundtrip
-# Creates a backup, then verifies restore command works with --dry-run.
+# Creates a backup, runs real restore with --dry-run and --force,
+# then verifies restored files exist. Also tests invalid-ID error handling.
 
 # Run backup with quick preset.
 exec bak backup --preset quick
@@ -8,10 +9,32 @@ stdout 'Backup created:'
 # The backup directory must exist.
 exists .bak/backups
 
-# Run restore with --help to verify the command is wired correctly.
-exec bak restore --help
-stdout 'dry-run'
+# Capture the backup ID (only one backup directory exists at this point).
+exec sh -c 'ls .bak/backups/ | head -1 > $WORK/bak_id.txt'
 
-# Restore with --dry-run using a non-existent ID should fail properly.
+# Run restore with --dry-run — must show diff output.
+exec sh -c 'ID=$(cat $WORK/bak_id.txt) && bak restore --dry-run $ID'
+stdout 'Dry-run diff'
+
+# Dry-run output must include filenames from the backup.
+stdout 'opencode.json'
+
+# Delete source files to verify actual restoration.
+exec rm -f $HOME/.config/opencode/opencode.json
+exec rm -f $HOME/.config/opencode/AGENTS.md
+
+# Confirm files were deleted.
+! exists $HOME/.config/opencode/opencode.json
+! exists $HOME/.config/opencode/AGENTS.md
+
+# Run restore with --force — actual restoration.
+exec sh -c 'ID=$(cat $WORK/bak_id.txt) && bak restore --force $ID'
+stdout 'Restore complete'
+
+# Verify restored files exist at their source paths.
+exists $HOME/.config/opencode/opencode.json
+exists $HOME/.config/opencode/AGENTS.md
+
+# Restore with invalid ID should fail gracefully.
 ! exec bak restore --dry-run 20000101-000000
 stderr 'not found'
