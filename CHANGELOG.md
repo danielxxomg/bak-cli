@@ -5,6 +5,76 @@ All notable changes to bak-cli will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] — 2026-06-16
+
+### Fixed
+
+- Corrected misleading E2E testscripts (`backup_restore_roundtrip`, `diff_two_backups`,
+  `backup_verify_roundtrip`) that asserted stale behavior instead of exercising real
+  round-trips. All three now run actual commands and verify output.
+- goimports formatting in `cmd/schedule_test.go`.
+
+### Added
+
+- **Cloud sync integration test** — `internal/actions/cloud_sync_test.go` exercises
+  full push→pull round-trip with `MockProvider`, including error paths (401, 404).
+- **TUI smoke tests** — `tests/e2e/smoke_test.go` verifies binary launches without
+  panic (`--help`, no-args fallback, unknown command).
+- **Schedule happy-path tests** — table-driven tests with mock scheduler injection
+  for create, list, and remove operations.
+- **Error path tests** — `TestRunExport_CreateError` and `TestCreateTarGz_GzipCloseError`
+  covering previously untested failure modes.
+- **Config isolation** — all schedule tests now use `cmdDeps` injection instead of
+  depending on real `~/.config/bak/`.
+
+### Docs
+
+- Fixed test badge, scoop bucket URL, security version references, and project
+  structure in README.
+
+## [1.4.0] — 2026-06-16
+
+### Added
+
+- **Full interactive TUI** — bare `bak` (no args) launches a Rose Pine-themed
+  dashboard with keyboard-driven navigation across 8 screens:
+  - **Dashboard** — table view of local backups with search filtering
+  - **Cloud** — provider status, sync state, push/pull actions
+  - **Health** — async checks for config, git, cloud connectivity
+  - **Settings** — toggle options (provider, theme, auto-sync, verbose)
+  - **Progress** — spinner + progress bar for async operations
+  - **Shortcuts** — keybinding reference overlay
+  - **Welcome** — first-run onboarding screen
+  - **Pick/Wizard** — migrated to shared TUI theme
+- **Toast notifications** — non-blocking feedback for actions (backup complete,
+  push success, errors) with auto-hide after 3 seconds.
+- **Search filtering** — `SetFilter()` on dashboard with case-insensitive substring
+  matching across all columns. Activated with `/`, deactivated with `Esc`.
+- **Action dispatch** — `RouteSelection()` pure function routes TUI menu selections
+  to cobra actions (backup, restore, push, pull) after TUI exit.
+- **`internal/tui/` package** — organized into:
+  - `styles/` — Rose Pine palette (11 semantic colors), package-level lipgloss styles,
+    ASCII logo with gradient, frame helper
+  - `components/` — reusable stateless renderers (menu, checkbox, radio, help, toast, search)
+  - `screens/` — screen-specific models and layout logic
+  - `model.go` — root model with 8-screen routing, lazy sub-model init, WindowSizeMsg forwarding
+  - `dispatch.go` — `RouteSelection()` pure function for post-TUI action routing
+  - `deps.go` — `Deps` struct for dependency injection, `MenuSelection` type
+- **Bubbletea v2 integration** — `charm.land/bubbletea/v2 v2.0.7`,
+  `charm.land/lipgloss/v2 v2.0.3`, `charm.land/bubbles/v2 v2.1.0` (table, spinner,
+  progress, textinput).
+- **TUI responsiveness** — handles `tea.WindowSizeMsg`, stores width/height, adapts
+  bordered content to terminal dimensions, shows "terminal too small" below 20×10.
+
+### Changed
+
+- `cmd/root.go` — bare `bak` now launches TUI when no args and isTTY, falls back
+  to cobra help otherwise.
+- `cmd/tty.go` — `defaultRunTUI` creates `tui.NewModel(deps)`, runs `tea.Program`,
+  then dispatches via `tui.RouteSelection()`.
+- `cmd/pick.go` and `cmd/wizard.go` migrated to shared TUI theme and components
+  (visual consistency, no behavior change).
+
 ## [1.3.0] — 2026-06-08
 
 ### Added
