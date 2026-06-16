@@ -1,17 +1,38 @@
 # diff between two backups
-# Creates two backups and verifies the diff command wiring.
+# Creates two backups with different content, then runs real diff to
+# verify file-level differences are reported. Also tests invalid-ID errors.
 
 # First backup with quick preset.
 exec bak backup --preset quick
 stdout 'Backup created:'
 
-# Second backup with full preset (different scope).
-exec bak backup --preset full
+# Capture first backup ID.
+exec sh -c 'ls .bak/backups/ | head -1 > $WORK/bak_id1.txt'
+
+# Modify a fixture file to create different content.
+exec sh -c 'echo "{\"version\":\"2.0\",\"theme\":\"light\"}" > $HOME/.config/opencode/opencode.json'
+
+# Wait 1 second to ensure different backup ID timestamps.
+exec sleep 1
+
+# Second backup with quick preset (same preset, different file content).
+exec bak backup --preset quick
 stdout 'Backup created:'
 
-# Verify diff command exists and shows help.
-exec bak diff --help
-stdout 'Compares two backups and shows file-level'
+# Capture second backup ID (the one we just created).
+exec sh -c 'ls .bak/backups/ | grep -v $(cat $WORK/bak_id1.txt) > $WORK/bak_id2.txt'
+
+# Run diff with real backup IDs — must show file differences.
+exec sh -c 'ID1=$(cat $WORK/bak_id1.txt) && ID2=$(cat $WORK/bak_id2.txt) && bak diff $ID1 $ID2'
+stdout 'Modified:'
+stdout 'opencode.json'
+
+# Summary must report modified files.
+stdout '1 modified'
+
+# Diff with identical backups (same ID) shows no modifications.
+exec sh -c 'ID1=$(cat $WORK/bak_id1.txt) && bak diff $ID1 $ID1'
+stdout '0 modified'
 
 # Diff with invalid IDs should fail gracefully.
 ! exec bak diff fake-id-1 fake-id-2

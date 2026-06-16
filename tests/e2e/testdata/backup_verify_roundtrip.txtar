@@ -1,22 +1,30 @@
 # backup + verify roundtrip
-# Creates a backup and verifies its integrity using built-in commands.
+# Creates a backup, verifies its integrity, then tampers with a file
+# and re-verifies to confirm corruption is detected. Also tests
+# invalid-ID error handling.
 
-# Run backup with quick preset (config files only).
+# Run backup with quick preset.
 exec bak backup --preset quick
 stdout 'Backup created:'
 
-# Verify the backup directory exists with expected structure.
-# HOME is set to the work directory, so .bak/ is relative.
+# The backup directory must exist.
 exists .bak/backups
 
-# List backups to confirm it's recorded with correct preset.
-exec bak list
-stdout 'quick'
+# Capture the backup ID.
+exec sh -c 'ls .bak/backups/ | head -1 > $WORK/bak_id.txt'
 
-# Run a second backup to have two to work with.
-exec bak backup --preset full
-stdout 'Backup created:'
+# Run verify — should pass with checkmark and verified message.
+exec sh -c 'ID=$(cat $WORK/bak_id.txt) && bak verify $ID'
+stdout '✓ backup'
+stdout 'verified'
 
-# List should now show both backups.
-exec bak list
-stdout 'full'
+# Tamper with a file inside the backup directory (simulate corruption).
+exec sh -c 'ID=$(cat $WORK/bak_id.txt) && echo "corrupted-content" > .bak/backups/$ID/opencode/opencode.json'
+
+# Re-verify — should fail with checksum mismatch.
+! exec sh -c 'ID=$(cat $WORK/bak_id.txt) && bak verify $ID'
+stderr 'hash mismatch'
+
+# Verify with invalid ID should fail gracefully.
+! exec bak verify 20000101-000000
+stderr 'not found'
