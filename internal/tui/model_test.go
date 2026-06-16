@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -757,44 +758,64 @@ func TestModel_ScreenRoute_Health(t *testing.T) {
 }
 
 // =============================================================================
-// Coverage fill: handleMenuEnter cases 1 (Restore) and 4 (Profiles)
+// Phase 3: Menu Items 1 & 4 — RED (toast wiring not yet implemented)
 // =============================================================================
 
 // TestModel_Update_MenuEnter_Restore verifies pressing enter on cursor=1
-// ("Restore") — currently unimplemented, so screen stays on ScreenMenu.
+// ("Restore") shows a "coming soon" toast and stays on ScreenMenu.
 func TestModel_Update_MenuEnter_Restore(t *testing.T) {
 	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
 	m.cursor = 1 // "Restore"
 
-	newModel, cmd := m.Update(tea.KeyPressMsg{Code: KeyEnter})
+	newModel, _ := m.Update(tea.KeyPressMsg{Code: KeyEnter})
 	result := newModel.(Model)
 
-	// No screen transition for unimplemented menu item.
+	// Screen stays on menu — no screen transition for unimplemented item.
 	if result.screen != ScreenMenu {
 		t.Errorf("after enter on Restore: screen = %v, want ScreenMenu", result.screen)
 	}
-	// No command should be returned.
-	if cmd != nil {
-		t.Errorf("after enter on Restore: cmd = %v, want nil", cmd)
+
+	// Toast must show user feedback.
+	output := result.toast.View()
+	if output == "" {
+		t.Error("toast View() returned empty after Restore enter")
+	}
+	if !strings.Contains(output, "Restore") {
+		t.Errorf("toast View() = %q, want 'Restore: coming soon'", output)
+	}
+	if !strings.Contains(output, "coming soon") {
+		t.Errorf("toast View() = %q, want 'Restore: coming soon'", output)
 	}
 }
 
 // TestModel_Update_MenuEnter_Profiles verifies pressing enter on cursor=4
-// ("Profiles") — currently unimplemented, so screen stays on ScreenMenu.
+// ("Profiles") shows a "coming soon" toast and stays on ScreenMenu.
 func TestModel_Update_MenuEnter_Profiles(t *testing.T) {
 	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
 	m.cursor = 4 // "Profiles"
 
-	newModel, cmd := m.Update(tea.KeyPressMsg{Code: KeyEnter})
+	newModel, _ := m.Update(tea.KeyPressMsg{Code: KeyEnter})
 	result := newModel.(Model)
 
-	// No screen transition for unimplemented menu item.
+	// Screen stays on menu — no screen transition for unimplemented item.
 	if result.screen != ScreenMenu {
 		t.Errorf("after enter on Profiles: screen = %v, want ScreenMenu", result.screen)
 	}
-	// No command should be returned.
-	if cmd != nil {
-		t.Errorf("after enter on Profiles: cmd = %v, want nil", cmd)
+
+	// Toast must show user feedback.
+	output := result.toast.View()
+	if output == "" {
+		t.Error("toast View() returned empty after Profiles enter")
+	}
+	if !strings.Contains(output, "Profiles") {
+		t.Errorf("toast View() = %q, want 'Profiles: coming soon'", output)
+	}
+	if !strings.Contains(output, "coming soon") {
+		t.Errorf("toast View() = %q, want 'Profiles: coming soon'", output)
 	}
 }
 
@@ -842,27 +863,6 @@ func TestModel_View_Cloud(t *testing.T) {
 	// Cloud screen with no provider shows "No cloud provider configured".
 	if !strings.Contains(output, "No cloud provider configured") {
 		t.Errorf("View() cloud missing 'No cloud provider configured': %q", output)
-	}
-}
-
-// =============================================================================
-// Coverage fill: ScreenWizard and default branch in View
-// =============================================================================
-
-// TestModel_View_Wizard verifies View handles ScreenWizard (no explicit
-// case — falls to default branch returning empty content).
-func TestModel_View_Wizard(t *testing.T) {
-	m := NewModel(Deps{Version: "1.0.0"})
-	m.width = 80
-	m.height = 24
-	m.screen = ScreenWizard
-
-	output := m.View().Content
-
-	// Wizard has no explicit View case — default branch returns empty string.
-	// Must not panic.
-	if output != "" {
-		t.Logf("View() wizard content = %q (expected empty from default branch)", output)
 	}
 }
 
@@ -1027,7 +1027,7 @@ func TestModel_Update_ScreenCloud_UnhandledKey(t *testing.T) {
 
 // =============================================================================
 // Coverage fill: Update screenChangeMsg for screens without sub-model init
-// (ScreenWizard, ScreenCloud, ScreenShortcuts)
+// (ScreenCloud, ScreenShortcuts)
 // =============================================================================
 
 // TestModel_Update_ScreenChange_Cloud verifies screenChangeMsg for
@@ -1045,24 +1045,6 @@ func TestModel_Update_ScreenChange_Cloud(t *testing.T) {
 	}
 	if cmd != nil {
 		t.Errorf("after screenChangeMsg(Cloud): cmd = %v, want nil", cmd)
-	}
-}
-
-// TestModel_Update_ScreenChange_Wizard verifies screenChangeMsg for
-// ScreenWizard sets the screen and returns nil cmd (no sub-model init).
-func TestModel_Update_ScreenChange_Wizard(t *testing.T) {
-	m := NewModel(Deps{Version: "1.0.0"})
-	m.width = 80
-	m.height = 24
-
-	newModel, cmd := m.Update(screenChangeMsg{screen: ScreenWizard})
-	result := newModel.(Model)
-
-	if result.screen != ScreenWizard {
-		t.Errorf("after screenChangeMsg(Wizard): screen = %v, want ScreenWizard", result.screen)
-	}
-	if cmd != nil {
-		t.Errorf("after screenChangeMsg(Wizard): cmd = %v, want nil", cmd)
 	}
 }
 
@@ -1249,24 +1231,184 @@ func TestModel_Update_WindowSize_HealthNil(t *testing.T) {
 }
 
 // =============================================================================
-// Coverage fill: handleKey default branch — non-matching key on unhandled
-// screen (ScreenWizard has no key handler, falls through to return m, nil)
+// TestScreenIotaValues verifies the Screen iota enum has the correct
+// sequential values after ScreenWizard removal. The expected sequence
+// is: ScreenMenu(0), ScreenDashboard(1), ScreenProgress(2),
+// ScreenSettings(3), ScreenCloud(4), ScreenShortcuts(5), ScreenHealth(6).
+func TestScreenIotaValues(t *testing.T) {
+	tests := []struct {
+		name  string
+		value Screen
+		want  Screen
+	}{
+		{"ScreenMenu", ScreenMenu, 0},
+		{"ScreenDashboard", ScreenDashboard, 1},
+		{"ScreenProgress", ScreenProgress, 2},
+		{"ScreenSettings", ScreenSettings, 3},
+		{"ScreenCloud", ScreenCloud, 4},
+		{"ScreenShortcuts", ScreenShortcuts, 5},
+		{"ScreenHealth", ScreenHealth, 6},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.value != tt.want {
+				t.Errorf("%s = %d, want %d", tt.name, tt.value, tt.want)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Phase 1 Toast Wiring Tests — RED (actionResultMsg does not exist yet)
 // =============================================================================
 
-// TestModel_Update_Wizard_Key_Noop verifies that pressing a key on
-// ScreenWizard (which has no handleKey case) falls through to the
-// default return (m, nil).
-func TestModel_Update_Wizard_Key_Noop(t *testing.T) {
-	m := NewModel(Deps{Version: "1.0.0"})
-	m.screen = ScreenWizard
+// TestModel_Update_ActionResult_Success verifies that sending
+// actionResultMsg{err: nil} to Update() calls toast.Show() with a success
+// message and makes the toast visible.
+func TestModel_Update_ActionResult_Success(t *testing.T) {
+	m := newTestModel()
+	m.width = 80
+	m.height = 24
 
-	newModel, _ := m.Update(tea.KeyPressMsg{Code: 'q'})
+	newModel, _ := m.Update(actionResultMsg{err: nil})
 	result := newModel.(Model)
 
-	// ScreenWizard has no handleKey case — falls through to return m, nil.
-	// Screen stays on ScreenWizard (it does NOT quit or go back).
-	if result.screen != ScreenWizard {
-		t.Errorf("after q on wizard: screen = %v, want ScreenWizard", result.screen)
+	output := result.toast.View()
+	if output == "" {
+		t.Error("toast View() returned empty after success actionResultMsg")
+	}
+	if !strings.Contains(output, "Backup complete") {
+		t.Errorf("toast View() = %q, want to contain 'Backup complete'", output)
+	}
+}
+
+// TestModel_Update_ActionResult_Error verifies that sending
+// actionResultMsg{err: error} to Update() calls toast.Show() with the
+// error text and makes the toast visible.
+func TestModel_Update_ActionResult_Error(t *testing.T) {
+	m := newTestModel()
+	m.width = 80
+	m.height = 24
+
+	newModel, _ := m.Update(actionResultMsg{err: errors.New("connection refused")})
+	result := newModel.(Model)
+
+	output := result.toast.View()
+	if output == "" {
+		t.Error("toast View() returned empty after error actionResultMsg")
+	}
+	if !strings.Contains(output, "connection refused") {
+		t.Errorf("toast View() = %q, want to contain 'connection refused'", output)
+	}
+}
+
+// =============================================================================
+// Phase 2 Search → Dashboard Wiring Tests — RED (forwarding not wired yet)
+// =============================================================================
+
+// TestModel_Update_SearchForwardsToDashboard verifies that when search is
+// active on the dashboard screen, typing characters updates the search query
+// AND filters the dashboard table rows accordingly.
+func TestModel_Update_SearchForwardsToDashboard(t *testing.T) {
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		ListBackups: func() ([]BackupInfo, error) {
+			return []BackupInfo{
+				{ID: "conf-1", Date: "2024-01-01", Size: "1MB", Status: "ok", Cloud: "none"},
+				{ID: "abc-2", Date: "2024-02-01", Size: "2MB", Status: "ok", Cloud: "gdrive"},
+				{ID: "CONFIG-3", Date: "2024-03-01", Size: "3MB", Status: "ok", Cloud: "s3"},
+			}, nil
+		},
+	})
+	m.width = 80
+	m.height = 24
+
+	// Navigate to dashboard (lazy-init via screenChangeMsg).
+	newM, _ := m.Update(screenChangeMsg{screen: ScreenDashboard})
+	m = newM.(Model)
+
+	// Activate search.
+	m2, _ := m.Update(tea.KeyPressMsg{Code: '/'})
+	m = m2.(Model)
+
+	if !m.search.IsActive() {
+		t.Fatal("search not active after '/' key")
+	}
+
+	// Type characters to build the query "conf".
+	for _, ch := range []rune{'c', 'o', 'n', 'f'} {
+		m3, _ := m.Update(tea.KeyPressMsg{Code: ch, Text: string(ch)})
+		m = m3.(Model)
+	}
+
+	// Verify search query reflects the typed characters.
+	if m.search.Query() != "conf" {
+		t.Errorf("search.Query() = %q, want %q", m.search.Query(), "conf")
+	}
+
+	// Verify dashboard table is filtered: only rows matching "conf" remain.
+	output := m.dashboard.View().Content
+	if !strings.Contains(output, "conf-1") {
+		t.Error("dashboard view missing 'conf-1' after search filter")
+	}
+	if !strings.Contains(output, "CONFIG-3") {
+		t.Error("dashboard view missing 'CONFIG-3' after search filter (case-insensitive)")
+	}
+	if strings.Contains(output, "abc-2") {
+		t.Error("dashboard view should NOT contain 'abc-2' after search filter")
+	}
+}
+
+// TestModel_Update_SearchEscRestoresAllRows verifies that pressing Esc
+// while search is active on the dashboard deactivates search AND restores
+// all original table rows (triangulation of search forwarding test).
+func TestModel_Update_SearchEscRestoresAllRows(t *testing.T) {
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		ListBackups: func() ([]BackupInfo, error) {
+			return []BackupInfo{
+				{ID: "conf-1", Date: "2024-01-01", Size: "1MB", Status: "ok", Cloud: "none"},
+				{ID: "abc-2", Date: "2024-02-01", Size: "2MB", Status: "ok", Cloud: "gdrive"},
+			}, nil
+		},
+	})
+	m.width = 80
+	m.height = 24
+
+	// Navigate to dashboard.
+	newM, _ := m.Update(screenChangeMsg{screen: ScreenDashboard})
+	m = newM.(Model)
+
+	// Activate search and filter with "conf".
+	m2, _ := m.Update(tea.KeyPressMsg{Code: '/'})
+	m = m2.(Model)
+	m3, _ := m.Update(tea.KeyPressMsg{Code: 'c', Text: "c"})
+	m = m3.(Model)
+	m4, _ := m.Update(tea.KeyPressMsg{Code: 'o', Text: "o"})
+	m = m4.(Model)
+
+	// Verify filtering occurred — abc-2 should be hidden.
+	output := m.dashboard.View().Content
+	if strings.Contains(output, "abc-2") {
+		t.Error("after filtering 'co': abc-2 should be hidden")
+	}
+
+	// Press Esc to deactivate search and restore all rows.
+	m5, _ := m.Update(tea.KeyPressMsg{Code: KeyEsc})
+	m = m5.(Model)
+
+	if m.search.IsActive() {
+		t.Error("search should be inactive after Esc")
+	}
+
+	// All rows should be restored.
+	output = m.dashboard.View().Content
+	if !strings.Contains(output, "abc-2") {
+		t.Error("after Esc: abc-2 should be restored")
+	}
+	if !strings.Contains(output, "conf-1") {
+		t.Error("after Esc: conf-1 should be restored")
 	}
 }
 

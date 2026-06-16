@@ -36,11 +36,15 @@ var dashboardColumns = []table.Column{
 
 // DashboardModel is the Bubble Tea sub-model for the dashboard screen.
 // It wraps a bubbles/table sub-model and handles keyboard navigation.
+//
+// allRows stores the original unfiltered rows so that SetFilter can
+// rebuild the table from scratch on each filter change.
 type DashboardModel struct {
-	table  table.Model
-	err    error
-	width  int
-	height int
+	table   table.Model
+	allRows []table.Row
+	err     error
+	width   int
+	height  int
 }
 
 // NewDashboardModel creates a DashboardModel by calling listBackups to
@@ -67,10 +71,11 @@ func NewDashboardModel(listBackups func() ([]BackupInfo, error)) DashboardModel 
 	)
 
 	return DashboardModel{
-		table:  tbl,
-		err:    err,
-		width:  80,
-		height: 24,
+		table:   tbl,
+		allRows: rows,
+		err:     err,
+		width:   80,
+		height:  24,
 	}
 }
 
@@ -107,6 +112,30 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	newTable, cmd := m.table.Update(msg)
 	m.table = newTable
 	return m, cmd
+}
+
+// SetFilter rebuilds the table rows from allRows, keeping only rows that
+// contain query as a case-insensitive substring in any column. An empty
+// query restores all original rows. The table cursor is reset to 0.
+func (m *DashboardModel) SetFilter(query string) {
+	q := strings.ToLower(query)
+	if q == "" {
+		m.table.SetRows(m.allRows)
+		m.table.SetCursor(0)
+		return
+	}
+
+	var filtered []table.Row
+	for _, row := range m.allRows {
+		for _, col := range row {
+			if strings.Contains(strings.ToLower(col), q) {
+				filtered = append(filtered, row)
+				break
+			}
+		}
+	}
+	m.table.SetRows(filtered)
+	m.table.SetCursor(0)
 }
 
 // View renders the dashboard screen. If an error occurred during data
