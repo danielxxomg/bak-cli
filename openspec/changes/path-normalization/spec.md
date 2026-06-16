@@ -56,13 +56,19 @@ The system MUST apply `path.Clean` after slash conversion whenever a canonical c
 
 ### Requirement: Test Compatibility
 
-The system MUST pass all existing tests without modification.
+The system MUST pass all existing tests. Mechanical renames of replaced helpers (e.g., `filepath.ToSlash` → `paths.Slash`) in test files are permitted as long as test logic and assertions remain unchanged.
 
 #### Scenario: Existing suite passes
 
 - GIVEN the current test suite
 - WHEN tests are executed on Windows, macOS, and Linux
-- THEN all existing tests pass with no changes to test files
+- THEN all existing tests pass
+
+#### Scenario: Mechanical renames permitted
+
+- GIVEN a test file that calls `filepath.ToSlash`
+- WHEN the helper is migrated to `paths.Slash`
+- THEN the test file MAY be updated to use the new helper, provided test logic and assertions are unchanged
 
 ### Requirement: Cross-Platform Slash Tests
 
