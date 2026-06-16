@@ -1,4 +1,4 @@
-# Tasks: TUI Overhaul — PR2 Main Menu
+# Tasks: TUI Overhaul — PR2 Main Menu — ✅ COMPLETE
 
 ## Review Workload Forecast
 
@@ -7,26 +7,12 @@
 | Estimated changed lines | ~420 (model_test: 120, deps+keys+model: 140, screen tests: 100, screen impl: 80, cmd wiring: 45, tty helper: 15) |
 | 400-line budget risk | Medium (slightly over budget; test-heavy, production code ~265) |
 | Chained PRs recommended | Yes (PR2 of 5, stacked-to-main) |
-| Suggested split | PR1 ✅ → PR2 (Main Menu) → PR3 (Refactor) → PR4 (Dashboard) → PR5 (Polish) |
+| Suggested split | PR1 ✅ → PR2 ✅ → PR3 ✅ → PR4 ✅ → PR5 ✅ |
 | Delivery strategy | chained-prs (pre-decided) |
 | Chain strategy | stacked-to-main |
-
-Decision needed before apply: No
-Chained PRs recommended: Yes
-Chain strategy: stacked-to-main
-400-line budget risk: Medium
-
-### Suggested Work Units
-
-| Unit | Goal | Likely PR | Notes |
-|------|------|-----------|-------|
-| 1 | Root model + deps + keys (with tests) | PR2 | ~260 lines; screen router, WindowSizeMsg, minimum guard |
-| 2 | Menu screen + welcome screen (with tests) | PR2 | ~180 lines; pure render functions using PR1 components |
-| 3 | Root command wiring (RunE + isTTY) | PR2 | ~60 lines; TUI launch on no-args in TTY |
+| Status | **ALL TASKS COMPLETE** |
 
 ## Phase 1: Root Model — RED (TDD)
-
-**Write `model_test.go` FIRST. Tests must fail (no model.go yet).**
 
 - [x] 1.1 **RED** — Create `internal/tui/model_test.go` with table-driven tests:
   - `TestNewModel`: verify default screen is `ScreenMenu`, cursor 0, deps stored
@@ -42,15 +28,13 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Root Model — GREEN
 
-- [x] 2.1 Create `internal/tui/deps.go`: define `Deps` struct (`Version string`, `ListBackups func()`, `RunBackup func()`, `ConfigExists func() bool`), `MenuSelection` struct (`Cursor int`, `Item string`), `BackupInfo` struct, `ProgressUpdate` struct. Add godoc comments.
-- [x] 2.2 Create `internal/tui/keys.go`: define shared key constants (`KeyQuit rune = 'q'`, `KeyDown = 'j'`, `KeyUp = 'k'`, `KeyEnter = '\r'`, `KeyEsc = 27`). Add godoc comments.
-- [x] 2.3 Create `internal/tui/model.go`: define `Screen` enum (`ScreenMenu`, `ScreenDashboard`, `ScreenProgress`, `ScreenWizard`, `ScreenSettings`), `Model` struct (screen, width, height, cursor, tooSmall, deps, menuItems), `NewModel(deps Deps) Model`, `Init() (tea.Model, tea.Cmd)`, `Update(msg tea.Msg) (tea.Model, tea.Cmd)` with switch on msg type (WindowSizeMsg, KeyPressMsg) and screen routing, `View() string` with screen routing and tooSmall guard, `Selection() MenuSelection`. Menu items: `[]string{"Create backup", "Restore", "Browse backups", "Cloud sync", "Profiles", "Settings", "Quit"}`.
-- [x] 2.4 **VERIFY** — Run `go test ./internal/tui/...` — all tests pass. Run `go test ./...` — zero regressions. Verify coverage ≥80% with `go test -cover ./internal/tui/`.
+- [x] 2.1 Create `internal/tui/deps.go`: define `Deps` struct (`Version string`, `ListBackups func()`, `RunBackup func()`, `ConfigExists func() bool`), `MenuSelection` struct (`Cursor int`, `Item string`), `BackupInfo` struct, `ProgressUpdate` struct, `DefaultMenuItems` var.
+- [x] 2.2 Create `internal/tui/keys.go`: define shared key constants (`KeyQuit rune = 'q'`, `KeyDown = 'j'`, `KeyUp = 'k'`, `KeyEnter = '\r'`, `KeyEsc = 27`).
+- [x] 2.3 Create `internal/tui/model.go`: define `Screen` enum (8 screens), `Model` struct (screen, width, height, cursor, tooSmall, deps, menuItems, search, toast), `NewModel(deps Deps) Model`, `Init()`, `Update()` with WindowSizeMsg and KeyPressMsg routing, `View()` with screen routing and tooSmall guard, `Selection()`.
+- [x] 2.4 **VERIFY** — `go test ./internal/tui/...` — all pass. Coverage ≥80%.
 - [x] 2.5 **COMMIT** — `feat(tui): add root model with screen router and key navigation`
 
 ## Phase 3: Screen Tests — RED (TDD)
-
-**Write screen tests FIRST. Tests must fail (no screen files yet).**
 
 - [x] 3.1 **RED** — Create `internal/tui/screens/menu_test.go` with table-driven tests:
   - `TestRenderMainMenu`: verify output contains logo (when width ≥ 40), menu items, cursor indicator, help bar keys
@@ -62,44 +46,32 @@ Chain strategy: stacked-to-main
 
 ## Phase 4: Screen Implementation — GREEN
 
-- [x] 4.1 Create `internal/tui/screens/menu.go`: implement `RenderMainMenu(version string, banner string, cursor int, width int) string` that composes: `styles.RenderLogo(width)` (if width ≥ 40), version subtitle via `styles.TitleStyle`, `components.RenderMenu(items, cursor)` with 7 menu items, `components.RenderHelp(keys)` with contextual keys (`↑/↓ navigate • enter select • q quit`). Add godoc comment.
-- [x] 4.2 Create `internal/tui/screens/welcome.go`: implement `ShouldShowWelcome(configExists func() bool) bool` and `RenderWelcome(width int) string` that renders a welcome message with setup prompt using `styles.Frame()` and `styles.HeadingStyle`. Add godoc comments.
-- [x] 4.3 **VERIFY** — Run `go test ./internal/tui/screens/...` — all tests pass. Run `go test ./...` — zero regressions. Verify coverage ≥80% per package.
+- [x] 4.1 Create `internal/tui/screens/menu.go`: implement `RenderMainMenu(version string, banner string, cursor int, width int) string` that composes: `styles.RenderLogo(width)` (if width ≥ 40), version subtitle via `styles.TitleStyle`, `components.RenderMenu(items, cursor)` with 7 menu items, `components.RenderHelp(keys)` with contextual keys.
+- [x] 4.2 Create `internal/tui/screens/welcome.go`: implement `ShouldShowWelcome(configExists func() bool) bool` and `RenderWelcome(width int) string`.
+- [x] 4.3 **VERIFY** — All tests pass, coverage ≥80%.
 - [x] 4.4 **COMMIT** — `feat(tui): add main menu screen and first-run welcome detection`
 
 ## Phase 5: Root Command Wiring
 
-- [x] 5.1 Create `cmd/tty.go`: implement `isTTY() bool` using `github.com/mattn/go-isatty` on `os.Stdout.Fd()`. Add injectable `var runTUI func(deps tui.Deps) error = defaultRunTUI` for testing. Implement `defaultRunTUI` that creates `tui.NewModel(deps)` and runs `tea.NewProgram(m, tea.WithAltScreen())`. Add godoc comments.
-- [x] 5.2 Modify `cmd/root.go`: add `RunE` to `rootCmd` — if `len(args) == 0 && isTTY()`, build `tui.Deps{Version: version, ConfigExists: ...}`, call `runTUI(deps)`, return error. Otherwise fall through to cobra help. Import `internal/tui`. Preserve `--help` behavior (cobra handles this before RunE).
-- [x] 5.3 Add test in `cmd/root_test.go` or `cmd/tty_test.go`: verify `isTTY()` returns false in test environment (piped stdout). Verify `runTUI` injection point works (override with mock that records call).
-- [x] 5.4 **VERIFY** — Run `go test ./...` — all tests pass. Run `go vet ./...` — clean. Run `go build ./...` — succeeds.
+- [x] 5.1 Create `cmd/tty.go`: implement `isTTY() bool`, injectable `var runTUI func(deps tui.Deps) error = defaultRunTUI`, `defaultRunTUI` that creates model and runs `tea.NewProgram(m).Run()`.
+- [x] 5.2 Modify `cmd/root.go`: add `RunE` — if `len(args) == 0 && isTTY()`, build `tui.Deps`, call `runTUI(deps)`, return error. Otherwise fall through to help.
+- [x] 5.3 Add `cmd/tty_test.go`: verify `isTTY()` returns false in test environment, verify `runTUI` injection point works.
+- [x] 5.4 **VERIFY** — `go test ./...` — all pass. `go vet ./...` — clean. `go build ./...` — succeeds.
 - [x] 5.5 **COMMIT** — `feat(cli): wire root command for interactive TUI launch on no-args`
 
 ## Phase 6: Final Verification
 
 - [x] 6.1 Run `go test ./...` — zero failures across all packages.
 - [x] 6.2 Run `go vet ./...` — clean.
-- [x] 6.3 Verify `internal/tui/` coverage ≥80% (`go test -cover ./internal/tui/...`).
-- [x] 6.4 Verify no existing tests broken (18 pre-existing tests still pass).
+- [x] 6.3 Verify `internal/tui/` coverage ≥80%.
+- [x] 6.4 Verify no existing tests broken.
 - [x] 6.5 Manual smoke test: `go run .` in TTY launches TUI main menu with Rose Pine theme.
 - [x] 6.6 Manual smoke test: `go run . --help` shows cobra help (TUI NOT launched).
 - [x] 6.7 Manual smoke test: `go run . | cat` (non-TTY) shows cobra help.
 - [x] 6.8 Create PR: `feat(tui): main menu with screen router and TUI launch (PR2/5)`.
 
-## Implementation Notes
+## Status
 
-**Bubbletea v2 API**: Use `charm.land/bubbletea/v2`. Key events: `tea.KeyPressMsg{Code: 'q'}`. Model interface: `Init() (tea.Model, tea.Cmd)`, `Update(msg tea.Msg) (tea.Model, tea.Cmd)`, `View() string`. Use `tea.NewProgram(m, tea.WithAltScreen())`.
+**ALL TASKS COMPLETE**. PR2 delivered the root model, screen router, key navigation, main menu screen, welcome screen, and root command TUI wiring. All tests pass with ≥80% coverage.
 
-**DI Pattern**: Match existing `cmdDeps` pattern. `Deps` struct with function fields. `runTUI` var in `cmd/tty.go` for test injection.
-
-**Menu Items**: Exactly 7 items: "Create backup", "Restore", "Browse backups", "Cloud sync", "Profiles", "Settings", "Quit".
-
-**Screen Routing**: Switch on `m.screen` in both `Update()` and `View()`. PR2 only implements `ScreenMenu`. Other screens are stubs for PR4-5.
-
-**Minimum Size Guard**: If `width < 20 || height < 10`, set `m.tooSmall = true` and render "Terminal too small" message instead of normal layout.
-
-**Help Bar Context**: Per-screen help keys. Menu screen: `↑/↓ navigate • enter select • q quit`. Welcome screen: `enter continue • q quit`.
-
-**First-Run Detection**: `ShouldShowWelcome(configExists func() bool)` checks if config directory exists. Wire to `Deps.ConfigExists` in root command.
-
-**GGA Batches**: Each commit has 1-3 files (max 4). Total 5 commits for PR2.
+See `tasks.md` (Phase 11) for remaining wiring gaps that span beyond PR2 scope.

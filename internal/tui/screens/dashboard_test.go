@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -360,6 +361,115 @@ func TestDashboard_View_SingleRow(t *testing.T) {
 	if !strings.Contains(output, "0.5MB") {
 		t.Error("View() missing size '0.5MB'")
 	}
+}
+
+// =============================================================================
+// Error type used in tests — matches NewDashboardModel tests.
+// =============================================================================
+
+// =============================================================================
+// Phase 2 Search → Dashboard Wiring Tests — RED (SetFilter does not exist yet)
+// =============================================================================
+
+// TestDashboard_SetFilter_MatchingRows verifies that SetFilter with a
+// matching query returns only rows containing that substring (case-insensitive).
+func TestDashboard_SetFilter_MatchingRows(t *testing.T) {
+	m := NewDashboardModel(func() ([]BackupInfo, error) {
+		return []BackupInfo{
+			{ID: "conf-1", Date: "2024-01-01", Size: "1MB", Status: "ok", Cloud: "none"},
+			{ID: "abc-2", Date: "2024-02-01", Size: "2MB", Status: "ok", Cloud: "gdrive"},
+			{ID: "CONFIG-3", Date: "2024-03-01", Size: "3MB", Status: "fail", Cloud: "s3"},
+		}, nil
+	})
+
+	m.SetFilter("conf")
+
+	rows := m.table.Rows()
+	if len(rows) != 2 {
+		t.Fatalf("SetFilter('conf') returned %d rows, want 2", len(rows))
+	}
+
+	// Verify matching rows (case-insensitive) and non-matching row excluded.
+	ids := rowIDs(rows)
+	if !contains(ids, "conf-1") {
+		t.Error("SetFilter('conf') missing 'conf-1'")
+	}
+	if !contains(ids, "CONFIG-3") {
+		t.Error("SetFilter('conf') missing 'CONFIG-3' (case-insensitive)")
+	}
+	if contains(ids, "abc-2") {
+		t.Error("SetFilter('conf') should NOT contain 'abc-2'")
+	}
+}
+
+// TestDashboard_SetFilter_EmptyRestoresAll verifies that SetFilter("")
+// restores all original rows after a previous filter was applied.
+func TestDashboard_SetFilter_EmptyRestoresAll(t *testing.T) {
+	m := NewDashboardModel(func() ([]BackupInfo, error) {
+		return []BackupInfo{
+			{ID: "a-1", Date: "2024-01-01", Size: "1MB", Status: "ok", Cloud: "none"},
+			{ID: "b-2", Date: "2024-02-01", Size: "2MB", Status: "ok", Cloud: "gdrive"},
+			{ID: "c-3", Date: "2024-03-01", Size: "3MB", Status: "ok", Cloud: "s3"},
+		}, nil
+	})
+
+	// Apply a filter first.
+	m.SetFilter("b-2")
+	if len(m.table.Rows()) != 1 {
+		t.Fatalf("after SetFilter('b-2'): rows = %d, want 1", len(m.table.Rows()))
+	}
+
+	// Clearing filter must restore all 3 original rows.
+	m.SetFilter("")
+	rows := m.table.Rows()
+	if len(rows) != 3 {
+		t.Errorf("SetFilter('') returned %d rows, want 3 (all restored)", len(rows))
+	}
+	ids := rowIDs(rows)
+	for _, want := range []string{"a-1", "b-2", "c-3"} {
+		if !contains(ids, want) {
+			t.Errorf("SetFilter('') missing %q", want)
+		}
+	}
+}
+
+// TestDashboard_SetFilter_NoMatch verifies that SetFilter with a query
+// that matches nothing produces an empty row set.
+func TestDashboard_SetFilter_NoMatch(t *testing.T) {
+	m := NewDashboardModel(func() ([]BackupInfo, error) {
+		return []BackupInfo{
+			{ID: "alpha", Date: "2024-01-01", Size: "1MB", Status: "ok", Cloud: "none"},
+			{ID: "beta", Date: "2024-02-01", Size: "2MB", Status: "ok", Cloud: "gdrive"},
+		}, nil
+	})
+
+	m.SetFilter("xyz")
+
+	rows := m.table.Rows()
+	if len(rows) != 0 {
+		t.Errorf("SetFilter('xyz') returned %d rows, want 0 (no matches)", len(rows))
+	}
+}
+
+// rowIDs extracts the first column (ID) from each row.
+func rowIDs(rows []table.Row) []string {
+	ids := make([]string, len(rows))
+	for i, r := range rows {
+		if len(r) > 0 {
+			ids[i] = r[0]
+		}
+	}
+	return ids
+}
+
+// contains reports whether s is in ss.
+func contains(ss []string, s string) bool {
+	for _, item := range ss {
+		if item == s {
+			return true
+		}
+	}
+	return false
 }
 
 // =============================================================================
