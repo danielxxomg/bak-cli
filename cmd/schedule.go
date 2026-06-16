@@ -43,7 +43,9 @@ Examples:
 func init() {
 	scheduleCreateCmd.Flags().StringVar(&scheduleCreateEvery, "every", "",
 		"scheduling interval: daily, weekly, every-12h, every-6h (required)")
-	_ = scheduleCreateCmd.MarkFlagRequired("every")
+	if err := scheduleCreateCmd.MarkFlagRequired("every"); err != nil {
+		panic("mark 'every' required: " + err.Error())
+	}
 
 	scheduleCmd.AddCommand(scheduleCreateCmd)
 	rootCmd.AddCommand(scheduleCmd)
@@ -58,6 +60,7 @@ func runScheduleCreateWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) 
 		ConfigLoader: deps.ConfigLoader,
 		Stdout:       deps.Stdout,
 		Stderr:       deps.Stderr,
+		NewScheduler: deps.NewScheduler,
 	}
 	return action.Create(args[0], scheduleCreateEvery)
 }
@@ -82,7 +85,8 @@ func runScheduleList(cmd *cobra.Command, args []string) error {
 
 func runScheduleListWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 	action := &actions.ScheduleAction{
-		Stdout: deps.Stdout,
+		Stdout:       deps.Stdout,
+		NewScheduler: deps.NewScheduler,
 	}
 	return action.List()
 }
@@ -114,6 +118,7 @@ func runScheduleRemoveWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) 
 		ConfigLoader: deps.ConfigLoader,
 		Stdout:       deps.Stdout,
 		Stderr:       deps.Stderr,
+		NewScheduler: deps.NewScheduler,
 	}
 	return action.Remove(args[0])
 }
