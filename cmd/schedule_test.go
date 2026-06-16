@@ -277,11 +277,11 @@ func TestScheduleRemove_NoArgs(t *testing.T) {
 
 func TestScheduleHappyPath(t *testing.T) {
 	tests := []struct {
-		name      string
-		setup     func() (*MockScheduler, cmdDeps, func())
-		run       func(cmd *cobra.Command, args []string, deps cmdDeps) error
-		args      []string
-		assert    func(t *testing.T, sched *MockScheduler, output string)
+		name   string
+		setup  func() (*MockScheduler, cmdDeps, func())
+		run    func(cmd *cobra.Command, args []string, deps cmdDeps) error
+		args   []string
+		assert func(t *testing.T, sched *MockScheduler, output string)
 	}{
 		{
 			name: "create",
@@ -290,7 +290,7 @@ func TestScheduleHappyPath(t *testing.T) {
 				var out, errOut strings.Builder
 				cfg := &config.Config{
 					SchemaVersion: "0.3.0",
-					Profiles:     map[string]config.ProfileConfig{"work": {Provider: "github-gist", Preset: "quick"}},
+					Profiles:      map[string]config.ProfileConfig{"work": {Provider: "github-gist", Preset: "quick"}},
 				}
 				deps := cmdDeps{
 					ConfigLoader: func() (*config.Config, error) { return cfg, nil },
@@ -357,7 +357,7 @@ func TestScheduleHappyPath(t *testing.T) {
 				var out, errOut strings.Builder
 				cfg := &config.Config{
 					SchemaVersion: "0.3.0",
-					Profiles:     map[string]config.ProfileConfig{"work": {Provider: "github-gist", Preset: "quick"}},
+					Profiles:      map[string]config.ProfileConfig{"work": {Provider: "github-gist", Preset: "quick"}},
 				}
 				deps := cmdDeps{
 					ConfigLoader: func() (*config.Config, error) { return cfg, nil },
