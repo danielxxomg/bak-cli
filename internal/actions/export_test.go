@@ -3,6 +3,7 @@ package actions
 import (
 	"archive/tar"
 	"compress/gzip"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -234,5 +235,64 @@ func TestRunExport_NotADirectory(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "not a directory") {
 		t.Errorf("error should mention not a directory: %v", err)
+	}
+}
+
+func TestRunExport_CreateError(t *testing.T) {
+	homeDir := t.TempDir()
+	backupID := "20260101-120000"
+
+	// Create valid backup directory.
+	sourceDir := filepath.Join(homeDir, ".bak", "backups", backupID)
+	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sourceDir, "test.txt"), []byte("hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Output path inside a non-existent directory — os.Create will fail.
+	outputPath := filepath.Join(t.TempDir(), "nonexistent", "subdir", "export.tar.gz")
+	var out strings.Builder
+
+	err := RunExport(homeDir, backupID, outputPath, &out)
+	if err == nil {
+		t.Fatal("expected error for uncreatable output file")
+	}
+	if !strings.Contains(err.Error(), "create output file") {
+		t.Errorf("error should mention 'create output file': %v", err)
+	}
+}
+
+// writeOnceThenFail is a writer that succeeds on the first Write call
+// (allowing gzip header) but fails on subsequent writes (footer).
+type writeOnceThenFail struct {
+	wrote bool
+}
+
+func (w *writeOnceThenFail) Write(p []byte) (int, error) {
+	if w.wrote {
+		return 0, errors.New("synthetic write error")
+	}
+	w.wrote = true
+	return len(p), nil
+}
+
+func TestCreateTarGz_GzipCloseError(t *testing.T) {
+	srcDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(srcDir, "test.txt"), []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Use a writeOnceThenFail so gw.Close() fails when writing the gzip footer.
+	writer := &writeOnceThenFail{}
+
+	err := CreateTarGz(srcDir, writer)
+	if err == nil {
+		t.Fatal("expected error from CreateTarGz with failing writer")
+	}
+	// The error should be wrapped from the gzip footer write failure.
+	if !strings.Contains(err.Error(), "close gzip writer") {
+		t.Errorf("error should mention 'close gzip writer': %v", err)
 	}
 }
