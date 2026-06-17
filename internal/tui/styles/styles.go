@@ -73,6 +73,14 @@ var SearchStyle = lipgloss.NewStyle().
 	Foreground(ColorText).
 	Padding(0, 1)
 
+// MinWidth is the minimum terminal width (in columns) required to render
+// the TUI layout without showing the "Terminal too small" warning.
+const MinWidth = 40
+
+// MinHeight is the minimum terminal height (in rows) required to render
+// the TUI layout without showing the "Terminal too small" warning.
+const MinHeight = 12
+
 // CursorIndicator is the prefix character used to indicate the currently
 // selected item in menus and lists.
 const CursorIndicator = "\u25b8 "

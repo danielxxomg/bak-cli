@@ -121,20 +121,20 @@ func TestModel_Update_NavigateDown(t *testing.T) {
 		t.Errorf("Update('j') cursor = %d, want 1", result.cursor)
 	}
 
-	// Press 'j' 5 more times: cursor should clamp at len-1 (6).
+	// Press 'j' 5 more times: cursor should reach last item (6).
 	for i := 0; i < 5; i++ {
 		newModel, _ = newModel.Update(tea.KeyPressMsg{Code: 'j'})
 	}
 	result = newModel.(Model)
 	if result.cursor != 6 {
-		t.Errorf("Update('j' x6) cursor = %d, want 6 (clamped)", result.cursor)
+		t.Errorf("Update('j' x6) cursor = %d, want 6", result.cursor)
 	}
 
-	// One more press: still 6 (clamped).
+	// One more press: wraps around to 0.
 	newModel, _ = newModel.Update(tea.KeyPressMsg{Code: 'j'})
 	result = newModel.(Model)
-	if result.cursor != 6 {
-		t.Errorf("Update('j' x7) cursor = %d, want 6 (clamped at max)", result.cursor)
+	if result.cursor != 0 {
+		t.Errorf("Update('j' x7) cursor = %d, want 0 (wrap-around)", result.cursor)
 	}
 }
 
@@ -150,13 +150,13 @@ func TestModel_Update_NavigateUp(t *testing.T) {
 		t.Errorf("Update('k') cursor = %d, want 2", result.cursor)
 	}
 
-	// Press 'k' 3 more times: should clamp at 0.
+	// Press 'k' 3 more times: cursor goes 2→1→0→6 (wraps).
 	for i := 0; i < 3; i++ {
 		newModel, _ = newModel.Update(tea.KeyPressMsg{Code: 'k'})
 	}
 	result = newModel.(Model)
-	if result.cursor != 0 {
-		t.Errorf("Update('k' x4) cursor = %d, want 0 (clamped)", result.cursor)
+	if result.cursor != 6 {
+		t.Errorf("Update('k' x4) cursor = %d, want 6 (wrap-around)", result.cursor)
 	}
 }
 
@@ -184,11 +184,14 @@ func TestModel_Update_MinSizeGuard(t *testing.T) {
 		height   int
 		tooSmall bool
 	}{
-		{"below width", 19, 20, true},
-		{"below height", 20, 9, true},
-		{"both below", 10, 5, true},
-		{"exactly min", 20, 10, false},
-		{"above min", 80, 24, false},
+		{"below width (39x20)", 39, 20, true},
+		{"below height (60x11)", 60, 11, true},
+		{"both below (30x8)", 30, 8, true},
+		{"exactly min (40x12)", 40, 12, false},
+		{"above min (80x24)", 80, 24, false},
+		{"barely below both (39x11)", 39, 11, true},
+		{"wide but short (100x8)", 100, 8, true},
+		{"tall but narrow (25x40)", 25, 40, true},
 	}
 
 	for _, tt := range tests {
@@ -201,6 +204,97 @@ func TestModel_Update_MinSizeGuard(t *testing.T) {
 			if result.tooSmall != tt.tooSmall {
 				t.Errorf("WindowSize(%dx%d) tooSmall = %v, want %v",
 					tt.width, tt.height, result.tooSmall, tt.tooSmall)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Phase 2: Arrow Keys + Wrap-Around — RED (nav uses clamp, no arrow support)
+// =============================================================================
+
+// TestModel_Update_ArrowKeys verifies that up/down arrow keys navigate
+// the main menu cursor, identical to j/k.
+func TestModel_Update_ArrowKeys(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	lastIdx := len(m.menuItems) - 1 // 6
+
+	tests := []struct {
+		name       string
+		startCur   int
+		keys       []tea.KeyPressMsg
+		wantCursor int
+	}{
+		{
+			name:       "arrow down from 0 to 1",
+			startCur:   0,
+			keys:       []tea.KeyPressMsg{{Code: tea.KeyDown}},
+			wantCursor: 1,
+		},
+		{
+			name:       "arrow down twice",
+			startCur:   0,
+			keys:       []tea.KeyPressMsg{{Code: tea.KeyDown}, {Code: tea.KeyDown}},
+			wantCursor: 2,
+		},
+		{
+			name:       "arrow up from 3 to 2",
+			startCur:   3,
+			keys:       []tea.KeyPressMsg{{Code: tea.KeyUp}},
+			wantCursor: 2,
+		},
+		{
+			name:       "arrow down wraps from last to first",
+			startCur:   lastIdx,
+			keys:       []tea.KeyPressMsg{{Code: tea.KeyDown}},
+			wantCursor: 0,
+		},
+		{
+			name:       "arrow up wraps from first to last",
+			startCur:   0,
+			keys:       []tea.KeyPressMsg{{Code: tea.KeyUp}},
+			wantCursor: lastIdx,
+		},
+		{
+			name:       "j wraps from last to first",
+			startCur:   lastIdx,
+			keys:       []tea.KeyPressMsg{{Code: 'j'}},
+			wantCursor: 0,
+		},
+		{
+			name:       "k wraps from first to last",
+			startCur:   0,
+			keys:       []tea.KeyPressMsg{{Code: 'k'}},
+			wantCursor: lastIdx,
+		},
+		{
+			name:     "mixed: down+arrow j+k wraps correctly",
+			startCur: 0,
+			keys: []tea.KeyPressMsg{
+				{Code: 'j'},         // 0→1
+				{Code: tea.KeyDown}, // 1→2
+				{Code: 'j'},         // 2→3
+				{Code: tea.KeyUp},   // 3→2
+				{Code: 'k'},         // 2→1
+				{Code: tea.KeyUp},   // 1→0
+				{Code: 'k'},         // 0→6 (wrap)
+				{Code: tea.KeyDown}, // 6→0 (wrap)
+				{Code: 'j'},         // 0→1
+			},
+			wantCursor: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m.cursor = tt.startCur
+			cur := m
+			for _, key := range tt.keys {
+				newM, _ := cur.Update(key)
+				cur = newM.(Model)
+			}
+			if cur.cursor != tt.wantCursor {
+				t.Errorf("after keys: cursor = %d, want %d", cur.cursor, tt.wantCursor)
 			}
 		})
 	}
@@ -245,6 +339,20 @@ func TestModel_View_TooSmall(t *testing.T) {
 
 	if !strings.Contains(output, "Terminal too small") {
 		t.Errorf("View() output %q does not contain 'Terminal too small'", output)
+	}
+
+	// Message must show actual dimensions and required minimum.
+	if !strings.Contains(output, "10x5") {
+		t.Errorf("View() output %q does not contain actual dimensions '10x5'", output)
+	}
+	if !strings.Contains(output, "40") {
+		t.Errorf("View() output %q does not contain required width '40'", output)
+	}
+	if !strings.Contains(output, "12") {
+		t.Errorf("View() output %q does not contain required height '12'", output)
+	}
+	if !strings.Contains(output, "Need at least") {
+		t.Errorf("View() output %q does not contain 'Need at least'", output)
 	}
 }
 
@@ -327,7 +435,7 @@ func TestModel_Update_SecondResize(t *testing.T) {
 		t.Errorf("second resize width = %d, want 15", r3.width)
 	}
 	if !r3.tooSmall {
-		t.Error("second resize: tooSmall = false, want true (width < 20)")
+		t.Error("second resize: tooSmall = false, want true (width < 40)")
 	}
 }
 
@@ -353,7 +461,8 @@ func TestModel_View_Menu_WithCursor(t *testing.T) {
 }
 
 // TestModel_View_TooSmall_ShowsWarningOnly verifies tooSmall view
-// does not render menu items.
+// does not render menu items. Also verifies the message format includes
+// actual dimensions and the required minimum.
 func TestModel_View_TooSmall_ShowsWarningOnly(t *testing.T) {
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 10
@@ -370,6 +479,14 @@ func TestModel_View_TooSmall_ShowsWarningOnly(t *testing.T) {
 	if strings.Contains(output, "Create backup") {
 		t.Error("tooSmall view contains menu items, expected only warning")
 	}
+
+	// Must include actual dimensions in the message.
+	if !strings.Contains(output, "10x5") {
+		t.Errorf("tooSmall view missing actual dimensions '10x5': %q", output)
+	}
+	if !strings.Contains(output, "Need at least 40") || !strings.Contains(output, "12") {
+		t.Errorf("tooSmall view missing required minimum '40×12': %q", output)
+	}
 }
 
 // TestModel_View_AltScreen verifies that View() always returns a tea.View
@@ -383,7 +500,7 @@ func TestModel_View_AltScreen(t *testing.T) {
 	}{
 		{"normal terminal", 80, 24, false},
 		{"too small terminal", 10, 5, true},
-		{"minimum viable", 20, 10, false},
+		{"minimum viable", 40, 12, false},
 	}
 
 	for _, tt := range tests {

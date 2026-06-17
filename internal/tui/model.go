@@ -1,8 +1,11 @@
 package tui
 
 import (
+	"fmt"
+
 	"github.com/danielxxomg/bak-cli/internal/tui/components"
 	"github.com/danielxxomg/bak-cli/internal/tui/screens"
+	"github.com/danielxxomg/bak-cli/internal/tui/styles"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -42,14 +45,10 @@ type actionResultMsg struct {
 	err error
 }
 
-// Minimum terminal dimensions required to render the TUI layout.
-// If the terminal is smaller than these values, a "Terminal too small"
-// warning is displayed instead of the normal screen.
-const (
-	minWidth  = 20
-	minHeight = 10
-)
-
+// Minimum terminal dimensions (styles.MinWidth / styles.MinHeight) are
+// defined in internal/tui/styles/styles.go so sub-screens can import them
+// without circular dependencies.
+//
 // Model is the root Bubble Tea model for the bak-cli TUI. It owns window
 // dimensions, cursor state, and routes Update/View to the active screen.
 //
@@ -101,7 +100,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.tooSmall = msg.Width < minWidth || msg.Height < minHeight
+		m.tooSmall = msg.Width < styles.MinWidth || msg.Height < styles.MinHeight
 		// Forward to active sub-model.
 		switch m.screen {
 		case ScreenDashboard:
@@ -232,14 +231,10 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		switch msg.Code {
 		case KeyQuit, KeyEsc:
 			return m, tea.Quit
-		case KeyDown:
-			if m.cursor < len(m.menuItems)-1 {
-				m.cursor++
-			}
-		case KeyUp:
-			if m.cursor > 0 {
-				m.cursor--
-			}
+		case KeyDown, tea.KeyDown:
+			m.cursor = (m.cursor + 1) % len(m.menuItems)
+		case KeyUp, tea.KeyUp:
+			m.cursor = (m.cursor - 1 + len(m.menuItems)) % len(m.menuItems)
 		case KeyEnter:
 			return m.handleMenuEnter()
 		case '?':
@@ -347,13 +342,17 @@ func (m Model) handleMenuEnter() (tea.Model, tea.Cmd) {
 }
 
 // View renders the current screen. If the terminal is too small
-// (width < 20 or height < 10), a warning message is shown instead.
+// (below styles.MinWidth × styles.MinHeight), a warning message
+// showing actual and required dimensions is displayed instead.
 // The alternate screen buffer is enabled so the TUI takes the full
 // terminal and restores the previous content on exit.
 func (m Model) View() tea.View {
 	var content string
 	if m.tooSmall {
-		content = "Terminal too small"
+		content = fmt.Sprintf(
+			"Terminal too small (%dx%d). Need at least %dx%d.",
+			m.width, m.height, styles.MinWidth, styles.MinHeight,
+		)
 	} else {
 		switch m.screen {
 		case ScreenMenu:
