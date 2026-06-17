@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 
@@ -462,5 +463,189 @@ func TestExecute_UnknownCommand(t *testing.T) {
 	err := rootCmd.Execute()
 	if err == nil {
 		t.Fatal("unknown command should produce error")
+	}
+}
+
+// --- listBackups tests ---
+
+func TestListBackups_WithManifests(t *testing.T) {
+	bakDir := t.TempDir()
+	backupsDir := bakDir + "/backups"
+
+	// Create two backup directories with valid manifests.
+	mustMkdirAll(t, backupsDir+"/20260617-120000")
+	mustWriteFile(t, backupsDir+"/20260617-120000/manifest.json",
+		`{
+  "version": "0.3.0",
+  "id": "20260617-120000",
+  "created_at": "2026-06-17T12:00:00Z",
+  "os_source": "linux",
+  "hostname": "testbox",
+  "bak_version": "0.1.0",
+  "preset": "quick",
+  "categories": ["config", "skills"],
+  "adapters": {
+    "opencode": {
+      "config_dir": "~/.config/opencode",
+      "items": []
+    }
+  },
+  "secrets_excluded": false,
+  "file_count": 10,
+  "total_size": 1048576
+}`)
+
+	mustMkdirAll(t, backupsDir+"/20260617-150000")
+	mustWriteFile(t, backupsDir+"/20260617-150000/manifest.json",
+		`{
+  "version": "0.3.0",
+  "id": "20260617-150000",
+  "created_at": "2026-06-17T15:00:00Z",
+  "os_source": "linux",
+  "hostname": "testbox",
+  "bak_version": "0.1.0",
+  "preset": "full",
+  "categories": ["config", "skills", "vim"],
+  "adapters": {
+    "neovim": {
+      "config_dir": "~/.config/nvim",
+      "items": []
+    },
+    "ghostty": {
+      "config_dir": "~/.config/ghostty",
+      "items": []
+    }
+  },
+  "secrets_excluded": false,
+  "file_count": 25,
+  "total_size": 3145728
+}`)
+
+	backups, err := listBackupsFrom(bakDir)
+	if err != nil {
+		t.Fatalf("listBackupsFrom: %v", err)
+	}
+
+	if len(backups) != 2 {
+		t.Fatalf("len(backups) = %d, want 2", len(backups))
+	}
+
+	// First backup: 20260617-120000, 1 adapter, 1.0 MB
+	b1 := backups[0]
+	if b1.ID != "20260617-120000" {
+		t.Errorf("backups[0].ID = %q, want %q", b1.ID, "20260617-120000")
+	}
+	if b1.Size != "1.0 MB" {
+		t.Errorf("backups[0].Size = %q, want %q", b1.Size, "1.0 MB")
+	}
+	if b1.Status != "ok" {
+		t.Errorf("backups[0].Status = %q, want %q", b1.Status, "ok")
+	}
+	if b1.Cloud != "opencode" {
+		t.Errorf("backups[0].Cloud = %q, want %q", b1.Cloud, "opencode")
+	}
+	if b1.Date == "" {
+		t.Error("backups[0].Date should not be empty")
+	}
+
+	// Second backup: 20260617-150000, 2 adapters, 3.0 MB
+	b2 := backups[1]
+	if b2.ID != "20260617-150000" {
+		t.Errorf("backups[1].ID = %q, want %q", b2.ID, "20260617-150000")
+	}
+	if b2.Size != "3.0 MB" {
+		t.Errorf("backups[1].Size = %q, want %q", b2.Size, "3.0 MB")
+	}
+	if b2.Status != "ok" {
+		t.Errorf("backups[1].Status = %q, want %q", b2.Status, "ok")
+	}
+
+	// Check that date is formatted from ID (YYYYMMDD-HHMMSS → YYYY-MM-DD HH:MM:SS).
+	expectedDate := "2026-06-17 15:00:00"
+	if b2.Date != expectedDate {
+		t.Errorf("backups[1].Date = %q, want %q", b2.Date, expectedDate)
+	}
+}
+
+func TestListBackups_EmptyDir(t *testing.T) {
+	bakDir := t.TempDir()
+
+	backups, err := listBackupsFrom(bakDir)
+	if err != nil {
+		t.Fatalf("listBackupsFrom: %v", err)
+	}
+
+	// No backups dir → no backups (no error).
+	if len(backups) != 0 {
+		t.Errorf("len(backups) = %d, want 0", len(backups))
+	}
+}
+
+func TestListBackups_SkipsNonDirs(t *testing.T) {
+	bakDir := t.TempDir()
+	backupsDir := bakDir + "/backups"
+
+	mustMkdirAll(t, backupsDir)
+	mustWriteFile(t, backupsDir+"/not-a-backup.txt", "some random file")
+
+	backups, err := listBackupsFrom(bakDir)
+	if err != nil {
+		t.Fatalf("listBackupsFrom: %v", err)
+	}
+
+	if len(backups) != 0 {
+		t.Errorf("len(backups) = %d, want 0 (non-dir entries skipped)", len(backups))
+	}
+}
+
+func TestListBackups_SkipsCorruptManifest(t *testing.T) {
+	bakDir := t.TempDir()
+	backupsDir := bakDir + "/backups"
+
+	mustMkdirAll(t, backupsDir+"/valid-backup")
+	mustWriteFile(t, backupsDir+"/valid-backup/manifest.json",
+		`{
+  "version": "0.3.0",
+  "id": "valid-backup",
+  "created_at": "2026-06-17T12:00:00Z",
+  "os_source": "linux",
+  "bak_version": "0.1.0",
+  "preset": "quick",
+  "categories": [],
+  "adapters": {},
+  "secrets_excluded": false,
+  "file_count": 0,
+  "total_size": 0
+}`)
+
+	mustMkdirAll(t, backupsDir+"/corrupt-backup")
+	mustWriteFile(t, backupsDir+"/corrupt-backup/manifest.json", "not valid json {{{")
+
+	backups, err := listBackupsFrom(bakDir)
+	if err != nil {
+		t.Fatalf("listBackupsFrom: %v", err)
+	}
+
+	if len(backups) != 1 {
+		t.Fatalf("len(backups) = %d, want 1 (corrupt manifest skipped)", len(backups))
+	}
+	if backups[0].ID != "valid-backup" {
+		t.Errorf("backups[0].ID = %q, want %q", backups[0].ID, "valid-backup")
+	}
+}
+
+// mustMkdirAll creates a directory or fails the test.
+func mustMkdirAll(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(path, 0755); err != nil {
+		t.Fatalf("MkdirAll(%q): %v", path, err)
+	}
+}
+
+// mustWriteFile writes data to a file or fails the test.
+func mustWriteFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("WriteFile(%q): %v", path, err)
 	}
 }

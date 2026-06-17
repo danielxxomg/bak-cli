@@ -473,6 +473,83 @@ func contains(ss []string, s string) bool {
 }
 
 // =============================================================================
+// TestDashboard_View_HelpBar_Populated — RED (Phase 3: help bar persistence)
+// =============================================================================
+
+func TestDashboard_View_HelpBar_Populated(t *testing.T) {
+	m := NewDashboardModel(func() ([]BackupInfo, error) {
+		return []BackupInfo{
+			{ID: "abc123", Date: "2024-01-15", Size: "1.2MB", Status: "ok", Cloud: "none"},
+		}, nil
+	})
+	m.width = 80
+	m.height = 24
+
+	output := m.View().Content
+
+	// Help bar: ↑/↓ navigate • / search • q back
+	if !strings.Contains(output, "navigate") {
+		t.Errorf("populated dashboard help bar missing 'navigate': %q", output)
+	}
+	if !strings.Contains(output, "search") {
+		t.Errorf("populated dashboard help bar missing 'search': %q", output)
+	}
+	if !strings.Contains(output, "back") {
+		t.Errorf("populated dashboard help bar missing 'back': %q", output)
+	}
+}
+
+// =============================================================================
+// TestDashboard_View_HelpBar_Empty — RED (Phase 3: help bar persistence)
+// =============================================================================
+
+func TestDashboard_View_HelpBar_Empty(t *testing.T) {
+	m := NewDashboardModel(func() ([]BackupInfo, error) {
+		return []BackupInfo{}, nil
+	})
+	m.width = 80
+	m.height = 24
+
+	output := m.View().Content
+
+	// Must show empty state AND help bar.
+	if !strings.Contains(output, "No backups found") {
+		t.Errorf("empty dashboard missing 'No backups found': %q", output)
+	}
+	if !strings.Contains(output, "navigate") {
+		t.Errorf("empty dashboard help bar missing 'navigate': %q", output)
+	}
+	if !strings.Contains(output, "back") {
+		t.Errorf("empty dashboard help bar missing 'back': %q", output)
+	}
+}
+
+// =============================================================================
+// TestDashboard_View_HelpBar_Error — RED (Phase 3: help bar persistence)
+// =============================================================================
+
+func TestDashboard_View_HelpBar_Error(t *testing.T) {
+	m := NewDashboardModel(func() ([]BackupInfo, error) {
+		return nil, assertAnError("connection refused")
+	})
+	m.width = 80
+	m.height = 24
+
+	output := m.View().Content
+
+	// Must show error AND help bar.
+	if !strings.Contains(output, "Error") {
+		t.Errorf("error dashboard missing 'Error': %q", output)
+	}
+	if !strings.Contains(output, "navigate") {
+		t.Errorf("error dashboard help bar missing 'navigate': %q", output)
+	}
+	if !strings.Contains(output, "back") {
+		t.Errorf("error dashboard help bar missing 'back': %q", output)
+	}
+}
+
+// =============================================================================
 // Error type used in tests — matches NewDashboardModel tests.
 // =============================================================================
 
@@ -481,3 +558,46 @@ func contains(ss []string, s string) bool {
 type assertAnError string
 
 func (e assertAnError) Error() string { return string(e) }
+
+// =============================================================================
+// TestDashboard_View_MinSizeGuard — threshold guard at 40×12 (Phase 4)
+// =============================================================================
+
+func TestDashboard_View_MinSizeGuard(t *testing.T) {
+	tests := []struct {
+		name     string
+		width    int
+		height   int
+		tooSmall bool
+	}{
+		{"below width (39x20)", 39, 20, true},
+		{"below height (60x11)", 60, 11, true},
+		{"both below (30x8)", 30, 8, true},
+		{"exactly min (40x12)", 40, 12, false},
+		{"above min (80x24)", 80, 24, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewDashboardModel(func() ([]BackupInfo, error) {
+				return []BackupInfo{}, nil
+			})
+			m.width = tt.width
+			m.height = tt.height
+
+			output := m.View().Content
+
+			if tt.tooSmall {
+				if !strings.Contains(output, "Terminal too small") {
+					t.Errorf("View() %dx%d: expected 'Terminal too small', got %q",
+						tt.width, tt.height, output)
+				}
+			} else {
+				if strings.Contains(output, "Terminal too small") {
+					t.Errorf("View() %dx%d: got 'Terminal too small', expected normal content",
+						tt.width, tt.height)
+				}
+			}
+		})
+	}
+}

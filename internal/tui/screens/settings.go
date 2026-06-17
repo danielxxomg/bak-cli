@@ -55,14 +55,10 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyPressMsg:
 		switch msg.Code {
-		case 'j':
-			if m.cursor < len(m.options)-1 {
-				m.cursor++
-			}
-		case 'k':
-			if m.cursor > 0 {
-				m.cursor--
-			}
+		case 'j', tea.KeyDown:
+			m.cursor = (m.cursor + 1) % len(m.options)
+		case 'k', tea.KeyUp:
+			m.cursor = (m.cursor - 1 + len(m.options)) % len(m.options)
 		case '\r', ' ':
 			// Toggle the focused option if it is a toggle type.
 			if m.cursor >= 0 && m.cursor < len(m.options) {
@@ -82,7 +78,7 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View renders the settings screen as a list of checkbox-style options.
 // The focused item is styled with SelectedStyle; checked items show ✓.
 func (m SettingsModel) View() tea.View {
-	if m.width < 20 || m.height < 10 {
+	if m.width < styles.MinWidth || m.height < styles.MinHeight {
 		return tea.NewView("Terminal too small")
 	}
 
@@ -98,6 +94,15 @@ func (m SettingsModel) View() tea.View {
 			b.WriteString("\n")
 		}
 	}
+
+	// Help bar with context-appropriate keybindings.
+	b.WriteString("\n\n")
+	helpKeys := []components.HelpKey{
+		{Key: "↑/↓", Desc: "navigate"},
+		{Key: "enter", Desc: "toggle"},
+		{Key: "q", Desc: "back"},
+	}
+	b.WriteString(components.RenderHelp(helpKeys))
 
 	return tea.NewView(b.String())
 }
