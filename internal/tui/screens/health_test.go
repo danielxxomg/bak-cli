@@ -134,9 +134,48 @@ func TestHealth_View_Done(t *testing.T) {
 }
 
 // =============================================================================
-// TestHealth_View_TooSmall — RED (triangulation)
+// TestHealth_View_MinSizeGuard — threshold guard at 40×12
 // =============================================================================
 
+func TestHealth_View_MinSizeGuard(t *testing.T) {
+	tests := []struct {
+		name     string
+		width    int
+		height   int
+		tooSmall bool
+	}{
+		{"below width (39x20)", 39, 20, true},
+		{"below height (60x11)", 60, 11, true},
+		{"both below (30x8)", 30, 8, true},
+		{"exactly min (40x12)", 40, 12, false},
+		{"above min (80x24)", 80, 24, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewHealthModel()
+			m.width = tt.width
+			m.height = tt.height
+
+			output := m.View().Content
+
+			if tt.tooSmall {
+				if !strings.Contains(output, "Terminal too small") {
+					t.Errorf("View() %dx%d: expected 'Terminal too small', got %q",
+						tt.width, tt.height, output)
+				}
+			} else {
+				if strings.Contains(output, "Terminal too small") {
+					t.Errorf("View() %dx%d: got 'Terminal too small', expected normal content",
+						tt.width, tt.height)
+				}
+			}
+		})
+	}
+}
+
+// TestHealth_View_TooSmall verifies the too-small view shows
+// the warning message (legacy test, kept for coverage).
 func TestHealth_View_TooSmall(t *testing.T) {
 	m := NewHealthModel()
 	m.width = 10
@@ -244,6 +283,33 @@ func TestHealth_View_RerunFooter(t *testing.T) {
 
 	if !strings.Contains(output, "rerun") {
 		t.Errorf("done view missing 'rerun' footer: %q", output)
+	}
+
+	// Phase 3: after RenderHelp replacement, the footer uses "q back • enter rerun"
+	if !strings.Contains(output, "back") {
+		t.Errorf("done view help bar missing 'back': %q", output)
+	}
+}
+
+// =============================================================================
+// TestHealth_View_HelpBar_Idle — RED (Phase 3: help bar persistence)
+// =============================================================================
+
+func TestHealth_View_HelpBar_Idle(t *testing.T) {
+	m := NewHealthModel()
+	m.width = 80
+	m.height = 24
+
+	output := m.View().Content
+
+	// Idle state must show the prompt...
+	if !strings.Contains(output, "Press enter to run health check") {
+		t.Errorf("idle view missing prompt: %q", output)
+	}
+
+	// ...AND the help bar: enter run • q back
+	if !strings.Contains(output, "back") {
+		t.Errorf("idle view help bar missing 'back': %q", output)
 	}
 }
 

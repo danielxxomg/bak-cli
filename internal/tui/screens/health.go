@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/danielxxomg/bak-cli/internal/tui/components"
 	"github.com/danielxxomg/bak-cli/internal/tui/styles"
 )
 
@@ -121,7 +122,7 @@ func (m HealthModel) startChecks() (tea.Model, tea.Cmd) {
 // View renders the health check screen with a list of checks and their
 // status indicators (✓/✗/⠹/○).
 func (m HealthModel) View() tea.View {
-	if m.width < 20 || m.height < 10 {
+	if m.width < styles.MinWidth || m.height < styles.MinHeight {
 		return tea.NewView("Terminal too small")
 	}
 
@@ -132,6 +133,12 @@ func (m HealthModel) View() tea.View {
 
 	if len(m.checks) == 0 && !m.running {
 		b.WriteString(styles.HelpStyle.Render("Press enter to run health check"))
+		b.WriteString("\n\n")
+		helpKeys := []components.HelpKey{
+			{Key: "enter", Desc: "run"},
+			{Key: "q", Desc: "back"},
+		}
+		b.WriteString(components.RenderHelp(helpKeys))
 		return tea.NewView(b.String())
 	}
 
@@ -147,8 +154,12 @@ func (m HealthModel) View() tea.View {
 	}
 
 	if !m.running && len(m.checks) > 0 {
-		b.WriteString("\n")
-		b.WriteString(styles.HelpStyle.Render("q quit • enter rerun"))
+		b.WriteString("\n\n")
+		helpKeys := []components.HelpKey{
+			{Key: "q", Desc: "back"},
+			{Key: "enter", Desc: "rerun"},
+		}
+		b.WriteString(components.RenderHelp(helpKeys))
 	}
 
 	return tea.NewView(b.String())
