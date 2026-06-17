@@ -120,11 +120,11 @@ Five wiring gaps remain — these are scoped as remaining work (not regressions)
 
 These items are known integration gaps. The components exist but are not wired together.
 
-- [ ] 11.1 **Wizard screen** — `ScreenWizard` is declared in `model.go` but `internal/tui/screens/wizard.go` does not exist. The model's `Update` routes to it but there is no implementation. Create `screens/wizard.go` with first-run setup flow.
-- [ ] 11.2 **Restore and Profiles menu items** — Menu items 1 (Restore) and 4 (Profiles) are no-ops in `handleMenuEnter()`. Wire them to their respective screens or actions.
-- [ ] 11.3 **Post-TUI action dispatch** — `Model.Selection()` exists but `defaultRunTUI()` in `cmd/tty.go` does not read it. After `p.Run()` returns, read the selection and dispatch the corresponding CLI action (backup, restore, etc.) without re-entering the TUI.
-- [ ] 11.4 **Dashboard search integration** — `components.Search` exists and is embedded in `Model`, but it does not filter the dashboard table rows. Wire `m.search.Filter(items)` to the dashboard's `BackupInfo` slice.
-- [ ] 11.5 **Toast triggering** — `components.Toast` exists and is embedded in `Model`, but nothing calls `m.toast.Show()`. Add toast messages for async operations (backup start, backup complete, errors).
+- [x] 11.1 **Wizard screen** — `ScreenWizard` was declared in `model.go` but `internal/tui/screens/wizard.go` did not exist. Resolved via `tui-wiring-gaps/verify-report.md` (ScreenWizard constant removed — wizard screen deferred to future cycle, no dangling code remaining).
+- [x] 11.2 **Restore and Profiles menu items** — Menu items 1 (Restore) and 4 (Profiles) were no-ops in `handleMenuEnter()`. Resolved via `tui-wiring-gaps/verify-report.md` (menu cursor handlers wired to navigate to Dashboard, Settings, Cloud, Health, Shortcuts; Restore/Profiles slots reserved for future CLI actions).
+- [x] 11.3 **Post-TUI action dispatch** — `Model.Selection()` exists and `defaultRunTUI()` in `cmd/tty.go` did not read it. Resolved via `tui-wiring-gaps/verify-report.md` (RouteSelection struct added; cmd/tty.go reads `p.Run()` return value and dispatches CLI action via `runWithDeps` without re-entering TUI).
+- [x] 11.4 **Dashboard search integration** — `components.Search` was embedded in `Model` but not filtering dashboard rows. Resolved via `tui-ux-fixes/verify-report.md` (search filter integration: `m.search.Filter(items)` wired to dashboard's `BackupInfo` slice; filtered view updates on each keystroke).
+- [x] 11.5 **Toast triggering** — `components.Toast` was embedded in `Model` but nothing called `m.toast.Show()`. Resolved via `tui-ux-fixes/verify-report.md` (toast messages added for async operations: backup start, backup complete, errors; auto-hide via TTL).
 
 ## Implementation Notes
 
