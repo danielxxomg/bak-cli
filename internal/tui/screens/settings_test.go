@@ -41,32 +41,62 @@ func TestNewSettingsModel(t *testing.T) {
 
 func TestSettings_Update_Navigate(t *testing.T) {
 	m := NewSettingsModel()
-	maxIdx := len(m.options) - 1
+	maxIdx := len(m.options) - 1 // 3
 
 	tests := []struct {
 		name    string
-		keys    []rune
+		keys    []tea.KeyPressMsg
 		wantCur int
 	}{
 		{
 			name:    "j moves down",
-			keys:    []rune{'j'},
+			keys:    []tea.KeyPressMsg{{Code: 'j'}},
 			wantCur: 1,
 		},
 		{
 			name:    "k moves up",
-			keys:    []rune{'j', 'j', 'k'},
+			keys:    []tea.KeyPressMsg{{Code: 'j'}, {Code: 'j'}, {Code: 'k'}},
 			wantCur: 1,
 		},
 		{
-			name:    "clamped at bottom",
-			keys:    []rune{'j', 'j', 'j', 'j', 'j'},
+			name:    "arrow down moves cursor",
+			keys:    []tea.KeyPressMsg{{Code: tea.KeyDown}},
+			wantCur: 1,
+		},
+		{
+			name:    "arrow up moves cursor",
+			keys:    []tea.KeyPressMsg{{Code: 'j'}, {Code: 'j'}, {Code: tea.KeyUp}},
+			wantCur: 1,
+		},
+		{
+			name: "wraps from last to first (j)",
+			keys: []tea.KeyPressMsg{
+				{Code: 'j'}, {Code: 'j'}, {Code: 'j'}, // 0→1→2→3
+				{Code: 'j'}, // 3→0 (wrap)
+			},
+			wantCur: 0,
+		},
+		{
+			name: "wraps from last to first (arrow down)",
+			keys: []tea.KeyPressMsg{
+				{Code: 'j'}, {Code: 'j'}, {Code: 'j'}, // 0→1→2→3
+				{Code: tea.KeyDown}, // 3→0 (wrap)
+			},
+			wantCur: 0,
+		},
+		{
+			name: "wraps from first to last (k)",
+			keys: []tea.KeyPressMsg{
+				{Code: 'k'}, // 0→3 (wrap)
+			},
 			wantCur: maxIdx,
 		},
 		{
-			name:    "clamped at top",
-			keys:    []rune{'k', 'k'},
-			wantCur: 0,
+			name: "wraps from first to last (arrow up)",
+			keys: []tea.KeyPressMsg{
+				{Code: tea.KeyUp}, // 0→3 (wrap)
+			},
+			wantCur: maxIdx,
 		},
 	}
 
@@ -74,7 +104,7 @@ func TestSettings_Update_Navigate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cur := m
 			for _, key := range tt.keys {
-				newM, _ := cur.Update(tea.KeyPressMsg{Code: key})
+				newM, _ := cur.Update(key)
 				cur = newM.(SettingsModel)
 			}
 			if cur.cursor != tt.wantCur {
@@ -193,9 +223,48 @@ func TestSettings_View(t *testing.T) {
 }
 
 // =============================================================================
-// TestSettings_View_TooSmall — RED (triangulation)
+// TestSettings_View_TooSmall — threshold guard at 40×12
 // =============================================================================
 
+func TestSettings_View_MinSizeGuard(t *testing.T) {
+	tests := []struct {
+		name     string
+		width    int
+		height   int
+		tooSmall bool
+	}{
+		{"below width (39x20)", 39, 20, true},
+		{"below height (60x11)", 60, 11, true},
+		{"both below (30x8)", 30, 8, true},
+		{"exactly min (40x12)", 40, 12, false},
+		{"above min (80x24)", 80, 24, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewSettingsModel()
+			m.width = tt.width
+			m.height = tt.height
+
+			output := m.View().Content
+
+			if tt.tooSmall {
+				if !strings.Contains(output, "Terminal too small") {
+					t.Errorf("View() %dx%d: expected 'Terminal too small', got %q",
+						tt.width, tt.height, output)
+				}
+			} else {
+				if strings.Contains(output, "Terminal too small") {
+					t.Errorf("View() %dx%d: got 'Terminal too small', expected normal content",
+						tt.width, tt.height)
+				}
+			}
+		})
+	}
+}
+
+// TestSettings_View_TooSmall verifies the too-small view shows
+// the dimensional message (legacy test, kept for coverage).
 func TestSettings_View_TooSmall(t *testing.T) {
 	m := NewSettingsModel()
 	m.width = 10
@@ -205,5 +274,51 @@ func TestSettings_View_TooSmall(t *testing.T) {
 
 	if !strings.Contains(output, "Terminal too small") {
 		t.Errorf("View() too-small missing warning: %q", output)
+	}
+}
+
+// =============================================================================
+// TestSettings_View_HelpBar — RED (Phase 3: help bar persistence)
+// =============================================================================
+
+func TestSettings_View_HelpBar(t *testing.T) {
+	m := NewSettingsModel()
+	m.width = 80
+	m.height = 24
+
+	output := m.View().Content
+
+	if len(output) == 0 {
+		t.Fatal("View() returned empty content")
+	}
+
+	// Help bar must contain contextual keys: ↑/↓ navigate • enter toggle • q back
+	if !strings.Contains(output, "navigate") {
+		t.Errorf("View() help bar missing 'navigate': %q", output)
+	}
+	if !strings.Contains(output, "toggle") {
+		t.Errorf("View() help bar missing 'toggle': %q", output)
+	}
+	if !strings.Contains(output, "back") {
+		t.Errorf("View() help bar missing 'back': %q", output)
+	}
+}
+
+// TestSettings_View_HelpBar_LiteralKeys verifies the literal key symbols
+// appear in the help bar output (triangulation for TestSettings_View_HelpBar).
+func TestSettings_View_HelpBar_LiteralKeys(t *testing.T) {
+	m := NewSettingsModel()
+	m.width = 80
+	m.height = 24
+
+	output := m.View().Content
+
+	// The arrow symbol must be rendered literally.
+	if !strings.Contains(output, "↑") || !strings.Contains(output, "↓") {
+		t.Errorf("View() help bar missing arrow symbols '↑/↓': %q", output)
+	}
+	// "enter" key label must appear.
+	if !strings.Contains(output, "enter") {
+		t.Errorf("View() help bar missing 'enter' key: %q", output)
 	}
 }

@@ -176,3 +176,43 @@ func TestRenderCloudStatus_DisconnectedProvider(t *testing.T) {
 		t.Errorf("RenderCloudStatus disconnected missing indicator: %q", output)
 	}
 }
+
+// =============================================================================
+// TestRenderCloudStatus_HelpBar — RED (Phase 3: help bar persistence)
+// =============================================================================
+
+func TestRenderCloudStatus_HelpBar(t *testing.T) {
+	info := CloudInfo{
+		Provider:   "Google Drive",
+		Connected:  true,
+		LastSync:   "2024-06-09 14:30 UTC",
+		LocalCount: 12,
+		CloudCount: 10,
+	}
+
+	output := RenderCloudStatus(info, 80)
+
+	// Cloud help bar: q back
+	if !strings.Contains(output, "back") {
+		t.Errorf("cloud help bar missing 'back': %q", output)
+	}
+}
+
+// TestRenderCloudStatus_HelpBar_NoProvider verifies the help bar appears
+// even when no cloud provider is configured (triangulation).
+func TestRenderCloudStatus_HelpBar_NoProvider(t *testing.T) {
+	info := CloudInfo{
+		Provider: "",
+	}
+
+	output := RenderCloudStatus(info, 80)
+
+	// Must show the no-provider message...
+	if !strings.Contains(output, "No cloud provider configured") {
+		t.Errorf("no-provider cloud missing message: %q", output)
+	}
+	// ...AND the help bar.
+	if !strings.Contains(output, "back") {
+		t.Errorf("no-provider cloud help bar missing 'back': %q", output)
+	}
+}

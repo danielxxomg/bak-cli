@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/danielxxomg/bak-cli/internal/tui/components"
 	"github.com/danielxxomg/bak-cli/internal/tui/styles"
 )
 
@@ -21,6 +22,7 @@ type CloudInfo struct {
 // backup counts. If no provider is configured, a message is shown.
 //
 // On wide terminals (width >= 50), the content is wrapped in a Frame.
+// A contextual help bar is appended below the content.
 func RenderCloudStatus(info CloudInfo, width int) string {
 	var b strings.Builder
 
@@ -29,7 +31,10 @@ func RenderCloudStatus(info CloudInfo, width int) string {
 
 	// No provider configured.
 	if info.Provider == "" {
-		content := styles.CloudEmptyStyle.Render("No cloud provider configured")
+		b.WriteString(styles.CloudEmptyStyle.Render("No cloud provider configured"))
+		b.WriteString("\n\n")
+		b.WriteString(renderCloudHelp())
+		content := b.String()
 		if width >= 50 {
 			content = styles.Frame(content, width-4)
 		}
@@ -69,9 +74,21 @@ func RenderCloudStatus(info CloudInfo, width int) string {
 	b.WriteString(styles.CloudValueStyle.Render(fmt.Sprintf("%d", info.CloudCount)))
 	b.WriteString("\n")
 
+	// Contextual help bar.
+	b.WriteString("\n")
+	b.WriteString(renderCloudHelp())
+
 	content := b.String()
 	if width >= 50 {
 		content = styles.Frame(content, width-4)
 	}
 	return content
+}
+
+// renderCloudHelp returns the cloud screen help bar.
+func renderCloudHelp() string {
+	helpKeys := []components.HelpKey{
+		{Key: "q", Desc: "back"},
+	}
+	return components.RenderHelp(helpKeys)
 }

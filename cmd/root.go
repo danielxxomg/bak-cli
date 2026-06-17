@@ -3,10 +3,13 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
+	"github.com/danielxxomg/bak-cli/internal/backup"
 	"github.com/danielxxomg/bak-cli/internal/config"
+	"github.com/danielxxomg/bak-cli/internal/manifest"
 	"github.com/danielxxomg/bak-cli/internal/tui"
 )
 
@@ -31,6 +34,7 @@ Run 'bak restore --dry-run <id>' to preview before applying.`,
 			deps := tui.Deps{
 				Version:      Version,
 				ConfigExists: configExists,
+				ListBackups:  listBackups,
 			}
 			return runTUI(deps)
 		}
@@ -76,4 +80,63 @@ func formatSize(bytes int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+// listBackups scans the local backups directory and returns a slice of
+// BackupInfo suitable for populating the TUI dashboard.
+func listBackups() ([]tui.BackupInfo, error) {
+	bakDir, err := backup.BakDir()
+	if err != nil {
+		return nil, fmt.Errorf("bak dir: %w", err)
+	}
+	return listBackupsFrom(bakDir)
+}
+
+// listBackupsFrom scans the given bakDir for backup directories, loads
+// their manifests, and returns a slice of BackupInfo. Exported for
+// testability via the cmd package's internal test files.
+func listBackupsFrom(bakDir string) ([]tui.BackupInfo, error) {
+	backupsDir := filepath.Join(bakDir, "backups")
+	entries, err := os.ReadDir(backupsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read backups dir: %w", err)
+	}
+
+	var result []tui.BackupInfo
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		m, err := manifest.Load(filepath.Join(backupsDir, entry.Name()))
+		if err != nil {
+			continue // skip corrupt/incomplete backup dirs
+		}
+
+		// Format date from backup ID (YYYYMMDD-HHMMSS).
+		date := ""
+		if len(m.ID) >= 15 {
+			date = fmt.Sprintf("%s-%s-%s %s:%s:%s",
+				m.ID[0:4], m.ID[4:6], m.ID[6:8],
+				m.ID[9:11], m.ID[11:13], m.ID[13:15])
+		}
+
+		// Pick first adapter name as cloud provider hint.
+		cloudStr := "none"
+		for name := range m.Adapters {
+			cloudStr = name
+			break
+		}
+
+		result = append(result, tui.BackupInfo{
+			ID:     m.ID,
+			Date:   date,
+			Size:   formatSize(m.TotalSize),
+			Status: "ok",
+			Cloud:  cloudStr,
+		})
+	}
+	return result, nil
 }

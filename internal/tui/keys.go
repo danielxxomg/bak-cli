@@ -13,4 +13,13 @@ const (
 	KeyEnter rune = '\r'
 	// KeyEsc navigates back or exits (escape, ASCII 27).
 	KeyEsc rune = 27
+
+	// KeyDownArrow is the string representation of the down arrow key.
+	// Use tea.KeyDown for msg.Code-based matching; this constant is for
+	// documentation and string-based key matching via msg.String().
+	KeyDownArrow = "down"
+	// KeyUpArrow is the string representation of the up arrow key.
+	// Use tea.KeyUp for msg.Code-based matching; this constant is for
+	// documentation and string-based key matching via msg.String().
+	KeyUpArrow = "up"
 )

@@ -7,6 +7,7 @@ import (
 	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/danielxxomg/bak-cli/internal/tui/components"
 	"github.com/danielxxomg/bak-cli/internal/tui/styles"
 )
 
@@ -144,7 +145,7 @@ func (m *DashboardModel) SetFilter(query string) {
 //
 // If the terminal is below 20×10, a "Terminal too small" message is shown.
 func (m DashboardModel) View() tea.View {
-	if m.width < 20 || m.height < 10 {
+	if m.width < styles.MinWidth || m.height < styles.MinHeight {
 		return tea.NewView("Terminal too small")
 	}
 
@@ -159,16 +160,32 @@ func (m DashboardModel) View() tea.View {
 		b.WriteString(styles.DashboardErrorStyle.Render(
 			fmt.Sprintf("Error: %v", m.err),
 		))
+		b.WriteString("\n\n")
+		b.WriteString(renderDashboardHelp())
 		return tea.NewView(b.String())
 	}
 
 	// Empty state.
 	if len(m.table.Rows()) == 0 {
 		b.WriteString(styles.DashboardEmptyStyle.Render("No backups found"))
+		b.WriteString("\n\n")
+		b.WriteString(renderDashboardHelp())
 		return tea.NewView(b.String())
 	}
 
 	// Populated table.
 	b.WriteString(m.table.View())
+	b.WriteString("\n\n")
+	b.WriteString(renderDashboardHelp())
 	return tea.NewView(b.String())
+}
+
+// renderDashboardHelp returns the dashboard help bar with context-appropriate keys.
+func renderDashboardHelp() string {
+	helpKeys := []components.HelpKey{
+		{Key: "↑/↓", Desc: "navigate"},
+		{Key: "/", Desc: "search"},
+		{Key: "q", Desc: "back"},
+	}
+	return components.RenderHelp(helpKeys)
 }
