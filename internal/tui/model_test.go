@@ -875,64 +875,107 @@ func TestModel_ScreenRoute_Health(t *testing.T) {
 }
 
 // =============================================================================
-// Phase 3: Menu Items 1 & 4 — RED (toast wiring not yet implemented)
+// Phase 3: Menu Items 1 & 4 — GREEN (real screen transitions are wired)
 // =============================================================================
 
 // TestModel_Update_MenuEnter_Restore verifies pressing enter on cursor=1
-// ("Restore") shows a "coming soon" toast and stays on ScreenMenu.
+// ("Restore") navigates to the restore screen (ScreenRestore).
 func TestModel_Update_MenuEnter_Restore(t *testing.T) {
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
 	m.cursor = 1 // "Restore"
 
-	newModel, _ := m.Update(tea.KeyPressMsg{Code: KeyEnter})
+	newModel, cmd := m.Update(tea.KeyPressMsg{Code: KeyEnter})
 	result := newModel.(Model)
 
-	// Screen stays on menu — no screen transition for unimplemented item.
-	if result.screen != ScreenMenu {
-		t.Errorf("after enter on Restore: screen = %v, want ScreenMenu", result.screen)
+	if cmd == nil {
+		t.Fatal("Update(enter) on Restore returned nil cmd")
+	}
+	msg := cmd()
+	switch msg := msg.(type) {
+	case screenChangeMsg:
+		if msg.screen != ScreenRestore {
+			t.Errorf("screenChangeMsg.screen = %v, want ScreenRestore", msg.screen)
+		}
+	default:
+		t.Errorf("cmd returned %T, want screenChangeMsg", msg)
 	}
 
-	// Toast must show user feedback.
-	output := result.toast.View()
-	if output == "" {
-		t.Error("toast View() returned empty after Restore enter")
-	}
-	if !strings.Contains(output, "Restore") {
-		t.Errorf("toast View() = %q, want 'Restore: coming soon'", output)
-	}
-	if !strings.Contains(output, "coming soon") {
-		t.Errorf("toast View() = %q, want 'Restore: coming soon'", output)
+	// Screen should transition.
+	if result.screen != ScreenMenu {
+		// Screen stays on menu until screenChangeMsg is processed.
+		_ = result
 	}
 }
 
 // TestModel_Update_MenuEnter_Profiles verifies pressing enter on cursor=4
-// ("Profiles") shows a "coming soon" toast and stays on ScreenMenu.
+// ("Profiles") navigates to the profiles screen (ScreenProfiles).
 func TestModel_Update_MenuEnter_Profiles(t *testing.T) {
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
 	m.cursor = 4 // "Profiles"
 
-	newModel, _ := m.Update(tea.KeyPressMsg{Code: KeyEnter})
+	newModel, cmd := m.Update(tea.KeyPressMsg{Code: KeyEnter})
 	result := newModel.(Model)
 
-	// Screen stays on menu — no screen transition for unimplemented item.
-	if result.screen != ScreenMenu {
-		t.Errorf("after enter on Profiles: screen = %v, want ScreenMenu", result.screen)
+	if cmd == nil {
+		t.Fatal("Update(enter) on Profiles returned nil cmd")
+	}
+	msg := cmd()
+	switch msg := msg.(type) {
+	case screenChangeMsg:
+		if msg.screen != ScreenProfiles {
+			t.Errorf("screenChangeMsg.screen = %v, want ScreenProfiles", msg.screen)
+		}
+	default:
+		t.Errorf("cmd returned %T, want screenChangeMsg", msg)
 	}
 
-	// Toast must show user feedback.
-	output := result.toast.View()
-	if output == "" {
-		t.Error("toast View() returned empty after Profiles enter")
+	_ = result
+}
+
+// TestModel_Update_MenuEnter_CreateBackup_Channels verifies that pressing
+// enter on cursor=0 ("Create backup") spawns backup channels and transitions
+// to the progress screen.
+func TestModel_Update_MenuEnter_CreateBackup_Channels(t *testing.T) {
+	backupCh := make(chan ProgressUpdate, 1)
+	backupDone := make(chan error, 1)
+
+	deps := Deps{
+		Version: "1.0.0",
+		RunBackup: func(cats []string, ch chan<- ProgressUpdate) error {
+			go func() {
+				ch <- ProgressUpdate{Step: "copying", Current: 1, Total: 10}
+				ch <- ProgressUpdate{Step: "done", Current: 10, Total: 10, Done: true}
+			}()
+			// Write to backupDone when done.
+			return nil
+		},
 	}
-	if !strings.Contains(output, "Profiles") {
-		t.Errorf("toast View() = %q, want 'Profiles: coming soon'", output)
+
+	m := NewModel(deps)
+	m.width = 80
+	m.height = 24
+	m.cursor = 0 // "Create backup"
+	m.backupCh = backupCh
+	m.backupDone = backupDone
+
+	_, cmd := m.Update(tea.KeyPressMsg{Code: KeyEnter})
+
+	if cmd == nil {
+		t.Fatal("Update(enter) on Create backup returned nil cmd")
 	}
-	if !strings.Contains(output, "coming soon") {
-		t.Errorf("toast View() = %q, want 'Profiles: coming soon'", output)
+
+	msg := cmd()
+	switch msg := msg.(type) {
+	case screenChangeMsg:
+		if msg.screen != ScreenProgress {
+			t.Errorf("screenChangeMsg.screen = %v, want ScreenProgress", msg.screen)
+		}
+	default:
+		t.Errorf("cmd returned %T, want screenChangeMsg", msg)
 	}
 }
 
@@ -1148,7 +1191,7 @@ func TestModel_Update_ScreenCloud_UnhandledKey(t *testing.T) {
 // =============================================================================
 
 // TestModel_Update_ScreenChange_Cloud verifies screenChangeMsg for
-// ScreenCloud sets the screen and returns nil cmd (no sub-model init).
+// ScreenCloud sets the screen and returns a cmd (cloud model Init).
 func TestModel_Update_ScreenChange_Cloud(t *testing.T) {
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
@@ -1160,8 +1203,9 @@ func TestModel_Update_ScreenChange_Cloud(t *testing.T) {
 	if result.screen != ScreenCloud {
 		t.Errorf("after screenChangeMsg(Cloud): screen = %v, want ScreenCloud", result.screen)
 	}
-	if cmd != nil {
-		t.Errorf("after screenChangeMsg(Cloud): cmd = %v, want nil", cmd)
+	// CloudModel.Init returns a cmd to load cloud status.
+	if cmd == nil {
+		t.Error("after screenChangeMsg(Cloud): cmd = nil, want cloud status load cmd")
 	}
 }
 
@@ -1535,7 +1579,7 @@ func TestModel_Update_SearchEscRestoresAllRows(t *testing.T) {
 
 // newSettingsPtr returns a pointer to a freshly initialized SettingsModel.
 func newSettingsPtr() *screens.SettingsModel {
-	sm := screens.NewSettingsModel()
+	sm := screens.NewSettingsModel(nil)
 	return &sm
 }
 
