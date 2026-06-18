@@ -59,7 +59,9 @@ func TestProfileCmd_Help(t *testing.T) {
 	rootCmd.SetErr(buf)
 
 	rootCmd.SetArgs([]string{"profile", "--help"})
-	rootCmd.Execute()
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("profile --help should not error: %v", err)
+	}
 
 	output := buf.String()
 	if !strings.Contains(output, "profile") {
@@ -200,9 +202,51 @@ func TestProfileCreate_MissingProvider(t *testing.T) {
 }
 
 func TestProfileCreate_NoArgs(t *testing.T) {
+	// MaximumNArgs(1) allows 0 or 1 arg. Zero args is valid for the wizard path.
 	err := profileCreateCmd.Args(profileCreateCmd, []string{})
+	if err != nil {
+		t.Fatalf("profile create MaximumNArgs(1) should accept 0 args (wizard mode), got: %v", err)
+	}
+}
+
+// TestProfileCreate_NoArgs_LaunchesWizard verifies that running profile create
+// with no arguments suggests the interactive wizard or launches it.
+func TestProfileCreate_NoArgs_LaunchesWizard(t *testing.T) {
+	deps, _, _ := setupTestDeps(t)
+
+	// No args, no --interactive: should error with helpful message.
+	cmd := &cobra.Command{}
+	err := runProfileCreateWithDeps(cmd, []string{}, deps)
 	if err == nil {
-		t.Fatal("profile create without name should error")
+		t.Fatal("profile create with no args and no --interactive should error")
+	}
+	errStr := err.Error()
+	if !strings.Contains(errStr, "interactive") {
+		t.Errorf("error should mention --interactive, got: %v", err)
+	}
+}
+
+// TestProfileCreate_NoArgs_InteractiveAttempt verifies that profile create
+// with --interactive and no args attempts to launch the wizard.
+func TestProfileCreate_NoArgs_InteractiveAttempt(t *testing.T) {
+	oldInteractive := profileCreateInteractive
+	profileCreateInteractive = true
+	defer func() { profileCreateInteractive = oldInteractive }()
+
+	deps, _, _ := setupTestDeps(t)
+	cmd := &cobra.Command{}
+
+	// With --interactive and no args, the wizard is launched. Without a TTY
+	// it will error, but it must not be the "provide a name" error.
+	err := runProfileCreateWithDeps(cmd, []string{}, deps)
+	if err == nil {
+		t.Log("wizard succeeded (TTY available)")
+		return
+	}
+	errStr := err.Error()
+	// Must NOT be the "provide a profile name or use --interactive" error.
+	if strings.Contains(errStr, "provide a profile name") {
+		t.Errorf("with --interactive should not ask for name, got: %v", err)
 	}
 }
 
