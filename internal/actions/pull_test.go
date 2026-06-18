@@ -549,9 +549,76 @@ func TestPull_WrongPassword(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected error for wrong/empty password")
 			}
-			if !strings.Contains(err.Error(), tt.wantContains) {
-				t.Errorf("error should contain %q, got: %v", tt.wantContains, err)
-			}
-		})
+	if !strings.Contains(err.Error(), tt.wantContains) {
+			t.Errorf("error should contain %q, got: %v", tt.wantContains, err)
+		}
+	})
+	}
+}
+
+// TestPullAction_OutputRouting verifies that all output goes through
+// injectable Stdout/Stderr writers instead of fmt.Printf / os.Stderr.
+func TestPullAction_OutputRouting(t *testing.T) {
+	const password = "test-password-456"
+	t.Setenv("BAK_ENCRYPTION_PASSWORD", password)
+
+	files := map[string]string{
+		"hello.txt": "hello, output routing test!",
+	}
+	archiveData := buildEncryptedArchive(t, files, password)
+	home := t.TempDir()
+
+	mockProvider := &MockProvider{
+		MockName: "mock-gist",
+		PullFn: func(id string) ([]byte, error) {
+			return archiveData, nil
+		},
+	}
+
+	factory := &MockProviderFactory{
+		Providers: map[string]cloud.Provider{
+			"mock-gist": mockProvider,
+		},
+	}
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+
+	action := &PullAction{
+		FS:       newHomeFS(home),
+		Provider: "mock-gist",
+		Factory:  factory,
+		Verbose:  true,
+		Stdout:   &stdoutBuf,
+		Stderr:   &stderrBuf,
+		ConfigLoader: func() (*config.Config, error) {
+			return &config.Config{}, nil
+		},
+	}
+
+	err := action.Run([]string{"test-id"})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	stdout := stdoutBuf.String()
+	stderr := stderrBuf.String()
+
+	// Stdout assertions: informational messages MUST go to Stdout.
+	if !strings.Contains(stdout, "Downloading backup") {
+		t.Errorf("stdout missing 'Downloading backup':\n%s", stdout)
+	}
+	if !strings.Contains(stdout, "Extracting backup") {
+		t.Errorf("stdout missing 'Extracting backup':\n%s", stdout)
+	}
+	if !strings.Contains(stdout, "Backup pulled:") {
+		t.Errorf("stdout missing 'Backup pulled:':\n%s", stdout)
+	}
+	if !strings.Contains(stdout, "Run 'bak restore") {
+		t.Errorf("stdout missing 'Run 'bak restore':\n%s", stdout)
+	}
+
+	// Stderr assertions: verbose/diagnostic messages MUST go to Stderr.
+	if !strings.Contains(stderr, "Using provider:") {
+		t.Errorf("stderr missing 'Using provider:':\n%s", stderr)
 	}
 }
