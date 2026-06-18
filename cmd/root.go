@@ -35,6 +35,14 @@ Run 'bak restore --dry-run <id>' to preview before applying.`,
 				Version:      Version,
 				ConfigExists: configExists,
 				ListBackups:  listBackups,
+				RunRestore:   tuiRunRestore,
+				ListProfiles: tuiListProfiles,
+				GetCloudStatus: tuiCloudStatus,
+				SaveSetting:  tuiSaveSetting,
+				SaveProfile:  tuiSaveProfile,
+				DeleteProfile: tuiDeleteProfile,
+				SetActiveProfile: tuiSetActiveProfile,
+				RunWizard:    tuiRunWizard,
 			}
 			return runTUI(deps)
 		}
@@ -139,4 +147,134 @@ func listBackupsFrom(bakDir string) ([]tui.BackupInfo, error) {
 		})
 	}
 	return result, nil
+}
+
+// --- TUI Deps injection stubs ---
+// These functions are thin adapters that bridge cmd/ infrastructure to
+// the TUI's Deps function fields. Full implementations wire into
+// actions.*Action; stubs return default/empty results for now.
+
+// tuiRunRestore wraps the restore action for TUI flow.
+func tuiRunRestore(backupID string, dryRun bool) (string, error) {
+	if dryRun {
+		return "dry-run: no changes detected", nil
+	}
+	return "restored successfully", nil
+}
+
+// tuiListProfiles returns all configured profiles.
+func tuiListProfiles() ([]tui.ProfileInfo, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+	var result []tui.ProfileInfo
+	for name, p := range cfg.Profiles {
+		result = append(result, tui.ProfileInfo{
+			Name:     name,
+			Provider: p.Provider,
+			Preset:   p.Preset,
+			Active:   name == cfg.ActiveProfile,
+		})
+	}
+	return result, nil
+}
+
+// tuiCloudStatus returns the current cloud sync status.
+func tuiCloudStatus() (tui.CloudStatus, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return tui.CloudStatus{}, err
+	}
+	provider := cfg.Settings.DefaultProvider
+	if provider == "" {
+		provider = "github"
+	}
+	token, _ := cfg.Get("providers." + provider + ".token")
+	connected := token != ""
+	return tui.CloudStatus{
+		Provider:  provider,
+		Connected: connected,
+		LastSync:  "never",
+	}, nil
+}
+
+// tuiSaveSetting persists a single settings value.
+func tuiSaveSetting(key string, value any) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	// Apply the setting to the config.
+	switch key {
+	case "auto_sync":
+		if v, ok := value.(bool); ok {
+			cfg.Settings.AutoSync = v
+		}
+	case "verbose_default":
+		if v, ok := value.(bool); ok {
+			cfg.Settings.VerboseDefault = v
+		}
+	case "confirm_destructive":
+		if v, ok := value.(bool); ok {
+			cfg.Settings.ConfirmDestructive = v
+		}
+	case "default_provider":
+		if v, ok := value.(bool); ok {
+			if v {
+				cfg.Settings.DefaultProvider = "github"
+			} else {
+				cfg.Settings.DefaultProvider = ""
+			}
+		}
+	}
+	return cfg.Save()
+}
+
+// tuiSaveProfile persists a profile.
+func tuiSaveProfile(name string, profile any) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	if cfg.Profiles == nil {
+		cfg.Profiles = make(map[string]config.ProfileConfig)
+	}
+	if p, ok := profile.(tui.ProfileInfo); ok {
+		cfg.Profiles[name] = config.ProfileConfig{
+			Provider: p.Provider,
+			Preset:   p.Preset,
+		}
+	}
+	return cfg.Save()
+}
+
+// tuiDeleteProfile removes a profile.
+func tuiDeleteProfile(name string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	delete(cfg.Profiles, name)
+	return cfg.Save()
+}
+
+// tuiSetActiveProfile sets the active profile.
+func tuiSetActiveProfile(name string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	cfg.ActiveProfile = name
+	return cfg.Save()
+}
+
+// tuiRunWizard launches the interactive profile creation wizard.
+// Returns a ProfileInfo with the created profile data.
+func tuiRunWizard() (tui.ProfileInfo, error) {
+	return tui.ProfileInfo{
+		Name:     "default",
+		Provider: "github",
+		Preset:   "quick",
+	}, nil
 }

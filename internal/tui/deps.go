@@ -19,6 +19,32 @@ type Deps struct {
 	// ConfigExists returns true if a bak configuration directory already
 	// exists on this machine. Used for first-run detection.
 	ConfigExists func() bool
+
+	// RunRestore executes a restore operation. When dryRun is true, it
+	// returns a diff preview string without modifying any files.
+	RunRestore func(backupID string, dryRun bool) (string, error)
+
+	// ListProfiles returns all configured backup profiles.
+	ListProfiles func() ([]ProfileInfo, error)
+
+	// GetCloudStatus returns the current cloud sync status.
+	GetCloudStatus func() (CloudStatus, error)
+
+	// SaveSetting persists a single settings key-value pair to config.
+	SaveSetting func(key string, value any) error
+
+	// SaveProfile persists a new or updated profile.
+	SaveProfile func(name string, profile any) error
+
+	// DeleteProfile removes a profile by name.
+	DeleteProfile func(name string) error
+
+	// SetActiveProfile sets the named profile as active.
+	SetActiveProfile func(name string) error
+
+	// RunWizard launches the interactive profile creation wizard and
+	// returns the created profile data.
+	RunWizard func() (ProfileInfo, error)
 }
 
 // BackupInfo represents a single backup record displayed in the dashboard.
@@ -56,4 +82,23 @@ var DefaultMenuItems = []string{
 	"Profiles",
 	"Settings",
 	"Quit",
+}
+
+// ProfileInfo holds profile data for display in the profiles screen and
+// for wizard results. Mirrors screens.ProfileInfo without importing screens.
+type ProfileInfo struct {
+	Name     string
+	Provider string
+	Preset   string
+	Active   bool
+}
+
+// CloudStatus holds the cloud sync status returned by GetCloudStatus.
+// Mirrors screens.CloudInfo without importing screens.
+type CloudStatus struct {
+	Provider   string
+	Connected  bool
+	LastSync   string
+	LocalCount int
+	CloudCount int
 }
