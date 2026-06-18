@@ -246,7 +246,7 @@ func TestEngine_Run_ProgressFn(t *testing.T) {
 	}{
 		{
 			name: "callback called with incrementing done count",
-			cb:   nil, // set inside test
+			cb:   nil, // collector is wired inside t.Run based on validate != nil
 			validate: func(t *testing.T, calls []call) {
 				if len(calls) == 0 {
 					t.Fatal("ProgressFn was not called at all")
@@ -293,15 +293,14 @@ func TestEngine_Run_ProgressFn(t *testing.T) {
 			engine := setupTestEngine(t, home)
 
 			var calls []call
-			if tt.cb != nil {
-				engine.ProgressFn = tt.cb
-			} else if tt.validate != nil {
+			switch {
+			case tt.validate != nil:
 				// "callback called" case: wire the collector.
 				engine.Preset = "full"
 				engine.ProgressFn = func(file string, done, total int) {
 					calls = append(calls, call{file: file, done: done, total: total})
 				}
-			} else {
+			default:
 				// "nil callback" case: explicitly nil.
 				engine.Preset = "quick"
 				engine.ProgressFn = nil

@@ -92,7 +92,7 @@ func (a *PullAction) Run(args []string) error {
 		return fmt.Errorf("provider: %w", err)
 	}
 	if a.Verbose {
-		fmt.Fprintf(a.stderr(), "Using provider: %s\n", provider.Name())
+		fmt.Fprintf(a.stderr(), "Using provider: %s\n", provider.Name()) //nolint:errcheck
 	}
 
 	// 4. Resolve remote backup ID.
@@ -108,7 +108,7 @@ func (a *PullAction) Run(args []string) error {
 	}
 
 	// 4. Download from provider.
-	fmt.Fprintf(a.stdout(), "Downloading backup %s...\n", remoteID)
+	fmt.Fprintf(a.stdout(), "Downloading backup %s...\n", remoteID) //nolint:errcheck
 	if a.ProgressFn != nil {
 		a.ProgressFn("Downloading", 0, 2)
 	}
@@ -137,7 +137,7 @@ func (a *PullAction) Run(args []string) error {
 		archiveStr = base64.StdEncoding.EncodeToString(decrypted)
 
 		if a.Verbose {
-			fmt.Fprintf(a.stderr(), "Decrypted archive\n")
+			fmt.Fprintf(a.stderr(), "Decrypted archive\n") //nolint:errcheck
 		}
 	}
 
@@ -149,7 +149,7 @@ func (a *PullAction) Run(args []string) error {
 		return fmt.Errorf("create backup dir: %w", err)
 	}
 
-	fmt.Fprintf(a.stdout(), "Extracting backup %s...\n", backupID)
+	fmt.Fprintf(a.stdout(), "Extracting backup %s...\n", backupID) //nolint:errcheck
 	if a.ProgressFn != nil {
 		a.ProgressFn("Extracting", 1, 2)
 	}
@@ -157,8 +157,8 @@ func (a *PullAction) Run(args []string) error {
 		return fmt.Errorf("extract backup: %w", err)
 	}
 
-	fmt.Fprintf(a.stdout(), "✅ Backup pulled: %s\n", backupID)
-	fmt.Fprintf(a.stdout(), "   Run 'bak restore %s' to apply it.\n", backupID)
+	fmt.Fprintf(a.stdout(), "✅ Backup pulled: %s\n", backupID)                  //nolint:errcheck
+	fmt.Fprintf(a.stdout(), "   Run 'bak restore %s' to apply it.\n", backupID) //nolint:errcheck
 	if a.ProgressFn != nil {
 		a.ProgressFn("Complete", 2, 2)
 	}

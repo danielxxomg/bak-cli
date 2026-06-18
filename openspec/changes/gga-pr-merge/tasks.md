@@ -41,17 +41,17 @@ Chain strategy: size-exception
 
 ## Phase 5: Commit, Push & Merge Chain (WS4)
 
-- [ ] 5.1 Commit Phase 1+2 fixes to `fix/wiring-fixes` branch — `git checkout fix/wiring-fixes && git add -A && git commit`
-- [ ] 5.2 Push `fix/wiring-fixes` — verify PR #26 CI passes with fixes
-- [ ] 5.3 Merge #27 into #26 — `gh pr merge 27 --merge`; verify GGA passes
-- [ ] 5.4 Merge #26 into #25 — `gh pr merge 26 --merge`; verify GGA passes
-- [ ] 5.5 Merge #25 into #24 — `gh pr merge 25 --merge`; verify GGA passes
-- [ ] 5.6 Merge #24 into main — `gh pr merge 24 --merge`; verify GGA passes
+- [x] 5.1 Commit Phase 1+2 fixes to `fix/wiring-fixes` branch — `git checkout fix/wiring-fixes && git add -A && git commit`
+- [x] 5.2 Push `fix/wiring-fixes` — verify PR #26 CI passes with fixes
+- [x] 5.3 Merge #27 into #26 — `gh pr merge 27 --merge`; verify GGA passes
+- [x] 5.4 Merge #26 into #25 — `gh pr merge 26 --merge`; verify GGA passes
+- [x] 5.5 Merge #25 into #24 — `gh pr merge 25 --merge`; verify GGA passes
+- [x] 5.6 Merge #24 into main — `gh pr merge 24 --merge`; verify GGA passes
 
 ## Phase 6: Archive & Quality Gates
 
-- [ ] 6.1 `git mv openspec/changes/quality-ux-overhaul/ openspec/changes/archive/2026-06-18-quality-ux-overhaul/`
-- [ ] 6.2 Commit archive move and push
-- [ ] 6.3 `go test -race ./...` — all pass
-- [ ] 6.4 `go vet ./...` — clean
-- [ ] 6.5 `golangci-lint run` — exit 0
+- [x] 6.1 `git mv openspec/changes/quality-ux-overhaul/ openspec/changes/archive/2026-06-18-quality-ux-overhaul/`
+- [x] 6.2 Commit archive move and push
+- [x] 6.3 `go test -race ./...` — all pass
+- [x] 6.4 `go vet ./...` — clean
+- [x] 6.5 `golangci-lint run` — exit 0
