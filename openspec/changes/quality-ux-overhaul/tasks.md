@@ -110,17 +110,17 @@ Chain strategy: pending
 ## PR4: OAuth Login (~400 lines)
 
 ### Phase 4.1: OAuth Device Flow
-- [ ] 4.1.1 Write `internal/cloud/oauth_device_test.go` — device code request, polling (success/expire/deny/slow_down), headless fallback via httptest.Server
-- [ ] 4.1.2 Write `internal/cloud/oauth_device.go` — DeviceClient, RequestToken() RFC 8628 (POST device/code → poll oauth/access_token)
+- [x] 4.1.1 Write `internal/cloud/oauth_device_test.go` — device code request, polling (success/expire/deny/slow_down), headless fallback via httptest.Server
+- [x] 4.1.2 Write `internal/cloud/oauth_device.go` — DeviceClient, RequestToken() RFC 8628 (POST device/code → poll oauth/access_token)
 
 ### Phase 4.2: Browser Opener
-- [ ] 4.2.1 Write `internal/cloud/browser_test.go` — openBrowserOS per GOOS, DISPLAY guard on Linux
-- [ ] 4.2.2 Write `internal/cloud/browser.go` — openBrowserOS(url) via runtime.GOOS switch, DISPLAY check
+- [x] 4.2.1 Write `internal/cloud/browser_test.go` — openBrowserOS per GOOS, DISPLAY guard on Linux
+- [x] 4.2.2 Write `internal/cloud/browser.go` — openBrowserOS(url) via runtime.GOOS switch, DISPLAY check
 
 ### Phase 4.3: Token Storage & Dispatch
-- [ ] 4.3.1 Write `internal/actions/login_test.go` — OAuth dispatch when clientID set, PAT fallback, token validate+save
-- [ ] 4.3.2 Modify `internal/actions/login.go` — OAuthClient field, dispatch to DeviceClient.RequestToken, PAT fallback
-- [ ] 4.3.3 Modify `cmd/login.go` — wire DeviceClient with BAK_GITHUB_OAUTH_CLIENT_ID env, injectable OpenBrowser/Clipboard
+- [x] 4.3.1 Write `internal/actions/login_test.go` — OAuth dispatch when clientID set, PAT fallback, token validate+save
+- [x] 4.3.2 Modify `internal/actions/login.go` — OAuthClient field, dispatch to DeviceClient.RequestToken, PAT fallback
+- [x] 4.3.3 Modify `cmd/login.go` — wire DeviceClient with BAK_GITHUB_OAUTH_CLIENT_ID env, injectable OpenBrowser/Clipboard
 
 ### Phase 4.4: Quality Gates
-- [ ] 4.4.1 `go test -race ./...` + `go vet ./...` + `golangci-lint run` — all clean
+- [x] 4.4.1 `go test -race ./...` + `go vet ./...` + `golangci-lint run` — all clean
