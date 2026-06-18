@@ -54,7 +54,8 @@ type Settings struct {
 	MaxFileSize int64 `json:"max_file_size,omitempty"`
 
 	// ConfirmDestructive requires confirmation before destructive operations.
-	ConfirmDestructive bool `json:"confirm_destructive,omitempty"`
+	// nil means use default (true); explicitly set to false disables confirmation.
+	ConfirmDestructive *bool `json:"confirm_destructive,omitempty"`
 
 	// VerboseDefault controls whether verbose output is on by default.
 	VerboseDefault bool `json:"verbose_default,omitempty"`
@@ -65,11 +66,30 @@ type Settings struct {
 
 // DefaultSettings returns a Settings struct with safe default values.
 func DefaultSettings() Settings {
+	confirm := true
 	return Settings{
 		DefaultPreset:      "quick",
 		AutoSync:           false,
 		MaxFileSize:        1048576,
-		ConfirmDestructive: true,
+		ConfirmDestructive: &confirm,
+	}
+}
+
+// applyDefaults fills zero-value Settings fields with defaults from
+// DefaultSettings(). Non-zero fields are left untouched — this preserves
+// existing user configuration while providing safe defaults for unset fields.
+func applyDefaults(s *Settings) {
+	defaults := DefaultSettings()
+	if s.DefaultPreset == "" {
+		s.DefaultPreset = defaults.DefaultPreset
+	}
+	if s.MaxFileSize == 0 {
+		s.MaxFileSize = defaults.MaxFileSize
+	}
+	// ConfirmDestructive uses *bool: nil means "not set" → apply default true.
+	// Explicitly set values (whether true or false) are left untouched.
+	if s.ConfirmDestructive == nil {
+		s.ConfirmDestructive = defaults.ConfirmDestructive
 	}
 }
 
@@ -138,6 +158,7 @@ func LoadPath(cfgPath string) (*Config, error) {
 
 	data, err := os.ReadFile(cfgPath)
 	if os.IsNotExist(err) {
+		applyDefaults(&cfg.Settings)
 		return cfg, nil
 	}
 	if err != nil {
@@ -164,6 +185,7 @@ func LoadPath(cfgPath string) (*Config, error) {
 		}
 	}
 
+	applyDefaults(&cfg.Settings)
 	return cfg, nil
 }
 

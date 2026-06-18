@@ -681,7 +681,7 @@ func TestSettings_Defaults(t *testing.T) {
 	if s.MaxFileSize != 1048576 {
 		t.Errorf("MaxFileSize = %d, want %d", s.MaxFileSize, 1048576)
 	}
-	if s.ConfirmDestructive != true {
+	if s.ConfirmDestructive == nil || *s.ConfirmDestructive != true {
 		t.Errorf("ConfirmDestructive = %v, want true", s.ConfirmDestructive)
 	}
 	if s.VerboseDefault != false {
@@ -707,7 +707,7 @@ func TestSettings_SaveLoadRoundTrip(t *testing.T) {
 			AutoSync:           true,
 			ExcludePatterns:    []string{"node_modules", "*.log"},
 			MaxFileSize:        2097152,
-			ConfirmDestructive: false,
+			ConfirmDestructive: boolPtr(false),
 			VerboseDefault:     true,
 			DefaultProvider:    "github",
 		},
@@ -738,8 +738,8 @@ func TestSettings_SaveLoadRoundTrip(t *testing.T) {
 	if s.MaxFileSize != 2097152 {
 		t.Errorf("MaxFileSize = %d, want %d", s.MaxFileSize, 2097152)
 	}
-	if s.ConfirmDestructive {
-		t.Error("ConfirmDestructive = true, want false")
+	if s.ConfirmDestructive == nil || *s.ConfirmDestructive != false {
+		t.Errorf("ConfirmDestructive = %v, want false", s.ConfirmDestructive)
 	}
 	if !s.VerboseDefault {
 		t.Error("VerboseDefault = false, want true")
@@ -749,6 +749,41 @@ func TestSettings_SaveLoadRoundTrip(t *testing.T) {
 	}
 	if loaded.ActiveProfile != "work" {
 		t.Errorf("ActiveProfile = %q, want %q", loaded.ActiveProfile, "work")
+	}
+}
+
+func TestLoad_AppliesDefaultsWhenMissing(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	// Write a config WITHOUT settings key — LoadPath must apply DefaultSettings().
+	data := `{"schema_version":"0.3.0","providers":{"github":{"token":"t"}}}`
+	if err := os.WriteFile(cfgPath, []byte(data), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadPath(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadPath() error: %v", err)
+	}
+
+	// Settings fields MUST have DefaultSettings values applied.
+	if cfg.Settings.DefaultPreset != "quick" {
+		t.Errorf("DefaultPreset = %q, want %q", cfg.Settings.DefaultPreset, "quick")
+	}
+	if cfg.Settings.MaxFileSize != 1048576 {
+		t.Errorf("MaxFileSize = %d, want %d", cfg.Settings.MaxFileSize, 1048576)
+	}
+	if cfg.Settings.ConfirmDestructive == nil || *cfg.Settings.ConfirmDestructive != true {
+		t.Errorf("ConfirmDestructive = %v, want true", cfg.Settings.ConfirmDestructive)
+	}
+	if cfg.Settings.AutoSync != false {
+		t.Errorf("AutoSync = %v, want false", cfg.Settings.AutoSync)
+	}
+
+	// Non-Settings fields MUST be preserved (providers, etc.).
+	if cfg.Providers["github"].Token != "t" {
+		t.Errorf("Providers[github].Token = %q, want %q", cfg.Providers["github"].Token, "t")
 	}
 }
 
@@ -767,13 +802,48 @@ func TestSettings_LoadDefaultsWhenMissing(t *testing.T) {
 		t.Fatalf("LoadPath() error: %v", err)
 	}
 
-	// Settings fields should have defaults (zero values).
-	if cfg.Settings.DefaultPreset != "" {
-		t.Errorf("DefaultPreset = %q, want empty (default)", cfg.Settings.DefaultPreset)
+	// Settings fields should have DefaultSettings applied.
+	if cfg.Settings.DefaultPreset != "quick" {
+		t.Errorf("DefaultPreset = %q, want %q", cfg.Settings.DefaultPreset, "quick")
 	}
 	if cfg.ActiveProfile != "" {
 		t.Errorf("ActiveProfile = %q, want empty", cfg.ActiveProfile)
 	}
+}
+
+// triangulate: existing non-zero settings are NOT overwritten.
+func TestLoad_DefaultsRespectExistingSettings(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	// Config WITH an explicit non-zero settings section.
+	data := `{"schema_version":"0.3.0","providers":{"github":{"token":"t"}},"settings":{"default_preset":"full","max_file_size":2097152}}`
+	if err := os.WriteFile(cfgPath, []byte(data), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadPath(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadPath() error: %v", err)
+	}
+
+	// Non-zero user settings MUST be preserved.
+	if cfg.Settings.DefaultPreset != "full" {
+		t.Errorf("DefaultPreset = %q, want %q (should NOT be overwritten)", cfg.Settings.DefaultPreset, "full")
+	}
+	if cfg.Settings.MaxFileSize != 2097152 {
+		t.Errorf("MaxFileSize = %d, want %d (should NOT be overwritten)", cfg.Settings.MaxFileSize, 2097152)
+	}
+	// ConfirmDestructive was NOT explicitly set, so it should default to true.
+	if cfg.Settings.ConfirmDestructive == nil || *cfg.Settings.ConfirmDestructive != true {
+		t.Errorf("ConfirmDestructive = %v, want true (default applies since not set)", cfg.Settings.ConfirmDestructive)
+	}
+}
+
+// boolPtr returns a pointer to a bool — useful for constructing Settings
+// structs with *bool fields in table-driven tests.
+func boolPtr(b bool) *bool {
+	return &b
 }
 
 func TestSettings_ActiveProfileRoundTrip(t *testing.T) {
