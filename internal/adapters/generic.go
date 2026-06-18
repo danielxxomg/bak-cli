@@ -33,6 +33,13 @@ type GenericAdapter struct {
 	// preserves current behavior (all files included).
 	ScanOpts ScanOptions
 
+	// RootConfigFiles is an optional whitelist mapping root entry names
+	// to their category. When non-nil, scanRootFiles skips any root
+	// entry whose name is not in this map. This is the belt alongside
+	// DefaultExcludes as suspenders: whitelist prevents future runtime
+	// files from leaking; excludes catch them even without a whitelist.
+	RootConfigFiles map[string]string
+
 	// StatFn replaces os.Stat in Detect. When nil, Detect falls back
 	// to os.Stat. Inject a custom function to simulate stat failures
 	// in tests without relying on OS-level permissions (chmod).
@@ -112,7 +119,7 @@ func (ga *GenericAdapter) ListItems(homeDir string, categories []string) ([]Item
 	}
 
 	if catSet["config"] {
-		rootItems, err := scanRootFiles(configDir, catSet)
+		rootItems, err := scanRootFiles(configDir, catSet, ga.ScanOpts, ga.RootConfigFiles)
 		if err != nil {
 			return nil, fmt.Errorf("scan root files: %w", err)
 		}
@@ -282,8 +289,11 @@ func MatchExclude(pattern, name, relPath string, isDir bool) bool {
 }
 
 // scanRootFiles reads the top-level config directory and returns items
-// for all regular files that belong to categories in catSet.
-func scanRootFiles(configDir string, catSet map[string]bool) ([]Item, error) {
+// for all regular files that belong to categories in catSet. When opts
+// is non-zero, entries matching exclude patterns or exceeding MaxFileSize
+// are skipped — mirroring scanDir's filtering. When rootConfigFiles is
+// non-nil, only file names present in the map are included (whitelist).
+func scanRootFiles(configDir string, catSet map[string]bool, opts ScanOptions, rootConfigFiles map[string]string) ([]Item, error) {
 	entries, err := os.ReadDir(configDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -298,23 +308,54 @@ func scanRootFiles(configDir string, catSet map[string]bool) ([]Item, error) {
 			continue
 		}
 
-		absPath := filepath.Join(configDir, e.Name())
-		canonical := paths.ToCanonical(absPath)
+		entryName := e.Name()
+
+		// Whitelist gate: when RootConfigFiles is set, skip unrecognized files.
+		if rootConfigFiles != nil {
+			if _, ok := rootConfigFiles[entryName]; !ok {
+				continue
+			}
+		}
+
+		absPath := filepath.Join(configDir, entryName)
+
+		// Check exclude patterns (mirror scanDir:194-204).
+		if len(opts.Excludes) > 0 {
+			skipped := false
+			for _, pat := range opts.Excludes {
+				if MatchExclude(pat, entryName, entryName, false) {
+					skipped = true
+					break
+				}
+			}
+			if skipped {
+				continue
+			}
+		}
 
 		info, infoErr := e.Info()
 		if infoErr != nil {
-			return nil, fmt.Errorf("stat %s: %w", e.Name(), infoErr)
+			return nil, fmt.Errorf("stat %s: %w", entryName, infoErr)
 		}
+
+		// Check MaxFileSize for regular files (mirror scanDir:206-217).
+		if opts.MaxFileSize > 0 && info.Size() > opts.MaxFileSize {
+			fmt.Fprintf(os.Stderr, "warning: skipping large file (%d bytes exceeds max %d): %s\n",
+				info.Size(), opts.MaxFileSize, entryName)
+			continue
+		}
+
+		canonical := paths.ToCanonical(absPath)
 
 		hash, _, hashErr := FileHash(absPath)
 		if hashErr != nil {
-			return nil, fmt.Errorf("hash %s: %w", e.Name(), hashErr)
+			return nil, fmt.Errorf("hash %s: %w", entryName, hashErr)
 		}
 
 		items = append(items, Item{
 			Category:   "config",
 			SourcePath: canonical,
-			RelPath:    e.Name(),
+			RelPath:    entryName,
 			IsDir:      false,
 			Hash:       hash,
 			Size:       info.Size(),

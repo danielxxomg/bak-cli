@@ -24,6 +24,12 @@ var base = adapters.GenericAdapter{
 	ConfigRelPath:    ConfigRelPath,
 	Categories:       CategoryMap,
 	DetectErrContext: "stat codex config dir",
+	RootConfigFiles: map[string]string{
+		"config.toml":     "config",
+		"instructions.md": "config",
+		"config.json":     "config",
+		"mcp.json":        "mcp",
+	},
 }
 
 // Adapter delegates all interface methods to a package-level GenericAdapter,
