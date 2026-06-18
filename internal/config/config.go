@@ -30,9 +30,47 @@ type Config struct {
 	GistID        string                    `json:"gist_id,omitempty"`
 	Providers     map[string]ProviderConfig `json:"providers,omitempty"`
 	Profiles      map[string]ProfileConfig  `json:"profiles,omitempty"`
+	Settings      Settings                  `json:"settings,omitempty"`
+	ActiveProfile string                    `json:"active_profile,omitempty"`
 
 	// path is the on-disk location of this config file (not serialized).
 	path string `json:"-"`
+}
+
+// Settings holds user preferences for the bak CLI. These values persist
+// across sessions in config.json and are read by the TUI and CLI commands.
+type Settings struct {
+	// DefaultPreset is the backup preset used when none is specified.
+	DefaultPreset string `json:"default_preset,omitempty"`
+
+	// AutoSync enables automatic cloud sync after each backup.
+	AutoSync bool `json:"auto_sync,omitempty"`
+
+	// ExcludePatterns are additional file patterns to exclude from backups.
+	// An empty/nil slice means use defaults; a non-empty slice replaces defaults.
+	ExcludePatterns []string `json:"exclude_patterns,omitempty"`
+
+	// MaxFileSize is the maximum individual file size in bytes to include.
+	MaxFileSize int64 `json:"max_file_size,omitempty"`
+
+	// ConfirmDestructive requires confirmation before destructive operations.
+	ConfirmDestructive bool `json:"confirm_destructive,omitempty"`
+
+	// VerboseDefault controls whether verbose output is on by default.
+	VerboseDefault bool `json:"verbose_default,omitempty"`
+
+	// DefaultProvider is the default cloud provider name (e.g. "github").
+	DefaultProvider string `json:"default_provider,omitempty"`
+}
+
+// DefaultSettings returns a Settings struct with safe default values.
+func DefaultSettings() Settings {
+	return Settings{
+		DefaultPreset:      "quick",
+		AutoSync:           false,
+		MaxFileSize:        1048576,
+		ConfirmDestructive: true,
+	}
 }
 
 // ProviderConfig holds settings for a single cloud provider.
