@@ -64,13 +64,13 @@ func TestRestoreCmd_Args(t *testing.T) {
 	}
 
 	// Test args validator directly.
-	// ExactArgs(1) should reject 0 args.
+	// MaximumNArgs(1) should accept 0 args (picker) or 1 arg.
 	err := cmd.Args(cmd, []string{})
-	if err == nil {
-		t.Fatal("expected error with 0 args, got nil")
+	if err != nil {
+		t.Fatalf("expected no error with 0 args (picker mode), got %v", err)
 	}
 
-	// ExactArgs(1) should reject 2 args.
+	// MaximumNArgs(1) should reject 2 args.
 	err = cmd.Args(cmd, []string{"id1", "id2"})
 	if err == nil {
 		t.Fatal("expected error with 2 args, got nil")
