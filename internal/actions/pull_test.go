@@ -549,10 +549,10 @@ func TestPull_WrongPassword(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected error for wrong/empty password")
 			}
-	if !strings.Contains(err.Error(), tt.wantContains) {
-			t.Errorf("error should contain %q, got: %v", tt.wantContains, err)
-		}
-	})
+			if !strings.Contains(err.Error(), tt.wantContains) {
+				t.Errorf("error should contain %q, got: %v", tt.wantContains, err)
+			}
+		})
 	}
 }
 
