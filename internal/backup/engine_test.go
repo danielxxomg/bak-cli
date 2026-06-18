@@ -293,3 +293,70 @@ func TestEngine_Run_BackupFilesExist(t *testing.T) {
 		t.Error("no backed-up files found in backup dir")
 	}
 }
+
+func TestEngine_Run_ProgressFn(t *testing.T) {
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	engine := setupTestEngine(t, home)
+	engine.Preset = "full"
+
+	type call struct {
+		file  string
+		done  int
+		total int
+	}
+	var calls []call
+	engine.ProgressFn = func(file string, done, total int) {
+		calls = append(calls, call{file: file, done: done, total: total})
+	}
+
+	_, err := engine.Run()
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if len(calls) == 0 {
+		t.Fatal("ProgressFn was not called at all")
+	}
+
+	// Verify incrementing done count.
+	for i := 1; i < len(calls); i++ {
+		if calls[i].done <= calls[i-1].done {
+			t.Errorf("done count did not increment: calls[%d].done=%d, calls[%d].done=%d",
+				i-1, calls[i-1].done, i, calls[i].done)
+		}
+	}
+
+	// Total should be consistent across all calls.
+	total := calls[0].total
+	if total <= 0 {
+		t.Fatalf("expected positive total, got %d", total)
+	}
+	for i, c := range calls {
+		if c.total != total {
+			t.Errorf("calls[%d].total = %d, want %d", i, c.total, total)
+		}
+	}
+
+	// Last done should equal total.
+	lastCall := calls[len(calls)-1]
+	if lastCall.done != lastCall.total {
+		t.Errorf("last call done=%d, want total=%d", lastCall.done, lastCall.total)
+	}
+}
+
+func TestEngine_Run_ProgressFnNilSafe(t *testing.T) {
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	engine := setupTestEngine(t, home)
+	engine.Preset = "quick"
+	engine.ProgressFn = nil
+
+	// Should complete without panic.
+	_, err := engine.Run()
+	if err != nil {
+		t.Fatalf("Run with nil ProgressFn: %v", err)
+	}
+}

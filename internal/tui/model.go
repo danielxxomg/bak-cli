@@ -257,6 +257,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newToast, cmd := m.toast.Update(msg)
 		m.toast = newToast
 		return m, cmd
+
+	case screens.ProgressStepMsg:
+		// Forward to progress sub-model and re-issue channel drain.
+		if m.progress != nil && m.screen == ScreenProgress {
+			newProg, cmd := m.progress.Update(msg)
+			np := newProg.(screens.ProgressModel)
+			m.progress = &np
+			return m, tea.Batch(cmd, drainProgressCmd(m.backupCh))
+		}
+		// Keep draining even if progress model isn't initialized.
+		return m, drainProgressCmd(m.backupCh)
+
+	case screens.ProgressDoneMsg:
+		// Collect result from backupDone channel (non-blocking select).
+		var resultErr error
+		if m.backupDone != nil {
+			select {
+			case err := <-m.backupDone:
+				resultErr = err
+			default:
+			}
+		}
+		// Forward to progress sub-model.
+		if m.progress != nil && m.screen == ScreenProgress {
+			newProg, cmd := m.progress.Update(msg)
+			np := newProg.(screens.ProgressModel)
+			m.progress = &np
+			return m, tea.Batch(cmd, func() tea.Msg { return actionResultMsg{err: resultErr} })
+		}
+		return m, func() tea.Msg { return actionResultMsg{err: resultErr} }
 	}
 
 	// Forward remaining messages to the active sub-model.
@@ -457,7 +487,10 @@ func (m Model) handleMenuEnter() (tea.Model, tea.Cmd) {
 				m.backupDone <- err
 			}()
 		}
-		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenProgress} }
+		return m, tea.Batch(
+			func() tea.Msg { return screenChangeMsg{screen: ScreenProgress} },
+			drainProgressCmd(m.backupCh),
+		)
 	case 1: // "Restore" → Restore screen
 		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenRestore} }
 	case 2: // "Browse backups" → Dashboard
@@ -561,6 +594,30 @@ func (m Model) View() tea.View {
 // which includes the logo, version, menu items, and help bar.
 func (m Model) renderMenu() string {
 	return screens.RenderMainMenu(m.deps.Version, "", m.menuItems, m.cursor, m.width)
+}
+
+// drainProgressCmd returns a tea.Cmd that reads one ProgressUpdate from
+// the given channel and converts it to a tea.Msg. When ch is nil, it
+// returns nil (no-op). When the channel produces Done=true, it returns
+// ProgressDoneMsg. Otherwise it returns ProgressStepMsg.
+func drainProgressCmd(ch <-chan ProgressUpdate) tea.Cmd {
+	if ch == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		update, ok := <-ch
+		if !ok {
+			return screens.ProgressDoneMsg{}
+		}
+		if update.Done {
+			return screens.ProgressDoneMsg{}
+		}
+		return screens.ProgressStepMsg{
+			Step:    update.Step,
+			Current: update.Current,
+			Total:   update.Total,
+		}
+	}
 }
 
 // Selection returns the current menu selection. If the cursor is out of

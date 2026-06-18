@@ -84,28 +84,28 @@ Chain strategy: pending
 ## PR3: Backup Size & Progress (~400 lines)
 
 ### Phase 3.1: Exclusion Engine
-- [ ] 3.1.1 Write `internal/config/ignore_test.go` — ParseIgnore (wildcards, dir/, !negation), LoadExcludes merge, empty-array-clears-defaults
-- [ ] 3.1.2 Write `internal/config/ignore.go` — ParseIgnore, Pattern.Match, LoadExcludes(configDir, settings)
+- [x] 3.1.1 Write `internal/config/ignore_test.go` — ParseIgnore (wildcards, dir/, !negation), LoadExcludes merge, empty-array-clears-defaults
+- [x] 3.1.2 Write `internal/config/ignore.go` — ParseIgnore, Pattern.Match, LoadExcludes(configDir, settings)
 
 ### Phase 3.2: ScanOptions Plumbing
-- [ ] 3.2.1 Write `internal/adapters/adapter_test.go` — ScanConfigurable compliance, SetScanOptions
-- [ ] 3.2.2 Modify `internal/adapters/adapter.go` — ScanOptions struct + ScanConfigurable interface
-- [ ] 3.2.3 Modify `internal/adapters/generic.go` — ScanOpts field, excludes+MaxFileSize in scanDir
-- [ ] 3.2.4 Modify `internal/adapters/opencode/adapter.go` — same ScanOpts + scanDir filtering
-- [ ] 3.2.5 Modify 7 delegating adapters — SetScanOptions forwarders
+- [x] 3.2.1 Write `internal/adapters/adapter_test.go` — ScanConfigurable compliance, SetScanOptions
+- [x] 3.2.2 Modify `internal/adapters/adapter.go` — ScanOptions struct + ScanConfigurable interface
+- [x] 3.2.3 Modify `internal/adapters/generic.go` — ScanOpts field, excludes+MaxFileSize in scanDir
+- [x] 3.2.4 Modify `internal/adapters/opencode/adapter.go` — same ScanOpts + scanDir filtering
+- [x] 3.2.5 Modify 7 delegating adapters — SetScanOptions forwarders
 
 ### Phase 3.3: Progress Callback
-- [ ] 3.3.1 Write `internal/backup/engine_test.go` — ProgressFn called N times incrementing, nil-safe
-- [ ] 3.3.2 Modify `internal/backup/engine.go` — ProgressFn field, per-file call (nil guard)
-- [ ] 3.3.3 Modify `internal/actions/{backup,restore}.go` — ProgressFn forwarding
-- [ ] 3.3.4 Modify `internal/actions/{push,pull}.go` — optional coarse ProgressFn
+- [x] 3.3.1 Write `internal/backup/engine_test.go` — ProgressFn called N times incrementing, nil-safe
+- [x] 3.3.2 Modify `internal/backup/engine.go` — ProgressFn field, per-file call (nil guard)
+- [x] 3.3.3 Modify `internal/actions/{backup,restore}.go` — ProgressFn forwarding
+- [x] 3.3.4 Modify `internal/actions/{push,pull}.go` — optional coarse ProgressFn
 
 ### Phase 3.4: TUI Progress Bridge
-- [ ] 3.4.1 Write `internal/tui/model_test.go` — progressFn→chan→ProgressStepMsg bridge, ProgressDoneMsg
-- [ ] 3.4.2 Modify `cmd/root.go` — runBackup/runRestore adapters: progressFn → chan<- ProgressUpdate
+- [x] 3.4.1 Write `internal/tui/model_test.go` — progressFn→chan→ProgressStepMsg bridge, ProgressDoneMsg
+- [x] 3.4.2 Modify `cmd/root.go` — runBackup/runRestore adapters: progressFn → chan<- ProgressUpdate
 
 ### Phase 3.5: Quality Gates
-- [ ] 3.5.1 `go test -race ./...` + `go vet ./...` + `golangci-lint run` — all clean
+- [x] 3.5.1 `go test -race ./...` + `go vet ./...` + `golangci-lint run` — all clean
 
 ## PR4: OAuth Login (~400 lines)
 
