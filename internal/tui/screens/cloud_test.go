@@ -6,6 +6,8 @@ package screens
 import (
 	"strings"
 	"testing"
+
+	tea "charm.land/bubbletea/v2"
 )
 
 // =============================================================================
@@ -172,7 +174,7 @@ func TestRenderCloudStatus_DisconnectedProvider(t *testing.T) {
 	output := RenderCloudStatus(info, 80)
 
 	// Disconnected status should be visible.
-	if !strings.Contains(output, "Disconnected") && !strings.Contains(output, "✗") {
+	if !strings.Contains(output, "Disconnected") && !strings.Contains(output, "\u2717") {
 		t.Errorf("RenderCloudStatus disconnected missing indicator: %q", output)
 	}
 }
@@ -214,5 +216,95 @@ func TestRenderCloudStatus_HelpBar_NoProvider(t *testing.T) {
 	// ...AND the help bar.
 	if !strings.Contains(output, "back") {
 		t.Errorf("no-provider cloud help bar missing 'back': %q", output)
+	}
+}
+
+// =============================================================================
+// CloudModel Tests — RED (CloudModel sub-model does not exist yet)
+// =============================================================================
+
+func TestCloudModel_New(t *testing.T) {
+	statusFn := func() (CloudInfo, error) {
+		return CloudInfo{
+			Provider:  "github",
+			Connected: true,
+			LastSync:  "2024-06-09",
+		}, nil
+	}
+	m := NewCloudModel(statusFn)
+
+	if m.Width != 0 {
+		t.Errorf("initial width = %d, want 0", m.Width)
+	}
+}
+
+func TestCloudModel_Init(t *testing.T) {
+	statusFn := func() (CloudInfo, error) {
+		return CloudInfo{
+			Provider:  "github",
+			Connected: true,
+			LastSync:  "2024-06-09",
+		}, nil
+	}
+	m := NewCloudModel(statusFn)
+
+	cmd := m.Init()
+	if cmd == nil {
+		t.Fatal("Init() returned nil, want cloud status load cmd")
+	}
+
+	msg := cmd()
+	newModel, _ := m.Update(msg)
+	cm := newModel.(CloudModel)
+
+	if cm.Info.Provider != "github" {
+		t.Errorf("Info.Provider = %q, want %q", cm.Info.Provider, "github")
+	}
+	if !cm.Info.Connected {
+		t.Error("Info.Connected = false, want true")
+	}
+}
+
+func TestCloudModel_View(t *testing.T) {
+	statusFn := func() (CloudInfo, error) {
+		return CloudInfo{
+			Provider:   "github",
+			Connected:  true,
+			LastSync:   "2024-06-09",
+			LocalCount: 5,
+			CloudCount: 3,
+		}, nil
+	}
+	m := NewCloudModel(statusFn)
+	m.Width = 80
+	m.Height = 24
+	m.Info = CloudInfo{
+		Provider:   "github",
+		Connected:  true,
+		LastSync:   "2024-06-09",
+		LocalCount: 5,
+		CloudCount: 3,
+	}
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "github") {
+		t.Errorf("cloud view missing provider: %q", output)
+	}
+	if !strings.Contains(output, "Connected") {
+		t.Errorf("cloud view missing status: %q", output)
+	}
+}
+
+func TestCloudModel_WindowSize(t *testing.T) {
+	m := NewCloudModel(nil)
+	newModel, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	cm := newModel.(CloudModel)
+
+	if cm.Width != 100 {
+		t.Errorf("Width = %d, want 100", cm.Width)
+	}
+	if cm.Height != 30 {
+		t.Errorf("Height = %d, want 30", cm.Height)
 	}
 }
