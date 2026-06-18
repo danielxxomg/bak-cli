@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
+	"github.com/danielxxomg/bak-cli/internal/tui/screens"
 )
 
 // profileCmd is the parent command for profile management.
@@ -207,36 +208,36 @@ func runProfileCreateInteractiveWithDeps(cmd *cobra.Command, name string, deps c
 	if !isTTY() {
 		return fmt.Errorf("interactive wizard requires a terminal (TTY)")
 	}
-	m := newWizardModel("profile-create", providers)
+	m := screens.NewWizardModel("profile-create", providers)
 	p := tea.NewProgram(m)
 	finalModel, err := p.Run()
 	if err != nil {
 		return fmt.Errorf("wizard: %w", err)
 	}
 
-	wm, ok := finalModel.(*wizardModel)
+	wm, ok := finalModel.(*screens.WizardModel)
 	if !ok {
 		return fmt.Errorf("wizard: unexpected model type %T", finalModel)
 	}
 
 	// Collect raw selections from wizard model.
 	var adapterNames []string
-	for _, item := range wm.adapterItems {
-		if item.checked {
-			adapterNames = append(adapterNames, item.name)
+	for _, item := range wm.AdapterItems {
+		if item.Checked {
+			adapterNames = append(adapterNames, item.Name)
 		}
 	}
 	var categoryNames []string
-	for _, item := range wm.categoryItems {
-		if item.checked {
-			categoryNames = append(categoryNames, item.name)
+	for _, item := range wm.CategoryItems {
+		if item.Checked {
+			categoryNames = append(categoryNames, item.Name)
 		}
 	}
 
 	return actions.ProfileCreateInteractive(cfg, name, actions.ProfileCreateFromWizard{
-		Confirmed:        wm.confirmed,
-		SelectedProvider: wm.selectedProvider,
-		SelectedPreset:   wm.selectedPreset,
+		Confirmed:        wm.Confirmed,
+		SelectedProvider: wm.SelectedProvider,
+		SelectedPreset:   wm.SelectedPreset,
 		AdapterNames:     adapterNames,
 		CategoryNames:    categoryNames,
 	}, out)

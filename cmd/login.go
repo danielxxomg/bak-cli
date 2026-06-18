@@ -10,6 +10,7 @@ import (
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/danielxxomg/bak-cli/internal/cloud"
+	"github.com/danielxxomg/bak-cli/internal/tui/screens"
 )
 
 var loginProvider string
@@ -95,17 +96,20 @@ func runLoginInteractiveWithDeps(cmd *cobra.Command, deps cmdDeps) error {
 		ConfigLoader: deps.ConfigLoader,
 		Stdout:       deps.Stdout,
 		Wizard: func(providers []string) (string, error) {
-			m := newWizardModel("login", providers)
+			m := screens.NewWizardModel("login", providers)
 			p := tea.NewProgram(m)
 			finalModel, err := p.Run()
 			if err != nil {
 				return "", err
 			}
-			wm := finalModel.(*wizardModel)
-			if !wm.confirmed {
+			wm, ok := finalModel.(*screens.WizardModel)
+			if !ok {
+				return "", fmt.Errorf("wizard: unexpected model type %T", finalModel)
+			}
+			if !wm.Confirmed {
 				return "", nil
 			}
-			return wm.selectedProvider, nil
+			return wm.SelectedProvider, nil
 		},
 	}
 
@@ -115,7 +119,9 @@ func runLoginInteractiveWithDeps(cmd *cobra.Command, deps cmdDeps) error {
 	}
 
 	if selected == "" {
-		_, _ = fmt.Fprintln(deps.Stdout, "Login cancelled.")
+		if _, err := fmt.Fprintln(deps.Stdout, "Login cancelled."); err != nil {
+			return fmt.Errorf("write output: %w", err)
+		}
 		return nil
 	}
 
