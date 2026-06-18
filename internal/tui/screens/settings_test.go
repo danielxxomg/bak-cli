@@ -1,18 +1,24 @@
 package screens
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
 )
 
+// newTestSettings creates a SettingsModel with no save function for testing.
+func newTestSettings() SettingsModel {
+	return NewSettingsModel(nil)
+}
+
 // =============================================================================
 // TestNewSettingsModel — RED (settings.go does not exist yet)
 // =============================================================================
 
 func TestNewSettingsModel(t *testing.T) {
-	m := NewSettingsModel()
+	m := newTestSettings()
 
 	if m.cursor != 0 {
 		t.Errorf("NewSettingsModel().cursor = %d, want 0", m.cursor)
@@ -40,7 +46,7 @@ func TestNewSettingsModel(t *testing.T) {
 // =============================================================================
 
 func TestSettings_Update_Navigate(t *testing.T) {
-	m := NewSettingsModel()
+	m := newTestSettings()
 	maxIdx := len(m.options) - 1 // 3
 
 	tests := []struct {
@@ -130,7 +136,7 @@ func TestSettings_Update_Toggle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := NewSettingsModel()
+			m := newTestSettings()
 
 			// Find a toggle option.
 			var toggleIdx int
@@ -179,7 +185,7 @@ func TestSettings_Update_Back(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := NewSettingsModel()
+			m := newTestSettings()
 
 			_, cmd := m.Update(tea.KeyPressMsg{Code: tt.key})
 
@@ -199,7 +205,7 @@ func TestSettings_Update_Back(t *testing.T) {
 // =============================================================================
 
 func TestSettings_View(t *testing.T) {
-	m := NewSettingsModel()
+	m := newTestSettings()
 	m.width = 80
 	m.height = 24
 
@@ -242,7 +248,7 @@ func TestSettings_View_MinSizeGuard(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := NewSettingsModel()
+			m := newTestSettings()
 			m.width = tt.width
 			m.height = tt.height
 
@@ -266,7 +272,7 @@ func TestSettings_View_MinSizeGuard(t *testing.T) {
 // TestSettings_View_TooSmall verifies the too-small view shows
 // the dimensional message (legacy test, kept for coverage).
 func TestSettings_View_TooSmall(t *testing.T) {
-	m := NewSettingsModel()
+	m := newTestSettings()
 	m.width = 10
 	m.height = 5
 
@@ -282,7 +288,7 @@ func TestSettings_View_TooSmall(t *testing.T) {
 // =============================================================================
 
 func TestSettings_View_HelpBar(t *testing.T) {
-	m := NewSettingsModel()
+	m := newTestSettings()
 	m.width = 80
 	m.height = 24
 
@@ -307,7 +313,7 @@ func TestSettings_View_HelpBar(t *testing.T) {
 // TestSettings_View_HelpBar_LiteralKeys verifies the literal key symbols
 // appear in the help bar output (triangulation for TestSettings_View_HelpBar).
 func TestSettings_View_HelpBar_LiteralKeys(t *testing.T) {
-	m := NewSettingsModel()
+	m := newTestSettings()
 	m.width = 80
 	m.height = 24
 
@@ -320,5 +326,104 @@ func TestSettings_View_HelpBar_LiteralKeys(t *testing.T) {
 	// "enter" key label must appear.
 	if !strings.Contains(output, "enter") {
 		t.Errorf("View() help bar missing 'enter' key: %q", output)
+	}
+}
+
+// =============================================================================
+// Settings Persistence Tests — RED (SaveSetting not wired yet)
+// =============================================================================
+
+// TestSettings_SaveSetting_CalledOnToggle verifies that toggling an option
+// calls the injected SaveSetting function with the correct key and value.
+func TestSettings_SaveSetting_CalledOnToggle(t *testing.T) {
+	var savedKey string
+	var savedValue any
+
+	saveFn := func(key string, value any) error {
+		savedKey = key
+		savedValue = value
+		return nil
+	}
+
+	m := NewSettingsModel(saveFn)
+
+	// Navigate to "Auto-sync" (index 2 in default options).
+	for i := 0; i < 2; i++ {
+		newM, _ := m.Update(tea.KeyPressMsg{Code: 'j'})
+		m = newM.(SettingsModel)
+	}
+
+	initial := m.options[2].Value // should be false (default)
+
+	// Toggle with enter.
+	newM, _ := m.Update(tea.KeyPressMsg{Code: '\r'})
+	m = newM.(SettingsModel)
+
+	// Verify toggle changed.
+	if m.options[2].Value == initial {
+		t.Error("toggle did not change value")
+	}
+
+	// Verify SaveSetting was called.
+	if savedKey != "auto_sync" {
+		t.Errorf("SaveSetting key = %q, want %q", savedKey, "auto_sync")
+	}
+	if savedValue == nil {
+		t.Error("SaveSetting value is nil, want non-nil")
+	}
+	boolVal, ok := savedValue.(bool)
+	if !ok || !boolVal {
+		t.Errorf("SaveSetting value = %v (%T), want true", savedValue, savedValue)
+	}
+}
+
+// TestSettings_LoadInitialSettings verifies that NewSettingsModel uses
+// the provided initial Settings values to set the option toggles.
+func TestSettings_LoadInitialSettings(t *testing.T) {
+	saveFn := func(key string, value any) error { return nil }
+
+	s := Settings{
+		AutoSync:           true,
+		DefaultPreset:      "full",
+		MaxFileSize:        2097152,
+		ConfirmDestructive: false,
+		VerboseDefault:     true,
+		DefaultProvider:    "github",
+	}
+
+	m := NewSettingsModelWithSettings(s, saveFn)
+
+	// Auto-sync should be true (index 2).
+	if !m.options[2].Value {
+		t.Error("Auto-sync toggle = false, want true (from Settings)")
+	}
+
+	// Verbose should be true (index 3).
+	if !m.options[3].Value {
+		t.Error("Verbose toggle = false, want true (from Settings)")
+	}
+}
+
+// TestSettings_SaveSetting_ErrorsAreIgnored verifies that even when
+// SaveSetting returns an error, the toggle still updates locally.
+func TestSettings_SaveSetting_ErrorsAreIgnored(t *testing.T) {
+	saveFn := func(key string, value any) error {
+		return fmt.Errorf("write failed")
+	}
+
+	m := NewSettingsModel(saveFn)
+
+	// Navigate to Auto-sync (index 2) and toggle.
+	for i := 0; i < 2; i++ {
+		newM, _ := m.Update(tea.KeyPressMsg{Code: 'j'})
+		m = newM.(SettingsModel)
+	}
+
+	newM, _ := m.Update(tea.KeyPressMsg{Code: '\r'})
+	m = newM.(SettingsModel)
+
+	// Toggle should still have changed locally even though save failed.
+	if !m.options[2].Value {
+		t.Error("Auto-sync toggle = false after toggle, want true (local state updates regardless of save error)")
 	}
 }

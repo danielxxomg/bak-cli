@@ -664,3 +664,145 @@ func TestSave_EmptyPath(t *testing.T) {
 		t.Errorf("Config file should exist at default path %s", defaultPath)
 	}
 }
+
+// =============================================================================
+// Settings tests — RED (Settings struct does not exist yet)
+// =============================================================================
+
+func TestSettings_Defaults(t *testing.T) {
+	s := DefaultSettings()
+
+	if s.DefaultPreset != "quick" {
+		t.Errorf("DefaultPreset = %q, want %q", s.DefaultPreset, "quick")
+	}
+	if s.AutoSync != false {
+		t.Errorf("AutoSync = %v, want false", s.AutoSync)
+	}
+	if s.MaxFileSize != 1048576 {
+		t.Errorf("MaxFileSize = %d, want %d", s.MaxFileSize, 1048576)
+	}
+	if s.ConfirmDestructive != true {
+		t.Errorf("ConfirmDestructive = %v, want true", s.ConfirmDestructive)
+	}
+	if s.VerboseDefault != false {
+		t.Errorf("VerboseDefault = %v, want false", s.VerboseDefault)
+	}
+	if s.DefaultProvider != "" {
+		t.Errorf("DefaultProvider = %q, want empty", s.DefaultProvider)
+	}
+	if len(s.ExcludePatterns) != 0 {
+		t.Errorf("ExcludePatterns = %v, want nil/empty", s.ExcludePatterns)
+	}
+}
+
+func TestSettings_SaveLoadRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	cfg := &Config{
+		path:          cfgPath,
+		SchemaVersion: "0.3.0",
+		Settings: Settings{
+			DefaultPreset:      "full",
+			AutoSync:           true,
+			ExcludePatterns:    []string{"node_modules", "*.log"},
+			MaxFileSize:        2097152,
+			ConfirmDestructive: false,
+			VerboseDefault:     true,
+			DefaultProvider:    "github",
+		},
+		ActiveProfile: "work",
+	}
+
+	// Save.
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("Save() error: %v", err)
+	}
+
+	// Load and verify.
+	loaded, err := LoadPath(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadPath() error: %v", err)
+	}
+
+	s := loaded.Settings
+	if s.DefaultPreset != "full" {
+		t.Errorf("DefaultPreset = %q, want %q", s.DefaultPreset, "full")
+	}
+	if !s.AutoSync {
+		t.Error("AutoSync = false, want true")
+	}
+	if len(s.ExcludePatterns) != 2 || s.ExcludePatterns[0] != "node_modules" {
+		t.Errorf("ExcludePatterns = %v, want [node_modules *.log]", s.ExcludePatterns)
+	}
+	if s.MaxFileSize != 2097152 {
+		t.Errorf("MaxFileSize = %d, want %d", s.MaxFileSize, 2097152)
+	}
+	if s.ConfirmDestructive {
+		t.Error("ConfirmDestructive = true, want false")
+	}
+	if !s.VerboseDefault {
+		t.Error("VerboseDefault = false, want true")
+	}
+	if s.DefaultProvider != "github" {
+		t.Errorf("DefaultProvider = %q, want %q", s.DefaultProvider, "github")
+	}
+	if loaded.ActiveProfile != "work" {
+		t.Errorf("ActiveProfile = %q, want %q", loaded.ActiveProfile, "work")
+	}
+}
+
+func TestSettings_LoadDefaultsWhenMissing(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	// Write a config WITHOUT settings — settings should default on load.
+	data := `{"schema_version":"0.3.0","providers":{"github":{"token":"t"}}}`
+	if err := os.WriteFile(cfgPath, []byte(data), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadPath(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadPath() error: %v", err)
+	}
+
+	// Settings fields should have defaults (zero values).
+	if cfg.Settings.DefaultPreset != "" {
+		t.Errorf("DefaultPreset = %q, want empty (default)", cfg.Settings.DefaultPreset)
+	}
+	if cfg.ActiveProfile != "" {
+		t.Errorf("ActiveProfile = %q, want empty", cfg.ActiveProfile)
+	}
+}
+
+func TestSettings_ActiveProfileRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+
+	cfg := &Config{
+		path:          cfgPath,
+		SchemaVersion: "0.3.0",
+		ActiveProfile: "personal",
+		Profiles: map[string]ProfileConfig{
+			"personal": {Preset: "quick", Provider: "github"},
+			"work":     {Preset: "full", Provider: "github"},
+		},
+	}
+
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("Save() error: %v", err)
+	}
+
+	loaded, err := LoadPath(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadPath() error: %v", err)
+	}
+
+	if loaded.ActiveProfile != "personal" {
+		t.Errorf("ActiveProfile = %q, want %q", loaded.ActiveProfile, "personal")
+	}
+	if len(loaded.Profiles) != 2 {
+		t.Errorf("Profiles count = %d, want 2", len(loaded.Profiles))
+	}
+}
