@@ -48,7 +48,7 @@ Examples:
   bak profile create home-pc --provider github-repo --preset quick --encrypt
   bak profile create dev-box --provider codeberg --adapters opencode,cursor
   bak profile create my-profile --interactive`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.MaximumNArgs(1),
 	RunE: runProfileCreate,
 }
 
@@ -75,12 +75,20 @@ func runProfileCreate(cmd *cobra.Command, args []string) error {
 }
 
 func runProfileCreateWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
-	name := args[0]
+	var name string
+	if len(args) > 0 {
+		name = args[0]
+	}
 	out := deps.Stdout
 
 	// Interactive wizard mode.
 	if profileCreateInteractive {
 		return runProfileCreateInteractiveWithDeps(cmd, name, deps)
+	}
+
+	// No name and not interactive: error.
+	if name == "" {
+		return fmt.Errorf("provide a profile name or use --interactive")
 	}
 
 	// --provider is required in non-interactive mode.
@@ -198,21 +206,61 @@ func runProfileCreateInteractiveWithDeps(cmd *cobra.Command, name string, deps c
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	// Validate before launching wizard.
-	providers, err := actions.ProfileValidateForCreation(cfg, name)
-	if err != nil {
-		return err
+	// When no name is provided, skip pre-validation — the wizard
+	// will collect the name via NameStep and validate internally.
+	if name != "" {
+		providers, err := actions.ProfileValidateForCreation(cfg, name)
+		if err != nil {
+			return err
+		}
+
+		// Launch wizard with providers pre-validated.
+		if !isTTY() {
+			return fmt.Errorf("interactive wizard requires a terminal (TTY)")
+		}
+		m := screens.NewWizardModel("profile-create", providers)
+		p := tea.NewProgram(m)
+		finalModel, runErr := p.Run()
+		if runErr != nil {
+			return fmt.Errorf("wizard: %w", runErr)
+		}
+
+		wm, ok := finalModel.(*screens.WizardModel)
+		if !ok {
+			return fmt.Errorf("wizard: unexpected model type %T", finalModel)
+		}
+
+		var adapterNames []string
+		for _, item := range wm.AdapterItems {
+			if item.Checked {
+				adapterNames = append(adapterNames, item.Name)
+			}
+		}
+		var categoryNames []string
+		for _, item := range wm.CategoryItems {
+			if item.Checked {
+				categoryNames = append(categoryNames, item.Name)
+			}
+		}
+
+		return actions.ProfileCreateInteractive(cfg, name, actions.ProfileCreateFromWizard{
+			Confirmed:        wm.Confirmed,
+			SelectedProvider: wm.SelectedProvider,
+			SelectedPreset:   wm.SelectedPreset,
+			AdapterNames:     adapterNames,
+			CategoryNames:    categoryNames,
+		}, out)
 	}
 
-	// Launch wizard.
+	// name == "" — wizard collects name. Use wizard's ProfileName().
 	if !isTTY() {
 		return fmt.Errorf("interactive wizard requires a terminal (TTY)")
 	}
-	m := screens.NewWizardModel("profile-create", providers)
+	m := screens.NewWizardModel("profile-create", nil) // nil providers → auto-detect
 	p := tea.NewProgram(m)
-	finalModel, err := p.Run()
-	if err != nil {
-		return fmt.Errorf("wizard: %w", err)
+	finalModel, runErr := p.Run()
+	if runErr != nil {
+		return fmt.Errorf("wizard: %w", runErr)
 	}
 
 	wm, ok := finalModel.(*screens.WizardModel)
@@ -220,7 +268,12 @@ func runProfileCreateInteractiveWithDeps(cmd *cobra.Command, name string, deps c
 		return fmt.Errorf("wizard: unexpected model type %T", finalModel)
 	}
 
-	// Collect raw selections from wizard model.
+	// Use wizard's collected name when arg was empty.
+	wizardName := wm.ProfileName()
+	if wizardName == "" {
+		return fmt.Errorf("profile name is required")
+	}
+
 	var adapterNames []string
 	for _, item := range wm.AdapterItems {
 		if item.Checked {
@@ -234,7 +287,7 @@ func runProfileCreateInteractiveWithDeps(cmd *cobra.Command, name string, deps c
 		}
 	}
 
-	return actions.ProfileCreateInteractive(cfg, name, actions.ProfileCreateFromWizard{
+	return actions.ProfileCreateInteractive(cfg, wizardName, actions.ProfileCreateFromWizard{
 		Confirmed:        wm.Confirmed,
 		SelectedProvider: wm.SelectedProvider,
 		SelectedPreset:   wm.SelectedPreset,
