@@ -92,6 +92,11 @@ type Model struct {
 
 	// showHelp toggles the help overlay on any screen via '?'.
 	showHelp bool
+
+	// selected tracks whether the user pressed Enter on the main menu.
+	// true after handleMenuEnter, false on q/Esc/Quit. Prevents
+	// RouteSelection from firing on cursor-0 when the TUI exits via q.
+	selected bool
 }
 
 // NewModel creates a root Model initialized to the main menu screen with
@@ -477,6 +482,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // handleMenuEnter routes the enter key on the main menu to the appropriate
 // screen based on the current cursor position.
 func (m Model) handleMenuEnter() (tea.Model, tea.Cmd) {
+	m.selected = true
 	switch m.cursor {
 	case 0: // "Create backup" → Progress
 		if m.deps.RunBackup != nil {
@@ -636,8 +642,9 @@ func (m Model) Selection() MenuSelection {
 		cursor = len(m.menuItems) - 1
 	}
 	return MenuSelection{
-		Cursor: cursor,
-		Item:   m.menuItems[cursor],
+		Selected: m.selected,
+		Cursor:   cursor,
+		Item:     m.menuItems[cursor],
 	}
 }
 

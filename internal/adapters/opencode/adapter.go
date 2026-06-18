@@ -126,7 +126,7 @@ func (a *Adapter) ListItems(homeDir string, categories []string) ([]adapters.Ite
 
 	// Root-level files: scan once even if both "config" and "mcp" are requested.
 	if catSet["config"] || catSet["mcp"] {
-		rootItems, err := scanRootFiles(configDir, homeDir, catSet)
+		rootItems, err := scanRootFiles(configDir, homeDir, catSet, a.ScanOpts)
 		if err != nil {
 			return nil, fmt.Errorf("scan root files: %w", err)
 		}
@@ -217,8 +217,9 @@ func scanDir(dir, category, configDir, homeDir string, opts adapters.ScanOptions
 
 // scanRootFiles reads the top-level config directory and returns items
 // whose file name is recognized in rootConfigFiles and whose category is
-// in catSet.
-func scanRootFiles(configDir, homeDir string, catSet map[string]bool) ([]adapters.Item, error) {
+// in catSet. When opts is non-zero, entries matching exclude patterns or
+// exceeding MaxFileSize are skipped — mirroring scanDir's filtering.
+func scanRootFiles(configDir, homeDir string, catSet map[string]bool, opts adapters.ScanOptions) ([]adapters.Item, error) {
 	entries, err := os.ReadDir(configDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -237,7 +238,23 @@ func scanRootFiles(configDir, homeDir string, catSet map[string]bool) ([]adapter
 			continue
 		}
 
-		absPath := filepath.Join(configDir, e.Name())
+		entryName := e.Name()
+		absPath := filepath.Join(configDir, entryName)
+
+		// Check exclude patterns (mirror scanDir).
+		if len(opts.Excludes) > 0 {
+			skipped := false
+			for _, pat := range opts.Excludes {
+				if adapters.MatchExclude(pat, entryName, entryName, false) {
+					skipped = true
+					break
+				}
+			}
+			if skipped {
+				continue
+			}
+		}
+
 		canonical := paths.ToCanonical(absPath)
 
 		info, infoErr := e.Info()
@@ -245,19 +262,22 @@ func scanRootFiles(configDir, homeDir string, catSet map[string]bool) ([]adapter
 			return nil, infoErr
 		}
 
-		hash, _, hashErr := adapters.FileHash(absPath)
-		if hashErr != nil {
-			return nil, fmt.Errorf("hash %s: %w", absPath, hashErr)
-		}
-
-		items = append(items, adapters.Item{
+		item := adapters.Item{
 			Category:   cat,
 			SourcePath: canonical,
 			RelPath:    e.Name(),
 			IsDir:      false,
-			Hash:       hash,
+			Hash:       "",
 			Size:       info.Size(),
-		})
+		}
+
+		hash, _, hashErr := adapters.FileHash(absPath)
+		if hashErr != nil {
+			return nil, fmt.Errorf("hash %s: %w", absPath, hashErr)
+		}
+		item.Hash = hash
+
+		items = append(items, item)
 	}
 
 	return items, nil

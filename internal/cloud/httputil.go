@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -48,12 +49,30 @@ func doRequest(client *http.Client, req *http.Request) (body []byte, status int,
 }
 
 // formatAPIError formats an API error from a response body and status code.
-// If the body is non-empty and non-whitespace, it is used as the message.
-// Otherwise, the standard HTTP status text is used.
+// It attempts to parse JSON error responses (e.g., GitHub OAuth) and
+// surfaces the error_description or error field. Falls back to the raw body
+// or the HTTP status text.
 func formatAPIError(body []byte, status int) error {
 	msg := strings.TrimSpace(string(body))
 	if msg == "" {
 		msg = http.StatusText(status)
+		return fmt.Errorf("api error %d: %s", status, msg)
 	}
+
+	// Try to parse JSON error response.
+	var apiErr struct {
+		Error            string `json:"error"`
+		ErrorDescription string `json:"error_description"`
+		Message          string `json:"message"`
+	}
+	if err := json.Unmarshal(body, &apiErr); err == nil {
+		if apiErr.ErrorDescription != "" {
+			return fmt.Errorf("api error %d: %s", status, apiErr.ErrorDescription)
+		}
+		if apiErr.Error != "" {
+			return fmt.Errorf("api error %d: %s", status, apiErr.Error)
+		}
+	}
+
 	return fmt.Errorf("api error %d: %s", status, msg)
 }

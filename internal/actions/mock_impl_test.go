@@ -23,6 +23,9 @@ type MockFileSystem struct {
 	RemoveErrors   map[string]error
 	WalkErrors     map[string]error
 	WriteErrors    map[string]error
+
+	// Counters for observing mock behavior.
+	RemoveAllCalls int
 }
 
 var _ FileSystem = (*MockFileSystem)(nil)
@@ -89,6 +92,7 @@ func (m *MockFileSystem) CopyFile(src, dst string) error {
 }
 
 func (m *MockFileSystem) RemoveAll(path string) error {
+	m.RemoveAllCalls++
 	if err, ok := m.RemoveErrors[path]; ok {
 		return err
 	}

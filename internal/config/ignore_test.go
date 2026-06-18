@@ -358,6 +358,46 @@ func TestLoadExcludes_InvalidIgnoreFile(t *testing.T) {
 	}
 }
 
+// TestDefaultExcludes_IncludesRuntimeDBs verifies the expanded DefaultExcludes
+// cover SQLite runtime databases, cache files, and JSONL history files.
+// This test is RED until DefaultExcludes is expanded.
+func TestDefaultExcludes_IncludesRuntimeDBs(t *testing.T) {
+	// All runtime patterns that MUST be in the default exclusion list.
+	requiredPatterns := []string{
+		"*.sqlite",
+		"*.sqlite-wal",
+		"*.sqlite-shm",
+		"*.db",
+		"*_cache.json",
+		"*.jsonl",
+	}
+
+	// Build a set from DefaultExcludes for quick lookup.
+	excludeSet := make(map[string]bool, len(DefaultExcludes))
+	for _, p := range DefaultExcludes {
+		excludeSet[p] = true
+	}
+
+	for _, pat := range requiredPatterns {
+		if !excludeSet[pat] {
+			t.Errorf("DefaultExcludes missing pattern %q", pat)
+		}
+	}
+
+	// Also verify existing patterns are still present (no regression).
+	existingPatterns := []string{
+		"node_modules/",
+		".git/",
+		"*.lock",
+		"*.log",
+	}
+	for _, pat := range existingPatterns {
+		if !excludeSet[pat] {
+			t.Errorf("DefaultExcludes missing existing pattern %q", pat)
+		}
+	}
+}
+
 func TestLoadExcludes_UnreadableIgnoreFile(t *testing.T) {
 	// When the ignore file exists but is a directory (cannot read as file),
 	// it should error. On Windows, os.ReadFile on a directory may return

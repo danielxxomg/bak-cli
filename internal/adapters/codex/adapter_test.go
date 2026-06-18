@@ -74,11 +74,11 @@ func TestAdapter_ListItems(t *testing.T) {
 		if err := os.MkdirAll(configDir, 0755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(configDir, "config.yml"), []byte("model: gpt-4"), 0644); err != nil {
+		// Create whitelisted files (config.toml, instructions.md).
+		if err := os.WriteFile(filepath.Join(configDir, "config.toml"), []byte("[model]"), 0644); err != nil {
 			t.Fatal(err)
 		}
-		// AGENTS.md at root for agents category
-		if err := os.WriteFile(filepath.Join(configDir, "AGENTS.md"), []byte("# Code Style"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(configDir, "instructions.md"), []byte("# Code Style"), 0644); err != nil {
 			t.Fatal(err)
 		}
 		return home
@@ -133,17 +133,17 @@ func TestAdapter_Backup(t *testing.T) {
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(configDir, "config.yml"), []byte("model: gpt-4"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(configDir, "config.toml"), []byte("model: gpt-4"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	items := []adapters.Item{
-		{Category: "config", SourcePath: "~/.codex/config.yml", RelPath: "config.yml", IsDir: false, Hash: "sha256:abc", Size: 14},
+		{Category: "config", SourcePath: "~/.codex/config.toml", RelPath: "config.toml", IsDir: false, Hash: "sha256:abc", Size: 14},
 	}
 	backupDir := filepath.Join(t.TempDir(), "backup")
 	if err := a.Backup(home, backupDir, items); err != nil {
 		t.Fatalf("Backup: %v", err)
 	}
-	dstFile := filepath.Join(backupDir, "codex", "config.yml")
+	dstFile := filepath.Join(backupDir, "codex", "config.toml")
 	data, err := os.ReadFile(dstFile)
 	if err != nil {
 		t.Fatalf("read backup file: %v", err)
@@ -156,7 +156,7 @@ func TestAdapter_Backup(t *testing.T) {
 func TestAdapter_Restore(t *testing.T) {
 	a := &Adapter{}
 	backupDir := filepath.Join(t.TempDir(), "backup")
-	backupFile := filepath.Join(backupDir, "codex", "config.yml")
+	backupFile := filepath.Join(backupDir, "codex", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(backupFile), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -164,13 +164,13 @@ func TestAdapter_Restore(t *testing.T) {
 		t.Fatal(err)
 	}
 	items := []adapters.Item{
-		{Category: "config", SourcePath: "~/.codex/config.yml", RelPath: "config.yml", IsDir: false, Hash: "sha256:xyz", Size: 18},
+		{Category: "config", SourcePath: "~/.codex/config.toml", RelPath: "config.toml", IsDir: false, Hash: "sha256:xyz", Size: 18},
 	}
 	home := t.TempDir()
 	if err := a.Restore(backupDir, home, items); err != nil {
 		t.Fatalf("Restore: %v", err)
 	}
-	restoredFile := filepath.Join(home, ".codex", "config.yml")
+	restoredFile := filepath.Join(home, ".codex", "config.toml")
 	data, err := os.ReadFile(restoredFile)
 	if err != nil {
 		t.Fatalf("read restored file: %v", err)
@@ -250,7 +250,7 @@ func TestAdapter_Backup_CopyError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	unreadableFile := filepath.Join(configDir, "unreadable.txt")
+	unreadableFile := filepath.Join(configDir, "config.toml")
 	if err := os.WriteFile(unreadableFile, []byte("data"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +259,7 @@ func TestAdapter_Backup_CopyError(t *testing.T) {
 	}
 
 	items := []adapters.Item{
-		{Category: "config", SourcePath: "~/.codex/unreadable.txt", RelPath: "unreadable.txt", IsDir: false, Hash: "sha256:abc", Size: 4},
+		{Category: "config", SourcePath: "~/.codex/config.toml", RelPath: "config.toml", IsDir: false, Hash: "sha256:abc", Size: 4},
 	}
 
 	backupDir := filepath.Join(t.TempDir(), "backup")
@@ -306,5 +306,67 @@ func TestAdapter_fileHash_Error(t *testing.T) {
 	_, _, err := adapters.FileHash(filepath.Join(t.TempDir(), "nonexistent.txt"))
 	if err == nil {
 		t.Error("expected error for missing file, got nil")
+	}
+}
+
+// TestAdapter_WhitelistOnlyConfigs verifies that the codex adapter's
+// RootConfigFiles whitelist returns only config files, not SQLite DBs
+// or cache files. This test is RED until RootConfigFiles is set.
+func TestAdapter_WhitelistOnlyConfigs(t *testing.T) {
+	a := &Adapter{}
+
+	home := t.TempDir()
+	configDir := filepath.Join(home, ".codex")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create both config and runtime files.
+	if err := os.WriteFile(filepath.Join(configDir, "config.toml"), []byte("[model]"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "instructions.md"), []byte("# Code Style"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// SQLite DB — should NOT be in results.
+	if err := os.WriteFile(filepath.Join(configDir, "logs_2.sqlite"), []byte("sqlite data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Cache file — should NOT be in results.
+	if err := os.WriteFile(filepath.Join(configDir, "models_cache.json"), []byte("{}"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	items, err := a.ListItems(home, []string{"config"})
+	if err != nil {
+		t.Fatalf("ListItems: %v", err)
+	}
+
+	// Only config.toml and instructions.md should be returned.
+	for _, item := range items {
+		switch item.RelPath {
+		case "config.toml", "instructions.md":
+			// expected
+		case "logs_2.sqlite", "models_cache.json":
+			t.Errorf("runtime file %q should have been excluded by whitelist", item.RelPath)
+		}
+	}
+
+	// Verify both expected config files are present.
+	foundToml := false
+	foundMd := false
+	for _, item := range items {
+		if item.RelPath == "config.toml" {
+			foundToml = true
+		}
+		if item.RelPath == "instructions.md" {
+			foundMd = true
+		}
+	}
+	if !foundToml {
+		t.Error("config.toml should be included (whitelisted)")
+	}
+	if !foundMd {
+		t.Error("instructions.md should be included (whitelisted)")
 	}
 }
