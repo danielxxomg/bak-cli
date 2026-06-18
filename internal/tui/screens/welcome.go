@@ -17,14 +17,24 @@ func ShouldShowWelcome(configExists func() bool) bool {
 	return !configExists()
 }
 
-// RenderWelcome renders the first-run welcome screen with a greeting,
-// setup prompt, and continue instruction. On wide terminals (width >= 50),
-// the content is wrapped in a DoubleBorder Frame for visual framing.
+// RenderWelcome renders the first-run welcome screen with the ASCII logo,
+// tagline, setup prompt, and continue instruction. On wide terminals
+// (width >= 50), the content is wrapped in a DoubleBorder Frame.
 func RenderWelcome(width int) string {
 	var b strings.Builder
 
+	// ASCII logo.
+	if logo := styles.RenderLogo(width); logo != "" {
+		b.WriteString(logo)
+		b.WriteString("\n\n")
+	}
+
 	// Welcome heading.
 	b.WriteString(styles.HeadingStyle.Render("Welcome to bak!"))
+	b.WriteString("\n\n")
+
+	// Tagline.
+	b.WriteString(styles.SelectedStyle.Render("Pack your AI coding setup. Move anywhere."))
 	b.WriteString("\n\n")
 
 	// Setup prompt.
@@ -34,8 +44,8 @@ func RenderWelcome(width int) string {
 
 	// Continue instruction.
 	b.WriteString("Press ")
-	b.WriteString(styles.SelectedStyle.Render("enter"))
-	b.WriteString(" to continue, or ")
+	b.WriteString(styles.SelectedStyle.Render("Enter"))
+	b.WriteString(" to get started, or ")
 	b.WriteString(styles.SelectedStyle.Render("q"))
 	b.WriteString(" to quit.")
 

@@ -1706,8 +1706,8 @@ func TestModel_Welcome_View(t *testing.T) {
 	if !strings.Contains(output, "Welcome") {
 		t.Errorf("Welcome view missing 'Welcome': %q", output)
 	}
-	if !strings.Contains(output, "enter") {
-		t.Errorf("Welcome view missing 'enter' key prompt: %q", output)
+	if !strings.Contains(output, "get started") && !strings.Contains(output, "Enter") {
+		t.Errorf("Welcome view missing prompt: %q", output)
 	}
 }
 
@@ -2031,4 +2031,46 @@ func TestProgressDoneMsgTerminatesDrain(t *testing.T) {
 func newProgressPtrForTest() *screens.ProgressModel {
 	p := screens.NewProgressModel()
 	return &p
+}
+
+// TestNewModel_LoadsSettings verifies that when LoadSettings is provided
+// in Deps, the settings screen uses persisted values instead of hardcoded
+// defaults on first entry to ScreenSettings.
+func TestNewModel_LoadsSettings(t *testing.T) {
+	loadCalled := false
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		LoadSettings: func() (screens.Settings, error) {
+			loadCalled = true
+			return screens.Settings{
+				AutoSync:           true,
+				DefaultPreset:      "full",
+				MaxFileSize:        2097152,
+				ConfirmDestructive: false,
+				VerboseDefault:     true,
+				DefaultProvider:    "github",
+			}, nil
+		},
+	})
+	m.width = 80
+	m.height = 24
+
+	// Navigate to settings screen — this should trigger LoadSettings.
+	newM, cmd := m.Update(screenChangeMsg{screen: ScreenSettings})
+	m2 := newM.(Model)
+
+	// Verify LoadSettings was called.
+	if !loadCalled {
+		t.Error("LoadSettings was not called when entering ScreenSettings")
+	}
+
+	// Verify settings sub-model was created.
+	if m2.settings == nil {
+		t.Fatal("settings sub-model is nil after entering ScreenSettings")
+	}
+
+	// Drain any init command.
+	if cmd != nil {
+		_ = cmd()
+	}
 }

@@ -103,3 +103,24 @@ func TestShouldShowWelcome_NilFunc(t *testing.T) {
 		t.Error("ShouldShowWelcome(nil) = true, want false (safe default)")
 	}
 }
+
+// TestWelcomeView_HasLogoAndTagline verifies the welcome screen includes
+// the ASCII logo and tagline.
+func TestWelcomeView_HasLogoAndTagline(t *testing.T) {
+	output := RenderWelcome(80)
+
+	// Tagline must be present.
+	if !strings.Contains(output, "Pack your AI coding setup. Move anywhere.") {
+		t.Error("welcome screen missing tagline")
+	}
+
+	// Logo must be present (part of ASCII art).
+	if !strings.Contains(output, "|  _ \\") {
+		t.Error("welcome screen missing ASCII logo")
+	}
+
+	// "Press Enter to get started" prompt.
+	if !strings.Contains(output, "Enter") {
+		t.Error("welcome screen missing Enter prompt")
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/atotto/clipboard"
 	"github.com/spf13/cobra"
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
@@ -78,6 +79,7 @@ func runLoginWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 			ClientID:    clientID,
 			Out:         deps.Stdout,
 			OpenBrowser: cloud.OpenBrowser,
+			Clipboard:   clipboard.WriteAll,
 		}
 	}
 

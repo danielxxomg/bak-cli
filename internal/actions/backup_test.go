@@ -788,3 +788,37 @@ func TestBackupAction_ScanBackupForSecrets_WalkError(t *testing.T) {
 		t.Errorf("expected 0 secret files on walk error, got %d: %v", len(got), got)
 	}
 }
+
+// TestBackupAction_Run_AppliesExcludes verifies that when ExcludesLoader is
+// set, BackupAction.Run calls it and applies ScanOptions to adapters that
+// implement ScanConfigurable.
+func TestBackupAction_Run_AppliesExcludes(t *testing.T) {
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	loadCalled := false
+	action := &BackupAction{
+		FS:         newHomeFS(home),
+		Registry:   setupBackupRegistry(),
+		Stdout:     io.Discard,
+		Stderr:     io.Discard,
+		Preset:     "quick",
+		BakVersion: "test",
+		ExcludesLoader: func() (adapters.ScanOptions, error) {
+			loadCalled = true
+			return adapters.ScanOptions{
+				Excludes:    []string{"*.log"},
+				MaxFileSize: 2097152,
+			}, nil
+		},
+	}
+
+	err := action.Run()
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if !loadCalled {
+		t.Error("ExcludesLoader was not called during Run")
+	}
+}

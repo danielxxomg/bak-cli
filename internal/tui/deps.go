@@ -2,6 +2,8 @@
 // the bak-cli interactive TUI.
 package tui
 
+import "github.com/danielxxomg/bak-cli/internal/tui/screens"
+
 // Deps holds injectable dependencies for the TUI model. Function fields enable
 // test doubles without interface boilerplate, matching the existing cmdDeps
 // pattern used throughout bak-cli.
@@ -19,6 +21,11 @@ type Deps struct {
 	// ConfigExists returns true if a bak configuration directory already
 	// exists on this machine. Used for first-run detection.
 	ConfigExists func() bool
+
+	// LoadSettings loads the persisted Settings from the config file.
+	// nil means use defaults (zero-value Settings).
+	// Populated by cmd/root.go before launching the TUI.
+	LoadSettings func() (screens.Settings, error)
 
 	// RunRestore executes a restore operation. When dryRun is true, it
 	// returns a diff preview string without modifying any files.
