@@ -9,6 +9,8 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 	"github.com/danielxxomg/bak-cli/internal/adapters/register"
+	"github.com/danielxxomg/bak-cli/internal/config"
+	"github.com/danielxxomg/bak-cli/internal/paths"
 	"github.com/danielxxomg/bak-cli/internal/presets"
 )
 
@@ -130,6 +132,24 @@ func runBackupWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 		Verbose:          verbose,
 		BakVersion:       Version,
 		CustomCategories: customCategories,
+		ExcludesLoader: func() (adapters.ScanOptions, error) {
+			cfg, err := config.Load()
+			if err != nil {
+				return adapters.ScanOptions{}, err
+			}
+			cfgDir, err := paths.ConfigDir("bak")
+			if err != nil {
+				return adapters.ScanOptions{}, err
+			}
+			patterns, maxSize, err := config.LoadExcludes(cfgDir, cfg.Settings)
+			if err != nil {
+				return adapters.ScanOptions{}, err
+			}
+			return adapters.ScanOptions{
+				Excludes:    patterns,
+				MaxFileSize: maxSize,
+			}, nil
+		},
 	}
 
 	return action.Run()

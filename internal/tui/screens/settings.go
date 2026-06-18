@@ -1,6 +1,7 @@
 package screens
 
 import (
+	"fmt"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -39,6 +40,7 @@ type SettingsModel struct {
 	width    int
 	height   int
 	saveFunc func(key string, value any) error
+	msg      string // status/error message displayed in view
 }
 
 // NewSettingsModel creates a SettingsModel with default options and the given
@@ -106,7 +108,9 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					opt.Value = !opt.Value
 					// Persist immediately.
 					if m.saveFunc != nil && opt.Key != "" {
-						_ = m.saveFunc(opt.Key, opt.Value)
+						if err := m.saveFunc(opt.Key, opt.Value); err != nil {
+							m.msg = fmt.Sprintf("save setting: %s", err.Error())
+						}
 					}
 				}
 			}
@@ -121,8 +125,10 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View renders the settings screen as a list of checkbox-style options.
 // The focused item is styled with SelectedStyle; checked items show ✓.
 func (m SettingsModel) View() tea.View {
-	if m.width < styles.MinWidth || m.height < styles.MinHeight {
-		return tea.NewView("Terminal too small")
+	if styles.IsTooSmall(m.width, m.height) {
+		msg := fmt.Sprintf("Terminal too small (%dx%d). Need at least %dx%d.",
+			m.width, m.height, styles.MinWidth, styles.MinHeight)
+		return tea.NewView(msg)
 	}
 
 	var b strings.Builder
@@ -146,6 +152,11 @@ func (m SettingsModel) View() tea.View {
 		{Key: "q", Desc: "back"},
 	}
 	b.WriteString(components.RenderHelp(helpKeys))
+
+	if m.msg != "" {
+		b.WriteString("\n")
+		b.WriteString(styles.ToastStyle.Render(m.msg))
+	}
 
 	return tea.NewView(b.String())
 }

@@ -98,7 +98,9 @@ func (m ProfilesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.Profiles = append(m.Profiles, msg.profile)
 		if m.SaveProfile != nil {
-			_ = m.SaveProfile(msg.profile.Name, msg.profile)
+			if err := m.SaveProfile(msg.profile.Name, msg.profile); err != nil {
+				m.Msg = fmt.Sprintf("save profile: %s", err.Error())
+			}
 		}
 		return m, nil
 
@@ -108,7 +110,9 @@ func (m ProfilesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Modal = nil
 			if msg.Confirmed && m.Cursor < len(m.Profiles) && m.deleteProfile != nil {
 				name := m.Profiles[m.Cursor].Name
-				_ = m.deleteProfile(name)
+				if err := m.deleteProfile(name); err != nil {
+					m.Msg = fmt.Sprintf("delete profile: %s", err.Error())
+				}
 				// Remove from local list.
 				m.Profiles = append(m.Profiles[:m.Cursor], m.Profiles[m.Cursor+1:]...)
 				if m.Cursor >= len(m.Profiles) && len(m.Profiles) > 0 {
@@ -151,7 +155,9 @@ func (m ProfilesModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if len(m.Profiles) > 0 && m.Cursor < len(m.Profiles) {
 			name := m.Profiles[m.Cursor].Name
 			if m.setActive != nil {
-				_ = m.setActive(name)
+				if err := m.setActive(name); err != nil {
+					m.Msg = fmt.Sprintf("set active profile: %s", err.Error())
+				}
 			}
 			// Mark as active locally.
 			for i := range m.Profiles {
@@ -190,11 +196,12 @@ func (m ProfilesModel) View() tea.View {
 
 	var content string
 
-	if len(m.Profiles) == 0 && m.Err == nil {
+	switch {
+	case len(m.Profiles) == 0 && m.Err == nil:
 		content = m.renderEmpty()
-	} else if m.Err != nil {
+	case m.Err != nil:
 		content = m.renderError()
-	} else {
+	default:
 		content = m.renderList()
 	}
 

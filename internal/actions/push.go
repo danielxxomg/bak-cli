@@ -25,6 +25,10 @@ type PushAction struct {
 	Profile  string
 	Verbose  bool
 
+	// ProgressFn is an optional callback invoked at coarse milestones during push.
+	// When nil (default), no progress is reported.
+	ProgressFn func(step string, done, total int)
+
 	// Stdout receives informational output. Nil falls back to os.Stdout.
 	Stdout io.Writer
 	// Stderr receives warnings and error diagnostics. Nil falls back to os.Stderr.
@@ -96,12 +100,21 @@ func (a *PushAction) Run(args []string) error {
 
 	// 4. Package backup as tar.gz.
 	infof(out, "Packaging backup %s...\n", backupID)
+	if a.ProgressFn != nil {
+		a.ProgressFn("Packaging", 0, 2)
+	}
 	archiveData, err := cloud.TarGzDirectory(backupPath)
 	if err != nil {
 		return fmt.Errorf("package backup: %w", err)
 	}
+	if a.ProgressFn != nil {
+		a.ProgressFn("Packaging", 1, 2)
+	}
 
 	// 5. Push via provider.
+	if a.ProgressFn != nil {
+		a.ProgressFn("Uploading", 1, 2)
+	}
 	hostname := "unknown"
 	if a.HostnameFn != nil {
 		if h, err := a.HostnameFn(); err == nil {
@@ -149,6 +162,9 @@ func (a *PushAction) Run(args []string) error {
 	}
 
 	infof(out, "✅ Pushed to %s: %s\n", provider.Name(), id)
+	if a.ProgressFn != nil {
+		a.ProgressFn("Complete", 2, 2)
+	}
 	return nil
 }
 

@@ -3,6 +3,8 @@ package tui
 import (
 	"fmt"
 
+	"charm.land/lipgloss/v2"
+
 	"github.com/danielxxomg/bak-cli/internal/tui/components"
 	"github.com/danielxxomg/bak-cli/internal/tui/screens"
 	"github.com/danielxxomg/bak-cli/internal/tui/styles"
@@ -87,13 +89,22 @@ type Model struct {
 	// Backup channels for async progress reporting.
 	backupCh   chan ProgressUpdate
 	backupDone chan error
+
+	// showHelp toggles the help overlay on any screen via '?'.
+	showHelp bool
 }
 
 // NewModel creates a root Model initialized to the main menu screen with
 // the default 7 menu items and the provided dependencies.
+// When Deps.ConfigExists is non-nil and returns false, the model starts
+// at the Welcome screen instead (first-run detection).
 func NewModel(deps Deps) Model {
+	screen := ScreenMenu
+	if deps.ConfigExists != nil && !deps.ConfigExists() {
+		screen = ScreenWelcome
+	}
 	return Model{
-		screen:    ScreenMenu,
+		screen:    screen,
 		cursor:    0,
 		deps:      deps,
 		menuItems: DefaultMenuItems,
@@ -113,7 +124,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.tooSmall = msg.Width < styles.MinWidth || msg.Height < styles.MinHeight
+		m.tooSmall = styles.IsTooSmall(msg.Width, msg.Height)
 		// Forward to active sub-model.
 		switch m.screen {
 		case ScreenDashboard:
@@ -162,6 +173,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
+		// Global help overlay toggle: '?' shows help on any screen;
+		// Esc or second '?' dismisses it.
+		if m.showHelp {
+			switch msg.Code {
+			case KeyEsc, '?':
+				m.showHelp = false
+				return m, nil
+			}
+			// Block all other keys while help is visible.
+			return m, nil
+		}
+		if msg.Code == '?' {
+			m.showHelp = true
+			return m, nil
+		}
 		return m.handleKey(msg)
 
 	case screenChangeMsg:
@@ -184,7 +210,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.progress.Init()
 		case ScreenSettings:
 			if m.settings == nil {
-				s := screens.NewSettingsModel(m.deps.SaveSetting)
+				s := m.initSettings()
 				m.settings = &s
 			}
 			return m, m.settings.Init()
@@ -231,6 +257,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newToast, cmd := m.toast.Update(msg)
 		m.toast = newToast
 		return m, cmd
+
+	case screens.ProgressStepMsg:
+		// Forward to progress sub-model and re-issue channel drain.
+		if m.progress != nil && m.screen == ScreenProgress {
+			newProg, cmd := m.progress.Update(msg)
+			np := newProg.(screens.ProgressModel)
+			m.progress = &np
+			return m, tea.Batch(cmd, drainProgressCmd(m.backupCh))
+		}
+		// Keep draining even if progress model isn't initialized.
+		return m, drainProgressCmd(m.backupCh)
+
+	case screens.ProgressDoneMsg:
+		// Collect result from backupDone channel (non-blocking select).
+		var resultErr error
+		if m.backupDone != nil {
+			select {
+			case err := <-m.backupDone:
+				resultErr = err
+			default:
+			}
+		}
+		// Forward to progress sub-model.
+		if m.progress != nil && m.screen == ScreenProgress {
+			newProg, cmd := m.progress.Update(msg)
+			np := newProg.(screens.ProgressModel)
+			m.progress = &np
+			return m, tea.Batch(cmd, func() tea.Msg { return actionResultMsg{err: resultErr} })
+		}
+		return m, func() tea.Msg { return actionResultMsg{err: resultErr} }
 	}
 
 	// Forward remaining messages to the active sub-model.
@@ -311,6 +367,14 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m.handleMenuEnter()
 		case '?':
 			m.screen = ScreenShortcuts
+			return m, nil
+		}
+	case ScreenWelcome:
+		switch msg.Code {
+		case KeyQuit, KeyEsc:
+			return m, tea.Quit
+		case KeyEnter:
+			m.screen = ScreenMenu
 			return m, nil
 		}
 	case ScreenCloud:
@@ -423,7 +487,10 @@ func (m Model) handleMenuEnter() (tea.Model, tea.Cmd) {
 				m.backupDone <- err
 			}()
 		}
-		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenProgress} }
+		return m, tea.Batch(
+			func() tea.Msg { return screenChangeMsg{screen: ScreenProgress} },
+			drainProgressCmd(m.backupCh),
+		)
 	case 1: // "Restore" → Restore screen
 		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenRestore} }
 	case 2: // "Browse backups" → Dashboard
@@ -449,7 +516,7 @@ func (m Model) View() tea.View {
 	var content string
 	if m.tooSmall {
 		content = fmt.Sprintf(
-			"Terminal too small (%dx%d). Need at least %dx%d.",
+			"Terminal too small (%dx%d). Need at least %d\u00d7%d.",
 			m.width, m.height, styles.MinWidth, styles.MinHeight,
 		)
 	} else {
@@ -491,16 +558,31 @@ func (m Model) View() tea.View {
 				content = "Profiles"
 			}
 		case ScreenWelcome:
-			content = "Welcome"
+			content = screens.RenderWelcome(m.width)
 		case ScreenShortcuts:
 			content = screens.RenderShortcuts(m.width)
 		default:
 			content = ""
 		}
 
-		// Render toast overlay on top of screen content when visible.
+		// Overlay help when toggled via '?'.
+		if m.showHelp {
+			content = screens.RenderShortcuts(m.width)
+		}
+
+		// Render toast overlay. On wide terminals (>= 50 cols), position
+		// the toast at bottom-right using lipgloss.Place. On narrow terminals,
+		// fall back to inline append below the screen content.
 		if toastContent := m.toast.View(); toastContent != "" {
-			content += "\n" + toastContent
+			if m.width >= 50 {
+				content = lipgloss.Place(
+					m.width, m.height,
+					lipgloss.Right, lipgloss.Bottom,
+					toastContent,
+				)
+			} else {
+				content += "\n" + toastContent
+			}
 		}
 	}
 	v := tea.NewView(content)
@@ -512,6 +594,30 @@ func (m Model) View() tea.View {
 // which includes the logo, version, menu items, and help bar.
 func (m Model) renderMenu() string {
 	return screens.RenderMainMenu(m.deps.Version, "", m.menuItems, m.cursor, m.width)
+}
+
+// drainProgressCmd returns a tea.Cmd that reads one ProgressUpdate from
+// the given channel and converts it to a tea.Msg. When ch is nil, it
+// returns nil (no-op). When the channel produces Done=true, it returns
+// ProgressDoneMsg. Otherwise it returns ProgressStepMsg.
+func drainProgressCmd(ch <-chan ProgressUpdate) tea.Cmd {
+	if ch == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		update, ok := <-ch
+		if !ok {
+			return screens.ProgressDoneMsg{}
+		}
+		if update.Done {
+			return screens.ProgressDoneMsg{}
+		}
+		return screens.ProgressStepMsg{
+			Step:    update.Step,
+			Current: update.Current,
+			Total:   update.Total,
+		}
+	}
 }
 
 // Selection returns the current menu selection. If the cursor is out of
@@ -562,6 +668,20 @@ func (m Model) initDashboard() screens.DashboardModel {
 // initProgress creates a new ProgressModel.
 func (m Model) initProgress() screens.ProgressModel {
 	return screens.NewProgressModel()
+}
+
+// initSettings creates a SettingsModel pre-populated with persisted settings
+// from LoadSettings. If LoadSettings is nil or returns an error, defaults
+// are used (NewSettingsModel behavior).
+func (m Model) initSettings() screens.SettingsModel {
+	if m.deps.LoadSettings == nil {
+		return screens.NewSettingsModel(m.deps.SaveSetting)
+	}
+	s, err := m.deps.LoadSettings()
+	if err != nil {
+		return screens.NewSettingsModel(m.deps.SaveSetting)
+	}
+	return screens.NewSettingsModelWithSettings(s, m.deps.SaveSetting)
 }
 
 // initRestore creates a new RestoreModel using injected deps.

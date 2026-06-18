@@ -27,6 +27,21 @@ type Adapter interface {
 	Restore(backupDir string, homeDir string, items []Item) error
 }
 
+// ScanOptions configures optional filtering during directory scans.
+// The zero value (no excludes, zero MaxFileSize) preserves the current
+// behavior where all files are included.
+type ScanOptions struct {
+	Excludes    []string // gitignore-compatible exclude patterns
+	MaxFileSize int64    // max file size in bytes (0 = no limit)
+}
+
+// ScanConfigurable is an optional interface that adapters may implement
+// to support ScanOptions. When an adapter implements this interface,
+// the engine sets ScanOptions before calling ListItems.
+type ScanConfigurable interface {
+	SetScanOptions(opts ScanOptions)
+}
+
 // Item represents a single file or directory discovered by an adapter.
 type Item struct {
 	Category   string // "skills", "commands", "config", "mcp", "plugins", "agents"
