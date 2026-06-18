@@ -173,3 +173,26 @@ func TestSearch_Update_Inactive(t *testing.T) {
 		t.Errorf("inactive Update: query = %q, want empty", newS.Query())
 	}
 }
+
+// =============================================================================
+// Phase 4: IsActive coverage
+// =============================================================================
+
+func TestSearch_IsActive(t *testing.T) {
+	s := NewSearch()
+
+	// Initially inactive.
+	if s.IsActive() {
+		t.Error("IsActive() = true before Activate(), want false")
+	}
+
+	s.Activate()
+	if !s.IsActive() {
+		t.Error("IsActive() = false after Activate(), want true")
+	}
+
+	s.Deactivate()
+	if s.IsActive() {
+		t.Error("IsActive() = true after Deactivate(), want false")
+	}
+}

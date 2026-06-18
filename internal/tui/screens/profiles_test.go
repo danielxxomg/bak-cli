@@ -265,3 +265,27 @@ func TestProfiles_View_List(t *testing.T) {
 		t.Errorf("view missing active marker: %q", output)
 	}
 }
+
+// =============================================================================
+// Phase 3: Render error state coverage
+// =============================================================================
+
+func TestProfiles_RenderError(t *testing.T) {
+	m := NewProfilesModel(nil, nil, nil, nil)
+	m.Width = 80
+	m.Height = 24
+	m.Err = errors.New("connection refused")
+
+	output := m.View().Content
+
+	// Error state shows the error message.
+	if !strings.Contains(output, "connection refused") {
+		t.Errorf("renderError missing error message: %q", output)
+	}
+	if !strings.Contains(output, "Error") {
+		t.Errorf("renderError missing 'Error': %q", output)
+	}
+	if !strings.Contains(output, "Profiles") {
+		t.Errorf("renderError missing title: %q", output)
+	}
+}
