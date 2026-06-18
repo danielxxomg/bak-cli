@@ -1,6 +1,7 @@
 package screens
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -122,8 +123,10 @@ func (m HealthModel) startChecks() (tea.Model, tea.Cmd) {
 // View renders the health check screen with a list of checks and their
 // status indicators (✓/✗/⠹/○).
 func (m HealthModel) View() tea.View {
-	if m.width < styles.MinWidth || m.height < styles.MinHeight {
-		return tea.NewView("Terminal too small")
+	if styles.IsTooSmall(m.width, m.height) {
+		msg := fmt.Sprintf("Terminal too small (%dx%d). Need at least %dx%d.",
+			m.width, m.height, styles.MinWidth, styles.MinHeight)
+		return tea.NewView(msg)
 	}
 
 	var b strings.Builder

@@ -1,6 +1,7 @@
 package screens
 
 import (
+	"fmt"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -121,8 +122,10 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View renders the settings screen as a list of checkbox-style options.
 // The focused item is styled with SelectedStyle; checked items show ✓.
 func (m SettingsModel) View() tea.View {
-	if m.width < styles.MinWidth || m.height < styles.MinHeight {
-		return tea.NewView("Terminal too small")
+	if styles.IsTooSmall(m.width, m.height) {
+		msg := fmt.Sprintf("Terminal too small (%dx%d). Need at least %dx%d.",
+			m.width, m.height, styles.MinWidth, styles.MinHeight)
+		return tea.NewView(msg)
 	}
 
 	var b strings.Builder

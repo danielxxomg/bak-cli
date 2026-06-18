@@ -144,10 +144,10 @@ func TestHealth_View_MinSizeGuard(t *testing.T) {
 		height   int
 		tooSmall bool
 	}{
-		{"below width (39x20)", 39, 20, true},
-		{"below height (60x11)", 60, 11, true},
-		{"both below (30x8)", 30, 8, true},
-		{"exactly min (40x12)", 40, 12, false},
+		{"below width (29x20)", 29, 20, true},
+		{"below height (60x14)", 60, 14, true},
+		{"both below (20x10)", 20, 10, true},
+		{"exactly min (30x15)", 30, 15, false},
 		{"above min (80x24)", 80, 24, false},
 	}
 

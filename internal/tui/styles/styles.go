@@ -59,6 +59,9 @@ var (
 // at the bottom-right of the screen and auto-hide after a set duration.
 var ToastStyle = lipgloss.NewStyle().
 	Foreground(ColorText).
+	Border(lipgloss.NormalBorder()).
+	BorderForeground(ColorGold).
+	Background(ColorSurface).
 	Padding(0, 1)
 
 // ScreenTitleStyle is the shared style for all screen headings
@@ -75,11 +78,17 @@ var SearchStyle = lipgloss.NewStyle().
 
 // MinWidth is the minimum terminal width (in columns) required to render
 // the TUI layout without showing the "Terminal too small" warning.
-const MinWidth = 40
+const MinWidth = 30
 
 // MinHeight is the minimum terminal height (in rows) required to render
 // the TUI layout without showing the "Terminal too small" warning.
-const MinHeight = 12
+const MinHeight = 15
+
+// IsTooSmall returns true when either width or height is below the
+// minimum terminal dimensions required for the TUI layout.
+func IsTooSmall(w, h int) bool {
+	return w < MinWidth || h < MinHeight
+}
 
 // CursorIndicator is the prefix character used to indicate the currently
 // selected item in menus and lists.
