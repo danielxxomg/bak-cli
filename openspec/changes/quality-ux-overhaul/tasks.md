@@ -61,25 +61,25 @@ Chain strategy: pending
 ## PR2: UX Polish (~300 lines)
 
 ### Phase 2.1: Terminal Guard
-- [ ] 2.1.1 Write `internal/tui/styles/styles_test.go` — IsTooSmall at 30×15, 20×10, 80×24
-- [ ] 2.1.2 Modify `internal/tui/styles/styles.go` — IsTooSmall(w,h), MinWidth=30, MinHeight=15
-- [ ] 2.1.3 Modify `screens/{dashboard,settings,health,progress}.go` + `cmd/wizard.go` — replace 5 local checks with styles.IsTooSmall
+- [x] 2.1.1 Write `internal/tui/styles/styles_test.go` — IsTooSmall at 30×15, 20×10, 80×24
+- [x] 2.1.2 Modify `internal/tui/styles/styles.go` — IsTooSmall(w,h), MinWidth=30, MinHeight=15
+- [x] 2.1.3 Modify `screens/{dashboard,settings,health,progress}.go` + `cmd/wizard.go` — replace 5 local checks with styles.IsTooSmall
 
 ### Phase 2.2: Welcome Screen
-- [ ] 2.2.1 Write `internal/tui/model_test.go` — ConfigExists=false→welcome, Enter→menu, q→quit
-- [ ] 2.2.2 Modify `internal/tui/model.go` — ScreenWelcome enum, NewModel checks ConfigExists, handleKey routes
+- [x] 2.2.1 Write `internal/tui/model_test.go` — ConfigExists=false→welcome, Enter→menu, q→quit
+- [x] 2.2.2 Modify `internal/tui/model.go` — ScreenWelcome enum, NewModel checks ConfigExists, handleKey routes
 
 ### Phase 2.3: Toast Positioning
-- [ ] 2.3.1 Write `internal/tui/components/toast_test.go` — bordered toast at bottom-right (80×24), inline fallback (30×15)
-- [ ] 2.3.2 Modify `internal/tui/components/toast.go` — Border + Background on ToastStyle
-- [ ] 2.3.3 Modify `internal/tui/model.go` — lipgloss.Place when width≥50, inline otherwise
+- [x] 2.3.1 Write `internal/tui/components/toast_test.go` — bordered toast at bottom-right (80×24), inline fallback (30×15)
+- [x] 2.3.2 Modify `internal/tui/components/toast.go` — Border + Background on ToastStyle
+- [x] 2.3.3 Modify `internal/tui/model.go` — lipgloss.Place when width≥50, inline otherwise
 
 ### Phase 2.4: Help Overlay
-- [ ] 2.4.1 Write `internal/tui/model_test.go` — '?' toggles showHelp on every screen, dismiss with '?'/Esc
-- [ ] 2.4.2 Modify `internal/tui/model.go` — showHelp bool, '?' handler, View overlays RenderShortcuts
+- [x] 2.4.1 Write `internal/tui/model_test.go` — '?' toggles showHelp on every screen, dismiss with '?'/Esc
+- [x] 2.4.2 Modify `internal/tui/model.go` — showHelp bool, '?' handler, View overlays RenderShortcuts
 
 ### Phase 2.5: Quality Gates
-- [ ] 2.5.1 `go test -race ./...` + `go vet ./...` + `golangci-lint run` — all clean
+- [x] 2.5.1 `go test -race ./...` + `go vet ./...` + `golangci-lint run` — all clean
 
 ## PR3: Backup Size & Progress (~400 lines)
 

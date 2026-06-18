@@ -86,6 +86,41 @@ func TestStylesExist(t *testing.T) {
 	}
 }
 
+// =============================================================================
+// TestToastStyle_Bordered — RED (ToastStyle does not yet have Border/Background)
+// =============================================================================
+
+// TestToastStyle_HasBorder verifies that ToastStyle includes a visible border.
+func TestToastStyle_HasBorder(t *testing.T) {
+	rendered := ToastStyle.Render("test message")
+
+	if len(rendered) == 0 {
+		t.Fatal("ToastStyle rendered empty output")
+	}
+
+	// A bordered style should contain at least one box-drawing character.
+	hasBorder := false
+	for _, r := range "─│┌┐└┘" {
+		if strings.ContainsRune(rendered, r) {
+			hasBorder = true
+			break
+		}
+	}
+	if !hasBorder {
+		t.Errorf("ToastStyle output %q does not contain border box-drawing characters", rendered)
+	}
+}
+
+// TestToastStyle_HasBackground verifies that ToastStyle includes a
+// background color (ANSI 48;2;R;G;Bm sequence).
+func TestToastStyle_HasBackground(t *testing.T) {
+	rendered := ToastStyle.Render("test message")
+
+	if !strings.Contains(rendered, "48;") {
+		t.Errorf("ToastStyle output %q does not contain background ANSI sequence '48;'", rendered)
+	}
+}
+
 // TestCursorIndicator verifies the cursor indicator constant.
 func TestCursorIndicator(t *testing.T) {
 	if CursorIndicator == "" {
@@ -93,6 +128,49 @@ func TestCursorIndicator(t *testing.T) {
 	}
 	if !strings.Contains(CursorIndicator, "\u25b8") {
 		t.Errorf("CursorIndicator %q does not contain ▸ (U+25B8)", CursorIndicator)
+	}
+}
+
+// =============================================================================
+// TestIsTooSmall — RED (IsTooSmall does not exist yet)
+// =============================================================================
+
+func TestIsTooSmall(t *testing.T) {
+	tests := []struct {
+		name     string
+		width    int
+		height   int
+		tooSmall bool
+	}{
+		// Exact minimum: 30x15 should NOT be too small.
+		{"exact minimum (30x15)", 30, 15, false},
+		// Below minimum in one dimension.
+		{"below width (29x20)", 29, 20, true},
+		{"below height (50x14)", 50, 14, true},
+		// Well below in both.
+		{"well below (20x10)", 20, 10, true},
+		{"very small (10x5)", 10, 5, true},
+		// Well above minimum.
+		{"well above (80x24)", 80, 24, false},
+		{"large (120x40)", 120, 40, false},
+		// Edge: exactly on width, below height.
+		{"width exact, height below (30x14)", 30, 14, true},
+		// Edge: exactly on height, below width.
+		{"height exact, width below (29x15)", 29, 15, true},
+		// Zero values.
+		{"zero dimensions (0x0)", 0, 0, true},
+		// Just above minimum.
+		{"just above (31x16)", 31, 16, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsTooSmall(tt.width, tt.height)
+			if got != tt.tooSmall {
+				t.Errorf("IsTooSmall(%d, %d) = %v, want %v",
+					tt.width, tt.height, got, tt.tooSmall)
+			}
+		})
 	}
 }
 
