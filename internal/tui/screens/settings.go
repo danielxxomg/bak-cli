@@ -40,6 +40,7 @@ type SettingsModel struct {
 	width    int
 	height   int
 	saveFunc func(key string, value any) error
+	msg      string // status/error message displayed in view
 }
 
 // NewSettingsModel creates a SettingsModel with default options and the given
@@ -107,7 +108,9 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					opt.Value = !opt.Value
 					// Persist immediately.
 					if m.saveFunc != nil && opt.Key != "" {
-						_ = m.saveFunc(opt.Key, opt.Value)
+						if err := m.saveFunc(opt.Key, opt.Value); err != nil {
+							m.msg = fmt.Sprintf("save setting: %s", err.Error())
+						}
 					}
 				}
 			}
@@ -149,6 +152,11 @@ func (m SettingsModel) View() tea.View {
 		{Key: "q", Desc: "back"},
 	}
 	b.WriteString(components.RenderHelp(helpKeys))
+
+	if m.msg != "" {
+		b.WriteString("\n")
+		b.WriteString(styles.ToastStyle.Render(m.msg))
+	}
 
 	return tea.NewView(b.String())
 }

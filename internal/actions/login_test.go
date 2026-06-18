@@ -58,9 +58,9 @@ func TestLoginAction_PATFlow(t *testing.T) {
 			wantOutput: "Token saved",
 		},
 		{
-			name:      "empty_token",
-			input:     "\n",
-			wantErr:   "cannot be empty",
+			name:    "empty_token",
+			input:   "\n",
+			wantErr: "cannot be empty",
 		},
 		{
 			name: "replace_yes",
@@ -80,7 +80,7 @@ func TestLoginAction_PATFlow(t *testing.T) {
 			wantOutput: "cancelled",
 		},
 		{
-			name: "validation_failure",
+			name:  "validation_failure",
 			input: "bad-token\n",
 			validator: func(string) error {
 				return fmt.Errorf("invalid token")
@@ -232,10 +232,10 @@ func TestLoginAction_OAuthDispatch_SuccessCases(t *testing.T) {
 			wantToken: "gho_oauth_token",
 		},
 		{
-			name:      "pat_fallback_when_no_oauth",
-			input:     "manual-pat-token\n",
-			stub:      oauthStub{}, // zero-value — not used since OAuthClient is nil
-			wantToken: "manual-pat-token",
+			name:       "pat_fallback_when_no_oauth",
+			input:      "manual-pat-token\n",
+			stub:       oauthStub{}, // zero-value — not used since OAuthClient is nil
+			wantToken:  "manual-pat-token",
 			wantOutput: "Enter GitHub personal access token",
 		},
 		{

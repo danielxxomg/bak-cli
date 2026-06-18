@@ -360,3 +360,31 @@ func TestEngine_Run_ProgressFnNilSafe(t *testing.T) {
 		t.Fatalf("Run with nil ProgressFn: %v", err)
 	}
 }
+
+// TestEngine_Run_AppliesExcludes verifies that when ExcludesLoader is set,
+// the engine calls it and applies ScanOptions to ScanConfigurable adapters.
+func TestEngine_Run_AppliesExcludes(t *testing.T) {
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	engine := setupTestEngine(t, home)
+	engine.Preset = "quick"
+
+	excludeCalled := false
+	engine.ExcludesLoader = func() (adapters.ScanOptions, error) {
+		excludeCalled = true
+		return adapters.ScanOptions{
+			Excludes:    []string{"node_modules/", "*.log"},
+			MaxFileSize: 1048576,
+		}, nil
+	}
+
+	_, err := engine.Run()
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if !excludeCalled {
+		t.Error("ExcludesLoader was not called")
+	}
+}

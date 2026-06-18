@@ -133,7 +133,7 @@ func TestDeviceClient_PollingStates(t *testing.T) {
 		{
 			name:       "empty_response_triggers_pending_loop",
 			tokenResps: []any{map[string]string{}}, // neither token nor error — treated as pending
-			wantErr:    "expired",                    // subsequent poll after empty response exhausts queue → expired_token
+			wantErr:    "expired",                  // subsequent poll after empty response exhausts queue → expired_token
 		},
 	}
 
@@ -170,10 +170,10 @@ func TestDeviceClient_PollingStates(t *testing.T) {
 
 func TestDeviceClient_DeviceCodeErrors(t *testing.T) {
 	tests := []struct {
-		name      string
-		clientID  string
-		baseURL   string
-		wantErr   string
+		name     string
+		clientID string
+		baseURL  string
+		wantErr  string
 	}{
 		{
 			name:     "missing_client_id",

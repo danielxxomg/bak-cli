@@ -1,11 +1,14 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/danielxxomg/bak-cli/internal/adapters"
@@ -13,7 +16,9 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/backup"
 	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/danielxxomg/bak-cli/internal/manifest"
+	"github.com/danielxxomg/bak-cli/internal/paths"
 	"github.com/danielxxomg/bak-cli/internal/tui"
+	"github.com/danielxxomg/bak-cli/internal/tui/screens"
 )
 
 var verbose bool
@@ -47,6 +52,7 @@ Run 'bak restore --dry-run <id>' to preview before applying.`,
 				DeleteProfile:    tuiDeleteProfile,
 				SetActiveProfile: tuiSetActiveProfile,
 				RunWizard:        tuiRunWizard,
+				LoadSettings:     loadSettingsForTUI,
 			}
 			return runTUI(deps)
 		}
@@ -187,6 +193,24 @@ func tuiRunBackup(cats []string, ch chan<- tui.ProgressUpdate) error {
 			}
 		},
 		CustomCategories: cats,
+		ExcludesLoader: func() (adapters.ScanOptions, error) {
+			cfg, err := config.Load()
+			if err != nil {
+				return adapters.ScanOptions{}, err
+			}
+			cfgDir, err := paths.ConfigDir("bak")
+			if err != nil {
+				return adapters.ScanOptions{}, err
+			}
+			patterns, maxSize, err := config.LoadExcludes(cfgDir, cfg.Settings)
+			if err != nil {
+				return adapters.ScanOptions{}, err
+			}
+			return adapters.ScanOptions{
+				Excludes:    patterns,
+				MaxFileSize: maxSize,
+			}, nil
+		},
 	}
 
 	err = action.Run()
@@ -216,10 +240,26 @@ func newTuiRegistry() (*adapters.Registry, error) {
 
 // tuiRunRestore wraps the restore action for TUI flow.
 func tuiRunRestore(backupID string, dryRun bool) (string, error) {
-	if dryRun {
-		return "dry-run: no changes detected", nil
+	var buf bytes.Buffer
+
+	action := &actions.RestoreAction{
+		FS:      &actions.OSFileSystem{},
+		DryRun:  dryRun,
+		Force:   !dryRun, // TUI modal is the confirmation gate
+		Verbose: verbose,
+		Stdout:  &buf,
+		Stderr:  &buf,
 	}
-	return "restored successfully", nil
+
+	if err := action.ResolveBackup(backupID); err != nil {
+		return "", err
+	}
+
+	if err := action.Run(); err != nil {
+		return buf.String(), err
+	}
+
+	return buf.String(), nil
 }
 
 // tuiListProfiles returns all configured profiles.
@@ -250,7 +290,10 @@ func tuiCloudStatus() (tui.CloudStatus, error) {
 	if provider == "" {
 		provider = "github"
 	}
-	token, _ := cfg.Get("providers." + provider + ".token")
+	token, err := cfg.Get("providers." + provider + ".token")
+	if err != nil {
+		token = ""
+	}
 	connected := token != ""
 	return tui.CloudStatus{
 		Provider:  provider,
@@ -277,7 +320,7 @@ func tuiSaveSetting(key string, value any) error {
 		}
 	case "confirm_destructive":
 		if v, ok := value.(bool); ok {
-			cfg.Settings.ConfirmDestructive = v
+			cfg.Settings.ConfirmDestructive = &v
 		}
 	case "default_provider":
 		if v, ok := value.(bool); ok {
@@ -332,9 +375,46 @@ func tuiSetActiveProfile(name string) error {
 // tuiRunWizard launches the interactive profile creation wizard.
 // Returns a ProfileInfo with the created profile data.
 func tuiRunWizard() (tui.ProfileInfo, error) {
+	m := newWizardModel("profile-create", nil) // nil providers → wizard auto-detects
+	p := tea.NewProgram(m)
+	finalModel, err := p.Run()
+	if err != nil {
+		return tui.ProfileInfo{}, err
+	}
+	wm := finalModel.(*wizardModel)
+	if !wm.confirmed {
+		return tui.ProfileInfo{}, fmt.Errorf("wizard cancelled")
+	}
+	// Derive name from selected provider when none specified.
+	name := wm.selectedProvider
+	if name == "" {
+		name = "untitled"
+	}
 	return tui.ProfileInfo{
-		Name:     "default",
-		Provider: "github",
-		Preset:   "quick",
+		Name:     name,
+		Provider: wm.selectedProvider,
+		Preset:   wm.selectedPreset,
+	}, nil
+}
+
+// loadSettingsForTUI reads the config and converts config.Settings to
+// screens.Settings for the TUI settings screen.
+func loadSettingsForTUI() (screens.Settings, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return screens.Settings{}, err
+	}
+	confirmDestructive := false
+	if cfg.Settings.ConfirmDestructive != nil {
+		confirmDestructive = *cfg.Settings.ConfirmDestructive
+	}
+	return screens.Settings{
+		DefaultPreset:      cfg.Settings.DefaultPreset,
+		AutoSync:           cfg.Settings.AutoSync,
+		ExcludePatterns:    cfg.Settings.ExcludePatterns,
+		MaxFileSize:        cfg.Settings.MaxFileSize,
+		ConfirmDestructive: confirmDestructive,
+		VerboseDefault:     cfg.Settings.VerboseDefault,
+		DefaultProvider:    cfg.Settings.DefaultProvider,
 	}, nil
 }

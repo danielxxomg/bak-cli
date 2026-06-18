@@ -210,7 +210,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.progress.Init()
 		case ScreenSettings:
 			if m.settings == nil {
-				s := screens.NewSettingsModel(m.deps.SaveSetting)
+				s := m.initSettings()
 				m.settings = &s
 			}
 			return m, m.settings.Init()
@@ -668,6 +668,20 @@ func (m Model) initDashboard() screens.DashboardModel {
 // initProgress creates a new ProgressModel.
 func (m Model) initProgress() screens.ProgressModel {
 	return screens.NewProgressModel()
+}
+
+// initSettings creates a SettingsModel pre-populated with persisted settings
+// from LoadSettings. If LoadSettings is nil or returns an error, defaults
+// are used (NewSettingsModel behavior).
+func (m Model) initSettings() screens.SettingsModel {
+	if m.deps.LoadSettings == nil {
+		return screens.NewSettingsModel(m.deps.SaveSetting)
+	}
+	s, err := m.deps.LoadSettings()
+	if err != nil {
+		return screens.NewSettingsModel(m.deps.SaveSetting)
+	}
+	return screens.NewSettingsModelWithSettings(s, m.deps.SaveSetting)
 }
 
 // initRestore creates a new RestoreModel using injected deps.

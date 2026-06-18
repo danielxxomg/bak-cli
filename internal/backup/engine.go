@@ -26,6 +26,10 @@ func BakDir() (string, error) {
 
 // Engine orchestrates the backup workflow: detect adapters, resolve
 // presets, copy files, scan secrets, and produce a manifest.
+
+// ProgressFn is a callback invoked once per file during backup.
+type ProgressFn func(file string, done, total int)
+
 type Engine struct {
 	HomeDir          string             // user home directory
 	BakDir           string             // ~/.bak storage root
@@ -36,10 +40,12 @@ type Engine struct {
 	Verbose          bool               // enable verbose output
 	SecretPatterns   []*regexp.Regexp   // patterns for secret detection; nil = defaults
 	CustomCategories []string           // custom categories from TUI picker; overrides preset
+	ProgressFn       ProgressFn         // optional progress callback
 
-	// ProgressFn is an optional callback invoked once per file during backup.
-	// When nil (default), no progress is reported.
-	ProgressFn func(currentFile string, filesDone int, filesTotal int)
+	// ExcludesLoader returns scan options to filter files during backup.
+	// nil means no exclusions (current behavior). Wired by cmd/ to
+	// config.Load + config.LoadExcludes.
+	ExcludesLoader func() (adapters.ScanOptions, error)
 }
 
 // Result summarizes a completed backup operation.
@@ -95,6 +101,19 @@ func (e *Engine) Run() (*Result, error) {
 
 	if len(detected) == 0 {
 		return nil, fmt.Errorf("no installed adapters detected")
+	}
+
+	// --- 2a. Apply exclusion rules (if loader is set) ---------------------
+	if e.ExcludesLoader != nil {
+		opts, err := e.ExcludesLoader()
+		if err != nil {
+			return nil, fmt.Errorf("load excludes: %w", err)
+		}
+		for _, d := range detected {
+			if sc, ok := d.Adapter.(adapters.ScanConfigurable); ok {
+				sc.SetScanOptions(opts)
+			}
+		}
 	}
 
 	// --- 3. Create backup directory ---------------------------------------

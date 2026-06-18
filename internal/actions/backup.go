@@ -44,6 +44,10 @@ type BackupAction struct {
 	// backup.Engine.ProgressFn.
 	ProgressFn func(currentFile string, filesDone int, filesTotal int)
 
+	// ExcludesLoader returns scan options to filter files during backup.
+	// nil means no exclusions. Wired by cmd/ to config.Load+LoadExcludes.
+	ExcludesLoader func() (adapters.ScanOptions, error)
+
 	// HostnameFn returns the current hostname. Nil falls back to os.Hostname.
 	HostnameFn HostnameFunc
 }
@@ -105,6 +109,19 @@ func (a *BackupAction) Run() error {
 
 	if len(detected) == 0 {
 		return fmt.Errorf("no installed adapters detected")
+	}
+
+	// 3a. Apply exclusion rules (if loader is set).
+	if a.ExcludesLoader != nil {
+		opts, err := a.ExcludesLoader()
+		if err != nil {
+			return fmt.Errorf("load excludes: %w", err)
+		}
+		for _, d := range detected {
+			if sc, ok := d.Adapter.(adapters.ScanConfigurable); ok {
+				sc.SetScanOptions(opts)
+			}
+		}
 	}
 
 	// 4. Create backup directory.
