@@ -391,6 +391,20 @@ func TestFormatBackupIDError_ContainsFormatHint(t *testing.T) {
 	}
 }
 
+// TestVersionFlag verifies that rootCmd.Version is set so that
+// `bak --version` prints the version string. This test is RED until
+// the Version flag is wired.
+func TestVersionFlag(t *testing.T) {
+	if rootCmd.Version == "" {
+		t.Error("rootCmd.Version is not set — --version flag will not work")
+	}
+	// Verify SetVersionTemplate is present.
+	tmpl := rootCmd.VersionTemplate()
+	if tmpl == "" {
+		t.Error("rootCmd.VersionTemplate is empty — --version output won't render")
+	}
+}
+
 // TestVersionIsNonEmpty verifies the Version variable is set.
 func TestVersionIsNonEmpty(t *testing.T) {
 	if Version == "" {

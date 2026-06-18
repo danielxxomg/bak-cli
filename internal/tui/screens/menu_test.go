@@ -40,7 +40,7 @@ func TestRenderMainMenu(t *testing.T) {
 				"Cloud sync", "Profiles", "Settings", "Quit",
 				styles.CursorIndicator,
 				"\u2191/\u2193", "enter", "q",
-				"navigate", "select", "quit",
+				"navigate", "select", "quit", "help",
 			},
 			wantLogo: true,
 		},
