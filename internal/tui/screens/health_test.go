@@ -23,6 +23,18 @@ func TestNewHealthModel(t *testing.T) {
 }
 
 // =============================================================================
+// Phase 3: Init nil-return coverage
+// =============================================================================
+
+func TestHealthModel_Init_ReturnsNil(t *testing.T) {
+	m := NewHealthModel()
+	cmd := m.Init()
+	if cmd != nil {
+		t.Errorf("Init() = %v, want nil", cmd)
+	}
+}
+
+// =============================================================================
 // TestHealth_Update_Run — RED
 // =============================================================================
 

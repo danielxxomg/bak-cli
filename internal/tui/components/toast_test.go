@@ -248,3 +248,51 @@ func TestToast_NoDoubleTickWhenHidden(t *testing.T) {
 // Ensure tea and time imports are used in production code.
 var _ = tea.Quit
 var _ = time.Second
+
+// =============================================================================
+// Phase 4: Tick-expired dismiss coverage
+// =============================================================================
+
+func TestToast_Update_TickExpired(t *testing.T) {
+	tst := NewToast()
+
+	// Show a toast with TTL of 1 tick.
+	tst.Show("expiring soon", 1)
+
+	// First toastTickMsg: ticks goes to 1, which == ttl(1), so it hides.
+	newTst, _ := tst.Update(toastTickMsg{})
+	tst2 := newTst
+
+	if tst2.visible {
+		t.Error("toast should be hidden after ticks reach TTL")
+	}
+	if tst2.View() != "" {
+		t.Errorf("expired toast View() = %q, want empty", tst2.View())
+	}
+}
+
+// TestToast_Update_TickMidCountdown verifies the toast stays visible
+// after a tick that does not yet reach the TTL.
+func TestToast_Update_TickMidCountdown(t *testing.T) {
+	tst := NewToast()
+
+	// Show a toast with TTL of 3.
+	tst.Show("staying alive", 3)
+
+	// One tick.
+	newTst, _ := tst.Update(toastTickMsg{})
+	tst = newTst
+
+	if !tst.visible {
+		t.Fatal("toast should still be visible after first tick (TTL=3)")
+	}
+
+	// After 3 ticks total, it should hide.
+	newTst2, _ := tst.Update(toastTickMsg{})
+	newTst3, _ := newTst2.Update(toastTickMsg{})
+	tst3 := newTst3
+
+	if tst3.visible {
+		t.Error("toast should be hidden after 3 ticks (TTL=3)")
+	}
+}
