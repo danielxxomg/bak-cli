@@ -20,19 +20,15 @@ var loginInteractive bool
 var loginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Authenticate with a cloud provider for sync",
-	Long: `Configure authentication for cloud backup providers.
+	Long: `Authenticate with a cloud provider for backup sync.
 
-For GitHub (default): Configures a personal access token (PAT) to enable
-cloud backup via private GitHub Gists.
+GitHub (default): Opens your browser for OAuth login — just authorize and
+you're done. Falls back to manual PAT paste if the browser can't open.
 
-The token is stored in ~/.config/bak/config.json and used by the
-push and pull commands.
-
-Token requirements for GitHub:
+PAT requirements for GitHub (manual fallback):
   - Classic PAT: needs the 'gist' scope
   - Fine-grained PAT: needs read/write access to Gists
-
-Create a token at: https://github.com/settings/tokens
+  - Create at: https://github.com/settings/tokens
 
 For other providers (Codeberg, Gitea, etc.), use 'bak config set':
   bak config set providers.codeberg.token <your-token>
@@ -74,14 +70,17 @@ func runLoginWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 		Config:         cfg,
 	}
 
-	// Wire OAuth Device Flow if client ID env var is set.
-	if clientID := os.Getenv("BAK_GITHUB_OAUTH_CLIENT_ID"); clientID != "" {
-		action.OAuthClient = &cloud.DeviceClient{
-			ClientID:    clientID,
-			Out:         deps.Stdout,
-			OpenBrowser: cloud.OpenBrowser,
-			Clipboard:   clipboard.WriteAll,
-		}
+	// Wire OAuth Device Flow. Env var overrides the default client ID.
+	const defaultOAuthClientID = "Ov23liGOBgrjOlus0xwt"
+	clientID := os.Getenv("BAK_GITHUB_OAUTH_CLIENT_ID")
+	if clientID == "" {
+		clientID = defaultOAuthClientID
+	}
+	action.OAuthClient = &cloud.DeviceClient{
+		ClientID:    clientID,
+		Out:         deps.Stdout,
+		OpenBrowser: cloud.OpenBrowser,
+		Clipboard:   clipboard.WriteAll,
 	}
 
 	return action.Run(loginProvider, deps.Stdout)
