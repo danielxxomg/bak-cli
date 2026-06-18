@@ -36,6 +36,10 @@ type Engine struct {
 	Verbose          bool               // enable verbose output
 	SecretPatterns   []*regexp.Regexp   // patterns for secret detection; nil = defaults
 	CustomCategories []string           // custom categories from TUI picker; overrides preset
+
+	// ProgressFn is an optional callback invoked once per file during backup.
+	// When nil (default), no progress is reported.
+	ProgressFn func(currentFile string, filesDone int, filesTotal int)
 }
 
 // Result summarizes a completed backup operation.
@@ -125,22 +129,42 @@ func (e *Engine) Run() (*Result, error) {
 		}
 	}()
 
+	// --- 5. Collect items and backup ------------------------------------
 	patterns := e.SecretPatterns
 	if patterns == nil {
 		patterns = DefaultPatterns()
 	}
 
-	var allSecretFiles []string
-	totalFiles := 0
-	var totalSize int64
-
+	// First pass: collect items from all adapters to compute total.
+	type adapterItems struct {
+		adapter adapters.DetectedAdapter
+		items   []adapters.Item
+	}
+	var allItems []adapterItems
+	filesTotal := 0
 	for _, d := range detected {
 		items, err := d.Adapter.ListItems(e.HomeDir, categories)
 		if err != nil {
 			return nil, fmt.Errorf("list items for %q: %w", d.Adapter.Name(), err)
 		}
+		allItems = append(allItems, adapterItems{adapter: d, items: items})
+		for _, item := range items {
+			if !item.IsDir {
+				filesTotal++
+			}
+		}
+	}
 
-		if err := d.Adapter.Backup(e.HomeDir, backupDir, items); err != nil {
+	// Second pass: backup, scan secrets, and build manifest with progress.
+	var allSecretFiles []string
+	totalFiles := 0
+	var totalSize int64
+	filesDone := 0
+
+	for _, entry := range allItems {
+		d := entry.adapter
+
+		if err := d.Adapter.Backup(e.HomeDir, backupDir, entry.items); err != nil {
 			return nil, fmt.Errorf("backup %q: %w", d.Adapter.Name(), err)
 		}
 
@@ -149,7 +173,6 @@ func (e *Engine) Run() (*Result, error) {
 		allSecretFiles = append(allSecretFiles, secretFiles...)
 
 		// Exclude secret-containing files from backup (security requirement).
-		// Build a set of relative backup paths to skip when building the manifest.
 		secretRelPaths := make(map[string]bool)
 		for _, secretFile := range secretFiles {
 			if rel, err := filepath.Rel(backupDir, secretFile); err == nil {
@@ -161,10 +184,16 @@ func (e *Engine) Run() (*Result, error) {
 		}
 
 		// Convert adapter items to manifest items.
-		manifestItems := make([]manifest.Item, 0, len(items))
-		for _, item := range items {
+		manifestItems := make([]manifest.Item, 0, len(entry.items))
+		for _, item := range entry.items {
 			if item.IsDir {
 				continue // manifest tracks files only
+			}
+
+			// Progress callback — nil-safe.
+			filesDone++
+			if e.ProgressFn != nil {
+				e.ProgressFn(item.RelPath, filesDone, filesTotal)
 			}
 
 			backupPath := paths.Slash(filepath.Join(d.Adapter.Name(), item.RelPath))
@@ -175,14 +204,12 @@ func (e *Engine) Run() (*Result, error) {
 			}
 
 			// Security: validate source path stays under home directory.
-			// SourcePath may be canonical (~/...) or absolute — normalize both.
 			absSource := item.SourcePath
 			if strings.HasPrefix(absSource, "~/") {
 				absSource = paths.FromCanonical(absSource, e.HomeDir)
 			}
 			cleanSource := paths.CanonicalPath(absSource)
 			cleanHome := paths.CanonicalPath(e.HomeDir) + "/"
-			// Case-insensitive comparison for Windows (case-insensitive FS).
 			if !strings.HasPrefix(strings.ToLower(cleanSource), strings.ToLower(cleanHome)) &&
 				!strings.EqualFold(cleanSource, paths.CanonicalPath(e.HomeDir)) {
 				return nil, fmt.Errorf("adapter %q returned source path outside home directory", d.Adapter.Name())

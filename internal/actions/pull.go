@@ -20,6 +20,10 @@ type PullAction struct {
 	Profile  string
 	Verbose  bool
 
+	// ProgressFn is an optional callback invoked at coarse milestones during pull.
+	// When nil (default), no progress is reported.
+	ProgressFn func(step string, done, total int)
+
 	// ConfigLoader loads the bak-cli configuration. Defaults to config.Load.
 	ConfigLoader func() (*config.Config, error)
 
@@ -83,9 +87,15 @@ func (a *PullAction) Run(args []string) error {
 
 	// 4. Download from provider.
 	fmt.Printf("Downloading backup %s...\n", remoteID)
+	if a.ProgressFn != nil {
+		a.ProgressFn("Downloading", 0, 2)
+	}
 	archiveData, err := provider.Pull(remoteID)
 	if err != nil {
 		return fmt.Errorf("pull: %w", err)
+	}
+	if a.ProgressFn != nil {
+		a.ProgressFn("Downloading", 1, 2)
 	}
 
 	archiveStr := string(archiveData)
@@ -118,12 +128,18 @@ func (a *PullAction) Run(args []string) error {
 	}
 
 	fmt.Printf("Extracting backup %s...\n", backupID)
+	if a.ProgressFn != nil {
+		a.ProgressFn("Extracting", 1, 2)
+	}
 	if err := cloud.UntarGz(archiveStr, backupPath); err != nil {
 		return fmt.Errorf("extract backup: %w", err)
 	}
 
 	fmt.Printf("✅ Backup pulled: %s\n", backupID)
 	fmt.Printf("   Run 'bak restore %s' to apply it.\n", backupID)
+	if a.ProgressFn != nil {
+		a.ProgressFn("Complete", 2, 2)
+	}
 
 	return nil
 }

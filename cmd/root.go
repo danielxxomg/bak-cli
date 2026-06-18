@@ -7,6 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/danielxxomg/bak-cli/internal/actions"
+	"github.com/danielxxomg/bak-cli/internal/adapters"
+	"github.com/danielxxomg/bak-cli/internal/adapters/register"
 	"github.com/danielxxomg/bak-cli/internal/backup"
 	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/danielxxomg/bak-cli/internal/manifest"
@@ -32,17 +35,18 @@ Run 'bak restore --dry-run <id>' to preview before applying.`,
 		// `bak --help` still shows cobra help regardless of TTY.
 		if len(args) == 0 && isTTY() {
 			deps := tui.Deps{
-				Version:      Version,
-				ConfigExists: configExists,
-				ListBackups:  listBackups,
-				RunRestore:   tuiRunRestore,
-				ListProfiles: tuiListProfiles,
-				GetCloudStatus: tuiCloudStatus,
-				SaveSetting:  tuiSaveSetting,
-				SaveProfile:  tuiSaveProfile,
-				DeleteProfile: tuiDeleteProfile,
+				Version:          Version,
+				ConfigExists:     configExists,
+				ListBackups:      listBackups,
+				RunBackup:        tuiRunBackup,
+				RunRestore:       tuiRunRestore,
+				ListProfiles:     tuiListProfiles,
+				GetCloudStatus:   tuiCloudStatus,
+				SaveSetting:      tuiSaveSetting,
+				SaveProfile:      tuiSaveProfile,
+				DeleteProfile:    tuiDeleteProfile,
 				SetActiveProfile: tuiSetActiveProfile,
-				RunWizard:    tuiRunWizard,
+				RunWizard:        tuiRunWizard,
 			}
 			return runTUI(deps)
 		}
@@ -153,6 +157,62 @@ func listBackupsFrom(bakDir string) ([]tui.BackupInfo, error) {
 // These functions are thin adapters that bridge cmd/ infrastructure to
 // the TUI's Deps function fields. Full implementations wire into
 // actions.*Action; stubs return default/empty results for now.
+
+// tuiRunBackup executes a backup operation and sends progress updates through
+// the provided channel. It wraps actions.BackupAction with a progressFn
+// that bridges the callback to TUI ProgressUpdate messages.
+func tuiRunBackup(cats []string, ch chan<- tui.ProgressUpdate) error {
+	defer close(ch)
+
+	reg, err := newTuiRegistry()
+	if err != nil {
+		return err
+	}
+
+	action := &actions.BackupAction{
+		FS:         &actions.OSFileSystem{},
+		Registry:   reg,
+		Preset:     "quick",
+		BakVersion: Version,
+		ProgressFn: func(file string, done, total int) {
+			select {
+			case ch <- tui.ProgressUpdate{
+				Step:    file,
+				Current: done,
+				Total:   total,
+			}:
+			default:
+				// Channel full — drop update (non-blocking to avoid
+				// deadlocking the backup goroutine).
+			}
+		},
+		CustomCategories: cats,
+	}
+
+	err = action.Run()
+
+	// Send final "Done" update regardless of error.
+	ch <- tui.ProgressUpdate{Done: true}
+
+	return err
+}
+
+// newTuiRegistry creates an adapter registry with all built-in agents
+// registered. Used by the TUI runBackup adapter.
+func newTuiRegistry() (*adapters.Registry, error) {
+	reg := adapters.NewRegistry()
+	if err := register.All(reg); err != nil {
+		return nil, fmt.Errorf("register adapters: %w", err)
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("home dir: %w", err)
+	}
+	if err := register.LoadYAMLAdapters(reg, false, homeDir); err != nil {
+		return nil, fmt.Errorf("load yaml adapters: %w", err)
+	}
+	return reg, nil
+}
 
 // tuiRunRestore wraps the restore action for TUI flow.
 func tuiRunRestore(backupID string, dryRun bool) (string, error) {
