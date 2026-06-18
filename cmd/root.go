@@ -87,17 +87,17 @@ func Execute() {
 }
 
 // formatSize returns a human-readable byte count.
-func formatSize(bytes int64) string {
+func formatSize(size int64) string {
 	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
 	}
 	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
+	for n := size / unit; n >= unit; n /= unit {
 		div *= unit
 		exp++
 	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }
 
 // listBackups scans the local backups directory and returns a slice of
@@ -111,8 +111,8 @@ func listBackups() ([]tui.BackupInfo, error) {
 }
 
 // listBackupsFrom scans the given bakDir for backup directories, loads
-// their manifests, and returns a slice of BackupInfo. Exported for
-// testability via the cmd package's internal test files.
+// their manifests, and returns a slice of BackupInfo. This function is
+// package-visible for testability via cmd's internal test files.
 func listBackupsFrom(bakDir string) ([]tui.BackupInfo, error) {
 	backupsDir := filepath.Join(bakDir, "backups")
 	entries, err := os.ReadDir(backupsDir)
@@ -268,14 +268,15 @@ func tuiListProfiles() ([]tui.ProfileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	var result []tui.ProfileInfo
-	for name, p := range cfg.Profiles {
-		result = append(result, tui.ProfileInfo{
-			Name:     name,
-			Provider: p.Provider,
-			Preset:   p.Preset,
-			Active:   name == cfg.ActiveProfile,
-		})
+	infos := actions.ListProfileInfos(cfg)
+	result := make([]tui.ProfileInfo, len(infos))
+	for i, info := range infos {
+		result[i] = tui.ProfileInfo{
+			Name:     info.Name,
+			Provider: info.Provider,
+			Preset:   info.Preset,
+			Active:   info.Active,
+		}
 	}
 	return result, nil
 }
@@ -286,15 +287,7 @@ func tuiCloudStatus() (tui.CloudStatus, error) {
 	if err != nil {
 		return tui.CloudStatus{}, err
 	}
-	provider := cfg.Settings.DefaultProvider
-	if provider == "" {
-		provider = "github"
-	}
-	token, err := cfg.Get("providers." + provider + ".token")
-	if err != nil {
-		token = ""
-	}
-	connected := token != ""
+	provider, connected := actions.GetCloudProviderStatus(cfg)
 	return tui.CloudStatus{
 		Provider:  provider,
 		Connected: connected,
@@ -308,29 +301,7 @@ func tuiSaveSetting(key string, value any) error {
 	if err != nil {
 		return err
 	}
-	// Apply the setting to the config.
-	switch key {
-	case "auto_sync":
-		if v, ok := value.(bool); ok {
-			cfg.Settings.AutoSync = v
-		}
-	case "verbose_default":
-		if v, ok := value.(bool); ok {
-			cfg.Settings.VerboseDefault = v
-		}
-	case "confirm_destructive":
-		if v, ok := value.(bool); ok {
-			cfg.Settings.ConfirmDestructive = &v
-		}
-	case "default_provider":
-		if v, ok := value.(bool); ok {
-			if v {
-				cfg.Settings.DefaultProvider = "github"
-			} else {
-				cfg.Settings.DefaultProvider = ""
-			}
-		}
-	}
+	actions.SaveSetting(cfg, key, value)
 	return cfg.Save()
 }
 
@@ -340,14 +311,8 @@ func tuiSaveProfile(name string, profile any) error {
 	if err != nil {
 		return err
 	}
-	if cfg.Profiles == nil {
-		cfg.Profiles = make(map[string]config.ProfileConfig)
-	}
 	if p, ok := profile.(tui.ProfileInfo); ok {
-		cfg.Profiles[name] = config.ProfileConfig{
-			Provider: p.Provider,
-			Preset:   p.Preset,
-		}
+		actions.SaveProfileFromInfo(cfg, name, p.Provider, p.Preset)
 	}
 	return cfg.Save()
 }
@@ -358,7 +323,7 @@ func tuiDeleteProfile(name string) error {
 	if err != nil {
 		return err
 	}
-	delete(cfg.Profiles, name)
+	actions.DeleteProfileSilent(cfg, name)
 	return cfg.Save()
 }
 
@@ -368,32 +333,30 @@ func tuiSetActiveProfile(name string) error {
 	if err != nil {
 		return err
 	}
-	cfg.ActiveProfile = name
+	actions.SetActiveProfile(cfg, name)
 	return cfg.Save()
 }
 
 // tuiRunWizard launches the interactive profile creation wizard.
 // Returns a ProfileInfo with the created profile data.
 func tuiRunWizard() (tui.ProfileInfo, error) {
-	m := newWizardModel("profile-create", nil) // nil providers → wizard auto-detects
+	m := screens.NewWizardModel("profile-create", nil) // nil providers → wizard auto-detects
 	p := tea.NewProgram(m)
 	finalModel, err := p.Run()
 	if err != nil {
 		return tui.ProfileInfo{}, err
 	}
-	wm := finalModel.(*wizardModel)
-	if !wm.confirmed {
+	wm, ok := finalModel.(*screens.WizardModel)
+	if !ok {
+		return tui.ProfileInfo{}, fmt.Errorf("wizard: unexpected model type %T", finalModel)
+	}
+	if !wm.Confirmed {
 		return tui.ProfileInfo{}, fmt.Errorf("wizard cancelled")
 	}
-	// Derive name from selected provider when none specified.
-	name := wm.selectedProvider
-	if name == "" {
-		name = "untitled"
-	}
 	return tui.ProfileInfo{
-		Name:     name,
-		Provider: wm.selectedProvider,
-		Preset:   wm.selectedPreset,
+		Name:     wm.ProfileName(),
+		Provider: wm.SelectedProvider,
+		Preset:   wm.SelectedPreset,
 	}, nil
 }
 
