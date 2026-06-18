@@ -14,6 +14,12 @@ func RouteSelection(sel MenuSelection, deps Deps) error {
 		return nil
 	}
 
+	// Only dispatch when the user explicitly selected an item via Enter.
+	// q, Esc, and Quit leave Selected=false — safe to exit without action.
+	if !sel.Selected {
+		return nil
+	}
+
 	if sel.Cursor == 0 { // "Create backup"
 		if deps.RunBackup != nil {
 			return deps.RunBackup(nil, nil)

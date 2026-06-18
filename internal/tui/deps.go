@@ -73,6 +73,10 @@ type ProgressUpdate struct {
 
 // MenuSelection captures the user's menu choice after the TUI exits.
 type MenuSelection struct {
+	// Selected is true when the user pressed Enter to confirm a choice.
+	// false means the TUI exited without an explicit selection (q, Esc, Quit).
+	Selected bool
+
 	// Cursor is the zero-based index of the selected item.
 	Cursor int
 	// Item is the label of the selected menu entry.
