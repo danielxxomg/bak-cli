@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/danielxxomg/bak-cli/internal/paths"
 )
@@ -303,6 +305,11 @@ func (c *Config) Save() error {
 //
 // Returns an error for unknown keys.
 func (c *Config) Get(key string) (string, error) {
+	// Check settings.* keys first.
+	if field, ok := parseSettingsKey(key); ok {
+		return c.getSettingsField(field)
+	}
+
 	// Check nested providers first.
 	if provider, subkey, ok := parseNestedKey(key); ok {
 		pc, exists := c.Providers[provider]
@@ -349,6 +356,11 @@ func (c *Config) Get(key string) (string, error) {
 // Set updates a value by key and persists to disk.
 // Supports the same keys as Get().
 func (c *Config) Set(key, value string) error {
+	// Check settings.* keys first.
+	if field, ok := parseSettingsKey(key); ok {
+		return c.setSettingsField(field, value)
+	}
+
 	// Check nested providers first.
 	if provider, subkey, ok := parseNestedKey(key); ok {
 		if c.Providers == nil {
@@ -413,4 +425,86 @@ func parseNestedKey(key string) (provider, field string, ok bool) {
 		}
 	}
 	return "", "", false
+}
+
+// parseSettingsKey checks if key starts with "settings." and returns the
+// field name. Returns (field, true) on match, or ("", false) otherwise.
+func parseSettingsKey(key string) (field string, ok bool) {
+	const prefix = "settings."
+	if len(key) > len(prefix) && key[:len(prefix)] == prefix {
+		return key[len(prefix):], true
+	}
+	return "", false
+}
+
+// getSettingsField returns the string value of a settings field.
+func (c *Config) getSettingsField(field string) (string, error) {
+	switch field {
+	case "default_preset":
+		return c.Settings.DefaultPreset, nil
+	case "auto_sync":
+		return fmt.Sprintf("%v", c.Settings.AutoSync), nil
+	case "max_file_size":
+		return fmt.Sprintf("%d", c.Settings.MaxFileSize), nil
+	case "verbose_default":
+		return fmt.Sprintf("%v", c.Settings.VerboseDefault), nil
+	case "default_provider":
+		return c.Settings.DefaultProvider, nil
+	case "confirm_destructive":
+		if c.Settings.ConfirmDestructive != nil {
+			return fmt.Sprintf("%v", *c.Settings.ConfirmDestructive), nil
+		}
+		return "true", nil // default
+	default:
+		return "", fmt.Errorf("unknown config key: %q", "settings."+field)
+	}
+}
+
+// setSettingsField parses and sets a settings field from a string value.
+func (c *Config) setSettingsField(field, value string) error {
+	switch field {
+	case "default_preset":
+		c.Settings.DefaultPreset = value
+	case "auto_sync":
+		v, err := parseBool(value)
+		if err != nil {
+			return fmt.Errorf("settings.auto_sync: %w", err)
+		}
+		c.Settings.AutoSync = v
+	case "max_file_size":
+		v, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return fmt.Errorf("settings.max_file_size: %w", err)
+		}
+		c.Settings.MaxFileSize = v
+	case "verbose_default":
+		v, err := parseBool(value)
+		if err != nil {
+			return fmt.Errorf("settings.verbose_default: %w", err)
+		}
+		c.Settings.VerboseDefault = v
+	case "default_provider":
+		c.Settings.DefaultProvider = value
+	case "confirm_destructive":
+		v, err := parseBool(value)
+		if err != nil {
+			return fmt.Errorf("settings.confirm_destructive: %w", err)
+		}
+		c.Settings.ConfirmDestructive = &v
+	default:
+		return fmt.Errorf("unknown config key: %q", "settings."+field)
+	}
+	return c.Save()
+}
+
+// parseBool parses a boolean string value.
+func parseBool(s string) (bool, error) {
+	switch strings.ToLower(s) {
+	case "true", "1", "yes":
+		return true, nil
+	case "false", "0", "no":
+		return false, nil
+	default:
+		return false, fmt.Errorf("invalid boolean value: %q (use true/false)", s)
+	}
 }
