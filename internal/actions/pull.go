@@ -3,6 +3,7 @@ package actions
 import (
 	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -20,11 +21,36 @@ type PullAction struct {
 	Profile  string
 	Verbose  bool
 
+	// Stdout receives informational output. When nil, defaults to os.Stdout.
+	Stdout io.Writer
+	// Stderr receives diagnostic and error output. When nil, defaults to os.Stderr.
+	Stderr io.Writer
+
+	// ProgressFn is an optional callback invoked at coarse milestones during pull.
+	// When nil (default), no progress is reported.
+	ProgressFn func(step string, done, total int)
+
 	// ConfigLoader loads the bak-cli configuration. Defaults to config.Load.
 	ConfigLoader func() (*config.Config, error)
 
 	// Factory creates cloud providers on demand.
 	Factory ProviderFactory
+}
+
+// stdout returns the Stdout writer or os.Stdout when nil.
+func (a *PullAction) stdout() io.Writer {
+	if a.Stdout != nil {
+		return a.Stdout
+	}
+	return os.Stdout
+}
+
+// stderr returns the Stderr writer or os.Stderr when nil.
+func (a *PullAction) stderr() io.Writer {
+	if a.Stderr != nil {
+		return a.Stderr
+	}
+	return os.Stderr
 }
 
 // Run downloads a backup from a cloud backend and reconstructs it locally.
@@ -66,7 +92,7 @@ func (a *PullAction) Run(args []string) error {
 		return fmt.Errorf("provider: %w", err)
 	}
 	if a.Verbose {
-		fmt.Fprintf(os.Stderr, "Using provider: %s\n", provider.Name())
+		fmt.Fprintf(a.stderr(), "Using provider: %s\n", provider.Name())
 	}
 
 	// 4. Resolve remote backup ID.
@@ -82,10 +108,16 @@ func (a *PullAction) Run(args []string) error {
 	}
 
 	// 4. Download from provider.
-	fmt.Printf("Downloading backup %s...\n", remoteID)
+	fmt.Fprintf(a.stdout(), "Downloading backup %s...\n", remoteID)
+	if a.ProgressFn != nil {
+		a.ProgressFn("Downloading", 0, 2)
+	}
 	archiveData, err := provider.Pull(remoteID)
 	if err != nil {
 		return fmt.Errorf("pull: %w", err)
+	}
+	if a.ProgressFn != nil {
+		a.ProgressFn("Downloading", 1, 2)
 	}
 
 	archiveStr := string(archiveData)
@@ -105,7 +137,7 @@ func (a *PullAction) Run(args []string) error {
 		archiveStr = base64.StdEncoding.EncodeToString(decrypted)
 
 		if a.Verbose {
-			fmt.Fprintf(os.Stderr, "Decrypted archive\n")
+			fmt.Fprintf(a.stderr(), "Decrypted archive\n")
 		}
 	}
 
@@ -117,13 +149,19 @@ func (a *PullAction) Run(args []string) error {
 		return fmt.Errorf("create backup dir: %w", err)
 	}
 
-	fmt.Printf("Extracting backup %s...\n", backupID)
+	fmt.Fprintf(a.stdout(), "Extracting backup %s...\n", backupID)
+	if a.ProgressFn != nil {
+		a.ProgressFn("Extracting", 1, 2)
+	}
 	if err := cloud.UntarGz(archiveStr, backupPath); err != nil {
 		return fmt.Errorf("extract backup: %w", err)
 	}
 
-	fmt.Printf("✅ Backup pulled: %s\n", backupID)
-	fmt.Printf("   Run 'bak restore %s' to apply it.\n", backupID)
+	fmt.Fprintf(a.stdout(), "✅ Backup pulled: %s\n", backupID)
+	fmt.Fprintf(a.stdout(), "   Run 'bak restore %s' to apply it.\n", backupID)
+	if a.ProgressFn != nil {
+		a.ProgressFn("Complete", 2, 2)
+	}
 
 	return nil
 }

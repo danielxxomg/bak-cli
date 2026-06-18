@@ -39,6 +39,15 @@ type BackupAction struct {
 	SecretPatterns   []*regexp.Regexp
 	CustomCategories []string
 
+	// ProgressFn is an optional callback invoked once per file during backup.
+	// When nil (default), no progress is reported. Signature matches
+	// backup.Engine.ProgressFn.
+	ProgressFn func(currentFile string, filesDone int, filesTotal int)
+
+	// ExcludesLoader returns scan options to filter files during backup.
+	// nil means no exclusions. Wired by cmd/ to config.Load+LoadExcludes.
+	ExcludesLoader func() (adapters.ScanOptions, error)
+
 	// HostnameFn returns the current hostname. Nil falls back to os.Hostname.
 	HostnameFn HostnameFunc
 }
@@ -102,6 +111,19 @@ func (a *BackupAction) Run() error {
 		return fmt.Errorf("no installed adapters detected")
 	}
 
+	// 3a. Apply exclusion rules (if loader is set).
+	if a.ExcludesLoader != nil {
+		opts, err := a.ExcludesLoader()
+		if err != nil {
+			return fmt.Errorf("load excludes: %w", err)
+		}
+		for _, d := range detected {
+			if sc, ok := d.Adapter.(adapters.ScanConfigurable); ok {
+				sc.SetScanOptions(opts)
+			}
+		}
+	}
+
 	// 4. Create backup directory.
 	bakDir := filepath.Join(homeDir, ".bak")
 	backupID := time.Now().UTC().Format("20060102-150405")
@@ -144,15 +166,36 @@ func (a *BackupAction) Run() error {
 		patterns = backup.DefaultPatterns()
 	}
 
-	var allSecretFiles []string
-
+	// --- 5. Collect items from all adapters to compute total. ------------
+	type adapterItems struct {
+		adapter adapters.DetectedAdapter
+		items   []adapters.Item
+	}
+	var allItems []adapterItems
+	filesTotal := 0
 	for _, d := range detected {
 		items, err := d.Adapter.ListItems(homeDir, categories)
 		if err != nil {
 			return fmt.Errorf("list items for %q: %w", d.Adapter.Name(), err)
 		}
+		allItems = append(allItems, adapterItems{adapter: d, items: items})
+		for _, item := range items {
+			if !item.IsDir {
+				filesTotal++
+			}
+		}
+	}
 
-		if err := d.Adapter.Backup(homeDir, backupDir, items); err != nil {
+	// --- 6. Backup and build manifest with progress. --------------------
+	var allSecretFiles []string
+	totalFiles := 0
+	var totalSize int64
+	filesDone := 0
+
+	for _, entry := range allItems {
+		d := entry.adapter
+
+		if err := d.Adapter.Backup(homeDir, backupDir, entry.items); err != nil {
 			return fmt.Errorf("backup %q: %w", d.Adapter.Name(), err)
 		}
 
@@ -169,10 +212,16 @@ func (a *BackupAction) Run() error {
 		}
 
 		// Build manifest items with path traversal validation.
-		manifestItems := make([]manifest.Item, 0, len(items))
-		for _, item := range items {
+		manifestItems := make([]manifest.Item, 0, len(entry.items))
+		for _, item := range entry.items {
 			if item.IsDir {
 				continue
+			}
+
+			// Progress callback — nil-safe.
+			filesDone++
+			if a.ProgressFn != nil {
+				a.ProgressFn(item.RelPath, filesDone, filesTotal)
 			}
 
 			absSource := item.SourcePath
@@ -193,6 +242,8 @@ func (a *BackupAction) Run() error {
 				Hash:       item.Hash,
 				Size:       item.Size,
 			})
+			totalFiles++
+			totalSize += item.Size
 		}
 
 		configDirCanonical := paths.ToCanonical(d.ConfigDir)

@@ -7,14 +7,18 @@ import (
 	"strings"
 )
 
-// newRequest builds an authenticated HTTP request with common headers.
+// newRequest builds an HTTP request with common headers.
 // accept and contentType may be empty strings to omit those headers.
+// When token is empty, the Authorization header is omitted (for
+// endpoints that don't require authentication, e.g., OAuth Device Flow).
 func newRequest(method, url, token, accept, contentType string, body io.Reader) (*http.Request, error) {
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 	if accept != "" {
 		req.Header.Set("Accept", accept)
 	}
@@ -33,7 +37,7 @@ func doRequest(client *http.Client, req *http.Request) (body []byte, status int,
 	if err != nil {
 		return nil, 0, fmt.Errorf("request: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // standard response body close in defer
 
 	body, err = io.ReadAll(resp.Body)
 	if err != nil {

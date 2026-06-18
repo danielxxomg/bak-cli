@@ -1,6 +1,7 @@
 package screens
 
 import (
+	"fmt"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -15,28 +16,67 @@ type SettingsOption struct {
 	Label string
 	Type  string // "toggle" or "select"
 	Value bool   // true = toggled on
+	Key   string // config key used for persistence (e.g. "auto_sync")
+}
+
+// Settings holds the user preferences that the settings screen can display
+// and modify. This mirrors config.Settings without importing the config package.
+type Settings struct {
+	DefaultPreset      string
+	AutoSync           bool
+	ExcludePatterns    []string
+	MaxFileSize        int64
+	ConfirmDestructive bool
+	VerboseDefault     bool
+	DefaultProvider    string
 }
 
 // SettingsModel is the Bubble Tea sub-model for the interactive settings screen.
-// It supports j/k navigation and enter/space to toggle options.
+// It supports j/k navigation and enter/space to toggle options. When a toggle
+// changes, the SaveSetting function is called immediately to persist the change.
 type SettingsModel struct {
-	cursor  int
-	options []SettingsOption
-	width   int
-	height  int
+	cursor   int
+	options  []SettingsOption
+	width    int
+	height   int
+	saveFunc func(key string, value any) error
+	msg      string // status/error message displayed in view
 }
 
-// NewSettingsModel creates a SettingsModel pre-populated with default options:
-// Cloud Provider, Theme (locked to Rose Pine), Auto-sync, and Verbose.
-func NewSettingsModel() SettingsModel {
-	return SettingsModel{
+// NewSettingsModel creates a SettingsModel with default options and the given
+// save function. The save function is called immediately when a toggle changes.
+func NewSettingsModel(saveFunc func(key string, value any) error) SettingsModel {
+	m := SettingsModel{
 		options: []SettingsOption{
-			{Label: "Cloud Provider", Type: "toggle", Value: false},
-			{Label: "Theme", Type: "select", Value: true},
-			{Label: "Auto-sync", Type: "toggle", Value: false},
-			{Label: "Verbose", Type: "toggle", Value: false},
+			{Label: "Cloud Provider", Type: "toggle", Value: false, Key: "default_provider"},
+			{Label: "Theme", Type: "select", Value: true, Key: ""},
+			{Label: "Auto-sync", Type: "toggle", Value: false, Key: "auto_sync"},
+			{Label: "Verbose", Type: "toggle", Value: false, Key: "verbose_default"},
 		},
+		saveFunc: saveFunc,
 	}
+	return m
+}
+
+// NewSettingsModelWithSettings creates a SettingsModel pre-populated with the
+// given settings values and a save function. Toggle options are set from the
+// provided settings struct.
+func NewSettingsModelWithSettings(s Settings, saveFunc func(key string, value any) error) SettingsModel {
+	m := NewSettingsModel(saveFunc)
+	// Apply settings to toggle options.
+	for i := range m.options {
+		switch m.options[i].Key {
+		case "auto_sync":
+			m.options[i].Value = s.AutoSync
+		case "verbose_default":
+			m.options[i].Value = s.VerboseDefault
+		case "default_provider":
+			m.options[i].Value = s.DefaultProvider != ""
+		case "confirm_destructive":
+			m.options[i].Value = s.ConfirmDestructive
+		}
+	}
+	return m
 }
 
 // Init returns nil — no initial side effects.
@@ -46,6 +86,7 @@ func (m SettingsModel) Init() tea.Cmd {
 
 // Update handles keyboard navigation (j/k), toggling (enter/space), and
 // back navigation (q/esc). WindowSizeMsg updates stored dimensions.
+// When a toggle changes, the injected SaveSetting function is called.
 func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -65,6 +106,12 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				opt := &m.options[m.cursor]
 				if opt.Type == "toggle" {
 					opt.Value = !opt.Value
+					// Persist immediately.
+					if m.saveFunc != nil && opt.Key != "" {
+						if err := m.saveFunc(opt.Key, opt.Value); err != nil {
+							m.msg = fmt.Sprintf("save setting: %s", err.Error())
+						}
+					}
 				}
 			}
 		case 'q', 27:
@@ -78,8 +125,10 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View renders the settings screen as a list of checkbox-style options.
 // The focused item is styled with SelectedStyle; checked items show ✓.
 func (m SettingsModel) View() tea.View {
-	if m.width < styles.MinWidth || m.height < styles.MinHeight {
-		return tea.NewView("Terminal too small")
+	if styles.IsTooSmall(m.width, m.height) {
+		msg := fmt.Sprintf("Terminal too small (%dx%d). Need at least %dx%d.",
+			m.width, m.height, styles.MinWidth, styles.MinHeight)
+		return tea.NewView(msg)
 	}
 
 	var b strings.Builder
@@ -103,6 +152,11 @@ func (m SettingsModel) View() tea.View {
 		{Key: "q", Desc: "back"},
 	}
 	b.WriteString(components.RenderHelp(helpKeys))
+
+	if m.msg != "" {
+		b.WriteString("\n")
+		b.WriteString(styles.ToastStyle.Render(m.msg))
+	}
 
 	return tea.NewView(b.String())
 }
