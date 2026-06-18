@@ -25,6 +25,10 @@ type RestoreAction struct {
 	Verbose   bool
 	GitDir    string // optional git repo for safety commits
 
+	// ProgressFn is an optional callback invoked once per file during restore.
+	// When nil (default), no progress is reported.
+	ProgressFn func(currentFile string, filesDone int, filesTotal int)
+
 	// Stdin is the reader for confirmation prompts. Nil falls back to os.Stdin.
 	Stdin io.Reader
 	// Stdout receives informational output. Nil falls back to os.Stdout.
@@ -126,9 +130,23 @@ func (a *RestoreAction) Run() error {
 
 	// 7. Apply restore.
 	restored, skipped, failed := 0, 0, 0
+
+	// Compute total files to restore (count DiffNew + DiffModified).
+	filesTotal := 0
+	for _, d := range diffs {
+		if d.Status == restorepkg.DiffNew || d.Status == restorepkg.DiffModified {
+			filesTotal++
+		}
+	}
+	filesDone := 0
+
 	for _, d := range diffs {
 		switch d.Status {
 		case restorepkg.DiffNew, restorepkg.DiffModified:
+			filesDone++
+			if a.ProgressFn != nil {
+				a.ProgressFn(d.SourcePath, filesDone, filesTotal)
+			}
 			if err := a.restoreFile(d); err != nil {
 				failed++
 				if a.Verbose {

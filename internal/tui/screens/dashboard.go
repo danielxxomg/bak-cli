@@ -143,10 +143,13 @@ func (m *DashboardModel) SetFilter(query string) {
 // loading, an error message is shown. If no backups exist, an empty state
 // message is shown. Otherwise, the styled table is rendered.
 //
-// If the terminal is below 20×10, a "Terminal too small" message is shown.
+// If the terminal is below the minimum size, a dimensional "Terminal too small"
+// message is shown.
 func (m DashboardModel) View() tea.View {
-	if m.width < styles.MinWidth || m.height < styles.MinHeight {
-		return tea.NewView("Terminal too small")
+	if styles.IsTooSmall(m.width, m.height) {
+		msg := fmt.Sprintf("Terminal too small (%dx%d). Need at least %dx%d.",
+			m.width, m.height, styles.MinWidth, styles.MinHeight)
+		return tea.NewView(msg)
 	}
 
 	var b strings.Builder

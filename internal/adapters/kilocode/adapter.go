@@ -35,6 +35,9 @@ type Adapter struct{}
 // Compile-time check: Adapter satisfies the adapters.Adapter interface.
 var _ adapters.Adapter = (*Adapter)(nil)
 
+// Compile-time check: Adapter satisfies ScanConfigurable.
+var _ adapters.ScanConfigurable = (*Adapter)(nil)
+
 func (a *Adapter) Name() string                                { return base.Name() }
 func (a *Adapter) Detect(homeDir string) (bool, string, error) { return base.Detect(homeDir) }
 func (a *Adapter) ListItems(homeDir string, cats []string) ([]adapters.Item, error) {
@@ -46,3 +49,6 @@ func (a *Adapter) Backup(homeDir, backupDir string, items []adapters.Item) error
 func (a *Adapter) Restore(backupDir, homeDir string, items []adapters.Item) error {
 	return base.Restore(backupDir, homeDir, items)
 }
+
+// SetScanOptions forwards scan options to the underlying GenericAdapter.
+func (a *Adapter) SetScanOptions(opts adapters.ScanOptions) { base.ScanOpts = opts }

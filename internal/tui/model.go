@@ -3,6 +3,8 @@ package tui
 import (
 	"fmt"
 
+	"charm.land/lipgloss/v2"
+
 	"github.com/danielxxomg/bak-cli/internal/tui/components"
 	"github.com/danielxxomg/bak-cli/internal/tui/screens"
 	"github.com/danielxxomg/bak-cli/internal/tui/styles"
@@ -29,6 +31,12 @@ const (
 	ScreenShortcuts
 	// ScreenHealth runs the backup health diagnostic check.
 	ScreenHealth
+	// ScreenRestore shows the restore picker and flow.
+	ScreenRestore
+	// ScreenProfiles shows the profile management screen.
+	ScreenProfiles
+	// ScreenWelcome shows the first-run onboarding screen (PR2).
+	ScreenWelcome
 )
 
 // screenChangeMsg is an internal message that triggers a screen transition.
@@ -70,17 +78,33 @@ type Model struct {
 	progress  *screens.ProgressModel
 	settings  *screens.SettingsModel
 	health    *screens.HealthModel
+	restore   *screens.RestoreModel
+	profiles  *screens.ProfilesModel
+	cloud     *screens.CloudModel
 
 	// Reusable components owned by the root model.
 	search components.Search
 	toast  components.Toast
+
+	// Backup channels for async progress reporting.
+	backupCh   chan ProgressUpdate
+	backupDone chan error
+
+	// showHelp toggles the help overlay on any screen via '?'.
+	showHelp bool
 }
 
 // NewModel creates a root Model initialized to the main menu screen with
 // the default 7 menu items and the provided dependencies.
+// When Deps.ConfigExists is non-nil and returns false, the model starts
+// at the Welcome screen instead (first-run detection).
 func NewModel(deps Deps) Model {
+	screen := ScreenMenu
+	if deps.ConfigExists != nil && !deps.ConfigExists() {
+		screen = ScreenWelcome
+	}
 	return Model{
-		screen:    ScreenMenu,
+		screen:    screen,
 		cursor:    0,
 		deps:      deps,
 		menuItems: DefaultMenuItems,
@@ -100,7 +124,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.tooSmall = msg.Width < styles.MinWidth || msg.Height < styles.MinHeight
+		m.tooSmall = styles.IsTooSmall(msg.Width, msg.Height)
 		// Forward to active sub-model.
 		switch m.screen {
 		case ScreenDashboard:
@@ -127,10 +151,43 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				nh := newH.(screens.HealthModel)
 				m.health = &nh
 			}
+		case ScreenRestore:
+			if m.restore != nil {
+				newR, _ := m.restore.Update(msg)
+				nr := newR.(screens.RestoreModel)
+				m.restore = &nr
+			}
+		case ScreenProfiles:
+			if m.profiles != nil {
+				newP, _ := m.profiles.Update(msg)
+				np := newP.(screens.ProfilesModel)
+				m.profiles = &np
+			}
+		case ScreenCloud:
+			if m.cloud != nil {
+				newC, _ := m.cloud.Update(msg)
+				nc := newC.(screens.CloudModel)
+				m.cloud = &nc
+			}
 		}
 		return m, nil
 
 	case tea.KeyPressMsg:
+		// Global help overlay toggle: '?' shows help on any screen;
+		// Esc or second '?' dismisses it.
+		if m.showHelp {
+			switch msg.Code {
+			case KeyEsc, '?':
+				m.showHelp = false
+				return m, nil
+			}
+			// Block all other keys while help is visible.
+			return m, nil
+		}
+		if msg.Code == '?' {
+			m.showHelp = true
+			return m, nil
+		}
 		return m.handleKey(msg)
 
 	case screenChangeMsg:
@@ -153,7 +210,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.progress.Init()
 		case ScreenSettings:
 			if m.settings == nil {
-				s := screens.NewSettingsModel()
+				s := m.initSettings()
 				m.settings = &s
 			}
 			return m, m.settings.Init()
@@ -163,6 +220,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.health = &h
 			}
 			return m, m.health.Init()
+		case ScreenRestore:
+			if m.restore == nil {
+				r := m.initRestore()
+				m.restore = &r
+			}
+			return m, m.restore.Init()
+		case ScreenProfiles:
+			if m.profiles == nil {
+				p := m.initProfiles()
+				m.profiles = &p
+			}
+			return m, m.profiles.Init()
+		case ScreenCloud:
+			if m.cloud == nil {
+				c := m.initCloud()
+				m.cloud = &c
+			}
+			return m, m.cloud.Init()
+		case ScreenWelcome:
+			return m, nil
 		}
 		return m, nil
 
@@ -180,6 +257,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newToast, cmd := m.toast.Update(msg)
 		m.toast = newToast
 		return m, cmd
+
+	case screens.ProgressStepMsg:
+		// Forward to progress sub-model and re-issue channel drain.
+		if m.progress != nil && m.screen == ScreenProgress {
+			newProg, cmd := m.progress.Update(msg)
+			np := newProg.(screens.ProgressModel)
+			m.progress = &np
+			return m, tea.Batch(cmd, drainProgressCmd(m.backupCh))
+		}
+		// Keep draining even if progress model isn't initialized.
+		return m, drainProgressCmd(m.backupCh)
+
+	case screens.ProgressDoneMsg:
+		// Collect result from backupDone channel (non-blocking select).
+		var resultErr error
+		if m.backupDone != nil {
+			select {
+			case err := <-m.backupDone:
+				resultErr = err
+			default:
+			}
+		}
+		// Forward to progress sub-model.
+		if m.progress != nil && m.screen == ScreenProgress {
+			newProg, cmd := m.progress.Update(msg)
+			np := newProg.(screens.ProgressModel)
+			m.progress = &np
+			return m, tea.Batch(cmd, func() tea.Msg { return actionResultMsg{err: resultErr} })
+		}
+		return m, func() tea.Msg { return actionResultMsg{err: resultErr} }
 	}
 
 	// Forward remaining messages to the active sub-model.
@@ -212,6 +319,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.health = &nh
 			return m, cmd
 		}
+	case ScreenRestore:
+		if m.restore != nil {
+			newR, cmd := m.restore.Update(msg)
+			nr := newR.(screens.RestoreModel)
+			m.restore = &nr
+			return m, cmd
+		}
+	case ScreenProfiles:
+		if m.profiles != nil {
+			newP, cmd := m.profiles.Update(msg)
+			np := newP.(screens.ProfilesModel)
+			m.profiles = &np
+			return m, cmd
+		}
+	case ScreenCloud:
+		if m.cloud != nil {
+			newC, cmd := m.cloud.Update(msg)
+			nc := newC.(screens.CloudModel)
+			m.cloud = &nc
+			return m, cmd
+		}
 	}
 
 	// Always forward tick messages to the toast component.
@@ -241,11 +369,26 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.screen = ScreenShortcuts
 			return m, nil
 		}
+	case ScreenWelcome:
+		switch msg.Code {
+		case KeyQuit, KeyEsc:
+			return m, tea.Quit
+		case KeyEnter:
+			m.screen = ScreenMenu
+			return m, nil
+		}
 	case ScreenCloud:
 		switch msg.Code {
 		case KeyQuit, KeyEsc:
 			m.screen = ScreenMenu
 			return m, nil
+		default:
+			if m.cloud != nil {
+				newC, cmd := m.cloud.Update(msg)
+				nc := newC.(screens.CloudModel)
+				m.cloud = &nc
+				return m, cmd
+			}
 		}
 	case ScreenDashboard:
 		// When search is active, forward keystrokes to the search component
@@ -313,6 +456,20 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.progress = &np
 			return m, cmd
 		}
+	case ScreenRestore:
+		if m.restore != nil {
+			newR, cmd := m.restore.Update(msg)
+			nr := newR.(screens.RestoreModel)
+			m.restore = &nr
+			return m, cmd
+		}
+	case ScreenProfiles:
+		if m.profiles != nil {
+			newP, cmd := m.profiles.Update(msg)
+			np := newP.(screens.ProfilesModel)
+			m.profiles = &np
+			return m, cmd
+		}
 	}
 	return m, nil
 }
@@ -322,17 +479,26 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m Model) handleMenuEnter() (tea.Model, tea.Cmd) {
 	switch m.cursor {
 	case 0: // "Create backup" → Progress
-		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenProgress} }
-	case 1: // "Restore" → not yet implemented
-		m.toast.Show("Restore: coming soon", 3)
-		return m, nil
+		if m.deps.RunBackup != nil {
+			m.backupCh = make(chan ProgressUpdate, 32)
+			m.backupDone = make(chan error, 1)
+			go func() {
+				err := m.deps.RunBackup(nil, m.backupCh)
+				m.backupDone <- err
+			}()
+		}
+		return m, tea.Batch(
+			func() tea.Msg { return screenChangeMsg{screen: ScreenProgress} },
+			drainProgressCmd(m.backupCh),
+		)
+	case 1: // "Restore" → Restore screen
+		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenRestore} }
 	case 2: // "Browse backups" → Dashboard
 		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenDashboard} }
 	case 3: // "Cloud sync" → Cloud
 		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenCloud} }
-	case 4: // "Profiles" → not yet implemented
-		m.toast.Show("Profiles: coming soon", 3)
-		return m, nil
+	case 4: // "Profiles" → Profiles screen
+		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenProfiles} }
 	case 5: // "Settings"
 		return m, func() tea.Msg { return screenChangeMsg{screen: ScreenSettings} }
 	case 6: // "Quit"
@@ -350,7 +516,7 @@ func (m Model) View() tea.View {
 	var content string
 	if m.tooSmall {
 		content = fmt.Sprintf(
-			"Terminal too small (%dx%d). Need at least %dx%d.",
+			"Terminal too small (%dx%d). Need at least %d\u00d7%d.",
 			m.width, m.height, styles.MinWidth, styles.MinHeight,
 		)
 	} else {
@@ -366,7 +532,11 @@ func (m Model) View() tea.View {
 				content = m.progress.View().Content
 			}
 		case ScreenCloud:
-			content = screens.RenderCloudStatus(screens.CloudInfo{}, m.width)
+			if m.cloud != nil {
+				content = m.cloud.View().Content
+			} else {
+				content = screens.RenderCloudStatus(screens.CloudInfo{}, m.width)
+			}
 		case ScreenSettings:
 			if m.settings != nil {
 				content = m.settings.View().Content
@@ -375,15 +545,44 @@ func (m Model) View() tea.View {
 			if m.health != nil {
 				content = m.health.View().Content
 			}
+		case ScreenRestore:
+			if m.restore != nil {
+				content = m.restore.View().Content
+			} else {
+				content = "Restore"
+			}
+		case ScreenProfiles:
+			if m.profiles != nil {
+				content = m.profiles.View().Content
+			} else {
+				content = "Profiles"
+			}
+		case ScreenWelcome:
+			content = screens.RenderWelcome(m.width)
 		case ScreenShortcuts:
 			content = screens.RenderShortcuts(m.width)
 		default:
 			content = ""
 		}
 
-		// Render toast overlay on top of screen content when visible.
+		// Overlay help when toggled via '?'.
+		if m.showHelp {
+			content = screens.RenderShortcuts(m.width)
+		}
+
+		// Render toast overlay. On wide terminals (>= 50 cols), position
+		// the toast at bottom-right using lipgloss.Place. On narrow terminals,
+		// fall back to inline append below the screen content.
 		if toastContent := m.toast.View(); toastContent != "" {
-			content += "\n" + toastContent
+			if m.width >= 50 {
+				content = lipgloss.Place(
+					m.width, m.height,
+					lipgloss.Right, lipgloss.Bottom,
+					toastContent,
+				)
+			} else {
+				content += "\n" + toastContent
+			}
 		}
 	}
 	v := tea.NewView(content)
@@ -395,6 +594,30 @@ func (m Model) View() tea.View {
 // which includes the logo, version, menu items, and help bar.
 func (m Model) renderMenu() string {
 	return screens.RenderMainMenu(m.deps.Version, "", m.menuItems, m.cursor, m.width)
+}
+
+// drainProgressCmd returns a tea.Cmd that reads one ProgressUpdate from
+// the given channel and converts it to a tea.Msg. When ch is nil, it
+// returns nil (no-op). When the channel produces Done=true, it returns
+// ProgressDoneMsg. Otherwise it returns ProgressStepMsg.
+func drainProgressCmd(ch <-chan ProgressUpdate) tea.Cmd {
+	if ch == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		update, ok := <-ch
+		if !ok {
+			return screens.ProgressDoneMsg{}
+		}
+		if update.Done {
+			return screens.ProgressDoneMsg{}
+		}
+		return screens.ProgressStepMsg{
+			Step:    update.Step,
+			Current: update.Current,
+			Total:   update.Total,
+		}
+	}
 }
 
 // Selection returns the current menu selection. If the cursor is out of
@@ -445,4 +668,129 @@ func (m Model) initDashboard() screens.DashboardModel {
 // initProgress creates a new ProgressModel.
 func (m Model) initProgress() screens.ProgressModel {
 	return screens.NewProgressModel()
+}
+
+// initSettings creates a SettingsModel pre-populated with persisted settings
+// from LoadSettings. If LoadSettings is nil or returns an error, defaults
+// are used (NewSettingsModel behavior).
+func (m Model) initSettings() screens.SettingsModel {
+	if m.deps.LoadSettings == nil {
+		return screens.NewSettingsModel(m.deps.SaveSetting)
+	}
+	s, err := m.deps.LoadSettings()
+	if err != nil {
+		return screens.NewSettingsModel(m.deps.SaveSetting)
+	}
+	return screens.NewSettingsModelWithSettings(s, m.deps.SaveSetting)
+}
+
+// initRestore creates a new RestoreModel using injected deps.
+func (m Model) initRestore() screens.RestoreModel {
+	listFn := func() ([]screens.BackupInfo, error) {
+		if m.deps.ListBackups == nil {
+			return nil, nil
+		}
+		backups, err := m.deps.ListBackups()
+		if err != nil {
+			return nil, err
+		}
+		var result []screens.BackupInfo
+		for _, b := range backups {
+			result = append(result, screens.BackupInfo{
+				ID:     b.ID,
+				Date:   b.Date,
+				Size:   b.Size,
+				Status: b.Status,
+				Cloud:  b.Cloud,
+			})
+		}
+		return result, nil
+	}
+	restoreFn := func(backupID string, dryRun bool) (string, error) {
+		if m.deps.RunRestore == nil {
+			return "", nil
+		}
+		return m.deps.RunRestore(backupID, dryRun)
+	}
+	return screens.NewRestoreModel(listFn, restoreFn)
+}
+
+// initProfiles creates a new ProfilesModel using injected deps.
+func (m Model) initProfiles() screens.ProfilesModel {
+	listFn := func() ([]screens.ProfileInfo, error) {
+		if m.deps.ListProfiles == nil {
+			return nil, nil
+		}
+		profiles, err := m.deps.ListProfiles()
+		if err != nil {
+			return nil, err
+		}
+		var result []screens.ProfileInfo
+		for _, p := range profiles {
+			result = append(result, screens.ProfileInfo{
+				Name:     p.Name,
+				Provider: p.Provider,
+				Preset:   p.Preset,
+				Active:   p.Active,
+			})
+		}
+		return result, nil
+	}
+	switchFn := func(name string) error {
+		if m.deps.SetActiveProfile == nil {
+			return nil
+		}
+		return m.deps.SetActiveProfile(name)
+	}
+	deleteFn := func(name string) error {
+		if m.deps.DeleteProfile == nil {
+			return nil
+		}
+		return m.deps.DeleteProfile(name)
+	}
+	wizardFn := func() (screens.ProfileInfo, error) {
+		if m.deps.RunWizard == nil {
+			return screens.ProfileInfo{}, nil
+		}
+		p, err := m.deps.RunWizard()
+		if err != nil {
+			return screens.ProfileInfo{}, err
+		}
+		return screens.ProfileInfo{
+			Name:     p.Name,
+			Provider: p.Provider,
+			Preset:   p.Preset,
+			Active:   p.Active,
+		}, nil
+	}
+	pm := screens.NewProfilesModel(listFn, switchFn, deleteFn, wizardFn)
+	// Set SaveProfile as a mutable field.
+	pm.SaveProfile = func(name string, profile screens.ProfileInfo) error {
+		if m.deps.SaveProfile == nil {
+			return nil
+		}
+		return m.deps.SaveProfile(name, profile)
+	}
+	return pm
+}
+
+// initCloud creates a new CloudModel using injected deps.
+func (m Model) initCloud() screens.CloudModel {
+	statusFn := func() (screens.CloudInfo, error) {
+		if m.deps.GetCloudStatus == nil {
+			return screens.CloudInfo{}, nil
+		}
+		s, err := m.deps.GetCloudStatus()
+		if err != nil {
+			return screens.CloudInfo{}, err
+		}
+		return screens.CloudInfo{
+			Provider:   s.Provider,
+			Connected:  s.Connected,
+			LastSync:   s.LastSync,
+			LocalCount: s.LocalCount,
+			CloudCount: s.CloudCount,
+		}, nil
+	}
+	return screens.NewCloudModel(statusFn)
 }

@@ -237,10 +237,11 @@ The system MUST fix build and lint issues blocking CI.
 - GIVEN `golangci-lint run` executes
 - THEN it exits 0 with zero warnings on Ubuntu, macOS, and Windows
 
-#### Scenario: GGA pre-commit
+#### Scenario: GGA pre-commit with bypass path
 - GIVEN a commit is prepared
 - WHEN GGA pre-commit validation runs against AGENTS.md
 - THEN it passes without `--no-verify` bypass
+- OR if GGA fails due to a technical failure (ARG_MAX overflow, provider outage, scope-of-change mismatch), the commit body MUST contain `NO-VERIFY: <reason>` and a follow-up fix commit MUST be created in the same PR
 
 #### Scenario: Docker test pass
 - GIVEN `task test:linux` (Docker)

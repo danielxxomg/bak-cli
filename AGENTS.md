@@ -139,6 +139,7 @@
 ### GGA Integration
 - MUST run GGA (Guardian Angel) as pre-commit validation against AGENTS.md rules
 - MUST fix all GGA violations before committing — no `--no-verify` bypass
+- If GGA fails due to technical limitation (ARG_MAX, provider timeout, scope mismatch), developer MAY use `--no-verify` WITH: (a) `NO-VERIFY: <reason>` in commit body, (b) follow-up fix commit in same PR
 - Config in `.gga` — file patterns, exclude patterns, rules file, strict mode
 
 ### Commits

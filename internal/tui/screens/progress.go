@@ -81,6 +81,10 @@ func NewProgressModel() ProgressModel {
 	}
 }
 
+// Running returns whether the progress screen is currently tracking a
+// running operation. Exported for test assertions.
+func (m ProgressModel) Running() bool { return m.running }
+
 // Init starts the spinner animation by returning a spinner.Tick command.
 func (m ProgressModel) Init() tea.Cmd {
 	return m.spinner.Tick
@@ -142,8 +146,10 @@ func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renders the progress screen with spinner, progress bar, and step list.
 func (m ProgressModel) View() tea.View {
-	if m.Width < 20 || m.Height < 10 {
-		return tea.NewView("Terminal too small")
+	if styles.IsTooSmall(m.Width, m.Height) {
+		msg := fmt.Sprintf("Terminal too small (%dx%d). Need at least %dx%d.",
+			m.Width, m.Height, styles.MinWidth, styles.MinHeight)
+		return tea.NewView(msg)
 	}
 
 	var b strings.Builder

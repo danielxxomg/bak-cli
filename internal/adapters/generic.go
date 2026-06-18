@@ -29,6 +29,10 @@ type GenericAdapter struct {
 	Categories       map[string]CategoryDir
 	DetectErrContext string // e.g. "stat codex config dir"
 
+	// ScanOpts holds optional filtering for ListItems. The zero value
+	// preserves current behavior (all files included).
+	ScanOpts ScanOptions
+
 	// StatFn replaces os.Stat in Detect. When nil, Detect falls back
 	// to os.Stat. Inject a custom function to simulate stat failures
 	// in tests without relying on OS-level permissions (chmod).
@@ -38,8 +42,16 @@ type GenericAdapter struct {
 // Compile-time check: GenericAdapter satisfies the Adapter interface.
 var _ Adapter = (*GenericAdapter)(nil)
 
+// Compile-time check: GenericAdapter satisfies ScanConfigurable.
+var _ ScanConfigurable = (*GenericAdapter)(nil)
+
 // Name returns the adapter identifier.
 func (ga *GenericAdapter) Name() string { return ga.AdapterName }
+
+// SetScanOptions applies the given scanning options to the adapter.
+func (ga *GenericAdapter) SetScanOptions(opts ScanOptions) {
+	ga.ScanOpts = opts
+}
 
 // Detect checks whether the adapter's config directory exists under homeDir.
 func (ga *GenericAdapter) Detect(homeDir string) (installed bool, configDir string, err error) {
@@ -88,7 +100,7 @@ func (ga *GenericAdapter) ListItems(homeDir string, categories []string) ([]Item
 
 		if info.IsDir {
 			dir := filepath.Join(configDir, info.SubPath)
-			dirItems, err := scanDir(dir, cat, configDir)
+			dirItems, err := scanDir(dir, cat, configDir, ga.ScanOpts)
 			if err != nil {
 				if os.IsNotExist(err) {
 					continue
@@ -157,7 +169,9 @@ func copyItems(items []Item, srcBase, dstBase string) error {
 
 // scanDir recursively walks a directory and returns an Item for every
 // file and subdirectory found. Directories receive a zero hash and size.
-func scanDir(dir, category, configDir string) ([]Item, error) {
+// When opts is non-zero, entries matching exclude patterns or exceeding
+// MaxFileSize are skipped.
+func scanDir(dir, category, configDir string, opts ScanOptions) ([]Item, error) {
 	var items []Item
 
 	err := filepath.WalkDir(dir, func(absPath string, d fs.DirEntry, err error) error {
@@ -171,6 +185,35 @@ func scanDir(dir, category, configDir string) ([]Item, error) {
 		relPath, relErr := filepath.Rel(configDir, absPath)
 		if relErr != nil {
 			return fmt.Errorf("compute relative path: %w", relErr)
+		}
+
+		// Normalize for matching.
+		rel := strings.ReplaceAll(relPath, "\\", "/")
+
+		// Check exclude patterns.
+		if len(opts.Excludes) > 0 {
+			entryName := d.Name()
+			for _, pat := range opts.Excludes {
+				if MatchExclude(pat, entryName, rel, d.IsDir()) {
+					if d.IsDir() {
+						return filepath.SkipDir
+					}
+					return nil
+				}
+			}
+		}
+
+		// Check MaxFileSize for regular files.
+		if !d.IsDir() && opts.MaxFileSize > 0 {
+			info, statErr := d.Info()
+			if statErr != nil {
+				return fmt.Errorf("stat %s: %w", relPath, statErr)
+			}
+			if info.Size() > opts.MaxFileSize {
+				fmt.Fprintf(os.Stderr, "warning: skipping large file (%d bytes exceeds max %d): %s\n",
+					info.Size(), opts.MaxFileSize, rel)
+				return nil
+			}
 		}
 
 		canonical := paths.ToCanonical(absPath)
@@ -196,6 +239,46 @@ func scanDir(dir, category, configDir string) ([]Item, error) {
 	})
 
 	return items, err
+}
+
+// MatchExclude checks whether a file or directory matches an exclude pattern.
+// It supports basic gitignore-style matching:
+//   - "dir/" matches directories named "dir" anywhere in the path
+//   - "*.ext" matches files ending in ".ext" anywhere in the path
+//   - "name" matches files or directories named "name" anywhere in the path
+func MatchExclude(pattern, name, relPath string, isDir bool) bool {
+	// Parse the pattern.
+	dirOnly := false
+	raw := pattern
+	if len(raw) > 0 && raw[len(raw)-1] == '/' {
+		dirOnly = true
+		raw = raw[:len(raw)-1]
+	}
+	negate := false
+	if len(raw) > 0 && raw[0] == '!' {
+		negate = true
+		raw = raw[1:]
+	}
+
+	// Directory-only patterns only match directories.
+	if dirOnly && !isDir {
+		return false
+	}
+
+	// Match the entry name against the pattern.
+	var matched bool
+	if strings.Contains(raw, "*") {
+		matched, _ = filepath.Match(raw, name)
+	} else {
+		matched = (name == raw)
+	}
+
+	// Negation: re-include.
+	if negate && matched {
+		return false
+	}
+
+	return matched
 }
 
 // scanRootFiles reads the top-level config directory and returns items

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/danielxxomg/bak-cli/internal/tui/components"
 	"github.com/danielxxomg/bak-cli/internal/tui/styles"
 )
@@ -15,6 +17,80 @@ type CloudInfo struct {
 	LastSync   string
 	LocalCount int
 	CloudCount int
+}
+
+// cloudStatusMsg is an internal message sent when the cloud status loads.
+type cloudStatusMsg struct {
+	info CloudInfo
+	err  error
+}
+
+// CloudModel is the Bubble Tea sub-model for the cloud sync screen.
+// It fetches real cloud provider data via GetCloudStatus instead of
+// rendering an empty CloudInfo{}.
+type CloudModel struct {
+	Info      CloudInfo
+	Err       error
+	Width     int
+	Height    int
+	getStatus func() (CloudInfo, error)
+}
+
+// NewCloudModel creates a CloudModel with the given status function.
+func NewCloudModel(getStatus func() (CloudInfo, error)) CloudModel {
+	return CloudModel{
+		getStatus: getStatus,
+	}
+}
+
+// Init triggers loading the cloud status.
+func (m CloudModel) Init() tea.Cmd {
+	return func() tea.Msg {
+		if m.getStatus == nil {
+			return cloudStatusMsg{info: CloudInfo{}, err: nil}
+		}
+		info, err := m.getStatus()
+		return cloudStatusMsg{info: info, err: err}
+	}
+}
+
+// Update handles WindowSizeMsg and cloud status loading.
+func (m CloudModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.Width = msg.Width
+		m.Height = msg.Height
+		return m, nil
+
+	case cloudStatusMsg:
+		if msg.err != nil {
+			m.Err = msg.err
+			return m, nil
+		}
+		m.Info = msg.info
+		return m, nil
+
+	case tea.KeyPressMsg:
+		if msg.Code == 'q' || msg.Code == 27 {
+			return m, func() tea.Msg { return ScreenBackMsg{} }
+		}
+	}
+
+	return m, nil
+}
+
+// View renders the cloud status using the loaded data or the render function.
+func (m CloudModel) View() tea.View {
+	if m.Info.Provider == "" && m.Err == nil {
+		content := RenderCloudStatus(CloudInfo{}, m.Width)
+		return tea.NewView(content)
+	}
+	if m.Err != nil {
+		content := RenderCloudStatus(CloudInfo{}, m.Width)
+		return tea.NewView(content)
+	}
+	content := RenderCloudStatus(m.Info, m.Width)
+	return tea.NewView(content)
 }
 
 // RenderCloudStatus renders the cloud sync status screen. It displays the

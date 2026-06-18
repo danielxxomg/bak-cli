@@ -24,13 +24,25 @@ const adapterName = "opencode"
 const configRelPath = ".config/opencode"
 
 // Adapter implements adapters.Adapter for OpenCode.
-type Adapter struct{}
+type Adapter struct {
+	// ScanOpts holds optional filtering for ListItems. The zero value
+	// preserves current behavior (all files included).
+	ScanOpts adapters.ScanOptions
+}
 
-// Ensure Adapter satisfies the interface at compile time.
+// Compile-time check: Adapter satisfies the interface at compile time.
 var _ adapters.Adapter = (*Adapter)(nil)
+
+// Compile-time check: Adapter satisfies ScanConfigurable.
+var _ adapters.ScanConfigurable = (*Adapter)(nil)
 
 // Name returns the adapter identifier.
 func (a *Adapter) Name() string { return adapterName }
+
+// SetScanOptions applies the given scanning options to the adapter.
+func (a *Adapter) SetScanOptions(opts adapters.ScanOptions) {
+	a.ScanOpts = opts
+}
 
 // Detect checks whether ~/.config/opencode/ exists on disk.
 func (a *Adapter) Detect(homeDir string) (installed bool, configDir string, err error) {
@@ -101,7 +113,7 @@ func (a *Adapter) ListItems(homeDir string, categories []string) ([]adapters.Ite
 
 		if info.isDir {
 			dir := filepath.Join(configDir, info.subPath)
-			dirItems, err := scanDir(dir, cat, configDir, homeDir)
+			dirItems, err := scanDir(dir, cat, configDir, homeDir, a.ScanOpts)
 			if err != nil {
 				if os.IsNotExist(err) {
 					continue // optional directory
@@ -126,7 +138,9 @@ func (a *Adapter) ListItems(homeDir string, categories []string) ([]adapters.Ite
 
 // scanDir recursively walks a directory and returns an Item for every
 // file and subdirectory found. Directories receive a zero hash and size.
-func scanDir(dir, category, configDir, homeDir string) ([]adapters.Item, error) {
+// When opts is non-zero, entries matching exclude patterns or exceeding
+// MaxFileSize are skipped.
+func scanDir(dir, category, configDir, homeDir string, opts adapters.ScanOptions) ([]adapters.Item, error) {
 	var items []adapters.Item
 
 	err := filepath.WalkDir(dir, func(absPath string, d fs.DirEntry, err error) error {
@@ -141,6 +155,39 @@ func scanDir(dir, category, configDir, homeDir string) ([]adapters.Item, error) 
 		relPath, relErr := filepath.Rel(configDir, absPath)
 		if relErr != nil {
 			return relErr
+		}
+
+		// Normalize for matching.
+		rel := paths.Slash(relPath)
+
+		// Check exclude patterns.
+		if len(opts.Excludes) > 0 {
+			entryName := d.Name()
+			for _, pat := range opts.Excludes {
+				if adapters.MatchExclude(pat, entryName, rel, d.IsDir()) {
+					if d.IsDir() {
+						return filepath.SkipDir
+					}
+					return nil
+				}
+			}
+		}
+
+		// Check MaxFileSize for regular files.
+		if !d.IsDir() && opts.MaxFileSize > 0 {
+			info, statErr := d.Info()
+			if statErr != nil {
+				return fmt.Errorf("stat %s: %w", relPath, statErr)
+			}
+			if info.Size() > opts.MaxFileSize {
+				warning := fmt.Sprintf("warning: skipping large file (%d bytes exceeds max %d): %s\n",
+					info.Size(), opts.MaxFileSize, rel)
+				// Write to stderr via os.Stderr for CLI visibility.
+				if _, werr := os.Stderr.WriteString(warning); werr != nil {
+					return fmt.Errorf("write stderr warning: %w", werr)
+				}
+				return nil
+			}
 		}
 
 		canonical := paths.ToCanonical(absPath)
