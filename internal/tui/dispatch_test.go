@@ -18,19 +18,30 @@ func TestRouteSelection(t *testing.T) {
 		// installs a guard that fails if RunBackup is called unexpectedly.
 		runBackup func(cats []string, ch chan<- ProgressUpdate) error
 		wantErr   bool
+		wantCall  bool // true when RunBackup should be called
 	}{
 		{
-			name:      "cursor 0 Backup calls RunBackup",
-			sel:       MenuSelection{Cursor: 0, Item: "Create backup"},
+			name:      "cursor 0 Selected=true calls RunBackup",
+			sel:       MenuSelection{Selected: true, Cursor: 0, Item: "Create backup"},
 			runBackup: func(cats []string, ch chan<- ProgressUpdate) error { return nil },
+			wantCall:  true,
 		},
 		{
-			name: "cursor 1 Restore no-op",
-			sel:  MenuSelection{Cursor: 1, Item: "Restore"},
+			name: "cursor 0 Selected=false does NOT call RunBackup (q gate)",
+			sel:  MenuSelection{Selected: false, Cursor: 0, Item: "Create backup"},
+			runBackup: func(cats []string, ch chan<- ProgressUpdate) error {
+				t.Error("RunBackup called unexpectedly")
+				return nil
+			},
+			wantCall: false,
 		},
 		{
-			name: "cursor 6 Quit no-op",
-			sel:  MenuSelection{Cursor: 6, Item: "Quit"},
+			name: "cursor 1 Selected=true Restore no-op",
+			sel:  MenuSelection{Selected: true, Cursor: 1, Item: "Restore"},
+		},
+		{
+			name: "cursor 6 Selected=true Quit no-op",
+			sel:  MenuSelection{Selected: true, Cursor: 6, Item: "Quit"},
 		},
 		{
 			name: "empty selection no-op",
@@ -38,9 +49,14 @@ func TestRouteSelection(t *testing.T) {
 		},
 		{
 			name:      "cursor 0 propagates RunBackup error",
-			sel:       MenuSelection{Cursor: 0, Item: "Create backup"},
+			sel:       MenuSelection{Selected: true, Cursor: 0, Item: "Create backup"},
 			runBackup: func(cats []string, ch chan<- ProgressUpdate) error { return errors.New("backup failed") },
 			wantErr:   true,
+			wantCall:  true,
+		},
+		{
+			name: "cursor 0 Selected=false non-zero cursor no-op",
+			sel:  MenuSelection{Selected: false, Cursor: 2, Item: "Browse backups"},
 		},
 	}
 
@@ -56,7 +72,7 @@ func TestRouteSelection(t *testing.T) {
 					called = true
 					return orig(cats, ch)
 				}
-			} else {
+			} else if tt.sel.Cursor == 0 {
 				// Guard: RunBackup should NOT be called for these cases.
 				deps.RunBackup = func(cats []string, ch chan<- ProgressUpdate) error {
 					t.Error("RunBackup was called unexpectedly")
@@ -70,8 +86,11 @@ func TestRouteSelection(t *testing.T) {
 				t.Errorf("RouteSelection() error = %v, wantErr = %v", err, tt.wantErr)
 			}
 
-			if tt.runBackup != nil && !called {
+			if tt.wantCall && !called {
 				t.Error("RunBackup was not called when expected")
+			}
+			if !tt.wantCall && called {
+				t.Error("RunBackup was called unexpectedly")
 			}
 		})
 	}

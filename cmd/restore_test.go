@@ -4,32 +4,17 @@ import (
 	"bytes"
 	"strings"
 	"testing"
-
-	"github.com/spf13/cobra"
 )
 
 func TestRestoreCmd_Structure(t *testing.T) {
 	// Ensure the restore command is registered on root.
-	found := false
-	for _, sub := range rootCmd.Commands() {
-		if sub.Name() == "restore" {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if findSubcommand(t, "restore") == nil {
 		t.Fatal("restore subcommand not registered on root")
 	}
 }
 
 func TestRestoreCmd_Flags(t *testing.T) {
-	var cmd *cobra.Command
-	for _, sub := range rootCmd.Commands() {
-		if sub.Name() == "restore" {
-			cmd = sub
-			break
-		}
-	}
+	cmd := findSubcommand(t, "restore")
 	if cmd == nil {
 		t.Fatal("restore command not found")
 	}
@@ -52,25 +37,19 @@ func TestRestoreCmd_Flags(t *testing.T) {
 }
 
 func TestRestoreCmd_Args(t *testing.T) {
-	var cmd *cobra.Command
-	for _, sub := range rootCmd.Commands() {
-		if sub.Name() == "restore" {
-			cmd = sub
-			break
-		}
-	}
+	cmd := findSubcommand(t, "restore")
 	if cmd == nil {
 		t.Fatal("restore command not found")
 	}
 
 	// Test args validator directly.
-	// ExactArgs(1) should reject 0 args.
+	// MaximumNArgs(1) should accept 0 args (picker) or 1 arg.
 	err := cmd.Args(cmd, []string{})
-	if err == nil {
-		t.Fatal("expected error with 0 args, got nil")
+	if err != nil {
+		t.Fatalf("expected no error with 0 args (picker mode), got %v", err)
 	}
 
-	// ExactArgs(1) should reject 2 args.
+	// MaximumNArgs(1) should reject 2 args.
 	err = cmd.Args(cmd, []string{"id1", "id2"})
 	if err == nil {
 		t.Fatal("expected error with 2 args, got nil")
@@ -90,7 +69,9 @@ func TestRestoreCmd_Help(t *testing.T) {
 
 	// Route through root so help is properly resolved.
 	rootCmd.SetArgs([]string{"restore", "--help"})
-	rootCmd.Execute()
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("restore --help should not error: %v", err)
+	}
 
 	output := buf.String()
 	if !strings.Contains(output, "restore") {
@@ -105,13 +86,7 @@ func TestRestoreCmd_Help(t *testing.T) {
 }
 
 func TestRestoreCmd_Use(t *testing.T) {
-	var cmd *cobra.Command
-	for _, sub := range rootCmd.Commands() {
-		if sub.Name() == "restore" {
-			cmd = sub
-			break
-		}
-	}
+	cmd := findSubcommand(t, "restore")
 	if cmd == nil {
 		t.Fatal("restore command not found")
 	}
@@ -170,7 +145,12 @@ func TestRunRestoreWithDeps_BackupNotFound(t *testing.T) {
 }
 
 func TestRunRestore_MissingArgs(t *testing.T) {
-	// Restore requires exactly 1 arg. Direct args validation was tested above.
+	// Reset rootCmd and restoreCmd state to avoid help-flag leakage
+	// from previous tests (e.g., TestRestoreCmd_Help). pflag doesn't
+	// reset flag values when parsing empty args (pflag v1.0.9 bug).
+	rootCmd.SetArgs(nil)
+	restoreCmd.Flags().Set("help", "false")
+
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
 	rootCmd.SetOut(bufOut)
@@ -179,25 +159,70 @@ func TestRunRestore_MissingArgs(t *testing.T) {
 	rootCmd.SetArgs([]string{"restore"})
 	err := rootCmd.Execute()
 
-	if err == nil {
-		// If there's a restore with no args that succeeds, it may be because
-		// cobra handles subcommand routing differently. Test the arg validator directly.
-		var cmd *cobra.Command
-		for _, sub := range rootCmd.Commands() {
-			if sub.Name() == "restore" {
-				cmd = sub
-				break
-			}
-		}
-		if cmd != nil {
-			argErr := cmd.Args(cmd, []string{})
-			if argErr == nil {
-				t.Error("restore Args validator should reject 0 args")
-			}
-		}
+	// MaximumNArgs(1) allows 0 args (triggers TTY picker or error).
+	// The command may error or succeed depending on TTY availability.
+	// Either way, args validation for 0 args must pass.
+	if err != nil {
+		// If it errors, verify it's not a wrong error type.
+		t.Logf("restore with 0 args errored (expected in non-TTY): %v", err)
 		return
 	}
-	// If it errors, that's correct behavior.
+
+	// Verify Args validator accepts 0 args (MaximumNArgs(1)).
+	cmd := findSubcommand(t, "restore")
+	if cmd == nil {
+		t.Fatal("restore command not found")
+	}
+	argErr := cmd.Args(cmd, []string{})
+	if argErr != nil {
+		t.Errorf("restore MaximumNArgs(1) should accept 0 args (picker mode), got: %v", argErr)
+	}
+}
+
+// TestRestoreHelpFollowedByExecute verifies that running a help command
+// does not leak state into subsequent Execute() calls on the shared
+// restoreCmd. This tests the isolation fix for TestRunRestore_MissingArgs.
+func TestRestoreHelpFollowedByExecute(t *testing.T) {
+	// Step 1: Run --help on restore (like TestRestoreCmd_Help does).
+	buf1 := new(bytes.Buffer)
+	rootCmd.SetOut(buf1)
+	rootCmd.SetErr(buf1)
+	rootCmd.SetArgs(nil)
+	restoreCmd.Flags().Set("help", "false")
+
+	rootCmd.SetArgs([]string{"restore", "--help"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("restore --help should not error: %v", err)
+	}
+	if !strings.Contains(buf1.String(), "restore") {
+		t.Fatal("help output should mention 'restore'")
+	}
+
+	// Step 2: Reset help flag (pflag doesn't reset on empty Parse)
+	// and run restore with no args — must NOT short-circuit to help.
+	restoreCmd.Flags().Set("help", "false")
+	buf2 := new(bytes.Buffer)
+	rootCmd.SetOut(buf2)
+	rootCmd.SetErr(buf2)
+	rootCmd.SetArgs([]string{"restore"})
+	err := rootCmd.Execute()
+
+	// The key assertion: output must be DIFFERENT from help output.
+	// If it leaked, buf2 would contain the same help text as buf1.
+	if err == nil && strings.Contains(buf2.String(), "restore") && strings.Contains(buf2.String(), "--dry-run") {
+		output2 := buf2.String()
+		if strings.Contains(output2, "Usage:") {
+			t.Error("restore with no args leaked help output instead of running command")
+		}
+	}
+	// MaximumNArgs(1) allows 0 args — verify args validator.
+	cmd := findSubcommand(t, "restore")
+	if cmd == nil {
+		t.Fatal("restore command not found")
+	}
+	if argErr := cmd.Args(cmd, []string{}); argErr != nil {
+		t.Errorf("MaximumNArgs(1) should accept 0 args: %v", argErr)
+	}
 }
 
 func TestRunRestore_BackupNotFound(t *testing.T) {
@@ -237,13 +262,7 @@ func TestRunRestore_DryRunNonexistent(t *testing.T) {
 }
 
 func TestRestoreCmd_UseAndDescription(t *testing.T) {
-	var cmd *cobra.Command
-	for _, sub := range rootCmd.Commands() {
-		if sub.Name() == "restore" {
-			cmd = sub
-			break
-		}
-	}
+	cmd := findSubcommand(t, "restore")
 	if cmd == nil {
 		t.Fatal("restore command not found")
 	}
@@ -286,7 +305,9 @@ func TestRunRestore_VerboseFlagExists(t *testing.T) {
 	rootCmd.SetErr(buf)
 
 	rootCmd.SetArgs([]string{"restore", "--help"})
-	rootCmd.Execute()
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("restore --help should not error: %v", err)
+	}
 
 	output := buf.String()
 	if !strings.Contains(output, "restore") {

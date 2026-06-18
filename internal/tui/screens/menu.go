@@ -46,6 +46,7 @@ func RenderMainMenu(version string, banner string, menuItems []string, cursor in
 	helpKeys := []components.HelpKey{
 		{Key: "\u2191/\u2193", Desc: "navigate"},
 		{Key: "enter", Desc: "select"},
+		{Key: "?", Desc: "help"},
 		{Key: "q", Desc: "quit"},
 	}
 	b.WriteString(components.RenderHelp(helpKeys))

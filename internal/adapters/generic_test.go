@@ -460,6 +460,141 @@ func TestGenericAdapter_Restore(t *testing.T) {
 	})
 }
 
+// TestScanRootFiles_AppliesExcludes verifies that scanRootFiles honors
+// ScanOptions (MatchExclude + MaxFileSize) when filtering root-level files.
+// This test is RED until the production code is updated.
+func TestScanRootFiles_AppliesExcludes(t *testing.T) {
+	t.Run("excludes sqlite files", func(t *testing.T) {
+		home := t.TempDir()
+		configDir := filepath.Join(home, ".test")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		// Create a config file (should be included).
+		if err := os.WriteFile(filepath.Join(configDir, "settings.json"), []byte(`{"a":1}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+		// Create sqlite files (should be excluded).
+		if err := os.WriteFile(filepath.Join(configDir, "logs.sqlite"), []byte("db"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(configDir, "state.sqlite-wal"), []byte("wal"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		ga := newTestAdapter("exclude-test")
+		ga.ScanOpts = adapters.ScanOptions{
+			Excludes: []string{"*.sqlite", "*.sqlite-wal"},
+		}
+
+		items, err := ga.ListItems(home, []string{"config"})
+		if err != nil {
+			t.Fatalf("ListItems: %v", err)
+		}
+
+		// Verify settings.json is included.
+		foundSettings := false
+		for _, item := range items {
+			if item.RelPath == "settings.json" {
+				foundSettings = true
+				if item.Category != "config" {
+					t.Errorf("settings.json category = %q, want config", item.Category)
+				}
+			}
+		}
+		if !foundSettings {
+			t.Error("settings.json not found — should have been included")
+		}
+
+		// Verify sqlite files are excluded.
+		for _, item := range items {
+			if item.RelPath == "logs.sqlite" || item.RelPath == "state.sqlite-wal" {
+				t.Errorf("sqlite file %q should have been excluded", item.RelPath)
+			}
+		}
+	})
+
+	t.Run("skips oversized root files", func(t *testing.T) {
+		home := t.TempDir()
+		configDir := filepath.Join(home, ".test")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		// Small file (should be included).
+		if err := os.WriteFile(filepath.Join(configDir, "small.txt"), []byte("hi"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		// Large file (should be skipped by MaxFileSize).
+		large := make([]byte, 6000)
+		for i := range large {
+			large[i] = 'x'
+		}
+		if err := os.WriteFile(filepath.Join(configDir, "large.log"), large, 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		ga := newTestAdapter("maxsize-test")
+		ga.ScanOpts = adapters.ScanOptions{
+			MaxFileSize: 5000, // 5000 bytes max
+		}
+
+		items, err := ga.ListItems(home, []string{"config"})
+		if err != nil {
+			t.Fatalf("ListItems: %v", err)
+		}
+
+		foundSmall := false
+		for _, item := range items {
+			if item.RelPath == "small.txt" {
+				foundSmall = true
+			}
+			if item.RelPath == "large.log" {
+				t.Error("large.log should have been skipped by MaxFileSize")
+			}
+		}
+		if !foundSmall {
+			t.Error("small.txt not found — should have been included")
+		}
+	})
+
+	t.Run("custom exclude patterns apply", func(t *testing.T) {
+		home := t.TempDir()
+		configDir := filepath.Join(home, ".test")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(configDir, "config.yml"), []byte("yaml"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(configDir, "data.tmp"), []byte("tmp"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		ga := newTestAdapter("custom-exclude-test")
+		ga.ScanOpts = adapters.ScanOptions{
+			Excludes: []string{"*.tmp"},
+		}
+
+		items, err := ga.ListItems(home, []string{"config"})
+		if err != nil {
+			t.Fatalf("ListItems: %v", err)
+		}
+
+		foundYml := false
+		for _, item := range items {
+			if item.RelPath == "config.yml" {
+				foundYml = true
+			}
+			if item.RelPath == "data.tmp" {
+				t.Error("data.tmp should have been excluded by custom pattern *.tmp")
+			}
+		}
+		if !foundYml {
+			t.Error("config.yml not found — should have been included")
+		}
+	})
+}
+
 func TestGenericAdapter_InterfaceCompliance(t *testing.T) {
 	ga := newTestAdapter("iface-test")
 
