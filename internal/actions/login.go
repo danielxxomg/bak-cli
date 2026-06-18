@@ -17,6 +17,12 @@ type ConfigSaver interface {
 	Save() error
 }
 
+// oauthTokenRequester abstracts the OAuth Device Flow so tests can
+// inject stubs. *cloud.DeviceClient satisfies this interface.
+type oauthTokenRequester interface {
+	RequestToken() (string, error)
+}
+
 // LoginAction encapsulates the interactive login workflow for a cloud
 // provider. All I/O is injected for testability.
 type LoginAction struct {
@@ -33,6 +39,10 @@ type LoginAction struct {
 
 	// Config is the current configuration, used to check for existing tokens.
 	Config *config.Config
+
+	// OAuthClient enables OAuth Device Flow login when non-nil.
+	// When nil, the existing manual PAT flow is used.
+	OAuthClient oauthTokenRequester
 }
 
 // Run executes the login flow for the given provider. Only "github-gist"
@@ -51,7 +61,7 @@ func (a *LoginAction) Run(provider string, out io.Writer) error {
 	reader := bufio.NewReader(stdin)
 
 	// 1. Check if token already exists.
-	tok, _ := cloud.ResolveToken(a.Config)
+	tok, _ := cloud.ResolveToken(a.Config) // source description is informational only, not an error
 	if tok != "" {
 		_, _ = fmt.Fprintln(out, "Token already configured.")
 		_, _ = fmt.Fprint(out, "Do you want to replace it? [y/N]: ")
@@ -66,7 +76,12 @@ func (a *LoginAction) Run(provider string, out io.Writer) error {
 		}
 	}
 
-	// 2. Prompt for token.
+	// 2. OAuth Device Flow (if configured).
+	if a.OAuthClient != nil {
+		return a.runOAuthLogin(out)
+	}
+
+	// 3. Manual PAT prompt (fallback).
 	_, _ = fmt.Fprint(out, "Enter GitHub personal access token: ")
 	input, err := reader.ReadString('\n')
 	if err != nil {
@@ -78,7 +93,24 @@ func (a *LoginAction) Run(provider string, out io.Writer) error {
 		return fmt.Errorf("login: token cannot be empty")
 	}
 
-	// 3. Validate token.
+	// 4. Validate token.
+	return a.validateAndSave(token, out)
+}
+
+// runOAuthLogin performs the OAuth Device Flow and saves the resulting token.
+func (a *LoginAction) runOAuthLogin(out io.Writer) error {
+	_, _ = fmt.Fprintln(out, "Starting OAuth Device Flow...")
+
+	token, err := a.OAuthClient.RequestToken()
+	if err != nil {
+		return fmt.Errorf("oauth login: %w", err)
+	}
+
+	return a.validateAndSave(token, out)
+}
+
+// validateAndSave validates a token and saves it to config.
+func (a *LoginAction) validateAndSave(token string, out io.Writer) error {
 	_, _ = fmt.Fprint(out, "Validating token... ")
 	if a.TokenValidator != nil {
 		if err := a.TokenValidator(token); err != nil {
@@ -88,7 +120,7 @@ func (a *LoginAction) Run(provider string, out io.Writer) error {
 	}
 	_, _ = fmt.Fprintln(out, "✅")
 
-	// 4. Save to config (Set persists automatically).
+	// Save to config (Set persists automatically).
 	if err := a.ConfigSaver.Set("github.token", token); err != nil {
 		return fmt.Errorf("save token: %w", err)
 	}

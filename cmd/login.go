@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
@@ -69,6 +70,15 @@ func runLoginWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 		TokenValidator: cloud.ValidateToken,
 		ConfigSaver:    cfg,
 		Config:         cfg,
+	}
+
+	// Wire OAuth Device Flow if client ID env var is set.
+	if clientID := os.Getenv("BAK_GITHUB_OAUTH_CLIENT_ID"); clientID != "" {
+		action.OAuthClient = &cloud.DeviceClient{
+			ClientID:    clientID,
+			Out:         deps.Stdout,
+			OpenBrowser: cloud.OpenBrowser,
+		}
 	}
 
 	return action.Run(loginProvider, deps.Stdout)
