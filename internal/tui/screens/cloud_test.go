@@ -4,6 +4,7 @@
 package screens
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -306,5 +307,64 @@ func TestCloudModel_WindowSize(t *testing.T) {
 	}
 	if cm.Height != 30 {
 		t.Errorf("Height = %d, want 30", cm.Height)
+	}
+}
+
+// =============================================================================
+// Phase 3: CloudModel error and disconnect coverage
+// =============================================================================
+
+func TestCloudModel_Update_StatusError(t *testing.T) {
+	statusFn := func() (CloudInfo, error) {
+		return CloudInfo{}, fmt.Errorf("network unreachable")
+	}
+	m := NewCloudModel(statusFn)
+
+	cmd := m.Init()
+	if cmd == nil {
+		t.Fatal("Init() returned nil")
+	}
+	msg := cmd()
+	newModel, _ := m.Update(msg)
+	cm := newModel.(CloudModel)
+
+	if cm.Err == nil {
+		t.Error("error should be set when statusFn returns error")
+	}
+	if cm.Err.Error() != "network unreachable" {
+		t.Errorf("Err = %q, want network unreachable", cm.Err.Error())
+	}
+}
+
+func TestCloudModel_View_Disconnected(t *testing.T) {
+	m := NewCloudModel(nil)
+	m.Width = 80
+	m.Height = 24
+	m.Info = CloudInfo{
+		Provider:  "github",
+		Connected: false,
+		LastSync:  "never",
+	}
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "github") {
+		t.Errorf("disconnected view missing provider: %q", output)
+	}
+	if !strings.Contains(output, "Disconnected") {
+		t.Errorf("disconnected view missing status: %q", output)
+	}
+}
+
+func TestCloudModel_View_InitState(t *testing.T) {
+	// Before Init completes, Info is empty and no error — View shows "No provider".
+	m := NewCloudModel(nil)
+	m.Width = 80
+	m.Height = 24
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "No cloud provider configured") {
+		t.Errorf("init state view missing no-provider: %q", output)
 	}
 }

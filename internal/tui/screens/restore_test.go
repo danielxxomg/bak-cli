@@ -331,3 +331,117 @@ func makeTestModal() *components.ModalModel {
 	modal := components.NewModal("Confirm Restore", "This will overwrite current config.", []string{"Confirm", "Cancel"})
 	return &modal
 }
+
+// =============================================================================
+// Phase 3: Render helper coverage for restore.go (0% before backfill)
+// =============================================================================
+
+func TestRestore_RenderErrorState(t *testing.T) {
+	m := NewRestoreModel(nil, nil)
+	m.Err = errors.New("connection refused")
+
+	output := m.View().Content
+
+	// Error state shows the error message.
+	if !strings.Contains(output, "connection refused") {
+		t.Errorf("renderErrorState missing error: %q", output)
+	}
+	if !strings.Contains(output, "Error") {
+		t.Errorf("renderErrorState missing 'Error': %q", output)
+	}
+	if !strings.Contains(output, "q") {
+		t.Errorf("renderErrorState missing help key: %q", output)
+	}
+}
+
+func TestRestore_RenderBackupList(t *testing.T) {
+	m := NewRestoreModel(nil, nil)
+	m.Width = 80
+	m.Height = 24
+	m.State = restoreStateList
+	m.Backups = []BackupInfo{
+		{ID: "backup-1", Date: "2024-01-01", Size: "1MB", Status: "ok", Cloud: "none"},
+		{ID: "backup-2", Date: "2024-02-01", Size: "2MB", Status: "ok", Cloud: "github"},
+	}
+	m.Cursor = 0
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "backup-1") {
+		t.Errorf("renderBackupList missing backup-1: %q", output)
+	}
+	if !strings.Contains(output, "backup-2") {
+		t.Errorf("renderBackupList missing backup-2: %q", output)
+	}
+	if !strings.Contains(output, "navigate") || !strings.Contains(output, "select") {
+		t.Errorf("renderBackupList missing help: %q", output)
+	}
+}
+
+func TestRestore_RenderBackupList_Empty(t *testing.T) {
+	m := NewRestoreModel(nil, nil)
+	m.Width = 80
+	m.Height = 24
+	m.State = restoreStateList
+	m.Backups = nil
+
+	output := m.View().Content
+
+	// Empty state should show "No backups found".
+	if !strings.Contains(output, "No backups found") {
+		t.Errorf("empty backup list missing message: %q", output)
+	}
+}
+
+func TestRestore_RenderRunning(t *testing.T) {
+	m := NewRestoreModel(nil, nil)
+	m.Width = 80
+	m.Height = 24
+	m.State = restoreStateRunning
+	m.SelectedID = "backup-1"
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "Restore") {
+		t.Errorf("renderRunning missing title: %q", output)
+	}
+	if !strings.Contains(output, "backup-1") {
+		t.Errorf("renderRunning missing backup ID: %q", output)
+	}
+}
+
+func TestRestore_RenderDone(t *testing.T) {
+	m := NewRestoreModel(nil, nil)
+	m.Width = 80
+	m.Height = 24
+	m.State = restoreStateDone
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "Restore") {
+		t.Errorf("renderDone missing title: %q", output)
+	}
+	if !strings.Contains(output, "successfully") {
+		t.Errorf("renderDone missing success message: %q", output)
+	}
+	if !strings.Contains(output, "back to menu") {
+		t.Errorf("renderDone missing footer: %q", output)
+	}
+}
+
+func TestRestore_RenderDone_Error(t *testing.T) {
+	m := NewRestoreModel(nil, nil)
+	m.Width = 80
+	m.Height = 24
+	m.State = restoreStateDone
+	m.Err = errors.New("disk full")
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "disk full") {
+		t.Errorf("renderDone error missing message: %q", output)
+	}
+	if !strings.Contains(output, "Error") {
+		t.Errorf("renderDone error missing 'Error': %q", output)
+	}
+}

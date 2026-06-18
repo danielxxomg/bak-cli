@@ -11,6 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/danielxxomg/bak-cli/internal/tui/components"
 	"github.com/danielxxomg/bak-cli/internal/tui/screens"
 )
 
@@ -2073,4 +2074,590 @@ func TestNewModel_LoadsSettings(t *testing.T) {
 	if cmd != nil {
 		_ = cmd()
 	}
+}
+
+// =============================================================================
+// Phase 2: Backfill model.go — initRestore, initProfiles, initCloud
+// =============================================================================
+
+// TestInitRestore verifies that initRestore wires Deps.ListBackups and
+// Deps.RunRestore into the RestoreModel via listFn/restoreFn closures.
+func TestInitRestore(t *testing.T) {
+	listCalled := false
+
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		ListBackups: func() ([]BackupInfo, error) {
+			listCalled = true
+			return []BackupInfo{
+				{ID: "backup-1", Date: "2024-01-01", Size: "1MB", Status: "ok", Cloud: "none"},
+			}, nil
+		},
+		RunRestore: func(backupID string, dryRun bool) (string, error) {
+			return "restored", nil
+		},
+	})
+
+	r := m.initRestore()
+
+	// Init should load backups via the wired listFn.
+	cmd := r.Init()
+	if cmd == nil {
+		t.Fatal("Init() returned nil, want backup load command")
+	}
+	msg := cmd()
+	r2, _ := r.Update(msg)
+	rm := r2.(screens.RestoreModel)
+
+	if !listCalled {
+		t.Error("ListBackups was not called via initRestore closure")
+	}
+	if len(rm.Backups) != 1 {
+		t.Errorf("backups length = %d, want 1", len(rm.Backups))
+	}
+	if rm.Backups[0].ID != "backup-1" {
+		t.Errorf("backup ID = %q, want backup-1", rm.Backups[0].ID)
+	}
+
+	// Verify the model renders its View without panicking.
+	v := rm.View().Content
+	if v == "" {
+		t.Error("RestoreModel View() returned empty")
+	}
+}
+
+// TestInitRestore_NilDeps verifies initRestore handles nil Deps gracefully.
+func TestInitRestore_NilDeps(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+
+	r := m.initRestore()
+
+	// Init should work without panicking.
+	cmd := r.Init()
+	if cmd == nil {
+		t.Fatal("Init() returned nil, want backup load command")
+	}
+	msg := cmd()
+	r2, _ := r.Update(msg)
+	rm := r2.(screens.RestoreModel)
+
+	// No error should be set when ListBackups is nil.
+	if rm.Err != nil {
+		t.Errorf("initRestore with nil ListBackups: Err = %v, want nil", rm.Err)
+	}
+}
+
+// TestInitProfiles verifies that initProfiles wires Deps.ListProfiles,
+// Deps.SetActiveProfile, Deps.DeleteProfile, Deps.RunWizard, and
+// Deps.SaveProfile into the ProfilesModel.
+func TestInitProfiles(t *testing.T) {
+	listCalled := false
+
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		ListProfiles: func() ([]ProfileInfo, error) {
+			listCalled = true
+			return []ProfileInfo{
+				{Name: "work", Provider: "github", Preset: "full", Active: true},
+			}, nil
+		},
+		SetActiveProfile: func(name string) error { return nil },
+	})
+
+	p := m.initProfiles()
+
+	// Verify SaveProfile is set as a mutable field.
+	if p.SaveProfile == nil {
+		t.Error("SaveProfile should be set after initProfiles")
+	}
+
+	// Init should load profiles.
+	cmd := p.Init()
+	if cmd == nil {
+		t.Fatal("Init() returned nil")
+	}
+	msg := cmd()
+	p2, _ := p.Update(msg)
+	pm := p2.(screens.ProfilesModel)
+
+	if !listCalled {
+		t.Error("ListProfiles was not called")
+	}
+	if len(pm.Profiles) != 1 {
+		t.Errorf("profiles length = %d, want 1", len(pm.Profiles))
+	}
+
+	// Verify the model renders its View without panicking.
+	v := pm.View().Content
+	if v == "" {
+		t.Error("ProfilesModel View() returned empty")
+	}
+}
+
+// TestInitCloud verifies that initCloud wires Deps.GetCloudStatus into
+// the CloudModel via a statusFn closure.
+func TestInitCloud(t *testing.T) {
+	statusCalled := false
+
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		GetCloudStatus: func() (CloudStatus, error) {
+			statusCalled = true
+			return CloudStatus{
+				Provider:   "github",
+				Connected:  true,
+				LastSync:   "2024-06-09",
+				LocalCount: 5,
+				CloudCount: 3,
+			}, nil
+		},
+	})
+
+	c := m.initCloud()
+
+	// Verify CloudModel has a wired statusFn.
+	cmd := c.Init()
+	if cmd == nil {
+		t.Fatal("Init() returned nil")
+	}
+	msg := cmd()
+	c2, _ := c.Update(msg)
+	cm := c2.(screens.CloudModel)
+
+	if !statusCalled {
+		t.Error("GetCloudStatus was not called via statusFn closure")
+	}
+	if cm.Info.Provider != "github" {
+		t.Errorf("Info.Provider = %q, want github", cm.Info.Provider)
+	}
+	if cm.Info.LocalCount != 5 {
+		t.Errorf("Info.LocalCount = %d, want 5", cm.Info.LocalCount)
+	}
+}
+
+// TestInitCloud_NilStatusFn verifies initCloud handles nil GetCloudStatus.
+func TestInitCloud_NilStatusFn(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+
+	c := m.initCloud()
+
+	cmd := c.Init()
+	if cmd == nil {
+		t.Fatal("Init() returned nil")
+	}
+	msg := cmd()
+	c2, _ := c.Update(msg)
+	cm := c2.(screens.CloudModel)
+
+	// No error, empty info.
+	if cm.Err != nil {
+		t.Errorf("initCloud with nil GetCloudStatus: Err = %v, want nil", cm.Err)
+	}
+	if cm.Info.Provider != "" {
+		t.Errorf("Info.Provider = %q, want empty", cm.Info.Provider)
+	}
+}
+
+// TestInitCloud_StatusError verifies initCloud handles errors from GetCloudStatus.
+func TestInitCloud_StatusError(t *testing.T) {
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		GetCloudStatus: func() (CloudStatus, error) {
+			return CloudStatus{}, fmt.Errorf("network unreachable")
+		},
+	})
+
+	c := m.initCloud()
+
+	cmd := c.Init()
+	if cmd == nil {
+		t.Fatal("Init() returned nil")
+	}
+	msg := cmd()
+	c2, _ := c.Update(msg)
+	cm := c2.(screens.CloudModel)
+
+	if cm.Err == nil {
+		t.Error("initCloud with error GetCloudStatus: Err = nil, want error")
+	}
+	if cm.Err.Error() != "network unreachable" {
+		t.Errorf("initCloud error = %q, want %q", cm.Err.Error(), "network unreachable")
+	}
+}
+
+// TestModel_Update_UnknownMsg verifies that an unknown message type
+// does not cause a panic and returns the model unchanged.
+func TestModel_Update_UnknownMsg(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+
+	// Send a completely unknown message type.
+	newModel, cmd := m.Update(struct{ x int }{x: 42})
+	result := newModel.(Model)
+
+	// Model should be returned unchanged; no crash.
+	if result.screen != ScreenMenu {
+		t.Errorf("after unknown msg: screen = %v, want ScreenMenu", result.screen)
+	}
+	if cmd != nil {
+		t.Errorf("unknown msg returned cmd %v, want nil", cmd)
+	}
+}
+
+// TestModel_HandleKey_ScreenProfiles verifies key dispatch for ScreenProfiles.
+func TestModel_HandleKey_ScreenProfiles(t *testing.T) {
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		ListProfiles: func() ([]ProfileInfo, error) {
+			return []ProfileInfo{
+				{Name: "work", Provider: "github", Preset: "full", Active: true},
+			}, nil
+		},
+	})
+	m.width = 80
+	m.height = 24
+	m.screen = ScreenProfiles
+	// Init profiles via screenChangeMsg.
+	m2, _ := m.Update(screenChangeMsg{screen: ScreenProfiles})
+	m = m2.(Model)
+
+	// Press 'j' — should be forwarded to profiles sub-model.
+	newModel, _ := m.Update(tea.KeyPressMsg{Code: 'j'})
+	result := newModel.(Model)
+
+	if result.screen != ScreenProfiles {
+		t.Errorf("after j on profiles: screen = %v, want ScreenProfiles", result.screen)
+	}
+}
+
+// TestModel_HandleKey_ScreenRestore verifies key dispatch for ScreenRestore.
+func TestModel_HandleKey_ScreenRestore(t *testing.T) {
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		ListBackups: func() ([]BackupInfo, error) {
+			return []BackupInfo{
+				{ID: "b1", Date: "2024-01-01", Size: "1MB", Status: "ok", Cloud: "none"},
+			}, nil
+		},
+	})
+	m.width = 80
+	m.height = 24
+	m.screen = ScreenRestore
+	// Init restore via screenChangeMsg.
+	m2, _ := m.Update(screenChangeMsg{screen: ScreenRestore})
+	m = m2.(Model)
+
+	// Press 'q' on restore — the sub-model returns a cmd producing ScreenBackMsg.
+	newModel, cmd := m.Update(tea.KeyPressMsg{Code: 'q'})
+	// Execute the returned cmd to get ScreenBackMsg, then process it.
+	if cmd != nil {
+		msg := cmd()
+		newModel, _ = newModel.Update(msg)
+	}
+	result := newModel.(Model)
+
+	if result.screen != ScreenMenu {
+		t.Errorf("after q on restore: screen = %v, want ScreenMenu", result.screen)
+	}
+}
+
+// TestModel_HandleKey_ScreenSettings verifies key dispatch for ScreenSettings.
+func TestModel_HandleKey_ScreenSettings(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.screen = ScreenSettings
+	m.settings = newSettingsPtr()
+
+	// Give sub-model dimensions.
+	m2, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = m2.(Model)
+
+	// Press 'q' on settings — the sub-model returns a cmd producing ScreenBackMsg.
+	newModel, cmd := m.Update(tea.KeyPressMsg{Code: 'q'})
+	if cmd != nil {
+		msg := cmd()
+		newModel, _ = newModel.Update(msg)
+	}
+	result := newModel.(Model)
+
+	if result.screen != ScreenMenu {
+		t.Errorf("after q on settings: screen = %v, want ScreenMenu", result.screen)
+	}
+}
+
+// TestModel_HandleKey_ScreenHealth verifies key dispatch for ScreenHealth.
+func TestModel_HandleKey_ScreenHealth(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.screen = ScreenHealth
+	m.health = newHealthPtr()
+
+	// Give sub-model dimensions.
+	m2, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = m2.(Model)
+
+	// Press 'q' on health — the sub-model returns a cmd producing ScreenBackMsg.
+	newModel, cmd := m.Update(tea.KeyPressMsg{Code: 'q'})
+	if cmd != nil {
+		msg := cmd()
+		newModel, _ = newModel.Update(msg)
+	}
+	result := newModel.(Model)
+
+	if result.screen != ScreenMenu {
+		t.Errorf("after q on health: screen = %v, want ScreenMenu", result.screen)
+	}
+}
+
+// =============================================================================
+// Phase 2.6: Coverage gap fill — initProfiles nil deps, initRestore nil RunRestore
+// =============================================================================
+
+// TestInitProfiles_NilDeps verifies initProfiles handles nil ListProfiles,
+// nil DeleteProfile, and nil RunWizard gracefully.
+func TestInitProfiles_NilDeps(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+
+	p := m.initProfiles()
+
+	// Init should work without panicking.
+	cmd := p.Init()
+	if cmd == nil {
+		t.Fatal("Init() returned nil")
+	}
+	msg := cmd()
+	p2, _ := p.Update(msg)
+	pm := p2.(screens.ProfilesModel)
+
+	// No error and no profiles when ListProfiles is nil.
+	if pm.Err != nil {
+		t.Errorf("initProfiles nil ListProfiles: Err = %v, want nil", pm.Err)
+	}
+	if len(pm.Profiles) != 0 {
+		t.Errorf("profiles length = %d, want 0", len(pm.Profiles))
+	}
+
+	// SaveProfile should still be set.
+	if pm.SaveProfile == nil {
+		t.Error("SaveProfile should be set even when ListProfiles is nil")
+	}
+}
+
+// TestInitRestore_NilRunRestore verifies initRestore handles nil RunRestore.
+func TestInitRestore_NilRunRestore(t *testing.T) {
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		ListBackups: func() ([]BackupInfo, error) {
+			return []BackupInfo{
+				{ID: "b1", Date: "2024-01-01", Size: "1MB", Status: "ok", Cloud: "none"},
+			}, nil
+		},
+		RunRestore: nil,
+	})
+
+	r := m.initRestore()
+
+	cmd := r.Init()
+	if cmd == nil {
+		t.Fatal("Init() returned nil")
+	}
+	msg := cmd()
+	r2, _ := r.Update(msg)
+	rm := r2.(screens.RestoreModel)
+
+	if len(rm.Backups) != 1 {
+		t.Errorf("backups length = %d, want 1", len(rm.Backups))
+	}
+}
+
+// TestModel_View_ScreenRestoreNoSubmodel verifies View when ScreenRestore
+// has no sub-model initialized (falls back to "Restore" text).
+func TestModel_View_ScreenRestoreNoSubmodel(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.screen = ScreenRestore
+	m.restore = nil
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "Restore") {
+		t.Errorf("ScreenRestore no sub-model: View() = %q, want 'Restore'", output)
+	}
+}
+
+// TestModel_View_ScreenProfilesNoSubmodel verifies View when ScreenProfiles
+// has no sub-model initialized (falls back to "Profiles" text).
+func TestModel_View_ScreenProfilesNoSubmodel(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.screen = ScreenProfiles
+	m.profiles = nil
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "Profiles") {
+		t.Errorf("ScreenProfiles no sub-model: View() = %q, want 'Profiles'", output)
+	}
+}
+
+// TestModel_View_ScreenCloudNoSubmodel verifies View when ScreenCloud
+// has no sub-model initialized (falls back to RenderCloudStatus).
+func TestModel_View_ScreenCloudNoSubmodel(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.screen = ScreenCloud
+	m.cloud = nil
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "No cloud provider configured") {
+		t.Errorf("ScreenCloud no sub-model: View() = %q, want cloud status", output)
+	}
+}
+
+// TestModel_HandleMenuEnter_Cloud verifies that Enter on cursor=3
+// ("Cloud sync") dispatches screenChangeMsg for ScreenCloud.
+func TestModel_HandleMenuEnter_Cloud(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.cursor = 3 // "Cloud sync"
+
+	_, cmd := m.Update(tea.KeyPressMsg{Code: KeyEnter})
+
+	if cmd == nil {
+		t.Fatal("Enter on Cloud sync returned nil cmd")
+	}
+	msg := cmd()
+	switch msg := msg.(type) {
+	case screenChangeMsg:
+		if msg.screen != ScreenCloud {
+			t.Errorf("screenChangeMsg.screen = %v, want ScreenCloud", msg.screen)
+		}
+	default:
+		t.Errorf("Enter on Cloud sync returned %T, want screenChangeMsg", msg)
+	}
+}
+
+// TestInitProfiles_NilClosures verifies that switchFn, deleteFn, and
+// wizardFn closures handle nil Deps gracefully (hit nil-return branches).
+func TestInitProfiles_NilClosures(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+
+	p := m.initProfiles()
+	// Set profiles — both inactive so enter won't make them undeletable.
+	p.Profiles = []screens.ProfileInfo{
+		{Name: "test", Provider: "github", Preset: "full", Active: false},
+	}
+	p.Cursor = 0
+	p.Width = 80
+	p.Height = 24
+
+	// Press 'n' — should call wizardFn (nil → returns empty ProfileInfo).
+	p3, cmd := p.Update(tea.KeyPressMsg{Code: 'n'})
+	_ = cmd // wizardFn creates an async cmd; we skip actual execution
+	pm := p3.(screens.ProfilesModel)
+
+	// Press enter — should call switchFn (nil → no-op).
+	p4, _ := pm.Update(tea.KeyPressMsg{Code: '\r'})
+	pm = p4.(screens.ProfilesModel)
+
+	if pm.Err != nil {
+		t.Errorf("switchFn nil deps: Err = %v, want nil", pm.Err)
+	}
+}
+
+// TestInitProfiles_DeleteWithNilDeps verifies deleteFn nil path via modal confirm.
+func TestInitProfiles_DeleteWithNilDeps(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+
+	p := m.initProfiles()
+	p.Profiles = []screens.ProfileInfo{
+		{Name: "test", Provider: "github", Preset: "full", Active: false},
+	}
+	p.Cursor = 0
+	p.Width = 80
+	p.Height = 24
+
+	// Press 'd' to show modal.
+	p2, _ := p.Update(tea.KeyPressMsg{Code: 'd'})
+	pm := p2.(screens.ProfilesModel)
+
+	if pm.Modal == nil {
+		t.Fatal("Modal should be set for delete confirmation")
+	}
+
+	// Confirm delete — deleteFn is nil, should be no-op.
+	p3, _ := pm.Update(components.ModalResultMsg{Confirmed: true})
+	pm = p3.(screens.ProfilesModel)
+
+	// Profile should be removed from local list.
+	if len(pm.Profiles) != 0 {
+		t.Errorf("after delete: profiles length = %d, want 0", len(pm.Profiles))
+	}
+}
+
+// TestInitSettings_LoadError verifies that when LoadSettings returns an error,
+// defaults are used (NewSettingsModel fallback path).
+func TestInitSettings_LoadError(t *testing.T) {
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		LoadSettings: func() (screens.Settings, error) {
+			return screens.Settings{}, fmt.Errorf("config corrupted")
+		},
+	})
+	m.width = 80
+	m.height = 24
+
+	s := m.initSettings()
+	// Forward dimensions to the sub-model.
+	s2, _ := s.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	sm := s2.(screens.SettingsModel)
+
+	// Should create a SettingsModel with defaults (error path).
+	v := sm.View().Content
+	if !strings.Contains(v, "Settings") {
+		t.Errorf("initSettings error path: View() = %q, want 'Settings'", v)
+	}
+}
+
+// TestDrainProgressCmd_ClosedChannel verifies drainProgressCmd handles a
+// closed channel gracefully (returns ProgressDoneMsg).
+func TestDrainProgressCmd_ClosedChannel(t *testing.T) {
+	ch := make(chan ProgressUpdate, 1)
+	close(ch)
+
+	cmd := drainProgressCmd(ch)
+	if cmd == nil {
+		t.Fatal("drainProgressCmd returned nil for closed channel")
+	}
+
+	msg := cmd()
+	_, ok := msg.(screens.ProgressDoneMsg)
+	if !ok {
+		t.Errorf("closed channel: expected ProgressDoneMsg, got %T", msg)
+	}
+}
+
+// TestModel_Update_ToastTickForwarding verifies that tick messages not
+// handled by screen routing are forwarded to the toast component.
+func TestModel_Update_ToastTickForwarding(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.width = 80
+	m.height = 24
+	m.toast.Show("visible toast", 5)
+
+	// Forward an unknown message type via the default path.
+	newModel, cmd := m.Update(struct{ x int }{x: 42})
+	result := newModel.(Model)
+
+	// The toast should still be visible after an unknown message.
+	if result.toast.View() == "" {
+		t.Error("toast should still be visible after unknown msg forwarding")
+	}
+	_ = cmd
 }
