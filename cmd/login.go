@@ -2,12 +2,15 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/atotto/clipboard"
 	"github.com/spf13/cobra"
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/danielxxomg/bak-cli/internal/cloud"
+	"github.com/danielxxomg/bak-cli/internal/tui/screens"
 )
 
 var loginProvider string
@@ -17,19 +20,15 @@ var loginInteractive bool
 var loginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Authenticate with a cloud provider for sync",
-	Long: `Configure authentication for cloud backup providers.
+	Long: `Authenticate with a cloud provider for backup sync.
 
-For GitHub (default): Configures a personal access token (PAT) to enable
-cloud backup via private GitHub Gists.
+GitHub (default): Opens your browser for OAuth login — just authorize and
+you're done. Falls back to manual PAT paste if the browser can't open.
 
-The token is stored in ~/.config/bak/config.json and used by the
-push and pull commands.
-
-Token requirements for GitHub:
+PAT requirements for GitHub (manual fallback):
   - Classic PAT: needs the 'gist' scope
   - Fine-grained PAT: needs read/write access to Gists
-
-Create a token at: https://github.com/settings/tokens
+  - Create at: https://github.com/settings/tokens
 
 For other providers (Codeberg, Gitea, etc.), use 'bak config set':
   bak config set providers.codeberg.token <your-token>
@@ -71,6 +70,19 @@ func runLoginWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 		Config:         cfg,
 	}
 
+	// Wire OAuth Device Flow. Env var overrides the default client ID.
+	const defaultOAuthClientID = "Ov23liGOBgrjOlus0xwt"
+	clientID := os.Getenv("BAK_GITHUB_OAUTH_CLIENT_ID")
+	if clientID == "" {
+		clientID = defaultOAuthClientID
+	}
+	action.OAuthClient = &cloud.DeviceClient{
+		ClientID:    clientID,
+		Out:         deps.Stdout,
+		OpenBrowser: cloud.OpenBrowser,
+		Clipboard:   clipboard.WriteAll,
+	}
+
 	return action.Run(loginProvider, deps.Stdout)
 }
 
@@ -83,17 +95,20 @@ func runLoginInteractiveWithDeps(cmd *cobra.Command, deps cmdDeps) error {
 		ConfigLoader: deps.ConfigLoader,
 		Stdout:       deps.Stdout,
 		Wizard: func(providers []string) (string, error) {
-			m := newWizardModel("login", providers)
+			m := screens.NewWizardModel("login", providers)
 			p := tea.NewProgram(m)
 			finalModel, err := p.Run()
 			if err != nil {
 				return "", err
 			}
-			wm := finalModel.(*wizardModel)
-			if !wm.confirmed {
+			wm, ok := finalModel.(*screens.WizardModel)
+			if !ok {
+				return "", fmt.Errorf("wizard: unexpected model type %T", finalModel)
+			}
+			if !wm.Confirmed {
 				return "", nil
 			}
-			return wm.selectedProvider, nil
+			return wm.SelectedProvider, nil
 		},
 	}
 
@@ -103,7 +118,9 @@ func runLoginInteractiveWithDeps(cmd *cobra.Command, deps cmdDeps) error {
 	}
 
 	if selected == "" {
-		_, _ = fmt.Fprintln(deps.Stdout, "Login cancelled.")
+		if _, err := fmt.Fprintln(deps.Stdout, "Login cancelled."); err != nil {
+			return fmt.Errorf("write output: %w", err)
+		}
 		return nil
 	}
 

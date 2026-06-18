@@ -223,11 +223,12 @@ func (m RestoreModel) runRestoreCmd(backupID string) tea.Cmd {
 func (m RestoreModel) View() tea.View {
 	var content string
 
-	if m.State == restoreStateList && len(m.Backups) == 0 && m.Err == nil {
+	switch {
+	case m.State == restoreStateList && len(m.Backups) == 0 && m.Err == nil:
 		content = m.renderEmptyState()
-	} else if m.Err != nil {
+	case m.Err != nil:
 		content = m.renderErrorState()
-	} else {
+	default:
 		switch m.State {
 		case restoreStateList:
 			content = m.renderBackupList()

@@ -5,25 +5,27 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/danielxxomg/bak-cli/internal/tui/screens"
 )
 
 // --- wizardModel step transitions ---
 
 func TestWizardModel_Init(t *testing.T) {
-	m := newWizardModel("profile-create", nil)
+	m := screens.NewWizardModel("profile-create", nil)
 	cmd := m.Init()
 	if cmd != nil {
 		t.Log("Init returned a command (expected for some modes)")
 	}
-	if m.CurrentStep() != stepProvider {
-		t.Errorf("initial step = %d, want stepProvider", m.CurrentStep())
+	if m.CurrentStep() != screens.StepName {
+		t.Errorf("initial step = %d, want StepName (first step is name input)", m.CurrentStep())
 	}
 }
 
 func TestWizardModel_StepTransitions(t *testing.T) {
-	m := newWizardModel("profile-create", []string{"github-gist", "codeberg"})
+	m := screens.NewWizardModel("profile-create", []string{"github-gist", "codeberg"})
 
-	steps := []wizardStep{stepProvider, stepPreset, stepAdapters, stepCategories, stepConfirm}
+	steps := []screens.WizardStep{screens.StepName, screens.StepProvider, screens.StepPreset, screens.StepAdapters, screens.StepCategories, screens.StepConfirm}
 
 	for i, wantStep := range steps {
 		got := m.CurrentStep()
@@ -31,42 +33,152 @@ func TestWizardModel_StepTransitions(t *testing.T) {
 			t.Fatalf("step %d: got %d, want %d", i, got, wantStep)
 		}
 		// Advance: simulate Enter key.
-		if wantStep != stepConfirm {
+		if wantStep != screens.StepConfirm {
 			msg := tea.KeyPressMsg{Code: tea.KeyEnter}
 			_, _ = m.Update(msg)
 		}
 	}
 }
 
-func TestWizardModel_CtrlC_Exits(t *testing.T) {
-	m := newWizardModel("profile-create", []string{"github-gist"})
-
-	msg := tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
-	model, cmd := m.Update(msg)
-
-	if model.(*wizardModel).quitting != true {
-		t.Error("wizardModel.quitting should be true after Ctrl+C")
+func TestWizardModel_ExitKeys(t *testing.T) {
+	tests := []struct {
+		name         string
+		msg          tea.KeyPressMsg
+		wantQuitting bool
+		wantQuitCmd  bool // whether tea.Quit is returned
+	}{
+		{"ctrl+c", tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}, true, true},
+		{"esc", tea.KeyPressMsg{Code: tea.KeyEsc}, true, true},
 	}
-	if cmd == nil {
-		t.Error("Ctrl+C should return tea.Quit")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := screens.NewWizardModel("profile-create", []string{"github-gist"})
+			model, cmd := m.Update(tt.msg)
+
+			if model.(*screens.WizardModel).Quitting != tt.wantQuitting {
+				t.Errorf("Quitting = %v, want %v", model.(*screens.WizardModel).Quitting, tt.wantQuitting)
+			}
+			if tt.wantQuitCmd && cmd == nil {
+				t.Error("expected tea.Quit command")
+			}
+		})
 	}
 }
 
-func TestWizardModel_Esc_Exits(t *testing.T) {
-	m := newWizardModel("profile-create", []string{"github-gist"})
+// --- wizardModel name step ---
 
-	msg := tea.KeyPressMsg{Code: tea.KeyEsc}
-	model, _ := m.Update(msg)
+func TestWizardModel_NameStep_FirstStep(t *testing.T) {
+	m := screens.NewWizardModel("profile-create", []string{"github-gist", "codeberg"})
 
-	if model.(*wizardModel).quitting != true {
-		t.Error("wizardModel.quitting should be true after Esc")
+	// First step should be name input.
+	if m.CurrentStep() != screens.StepName {
+		t.Errorf("first step = %d, want StepName", m.CurrentStep())
+	}
+}
+
+func TestWizardModel_NameStep_EnterAdvances(t *testing.T) {
+	m := screens.NewWizardModel("profile-create", []string{"github-gist", "codeberg"})
+
+	// Press Enter on name step → advances to provider.
+	msg := tea.KeyPressMsg{Code: tea.KeyEnter}
+	_, _ = m.Update(msg)
+
+	if m.CurrentStep() != screens.StepProvider {
+		t.Errorf("after Enter on name step: step = %d, want StepProvider", m.CurrentStep())
+	}
+}
+
+func TestWizardModel_NameStep_Typing(t *testing.T) {
+	m := screens.NewWizardModel("profile-create", []string{"github-gist"})
+
+	// Type a name character by character.
+	for _, r := range "my-profile" {
+		msg := tea.KeyPressMsg{Code: r, Text: string(r)}
+		_, _ = m.Update(msg)
+	}
+
+	if m.NameInput != "my-profile" {
+		t.Errorf("NameInput = %q, want %q", m.NameInput, "my-profile")
+	}
+}
+
+func TestWizardModel_NameStep_Backspace(t *testing.T) {
+	m := screens.NewWizardModel("profile-create", []string{"github-gist"})
+	m.NameInput = "hello"
+
+	// Press backspace.
+	msg := tea.KeyPressMsg{Code: tea.KeyBackspace}
+	_, _ = m.Update(msg)
+
+	if m.NameInput != "hell" {
+		t.Errorf("NameInput after backspace = %q, want %q", m.NameInput, "hell")
+	}
+}
+
+func TestWizardModel_NameStep_BackspaceOnEmpty(t *testing.T) {
+	m := screens.NewWizardModel("profile-create", []string{"github-gist"})
+
+	// Backspace on empty string should not panic.
+	msg := tea.KeyPressMsg{Code: tea.KeyBackspace}
+	_, _ = m.Update(msg)
+
+	if m.NameInput != "" {
+		t.Errorf("NameInput after backspace on empty = %q, want empty", m.NameInput)
+	}
+}
+
+func TestWizardModel_NameStep_NamePersistsAcrossSteps(t *testing.T) {
+	m := screens.NewWizardModel("profile-create", []string{"github-gist"})
+
+	// Type a name.
+	for _, r := range "test-profile" {
+		msg := tea.KeyPressMsg{Code: r, Text: string(r)}
+		_, _ = m.Update(msg)
+	}
+
+	// Advance through all steps (name→provider→preset→adapters→categories→confirm).
+	for i := 0; i < 5; i++ {
+		msg := tea.KeyPressMsg{Code: tea.KeyEnter}
+		_, _ = m.Update(msg)
+	}
+
+	if m.NameInput != "test-profile" {
+		t.Errorf("NameInput after advancing = %q, want %q", m.NameInput, "test-profile")
+	}
+}
+
+func TestWizardModel_ProfileName(t *testing.T) {
+	tests := []struct {
+		name             string
+		providers        []string
+		nameInput        string
+		selectedProvider string
+		want             string
+	}{
+		{"uses entered name", []string{"github-gist"}, "my-custom-profile", "codeberg", "my-custom-profile"},
+		{"falls back to provider", []string{"github-gist"}, "", "github-gist", "github-gist"},
+		{"falls back to untitled", nil, "", "", "untitled"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := screens.NewWizardModel("profile-create", tt.providers)
+			m.NameInput = tt.nameInput
+			m.SelectedProvider = tt.selectedProvider
+
+			got := m.ProfileName()
+			if got != tt.want {
+				t.Errorf("ProfileName() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
 // --- wizardModel view ---
 
 func TestWizardModel_View_ContainsTitle(t *testing.T) {
-	m := newWizardModel("profile-create", []string{"github-gist"})
+	m := screens.NewWizardModel("profile-create", []string{"github-gist"})
 	view := m.View().Content
 
 	if !strings.Contains(view, "Create Profile") && !strings.Contains(view, "Profile") {
@@ -75,8 +187,8 @@ func TestWizardModel_View_ContainsTitle(t *testing.T) {
 }
 
 func TestWizardModel_View_QuittingEmpty(t *testing.T) {
-	m := newWizardModel("profile-create", nil)
-	m.quitting = true
+	m := screens.NewWizardModel("profile-create", nil)
+	m.Quitting = true
 
 	view := m.View().Content
 	if view != "" {
@@ -88,25 +200,29 @@ func TestWizardModel_View_QuittingEmpty(t *testing.T) {
 
 func TestWizardModel_ProviderSelection(t *testing.T) {
 	providers := []string{"github-gist", "codeberg", "gitea"}
-	m := newWizardModel("profile-create", providers)
+	m := screens.NewWizardModel("profile-create", providers)
+
+	// Advance past the name step to the provider step.
+	msg := tea.KeyPressMsg{Code: tea.KeyEnter}
+	_, _ = m.Update(msg)
 
 	// Initially cursor at 0.
-	if m.providerCursor != 0 {
-		t.Errorf("initial cursor = %d, want 0", m.providerCursor)
+	if m.ProviderCursor != 0 {
+		t.Errorf("initial cursor = %d, want 0", m.ProviderCursor)
 	}
 
 	// Move down.
-	msg := tea.KeyPressMsg{Code: 'j'}
+	msg = tea.KeyPressMsg{Code: 'j'}
 	_, _ = m.Update(msg)
-	if m.providerCursor != 1 {
-		t.Errorf("cursor after down = %d, want 1", m.providerCursor)
+	if m.ProviderCursor != 1 {
+		t.Errorf("cursor after down = %d, want 1", m.ProviderCursor)
 	}
 
 	// Move up.
 	msg = tea.KeyPressMsg{Code: 'k'}
 	_, _ = m.Update(msg)
-	if m.providerCursor != 0 {
-		t.Errorf("cursor after up = %d, want 0", m.providerCursor)
+	if m.ProviderCursor != 0 {
+		t.Errorf("cursor after up = %d, want 0", m.ProviderCursor)
 	}
 }
 
@@ -123,22 +239,22 @@ func TestIsTTY_NotTerminal(t *testing.T) {
 // --- WindowSizeMsg handling ---
 
 func TestWizardModel_Update_WindowSize(t *testing.T) {
-	m := newWizardModel("profile-create", []string{"github-gist"})
+	m := screens.NewWizardModel("profile-create", []string{"github-gist"})
 
 	msg := tea.WindowSizeMsg{Width: 100, Height: 30}
 	result, _ := m.Update(msg)
-	model := result.(*wizardModel)
+	model := result.(*screens.WizardModel)
 
-	if model.width != 100 {
-		t.Errorf("width = %d, want 100", model.width)
+	if model.Width != 100 {
+		t.Errorf("Width = %d, want 100", model.Width)
 	}
-	if model.height != 30 {
-		t.Errorf("height = %d, want 30", model.height)
+	if model.Height != 30 {
+		t.Errorf("Height = %d, want 30", model.Height)
 	}
 }
 
 func TestWizardModel_Update_WindowSize_SecondResize(t *testing.T) {
-	m := newWizardModel("profile-create", []string{"github-gist"})
+	m := screens.NewWizardModel("profile-create", []string{"github-gist"})
 
 	// First resize.
 	msg1 := tea.WindowSizeMsg{Width: 100, Height: 30}
@@ -147,12 +263,50 @@ func TestWizardModel_Update_WindowSize_SecondResize(t *testing.T) {
 	// Second resize — values should update.
 	msg2 := tea.WindowSizeMsg{Width: 60, Height: 15}
 	m2, _ := m1.Update(msg2)
-	model := m2.(*wizardModel)
+	model := m2.(*screens.WizardModel)
 
-	if model.width != 60 {
-		t.Errorf("width = %d, want 60", model.width)
+	if model.Width != 60 {
+		t.Errorf("Width = %d, want 60", model.Width)
 	}
-	if model.height != 15 {
-		t.Errorf("height = %d, want 15", model.height)
+	if model.Height != 15 {
+		t.Errorf("Height = %d, want 15", model.Height)
+	}
+}
+
+func TestMoveCursor(t *testing.T) {
+	tests := []struct {
+		name  string
+		start int
+		max   int
+		key   string
+		want  int
+	}{
+		// Down movements.
+		{"down from 0", 0, 4, "down", 1},
+		{"j from 0", 0, 4, "j", 1},
+		{"down at max", 4, 4, "down", 4},
+		{"j at max", 4, 4, "j", 4},
+		{"down negative max", 0, -1, "down", 0},
+		// Up movements.
+		{"up from 3", 3, 4, "up", 2},
+		{"k from 3", 3, 4, "k", 2},
+		{"up at 0", 0, 4, "up", 0},
+		{"k at 0", 0, 4, "k", 0},
+		{"up negative max", 0, -1, "up", 0},
+		// Unknown keys — no change.
+		{"enter key ignored", 2, 4, "enter", 2},
+		{"space key ignored", 1, 4, "space", 1},
+		{"empty key ignored", 2, 4, "", 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cursor := tt.start
+			screens.MoveCursor(&cursor, tt.max, tt.key)
+			if cursor != tt.want {
+				t.Errorf("MoveCursor(%d, %d, %q) = %d, want %d",
+					tt.start, tt.max, tt.key, cursor, tt.want)
+			}
+		})
 	}
 }

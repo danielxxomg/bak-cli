@@ -81,6 +81,10 @@ func NewProgressModel() ProgressModel {
 	}
 }
 
+// Running returns whether the progress screen is currently tracking a
+// running operation. Exported for test assertions.
+func (m ProgressModel) Running() bool { return m.running }
+
 // Init starts the spinner animation by returning a spinner.Tick command.
 func (m ProgressModel) Init() tea.Cmd {
 	return m.spinner.Tick

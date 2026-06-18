@@ -84,43 +84,43 @@ Chain strategy: pending
 ## PR3: Backup Size & Progress (~400 lines)
 
 ### Phase 3.1: Exclusion Engine
-- [ ] 3.1.1 Write `internal/config/ignore_test.go` — ParseIgnore (wildcards, dir/, !negation), LoadExcludes merge, empty-array-clears-defaults
-- [ ] 3.1.2 Write `internal/config/ignore.go` — ParseIgnore, Pattern.Match, LoadExcludes(configDir, settings)
+- [x] 3.1.1 Write `internal/config/ignore_test.go` — ParseIgnore (wildcards, dir/, !negation), LoadExcludes merge, empty-array-clears-defaults
+- [x] 3.1.2 Write `internal/config/ignore.go` — ParseIgnore, Pattern.Match, LoadExcludes(configDir, settings)
 
 ### Phase 3.2: ScanOptions Plumbing
-- [ ] 3.2.1 Write `internal/adapters/adapter_test.go` — ScanConfigurable compliance, SetScanOptions
-- [ ] 3.2.2 Modify `internal/adapters/adapter.go` — ScanOptions struct + ScanConfigurable interface
-- [ ] 3.2.3 Modify `internal/adapters/generic.go` — ScanOpts field, excludes+MaxFileSize in scanDir
-- [ ] 3.2.4 Modify `internal/adapters/opencode/adapter.go` — same ScanOpts + scanDir filtering
-- [ ] 3.2.5 Modify 7 delegating adapters — SetScanOptions forwarders
+- [x] 3.2.1 Write `internal/adapters/adapter_test.go` — ScanConfigurable compliance, SetScanOptions
+- [x] 3.2.2 Modify `internal/adapters/adapter.go` — ScanOptions struct + ScanConfigurable interface
+- [x] 3.2.3 Modify `internal/adapters/generic.go` — ScanOpts field, excludes+MaxFileSize in scanDir
+- [x] 3.2.4 Modify `internal/adapters/opencode/adapter.go` — same ScanOpts + scanDir filtering
+- [x] 3.2.5 Modify 7 delegating adapters — SetScanOptions forwarders
 
 ### Phase 3.3: Progress Callback
-- [ ] 3.3.1 Write `internal/backup/engine_test.go` — ProgressFn called N times incrementing, nil-safe
-- [ ] 3.3.2 Modify `internal/backup/engine.go` — ProgressFn field, per-file call (nil guard)
-- [ ] 3.3.3 Modify `internal/actions/{backup,restore}.go` — ProgressFn forwarding
-- [ ] 3.3.4 Modify `internal/actions/{push,pull}.go` — optional coarse ProgressFn
+- [x] 3.3.1 Write `internal/backup/engine_test.go` — ProgressFn called N times incrementing, nil-safe
+- [x] 3.3.2 Modify `internal/backup/engine.go` — ProgressFn field, per-file call (nil guard)
+- [x] 3.3.3 Modify `internal/actions/{backup,restore}.go` — ProgressFn forwarding
+- [x] 3.3.4 Modify `internal/actions/{push,pull}.go` — optional coarse ProgressFn
 
 ### Phase 3.4: TUI Progress Bridge
-- [ ] 3.4.1 Write `internal/tui/model_test.go` — progressFn→chan→ProgressStepMsg bridge, ProgressDoneMsg
-- [ ] 3.4.2 Modify `cmd/root.go` — runBackup/runRestore adapters: progressFn → chan<- ProgressUpdate
+- [x] 3.4.1 Write `internal/tui/model_test.go` — progressFn→chan→ProgressStepMsg bridge, ProgressDoneMsg
+- [x] 3.4.2 Modify `cmd/root.go` — runBackup/runRestore adapters: progressFn → chan<- ProgressUpdate
 
 ### Phase 3.5: Quality Gates
-- [ ] 3.5.1 `go test -race ./...` + `go vet ./...` + `golangci-lint run` — all clean
+- [x] 3.5.1 `go test -race ./...` + `go vet ./...` + `golangci-lint run` — all clean
 
 ## PR4: OAuth Login (~400 lines)
 
 ### Phase 4.1: OAuth Device Flow
-- [ ] 4.1.1 Write `internal/cloud/oauth_device_test.go` — device code request, polling (success/expire/deny/slow_down), headless fallback via httptest.Server
-- [ ] 4.1.2 Write `internal/cloud/oauth_device.go` — DeviceClient, RequestToken() RFC 8628 (POST device/code → poll oauth/access_token)
+- [x] 4.1.1 Write `internal/cloud/oauth_device_test.go` — device code request, polling (success/expire/deny/slow_down), headless fallback via httptest.Server
+- [x] 4.1.2 Write `internal/cloud/oauth_device.go` — DeviceClient, RequestToken() RFC 8628 (POST device/code → poll oauth/access_token)
 
 ### Phase 4.2: Browser Opener
-- [ ] 4.2.1 Write `internal/cloud/browser_test.go` — openBrowserOS per GOOS, DISPLAY guard on Linux
-- [ ] 4.2.2 Write `internal/cloud/browser.go` — openBrowserOS(url) via runtime.GOOS switch, DISPLAY check
+- [x] 4.2.1 Write `internal/cloud/browser_test.go` — openBrowserOS per GOOS, DISPLAY guard on Linux
+- [x] 4.2.2 Write `internal/cloud/browser.go` — openBrowserOS(url) via runtime.GOOS switch, DISPLAY check
 
 ### Phase 4.3: Token Storage & Dispatch
-- [ ] 4.3.1 Write `internal/actions/login_test.go` — OAuth dispatch when clientID set, PAT fallback, token validate+save
-- [ ] 4.3.2 Modify `internal/actions/login.go` — OAuthClient field, dispatch to DeviceClient.RequestToken, PAT fallback
-- [ ] 4.3.3 Modify `cmd/login.go` — wire DeviceClient with BAK_GITHUB_OAUTH_CLIENT_ID env, injectable OpenBrowser/Clipboard
+- [x] 4.3.1 Write `internal/actions/login_test.go` — OAuth dispatch when clientID set, PAT fallback, token validate+save
+- [x] 4.3.2 Modify `internal/actions/login.go` — OAuthClient field, dispatch to DeviceClient.RequestToken, PAT fallback
+- [x] 4.3.3 Modify `cmd/login.go` — wire DeviceClient with BAK_GITHUB_OAUTH_CLIENT_ID env, injectable OpenBrowser/Clipboard
 
 ### Phase 4.4: Quality Gates
-- [ ] 4.4.1 `go test -race ./...` + `go vet ./...` + `golangci-lint run` — all clean
+- [x] 4.4.1 `go test -race ./...` + `go vet ./...` + `golangci-lint run` — all clean
