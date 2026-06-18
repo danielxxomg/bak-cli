@@ -427,3 +427,15 @@ func TestSettings_SaveSetting_ErrorsAreIgnored(t *testing.T) {
 		t.Error("Auto-sync toggle = false after toggle, want true (local state updates regardless of save error)")
 	}
 }
+
+// =============================================================================
+// Phase 3: Init nil-return coverage
+// =============================================================================
+
+func TestSettingsModel_Init_ReturnsNil(t *testing.T) {
+	m := newTestSettings()
+	cmd := m.Init()
+	if cmd != nil {
+		t.Errorf("Init() = %v, want nil", cmd)
+	}
+}
