@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -763,6 +764,88 @@ func TestScanRootFiles_AppliesExcludes(t *testing.T) {
 		}
 		if !foundYml {
 			t.Error("config.yml not found — should have been included")
+		}
+	})
+}
+
+// TestGenericAdapter_HashErrorBranches exercises the FileHash error branch in
+// both scanDir (subdirectory file) and scanRootFiles (root file) using a
+// chmod-000 fixture. It proves the error is wrapped with a lowercase context
+// prefix and uses the relative path (not the absolute home path). Skipped on
+// Windows where chmod 000 does not block reads.
+func TestGenericAdapter_HashErrorBranches(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod 000 does not block file reads on Windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("running as root bypasses chmod 000 permissions")
+	}
+
+	t.Run("scanDir wraps hash error with rel path", func(t *testing.T) {
+		home := t.TempDir()
+		configDir := filepath.Join(home, ".test")
+		scriptsDir := filepath.Join(configDir, "scripts")
+		if err := os.MkdirAll(scriptsDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		unreadable := filepath.Join(scriptsDir, "locked.sh")
+		if err := os.WriteFile(unreadable, []byte("#!/bin/sh"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(unreadable, 0000); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if cerr := os.Chmod(unreadable, 0644); cerr != nil {
+				t.Logf("cleanup chmod: %v", cerr)
+			}
+		})
+
+		ga := newTestAdapter("hash-err-dir")
+		_, err := ga.ListItems(home, []string{"scripts"})
+		if err == nil {
+			t.Fatal("expected error from unreadable file in scanDir, got nil")
+		}
+		msg := err.Error()
+		// The wrapping context prefix (bug-fix #4) must use the rel path,
+		// not the absolute home path. The underlying FileHash error still
+		// contains the absolute open path — that is FileHash's behavior and
+		// out of scope here; we only assert the wrapping context prefix.
+		if !strings.Contains(msg, "hash scripts/locked.sh:") {
+			t.Errorf("error %q should wrap with rel-path context %q", msg, "hash scripts/locked.sh:")
+		}
+	})
+
+	t.Run("scanRootFiles wraps hash error with entry name", func(t *testing.T) {
+		home := t.TempDir()
+		configDir := filepath.Join(home, ".test")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		unreadable := filepath.Join(configDir, "settings.json")
+		if err := os.WriteFile(unreadable, []byte(`{"a":1}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(unreadable, 0000); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if cerr := os.Chmod(unreadable, 0644); cerr != nil {
+				t.Logf("cleanup chmod: %v", cerr)
+			}
+		})
+
+		ga := newTestAdapter("hash-err-root")
+		_, err := ga.ListItems(home, []string{"config"})
+		if err == nil {
+			t.Fatal("expected error from unreadable root file in scanRootFiles, got nil")
+		}
+		msg := err.Error()
+		// The wrapping context prefix (bug-fix #4) must use the entry name,
+		// not the absolute home path. The underlying FileHash error still
+		// contains the absolute open path — out of scope here.
+		if !strings.Contains(msg, "hash settings.json:") {
+			t.Errorf("error %q should wrap with entry-name context %q", msg, "hash settings.json:")
 		}
 	})
 }
