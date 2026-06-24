@@ -3,7 +3,7 @@
 ## Requirements
 
 ### Requirement: GenericAdapter base struct
-The system MUST provide a `GenericAdapter` struct in `internal/adapters/generic.go` with fields: `AdapterName string`, `ConfigRelPath string`, `Categories map[string]CategoryDir`, and `DetectErrContext string`.
+The system MUST provide a `GenericAdapter` struct in `internal/adapters/generic.go` with fields: `AdapterName string`, `ConfigRelPath string`, `Categories map[string]CategoryDir`, `DetectErrContext string`, `ScanOpts ScanOptions`, `RootConfigFiles map[string]string`, and `StatFn func(string) (os.FileInfo, error)`.
 
 #### Scenario: Construction
 - GIVEN adapter constants
