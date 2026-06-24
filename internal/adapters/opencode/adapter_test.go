@@ -433,3 +433,138 @@ func TestAdapter_fileHash_Error(t *testing.T) {
 		t.Error("expected error for missing file, got nil")
 	}
 }
+
+// setupFullTree creates an opencode config tree with every category
+// (skills/, commands/, agent/, plugins/, and root files opencode.json,
+// AGENTS.md, mcp.json) and returns the home directory. Used by the
+// approval tests that lock ListItems output across the wrapper refactor.
+func setupFullTree(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	configDir := filepath.Join(home, ".config", "opencode")
+
+	mustWrite := func(rel, content string) {
+		p := filepath.Join(configDir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	mustWrite("skills/my-skill/SKILL.md", "# My Skill")
+	mustWrite("commands/hello.md", "hello")
+	mustWrite("agent/scribe.md", "scribe agent")
+	mustWrite("plugins/plug.js", "module.exports = {}")
+	mustWrite("opencode.json", `{"version":"1.0"}`)
+	mustWrite("AGENTS.md", "# Agents")
+	mustWrite("mcp.json", `{"servers":{}}`)
+
+	return home
+}
+
+// TestAdapter_McpPreservation is a hard regression guard: mcp.json at the
+// config root MUST always be reported with Category="mcp", never merged
+// into "config". This locks the behavior before the wrapper refactor.
+func TestAdapter_McpPreservation(t *testing.T) {
+	a := &Adapter{}
+	home := setupFullTree(t)
+
+	items, err := a.ListItems(home, []string{"mcp"})
+	if err != nil {
+		t.Fatalf("ListItems: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected exactly 1 mcp item, got %d: %+v", len(items), items)
+	}
+	if items[0].RelPath != "mcp.json" {
+		t.Errorf("RelPath = %q, want mcp.json", items[0].RelPath)
+	}
+	if items[0].Category != "mcp" {
+		t.Errorf("Category = %q, want mcp (mcp.json must never merge into config)", items[0].Category)
+	}
+	if items[0].Hash == "" {
+		t.Error("mcp.json item has empty hash")
+	}
+	if items[0].Size == 0 {
+		t.Error("mcp.json item has zero size")
+	}
+
+	// And mcp.json must NOT appear when only [config] is requested.
+	cfgItems, err := a.ListItems(home, []string{"config"})
+	if err != nil {
+		t.Fatalf("ListItems(config): %v", err)
+	}
+	for _, it := range cfgItems {
+		if it.RelPath == "mcp.json" {
+			t.Errorf("mcp.json must not appear in [config] results, got %+v", it)
+		}
+	}
+}
+
+// TestAdapter_ListItemsSnapshot is an approval test: it captures the full
+// ListItems output (RelPath → Category, IsDir, hashed-file invariants) for
+// the complete category set so the wrapper refactor is proven to preserve
+// identical output. Compared as a set (order-independent).
+func TestAdapter_ListItemsSnapshot(t *testing.T) {
+	a := &Adapter{}
+	home := setupFullTree(t)
+
+	cats := []string{"config", "mcp", "skills", "commands", "agents", "plugins"}
+	items, err := a.ListItems(home, cats)
+	if err != nil {
+		t.Fatalf("ListItems: %v", err)
+	}
+
+	type want struct {
+		category string
+		isDir    bool
+	}
+	// Expected (RelPath → category, isDir) for the full tree. Directory
+	// entries are emitted for each nested dir walked by scanDir.
+	expected := map[string]want{
+		"skills/my-skill":          {"skills", true},
+		"skills/my-skill/SKILL.md": {"skills", false},
+		"commands/hello.md":        {"commands", false},
+		"agent/scribe.md":          {"agents", false},
+		"plugins/plug.js":          {"plugins", false},
+		"opencode.json":            {"config", false},
+		"AGENTS.md":                {"config", false},
+		"mcp.json":                 {"mcp", false},
+	}
+
+	got := make(map[string]adapters.Item, len(items))
+	for _, it := range items {
+		got[it.RelPath] = it
+	}
+
+	for rel, w := range expected {
+		it, ok := got[rel]
+		if !ok {
+			t.Errorf("missing expected item %q", rel)
+			continue
+		}
+		if it.Category != w.category {
+			t.Errorf("item %q category = %q, want %q", rel, it.Category, w.category)
+		}
+		if it.IsDir != w.isDir {
+			t.Errorf("item %q IsDir = %v, want %v", rel, it.IsDir, w.isDir)
+		}
+		if !w.isDir {
+			if it.Hash == "" {
+				t.Errorf("file item %q has empty hash", rel)
+			}
+			if it.Size == 0 {
+				t.Errorf("file item %q has zero size", rel)
+			}
+		}
+	}
+
+	// No unexpected files leaked into the output.
+	for rel := range got {
+		if _, ok := expected[rel]; !ok {
+			t.Errorf("unexpected item in output: %q (%+v)", rel, got[rel])
+		}
+	}
+}
