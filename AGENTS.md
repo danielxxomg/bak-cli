@@ -115,7 +115,8 @@
 ### DRY (Don't Repeat Yourself)
 - MUST NOT duplicate utility functions across packages — extract to a shared package (e.g., `adapters/util.go`, `cloud/httputil.go`)
 - MUST use existing helpers instead of reimplementing logic (e.g., use `httputil.go` for HTTP, `adapters/util.go` for file ops)
-- SHOULD extract common patterns into base implementations (e.g., generic adapter struct with configurable constants)
+- MUST extract common patterns into base implementations (e.g., `GenericAdapter` struct with configurable constants)
+- Adapters MUST delegate scan/backup/restore to `GenericAdapter` — MUST NOT hand-roll these implementations. New adapters follow the kilocode/opencode wrapper pattern (~54 lines: consts + `categoryMap` + `RootConfigFiles` + delegating methods + `SetScanOptions`)
 - If two functions share >70% of their logic, they MUST be consolidated into a parameterized implementation
 
 ### Performance
