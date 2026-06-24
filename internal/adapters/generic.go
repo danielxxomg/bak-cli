@@ -4,6 +4,7 @@ package adapters
 
 import (
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -229,7 +230,11 @@ func scanDir(dir, category, configDir string, opts ScanOptions) ([]Item, error) 
 				return fmt.Errorf("stat %s: %w", relPath, statErr)
 			}
 			if info.Size() > opts.MaxFileSize {
-				emitOversizeWarning(info.Size(), opts.MaxFileSize, rel)
+				if warnErr := emitOversizeWarning(info.Size(), opts.MaxFileSize, rel); warnErr != nil {
+					// Log the write failure to verbose output and continue —
+					// the scan MUST NOT abort or return the write error.
+					fmt.Fprintf(os.Stderr, "warning: %v\n", warnErr)
+				}
 				return nil
 			}
 		}
@@ -314,12 +319,26 @@ func matchesExclude(name, relPath string, isDir bool, opts ScanOptions) bool {
 	return false
 }
 
+// stderrWriter is the sink for oversize warnings. It delegates to os.Stderr
+// on every Write so tests that swap os.Stderr (captureStderr) still capture
+// output, while tests that need a failing writer can replace stderrWriter
+// directly to verify the scan continues when stderr writes fail (spec
+// scenario "stderr write failure does not abort scan"). Mirrors the AGENTS.md
+// injection-via-var pattern (e.g. var execCommand = exec.Command).
+type stderrSink struct{}
+
+func (stderrSink) Write(p []byte) (int, error) { return os.Stderr.Write(p) }
+
+var stderrWriter io.Writer = stderrSink{}
+
 // emitOversizeWarning writes the shared "skipping large file" warning to
-// stderr. Both scanDir and scanRootFiles use it so the message format stays
-// identical in one place.
-func emitOversizeWarning(size, max int64, rel string) {
-	fmt.Fprintf(os.Stderr, "warning: skipping large file (%d bytes exceeds max %d): %s\n",
+// stderrWriter. Both scanDir and scanRootFiles use it so the message format
+// stays identical in one place. It returns the write error (if any) so callers
+// can log it to verbose output and continue rather than aborting the walk.
+func emitOversizeWarning(size, max int64, rel string) error {
+	_, err := fmt.Fprintf(stderrWriter, "warning: skipping large file (%d bytes exceeds max %d): %s\n",
 		size, max, rel)
+	return err
 }
 
 // scanRootFiles reads the top-level config directory and returns items
@@ -374,7 +393,11 @@ func scanRootFiles(configDir string, catSet map[string]bool, opts ScanOptions, r
 
 		// Check MaxFileSize for regular files.
 		if opts.MaxFileSize > 0 && info.Size() > opts.MaxFileSize {
-			emitOversizeWarning(info.Size(), opts.MaxFileSize, entryName)
+			if warnErr := emitOversizeWarning(info.Size(), opts.MaxFileSize, entryName); warnErr != nil {
+				// Log the write failure to verbose output and continue —
+				// the scan MUST NOT abort or return the write error.
+				fmt.Fprintf(os.Stderr, "warning: %v\n", warnErr)
+			}
 			continue
 		}
 
