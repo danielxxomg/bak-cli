@@ -398,6 +398,71 @@ func TestDefaultExcludes_IncludesRuntimeDBs(t *testing.T) {
 	}
 }
 
+// TestSplitWildcard locks splitWildcard's behavior: it splits a pattern at
+// the FIRST '*' into [prefix, suffix] (the '*' itself is dropped); a pattern
+// with no '*' returns a single-element slice.
+func TestSplitWildcard(t *testing.T) {
+	tests := []struct {
+		name    string
+		pattern string
+		want    []string
+	}{
+		{name: "trailing wildcard", pattern: "skills/*", want: []string{"skills/", ""}},
+		{name: "leading wildcard", pattern: "*.lock", want: []string{"", ".lock"}},
+		{name: "embedded wildcard", pattern: "tmp*file", want: []string{"tmp", "file"}},
+		{name: "no wildcard", pattern: "agents", want: []string{"agents"}},
+		{name: "empty input", pattern: "", want: []string{""}},
+		{name: "only wildcard", pattern: "*", want: []string{"", ""}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := splitWildcard(tt.pattern)
+			if len(got) != len(tt.want) {
+				t.Fatalf("splitWildcard(%q) = %v (len %d), want %v (len %d)",
+					tt.pattern, got, len(got), tt.want, len(tt.want))
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("splitWildcard(%q)[%d] = %q, want %q", tt.pattern, i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+// TestMatchSegment covers matchSegment's branches: exact match, leading-*
+// suffix match, trailing-* prefix match, embedded-* prefix+suffix match,
+// mismatch, and empty inputs.
+func TestMatchSegment(t *testing.T) {
+	tests := []struct {
+		name    string
+		pattern string
+		segment string
+		want    bool
+	}{
+		{name: "exact match", pattern: "config", segment: "config", want: true},
+		{name: "exact mismatch", pattern: "foo", segment: "bar", want: false},
+		{name: "leading wildcard suffix match", pattern: "*.lock", segment: "yarn.lock", want: true},
+		{name: "leading wildcard suffix mismatch", pattern: "*.lock", segment: "yarn.json", want: false},
+		{name: "trailing wildcard prefix match", pattern: "tmp*", segment: "tmpfile", want: true},
+		{name: "trailing wildcard prefix mismatch", pattern: "tmp*", segment: "varfile", want: false},
+		{name: "embedded wildcard prefix and suffix match", pattern: "a*z", segment: "abcz", want: true},
+		{name: "embedded wildcard suffix mismatch", pattern: "a*z", segment: "abcy", want: false},
+		{name: "empty pattern empty segment", pattern: "", segment: "", want: true},
+		{name: "empty pattern nonempty segment", pattern: "", segment: "x", want: false},
+		{name: "leading wildcard matches any (bare *)", pattern: "*", segment: "anything", want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := matchSegment(tt.pattern, tt.segment); got != tt.want {
+				t.Errorf("matchSegment(%q, %q) = %v, want %v", tt.pattern, tt.segment, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestLoadExcludes_UnreadableIgnoreFile(t *testing.T) {
 	// When the ignore file exists but is a directory (cannot read as file),
 	// it should error. On Windows, os.ReadFile on a directory may return
