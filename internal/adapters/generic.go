@@ -118,7 +118,7 @@ func (ga *GenericAdapter) ListItems(homeDir string, categories []string) ([]Item
 		}
 	}
 
-	if catSet["config"] {
+	if rootScanRequested(catSet, ga.RootConfigFiles) {
 		rootItems, err := scanRootFiles(configDir, catSet, ga.ScanOpts, ga.RootConfigFiles)
 		if err != nil {
 			return nil, fmt.Errorf("scan root files: %w", err)
@@ -127,6 +127,23 @@ func (ga *GenericAdapter) ListItems(homeDir string, categories []string) ([]Item
 	}
 
 	return items, nil
+}
+
+// rootScanRequested reports whether the root-file scan should run for the
+// requested category set. When rootConfigFiles is nil, the legacy behavior
+// applies: root files belong to "config" only. When non-nil, the scan runs
+// if any mapped category is in catSet (so an mcp-only request still scans
+// the root for mcp.json without pulling in config files).
+func rootScanRequested(catSet map[string]bool, rootConfigFiles map[string]string) bool {
+	if rootConfigFiles == nil {
+		return catSet["config"]
+	}
+	for _, cat := range rootConfigFiles {
+		if catSet[cat] {
+			return true
+		}
+	}
+	return false
 }
 
 // Backup copies items from their source locations into the backup directory,
@@ -198,16 +215,11 @@ func scanDir(dir, category, configDir string, opts ScanOptions) ([]Item, error) 
 		rel := strings.ReplaceAll(relPath, "\\", "/")
 
 		// Check exclude patterns.
-		if len(opts.Excludes) > 0 {
-			entryName := d.Name()
-			for _, pat := range opts.Excludes {
-				if MatchExclude(pat, entryName, rel, d.IsDir()) {
-					if d.IsDir() {
-						return filepath.SkipDir
-					}
-					return nil
-				}
+		if matchesExclude(d.Name(), rel, d.IsDir(), opts) {
+			if d.IsDir() {
+				return filepath.SkipDir
 			}
+			return nil
 		}
 
 		// Check MaxFileSize for regular files.
@@ -217,8 +229,7 @@ func scanDir(dir, category, configDir string, opts ScanOptions) ([]Item, error) 
 				return fmt.Errorf("stat %s: %w", relPath, statErr)
 			}
 			if info.Size() > opts.MaxFileSize {
-				fmt.Fprintf(os.Stderr, "warning: skipping large file (%d bytes exceeds max %d): %s\n",
-					info.Size(), opts.MaxFileSize, rel)
+				emitOversizeWarning(info.Size(), opts.MaxFileSize, rel)
 				return nil
 			}
 		}
@@ -275,7 +286,10 @@ func MatchExclude(pattern, name, relPath string, isDir bool) bool {
 	// Match the entry name against the pattern.
 	var matched bool
 	if strings.Contains(raw, "*") {
-		matched, _ = filepath.Match(raw, name)
+		// A malformed glob (filepath.ErrBadPattern) cannot match anything;
+		// treat it as a non-match rather than discarding the error blindly.
+		m, err := filepath.Match(raw, name)
+		matched = err == nil && m
 	} else {
 		matched = (name == raw)
 	}
@@ -286,6 +300,26 @@ func MatchExclude(pattern, name, relPath string, isDir bool) bool {
 	}
 
 	return matched
+}
+
+// matchesExclude reports whether an entry matches any pattern in opts.Excludes.
+// It is the shared exclude gate used by both scanDir and scanRootFiles so the
+// matching loop lives in one place.
+func matchesExclude(name, relPath string, isDir bool, opts ScanOptions) bool {
+	for _, pat := range opts.Excludes {
+		if MatchExclude(pat, name, relPath, isDir) {
+			return true
+		}
+	}
+	return false
+}
+
+// emitOversizeWarning writes the shared "skipping large file" warning to
+// stderr. Both scanDir and scanRootFiles use it so the message format stays
+// identical in one place.
+func emitOversizeWarning(size, max int64, rel string) {
+	fmt.Fprintf(os.Stderr, "warning: skipping large file (%d bytes exceeds max %d): %s\n",
+		size, max, rel)
 }
 
 // scanRootFiles reads the top-level config directory and returns items
@@ -304,33 +338,33 @@ func scanRootFiles(configDir string, catSet map[string]bool, opts ScanOptions, r
 
 	var items []Item
 	for _, e := range entries {
-		if e.IsDir() || !catSet["config"] {
+		if e.IsDir() {
 			continue
 		}
 
 		entryName := e.Name()
 
-		// Whitelist gate: when RootConfigFiles is set, skip unrecognized files.
+		// Per-entry category resolution. When rootConfigFiles is nil the
+		// legacy behavior applies: every root file belongs to "config".
+		// When non-nil it acts as a whitelist (skip unrecognized names)
+		// and maps each name to its real category.
+		cat := "config"
 		if rootConfigFiles != nil {
-			if _, ok := rootConfigFiles[entryName]; !ok {
+			mapped, ok := rootConfigFiles[entryName]
+			if !ok {
 				continue
 			}
+			cat = mapped
+		}
+		if !catSet[cat] {
+			continue
 		}
 
 		absPath := filepath.Join(configDir, entryName)
 
-		// Check exclude patterns (mirror scanDir:194-204).
-		if len(opts.Excludes) > 0 {
-			skipped := false
-			for _, pat := range opts.Excludes {
-				if MatchExclude(pat, entryName, entryName, false) {
-					skipped = true
-					break
-				}
-			}
-			if skipped {
-				continue
-			}
+		// Check exclude patterns.
+		if matchesExclude(entryName, entryName, false, opts) {
+			continue
 		}
 
 		info, infoErr := e.Info()
@@ -338,10 +372,9 @@ func scanRootFiles(configDir string, catSet map[string]bool, opts ScanOptions, r
 			return nil, fmt.Errorf("stat %s: %w", entryName, infoErr)
 		}
 
-		// Check MaxFileSize for regular files (mirror scanDir:206-217).
+		// Check MaxFileSize for regular files.
 		if opts.MaxFileSize > 0 && info.Size() > opts.MaxFileSize {
-			fmt.Fprintf(os.Stderr, "warning: skipping large file (%d bytes exceeds max %d): %s\n",
-				info.Size(), opts.MaxFileSize, entryName)
+			emitOversizeWarning(info.Size(), opts.MaxFileSize, entryName)
 			continue
 		}
 
@@ -353,7 +386,7 @@ func scanRootFiles(configDir string, catSet map[string]bool, opts ScanOptions, r
 		}
 
 		items = append(items, Item{
-			Category:   "config",
+			Category:   cat,
 			SourcePath: canonical,
 			RelPath:    entryName,
 			IsDir:      false,
