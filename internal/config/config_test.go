@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -844,6 +845,382 @@ func TestLoad_DefaultsRespectExistingSettings(t *testing.T) {
 // structs with *bool fields in table-driven tests.
 func boolPtr(b bool) *bool {
 	return &b
+}
+
+// =============================================================================
+// Settings-key helpers — getSettingsField / setSettingsField / parseBool
+// =============================================================================
+
+// TestGetSettingsField covers every documented settings alias resolving to
+// its canonical value through the Get("settings.*") path.
+func TestGetSettingsField(t *testing.T) {
+	confirm := false
+	cfg := &Config{
+		Settings: Settings{
+			DefaultPreset:      "full",
+			AutoSync:           true,
+			MaxFileSize:        2048,
+			VerboseDefault:     true,
+			DefaultProvider:    "github",
+			ConfirmDestructive: &confirm,
+		},
+	}
+
+	tests := []struct {
+		name string
+		key  string
+		want string
+	}{
+		{name: "default_preset", key: "settings.default_preset", want: "full"},
+		{name: "auto_sync", key: "settings.auto_sync", want: "true"},
+		{name: "max_file_size", key: "settings.max_file_size", want: "2048"},
+		{name: "verbose_default", key: "settings.verbose_default", want: "true"},
+		{name: "default_provider", key: "settings.default_provider", want: "github"},
+		{name: "confirm_destructive set false", key: "settings.confirm_destructive", want: "false"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := cfg.Get(tt.key)
+			if err != nil {
+				t.Fatalf("Get(%q) error: %v", tt.key, err)
+			}
+			if got != tt.want {
+				t.Errorf("Get(%q) = %q, want %q", tt.key, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestGetSettingsField_ConfirmDestructiveNilDefault covers the nil branch:
+// when ConfirmDestructive is unset, the getter returns the "true" default.
+func TestGetSettingsField_ConfirmDestructiveNilDefault(t *testing.T) {
+	cfg := &Config{Settings: Settings{ConfirmDestructive: nil}}
+	got, err := cfg.Get("settings.confirm_destructive")
+	if err != nil {
+		t.Fatalf("Get error: %v", err)
+	}
+	if got != "true" {
+		t.Errorf("Get(settings.confirm_destructive) = %q, want %q (nil default)", got, "true")
+	}
+}
+
+func TestGetSettingsField_UnknownKey(t *testing.T) {
+	cfg := &Config{}
+	_, err := cfg.Get("settings.nonexistent")
+	if err == nil {
+		t.Error("expected error for unknown settings key, got nil")
+	}
+}
+
+// TestSetSettingsField covers writing each settings field through the
+// Set("settings.*") path and verifying the in-memory Config is updated.
+func TestSetSettingsField(t *testing.T) {
+	tests := []struct {
+		name   string
+		key    string
+		value  string
+		verify func(t *testing.T, c *Config)
+	}{
+		{
+			name:  "default_preset",
+			key:   "settings.default_preset",
+			value: "full",
+			verify: func(t *testing.T, c *Config) {
+				if c.Settings.DefaultPreset != "full" {
+					t.Errorf("DefaultPreset = %q, want full", c.Settings.DefaultPreset)
+				}
+			},
+		},
+		{
+			name:  "auto_sync",
+			key:   "settings.auto_sync",
+			value: "true",
+			verify: func(t *testing.T, c *Config) {
+				if !c.Settings.AutoSync {
+					t.Error("AutoSync = false, want true")
+				}
+			},
+		},
+		{
+			name:  "max_file_size",
+			key:   "settings.max_file_size",
+			value: "4096",
+			verify: func(t *testing.T, c *Config) {
+				if c.Settings.MaxFileSize != 4096 {
+					t.Errorf("MaxFileSize = %d, want 4096", c.Settings.MaxFileSize)
+				}
+			},
+		},
+		{
+			name:  "verbose_default",
+			key:   "settings.verbose_default",
+			value: "1",
+			verify: func(t *testing.T, c *Config) {
+				if !c.Settings.VerboseDefault {
+					t.Error("VerboseDefault = false, want true")
+				}
+			},
+		},
+		{
+			name:  "default_provider",
+			key:   "settings.default_provider",
+			value: "codeberg",
+			verify: func(t *testing.T, c *Config) {
+				if c.Settings.DefaultProvider != "codeberg" {
+					t.Errorf("DefaultProvider = %q, want codeberg", c.Settings.DefaultProvider)
+				}
+			},
+		},
+		{
+			name:  "confirm_destructive",
+			key:   "settings.confirm_destructive",
+			value: "false",
+			verify: func(t *testing.T, c *Config) {
+				if c.Settings.ConfirmDestructive == nil || *c.Settings.ConfirmDestructive != false {
+					t.Errorf("ConfirmDestructive = %v, want false", c.Settings.ConfirmDestructive)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			cfg := &Config{path: filepath.Join(dir, "config.json")}
+			if err := cfg.Set(tt.key, tt.value); err != nil {
+				t.Fatalf("Set(%q, %q) error: %v", tt.key, tt.value, err)
+			}
+			tt.verify(t, cfg)
+
+			// The value must persist to disk and reload identically.
+			loaded, err := LoadPath(cfg.path)
+			if err != nil {
+				t.Fatalf("LoadPath error: %v", err)
+			}
+			got, err := loaded.Get(tt.key)
+			if err != nil {
+				t.Fatalf("reloaded Get(%q) error: %v", tt.key, err)
+			}
+			want, err := cfg.Get(tt.key)
+			if err != nil {
+				t.Fatalf("Get(%q) error: %v", tt.key, err)
+			}
+			if got != want {
+				t.Errorf("reloaded %q = %q, want %q", tt.key, got, want)
+			}
+		})
+	}
+}
+
+func TestSetSettingsField_InvalidBool(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &Config{path: filepath.Join(dir, "config.json")}
+
+	boolKeys := []string{"settings.auto_sync", "settings.verbose_default", "settings.confirm_destructive"}
+	for _, key := range boolKeys {
+		t.Run(key, func(t *testing.T) {
+			if err := cfg.Set(key, "notabool"); err == nil {
+				t.Errorf("Set(%q, %q) expected error for invalid bool, got nil", key, "notabool")
+			}
+		})
+	}
+}
+
+func TestSetSettingsField_InvalidMaxFileSize(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &Config{path: filepath.Join(dir, "config.json")}
+	if err := cfg.Set("settings.max_file_size", "notanumber"); err == nil {
+		t.Error("Set(settings.max_file_size, notanumber) expected error, got nil")
+	}
+}
+
+func TestSetSettingsField_UnknownKey(t *testing.T) {
+	cfg := &Config{}
+	if err := cfg.Set("settings.nonexistent", "x"); err == nil {
+		t.Error("expected error for unknown settings key, got nil")
+	}
+}
+
+// TestParseBool locks the accepted boolean token set: true/false, 1/0,
+// yes/no (all case-insensitive). Any other token returns an error.
+func TestParseBool(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    bool
+		wantErr bool
+	}{
+		{name: "true", input: "true", want: true},
+		{name: "1", input: "1", want: true},
+		{name: "yes accepted", input: "yes", want: true},
+		{name: "mixed case TRUE", input: "TRUE", want: true},
+		{name: "false", input: "false", want: false},
+		{name: "0", input: "0", want: false},
+		{name: "no accepted", input: "no", want: false},
+		{name: "numeric 2 rejected", input: "2", wantErr: true},
+		{name: "empty rejected", input: "", wantErr: true},
+		{name: "arbitrary string rejected", input: "maybe", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseBool(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("parseBool(%q) err = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+			if got != tt.want {
+				t.Errorf("parseBool(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Load / Save / Get / Set error paths
+// =============================================================================
+
+func TestLoadPath_UnreadableFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod 000 does not block reads on Windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("running as root bypasses chmod 000 permissions")
+	}
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(cfgPath, []byte(`{"schema_version":"0.3.0"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(cfgPath, 0000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if cerr := os.Chmod(cfgPath, 0644); cerr != nil {
+			t.Logf("cleanup chmod: %v", cerr)
+		}
+	})
+
+	_, err := LoadPath(cfgPath)
+	if err == nil {
+		t.Error("expected error for unreadable config file, got nil")
+	}
+}
+
+func TestSave_UnwritableDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod 0500 does not block writes on Windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("running as root bypasses chmod permissions")
+	}
+	dir := t.TempDir()
+	roDir := filepath.Join(dir, "readonly")
+	if err := os.MkdirAll(roDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(roDir, 0500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if cerr := os.Chmod(roDir, 0755); cerr != nil {
+			t.Logf("cleanup chmod: %v", cerr)
+		}
+	})
+
+	// Target a NEW subdirectory under the read-only dir so MkdirAll fails.
+	cfg := &Config{path: filepath.Join(roDir, "sub", "config.json")}
+	if err := cfg.Save(); err == nil {
+		t.Error("expected error saving under read-only directory, got nil")
+	}
+}
+
+func TestGet_NestedProviderKeys(t *testing.T) {
+	cfg := &Config{
+		Providers: map[string]ProviderConfig{
+			"github": {Token: "tok-gh", GistID: "gist-gh"},
+			"gitea":  {Repo: "me/repo", BaseURL: "https://gitea.example", Remote: "origin"},
+		},
+	}
+
+	tests := []struct {
+		key  string
+		want string
+	}{
+		{"providers.github.token", "tok-gh"},
+		{"providers.github.gist_id", "gist-gh"},
+		{"providers.gitea.repo", "me/repo"},
+		{"providers.gitea.base_url", "https://gitea.example"},
+		{"providers.gitea.remote", "origin"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			got, err := cfg.Get(tt.key)
+			if err != nil {
+				t.Fatalf("Get(%q) error: %v", tt.key, err)
+			}
+			if got != tt.want {
+				t.Errorf("Get(%q) = %q, want %q", tt.key, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGet_NestedProvider_Errors(t *testing.T) {
+	cfg := &Config{Providers: map[string]ProviderConfig{"github": {Token: "t"}}}
+
+	t.Run("unconfigured provider", func(t *testing.T) {
+		if _, err := cfg.Get("providers.codeberg.token"); err == nil {
+			t.Error("expected error for unconfigured provider, got nil")
+		}
+	})
+	t.Run("unsupported field", func(t *testing.T) {
+		if _, err := cfg.Get("providers.github.bogus"); err == nil {
+			t.Error("expected error for unsupported provider field, got nil")
+		}
+	})
+}
+
+func TestSet_NestedProviderKeys(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &Config{path: filepath.Join(dir, "config.json")}
+
+	pairs := []struct{ key, value string }{
+		{"providers.codeberg.token", "tok-cb"},
+		{"providers.codeberg.repo", "user/backup"},
+		{"providers.rclone.remote", "gdrive"},
+		{"providers.gitea.base_url", "https://gitea.local"},
+	}
+	for _, p := range pairs {
+		if err := cfg.Set(p.key, p.value); err != nil {
+			t.Fatalf("Set(%q, %q) error: %v", p.key, p.value, err)
+		}
+	}
+
+	loaded, err := LoadPath(cfg.path)
+	if err != nil {
+		t.Fatalf("LoadPath error: %v", err)
+	}
+	for _, p := range pairs {
+		got, err := loaded.Get(p.key)
+		if err != nil {
+			t.Fatalf("reloaded Get(%q) error: %v", p.key, err)
+		}
+		if got != p.value {
+			t.Errorf("reloaded %q = %q, want %q", p.key, got, p.value)
+		}
+	}
+}
+
+func TestSet_NestedProvider_UnsupportedField(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &Config{path: filepath.Join(dir, "config.json")}
+	if err := cfg.Set("providers.github.bogus", "x"); err == nil {
+		t.Error("expected error for unsupported provider field, got nil")
+	}
 }
 
 func TestSettings_ActiveProfileRoundTrip(t *testing.T) {
