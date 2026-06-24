@@ -73,54 +73,12 @@ func TestAdapter_Detect(t *testing.T) {
 func TestAdapter_ListItems(t *testing.T) {
 	a := &Adapter{}
 
-	setupHome := func(t *testing.T) string {
-		t.Helper()
-		home := t.TempDir()
-		configDir := filepath.Join(home, ".config", "opencode")
-
-		// Create skills directory with a skill.
-		skillDir := filepath.Join(configDir, "skills", "my-skill")
-		if err := os.MkdirAll(skillDir, 0755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# My Skill"), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		// Create commands directory.
-		cmdDir := filepath.Join(configDir, "commands")
-		if err := os.MkdirAll(cmdDir, 0755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(cmdDir, "hello.md"), []byte("hello"), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		// Create agents directory.
-		agentDir := filepath.Join(configDir, "agent")
-		if err := os.MkdirAll(agentDir, 0755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(agentDir, "scribe.md"), []byte("scribe agent"), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		// Create root config files.
-		if err := os.WriteFile(filepath.Join(configDir, "opencode.json"), []byte(`{"version":"1.0"}`), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(configDir, "AGENTS.md"), []byte("# Agents"), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(configDir, "mcp.json"), []byte(`{"servers":{}}`), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		return home
-	}
+	// setupFullTree (package-level) builds the complete opencode config tree
+	// used by these subtests; the extra plugins/plug.js entry is tolerated by
+	// the lower-bound length checks below.
 
 	t.Run("skills category", func(t *testing.T) {
-		home := setupHome(t)
+		home := setupFullTree(t)
 		items, err := a.ListItems(home, []string{"skills"})
 		if err != nil {
 			t.Fatalf("ListItems: %v", err)
@@ -139,7 +97,7 @@ func TestAdapter_ListItems(t *testing.T) {
 	})
 
 	t.Run("commands category", func(t *testing.T) {
-		home := setupHome(t)
+		home := setupFullTree(t)
 		items, err := a.ListItems(home, []string{"commands"})
 		if err != nil {
 			t.Fatalf("ListItems: %v", err)
@@ -150,7 +108,7 @@ func TestAdapter_ListItems(t *testing.T) {
 	})
 
 	t.Run("config category", func(t *testing.T) {
-		home := setupHome(t)
+		home := setupFullTree(t)
 		items, err := a.ListItems(home, []string{"config"})
 		if err != nil {
 			t.Fatalf("ListItems: %v", err)
@@ -167,7 +125,7 @@ func TestAdapter_ListItems(t *testing.T) {
 	})
 
 	t.Run("mcp category", func(t *testing.T) {
-		home := setupHome(t)
+		home := setupFullTree(t)
 		items, err := a.ListItems(home, []string{"mcp"})
 		if err != nil {
 			t.Fatalf("ListItems: %v", err)
@@ -181,7 +139,7 @@ func TestAdapter_ListItems(t *testing.T) {
 	})
 
 	t.Run("agents category", func(t *testing.T) {
-		home := setupHome(t)
+		home := setupFullTree(t)
 		items, err := a.ListItems(home, []string{"agents"})
 		if err != nil {
 			t.Fatalf("ListItems: %v", err)
@@ -192,7 +150,7 @@ func TestAdapter_ListItems(t *testing.T) {
 	})
 
 	t.Run("all categories", func(t *testing.T) {
-		home := setupHome(t)
+		home := setupFullTree(t)
 		items, err := a.ListItems(home, []string{"skills", "commands", "config", "mcp", "agents"})
 		if err != nil {
 			t.Fatalf("ListItems: %v", err)
@@ -368,6 +326,9 @@ func TestAdapter_Backup_CopyError(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod not applicable on Windows")
 	}
+	if os.Geteuid() == 0 {
+		t.Skip("running as root bypasses chmod permissions")
+	}
 	a := &Adapter{}
 	home := t.TempDir()
 	configDir := filepath.Join(home, ".config", "opencode")
@@ -382,6 +343,11 @@ func TestAdapter_Backup_CopyError(t *testing.T) {
 	if err := os.Chmod(unreadableFile, 0000); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if cerr := os.Chmod(unreadableFile, 0644); cerr != nil {
+			t.Logf("cleanup chmod: %v", cerr)
+		}
+	})
 
 	items := []adapters.Item{
 		{Category: "config", SourcePath: "~/.config/opencode/unreadable.txt", RelPath: "unreadable.txt", IsDir: false, Hash: "sha256:abc", Size: 4},
@@ -398,6 +364,9 @@ func TestAdapter_Restore_CopyError(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod not applicable on Windows")
 	}
+	if os.Geteuid() == 0 {
+		t.Skip("running as root bypasses chmod permissions")
+	}
 	a := &Adapter{}
 	home := t.TempDir()
 	configDir := filepath.Join(home, ".config", "opencode")
@@ -407,6 +376,11 @@ func TestAdapter_Restore_CopyError(t *testing.T) {
 	if err := os.Chmod(configDir, 0500); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if cerr := os.Chmod(configDir, 0755); cerr != nil {
+			t.Logf("cleanup chmod: %v", cerr)
+		}
+	})
 
 	backupDir := filepath.Join(t.TempDir(), "backup")
 	srcFile := filepath.Join(backupDir, "opencode", "secret.json")
@@ -434,6 +408,61 @@ func TestAdapter_fileHash_Error(t *testing.T) {
 	}
 }
 
+// TestAdapter_SetScanOptions verifies that scan options set via the wrapper
+// are forwarded to the underlying GenericAdapter and actually applied during
+// ListItems (an excluded root file is filtered out).
+func TestAdapter_SetScanOptions(t *testing.T) {
+	a := &Adapter{}
+	// SetScanOptions mutates the package-level GenericAdapter behind the
+	// wrapper, so reset to the zero value afterward to keep other tests
+	// isolated. Tests touching this state must not run in parallel.
+	t.Cleanup(func() { a.SetScanOptions(adapters.ScanOptions{}) })
+
+	home := t.TempDir()
+	configDir := filepath.Join(home, ".config", "opencode")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// opencode.json is whitelisted config; AGENTS.md is whitelisted config.
+	if err := os.WriteFile(filepath.Join(configDir, "opencode.json"), []byte(`{"v":1}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "AGENTS.md"), []byte("# Agents"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Without options: both config files present.
+	a.SetScanOptions(adapters.ScanOptions{})
+	before, err := a.ListItems(home, []string{"config"})
+	if err != nil {
+		t.Fatalf("ListItems before: %v", err)
+	}
+	if len(before) != 2 {
+		t.Fatalf("expected 2 config items before exclude, got %d: %+v", len(before), before)
+	}
+
+	// With an exclude on AGENTS.md: only opencode.json remains.
+	a.SetScanOptions(adapters.ScanOptions{Excludes: []string{"AGENTS.md"}})
+	after, err := a.ListItems(home, []string{"config"})
+	if err != nil {
+		t.Fatalf("ListItems after: %v", err)
+	}
+	for _, it := range after {
+		if it.RelPath == "AGENTS.md" {
+			t.Errorf("AGENTS.md should have been excluded after SetScanOptions, got %+v", it)
+		}
+	}
+	foundOpencode := false
+	for _, it := range after {
+		if it.RelPath == "opencode.json" {
+			foundOpencode = true
+		}
+	}
+	if !foundOpencode {
+		t.Error("opencode.json should still be present after excluding AGENTS.md")
+	}
+}
+
 // setupFullTree creates an opencode config tree with every category
 // (skills/, commands/, agent/, plugins/, and root files opencode.json,
 // AGENTS.md, mcp.json) and returns the home directory. Used by the
@@ -444,6 +473,7 @@ func setupFullTree(t *testing.T) string {
 	configDir := filepath.Join(home, ".config", "opencode")
 
 	mustWrite := func(rel, content string) {
+		t.Helper()
 		p := filepath.Join(configDir, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
 			t.Fatal(err)
