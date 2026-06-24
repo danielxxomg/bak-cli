@@ -1,6 +1,8 @@
 package adapters_test
 
 import (
+	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,6 +10,220 @@ import (
 
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 )
+
+// newMultiCatAdapter returns a GenericAdapter whose RootConfigFiles maps
+// root entries to multiple categories (config + mcp), mirroring the
+// opencode shape. Used to exercise multi-category root-file scanning.
+func newMultiCatAdapter(name string) adapters.GenericAdapter {
+	return adapters.GenericAdapter{
+		AdapterName:   name,
+		ConfigRelPath: ".test",
+		Categories: map[string]adapters.CategoryDir{
+			"config": {SubPath: "", IsDir: false},
+			"mcp":    {SubPath: "", IsDir: false},
+		},
+		DetectErrContext: "stat " + name + " config dir",
+		RootConfigFiles: map[string]string{
+			"opencode.json": "config",
+			"mcp.json":      "mcp",
+		},
+	}
+}
+
+// captureStderr redirects os.Stderr for the duration of fn and returns
+// whatever was written. It restores the original stderr afterward.
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	os.Stderr = w
+	defer func() { os.Stderr = old }()
+
+	fn()
+
+	if cerr := w.Close(); cerr != nil {
+		t.Fatalf("close pipe writer: %v", cerr)
+	}
+	var buf bytes.Buffer
+	if _, cerr := io.Copy(&buf, r); cerr != nil {
+		t.Fatalf("read stderr pipe: %v", cerr)
+	}
+	return buf.String()
+}
+
+// writeMultiCatRoot creates a config root with opencode.json (config) and
+// mcp.json (mcp) and returns the home directory.
+func writeMultiCatRoot(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	configDir := filepath.Join(home, ".test")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "opencode.json"), []byte(`{"v":1}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "mcp.json"), []byte(`{"servers":{}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	return home
+}
+
+// TestGenericAdapter_MultiCategoryRootFiles covers the generalized
+// scanRootFiles: a root file is included iff its mapped category is in the
+// requested set, its Item.Category is the mapped category (not a fixed
+// default), and the root scan runs once across multiple categories.
+func TestGenericAdapter_MultiCategoryRootFiles(t *testing.T) {
+	ga := newMultiCatAdapter("multicat")
+
+	t.Run("file included when its category is requested", func(t *testing.T) {
+		home := writeMultiCatRoot(t)
+		items, err := ga.ListItems(home, []string{"mcp"})
+		if err != nil {
+			t.Fatalf("ListItems: %v", err)
+		}
+		if len(items) != 1 {
+			t.Fatalf("expected exactly 1 item for [mcp], got %d: %+v", len(items), items)
+		}
+		if items[0].RelPath != "mcp.json" {
+			t.Errorf("RelPath = %q, want mcp.json", items[0].RelPath)
+		}
+		if items[0].Category != "mcp" {
+			t.Errorf("Category = %q, want mcp", items[0].Category)
+		}
+	})
+
+	t.Run("file excluded when its category is not requested", func(t *testing.T) {
+		home := writeMultiCatRoot(t)
+		items, err := ga.ListItems(home, []string{"config"})
+		if err != nil {
+			t.Fatalf("ListItems: %v", err)
+		}
+		for _, it := range items {
+			if it.RelPath == "mcp.json" {
+				t.Errorf("mcp.json should be absent when only [config] requested, got %+v", it)
+			}
+		}
+		// opencode.json (config) must still be present.
+		foundConfig := false
+		for _, it := range items {
+			if it.RelPath == "opencode.json" {
+				foundConfig = true
+				if it.Category != "config" {
+					t.Errorf("opencode.json category = %q, want config", it.Category)
+				}
+			}
+		}
+		if !foundConfig {
+			t.Error("opencode.json not found — should be included for [config]")
+		}
+	})
+
+	t.Run("root scan runs once for multiple matching categories", func(t *testing.T) {
+		home := writeMultiCatRoot(t)
+		items, err := ga.ListItems(home, []string{"config", "mcp"})
+		if err != nil {
+			t.Fatalf("ListItems: %v", err)
+		}
+		// Both files present exactly once (no duplicates means the root
+		// scan ran once, not once per requested category).
+		counts := map[string]int{}
+		gotCat := map[string]string{}
+		for _, it := range items {
+			counts[it.RelPath]++
+			gotCat[it.RelPath] = it.Category
+		}
+		if counts["mcp.json"] != 1 {
+			t.Errorf("mcp.json appears %d times, want exactly 1 (single root scan)", counts["mcp.json"])
+		}
+		if counts["opencode.json"] != 1 {
+			t.Errorf("opencode.json appears %d times, want exactly 1 (single root scan)", counts["opencode.json"])
+		}
+		if gotCat["mcp.json"] != "mcp" {
+			t.Errorf("mcp.json category = %q, want mcp", gotCat["mcp.json"])
+		}
+		if gotCat["opencode.json"] != "config" {
+			t.Errorf("opencode.json category = %q, want config", gotCat["opencode.json"])
+		}
+	})
+}
+
+// TestGenericAdapter_MaxFileSizeRootFiles covers MaxFileSize applied to
+// root files for both adapter shapes: the legacy nil-RootConfigFiles
+// adapter (every root file is "config") and the multi-category adapter.
+// In each case an oversized file is skipped with a stderr warning while a
+// small file is included.
+func TestGenericAdapter_MaxFileSizeRootFiles(t *testing.T) {
+	tests := []struct {
+		name       string
+		adapter    adapters.GenericAdapter
+		categories []string
+		smallFile  string // included
+		largeFile  string // skipped (oversized)
+	}{
+		{
+			name:       "legacy config-only adapter",
+			adapter:    newTestAdapter("maxsize-legacy"),
+			categories: []string{"config"},
+			smallFile:  "small.txt",
+			largeFile:  "large.log",
+		},
+		{
+			name:       "multi-category adapter",
+			adapter:    newMultiCatAdapter("maxsize-multicat"),
+			categories: []string{"config", "mcp"},
+			smallFile:  "opencode.json",
+			largeFile:  "mcp.json",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+			configDir := filepath.Join(home, ".test")
+			if err := os.MkdirAll(configDir, 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(configDir, tt.smallFile), []byte("ok"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(configDir, tt.largeFile), bytes.Repeat([]byte("x"), 200), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			ga := tt.adapter
+			ga.ScanOpts = adapters.ScanOptions{MaxFileSize: 100}
+
+			var items []adapters.Item
+			stderr := captureStderr(t, func() {
+				var err error
+				items, err = ga.ListItems(home, tt.categories)
+				if err != nil {
+					t.Fatalf("ListItems: %v", err)
+				}
+			})
+
+			foundSmall := false
+			for _, it := range items {
+				if it.RelPath == tt.largeFile {
+					t.Errorf("oversized %q should have been skipped, got %+v", tt.largeFile, it)
+				}
+				if it.RelPath == tt.smallFile {
+					foundSmall = true
+				}
+			}
+			if !foundSmall {
+				t.Errorf("small file %q not found — should have been included", tt.smallFile)
+			}
+			if !strings.Contains(stderr, tt.largeFile) {
+				t.Errorf("expected stderr warning mentioning %q, got %q", tt.largeFile, stderr)
+			}
+		})
+	}
+}
 
 // newTestAdapter returns a GenericAdapter configured for testing with
 // a ".test" config directory under homeDir.
@@ -462,7 +678,6 @@ func TestGenericAdapter_Restore(t *testing.T) {
 
 // TestScanRootFiles_AppliesExcludes verifies that scanRootFiles honors
 // ScanOptions (MatchExclude + MaxFileSize) when filtering root-level files.
-// This test is RED until the production code is updated.
 func TestScanRootFiles_AppliesExcludes(t *testing.T) {
 	t.Run("excludes sqlite files", func(t *testing.T) {
 		home := t.TempDir()
@@ -511,49 +726,6 @@ func TestScanRootFiles_AppliesExcludes(t *testing.T) {
 			if item.RelPath == "logs.sqlite" || item.RelPath == "state.sqlite-wal" {
 				t.Errorf("sqlite file %q should have been excluded", item.RelPath)
 			}
-		}
-	})
-
-	t.Run("skips oversized root files", func(t *testing.T) {
-		home := t.TempDir()
-		configDir := filepath.Join(home, ".test")
-		if err := os.MkdirAll(configDir, 0755); err != nil {
-			t.Fatal(err)
-		}
-		// Small file (should be included).
-		if err := os.WriteFile(filepath.Join(configDir, "small.txt"), []byte("hi"), 0644); err != nil {
-			t.Fatal(err)
-		}
-		// Large file (should be skipped by MaxFileSize).
-		large := make([]byte, 6000)
-		for i := range large {
-			large[i] = 'x'
-		}
-		if err := os.WriteFile(filepath.Join(configDir, "large.log"), large, 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		ga := newTestAdapter("maxsize-test")
-		ga.ScanOpts = adapters.ScanOptions{
-			MaxFileSize: 5000, // 5000 bytes max
-		}
-
-		items, err := ga.ListItems(home, []string{"config"})
-		if err != nil {
-			t.Fatalf("ListItems: %v", err)
-		}
-
-		foundSmall := false
-		for _, item := range items {
-			if item.RelPath == "small.txt" {
-				foundSmall = true
-			}
-			if item.RelPath == "large.log" {
-				t.Error("large.log should have been skipped by MaxFileSize")
-			}
-		}
-		if !foundSmall {
-			t.Error("small.txt not found — should have been included")
 		}
 	})
 
