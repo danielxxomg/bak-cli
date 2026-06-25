@@ -193,7 +193,7 @@ func tuiRunBackup(cats []string, ch chan<- tui.ProgressUpdate) error {
 			}
 		},
 		CustomCategories: cats,
-		ExcludesLoader: func() (adapters.ScanOptions, error) {
+		ExcludesLoader: func() (adapters.ScanOptions, error) { //nolint:dupl // consolidation tracked in ci-hardening-v2 PR 3 (loadExcludes extraction)
 			cfg, err := config.Load()
 			if err != nil {
 				return adapters.ScanOptions{}, err
