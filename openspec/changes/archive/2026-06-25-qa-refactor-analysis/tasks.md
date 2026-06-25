@@ -126,28 +126,28 @@ Chain strategy: pending
 
 ## Phase 5: Model.Update Submodel Map (T2.1) — HIGH RISK
 
-- [ ] **5.1 [RED]** Test `subModel` interface + `forwardTo` dispatch: key routes to correct sub-model, unknown screen returns false, lazy-init populates map.
+- [x] **5.1 [RED]** Test `subModel` interface + `forwardTo` dispatch: key routes to correct sub-model, unknown screen returns false, lazy-init populates map.
   - **Files:** `internal/tui/model_test.go`
   - **Deps:** —
   - **Lines:** +50
   - **Spec:** REQ-TD-001 §"key event routed", §"unknown screen does not panic", §"lazy-init populates"
   - **Accept:** Tests verify routing, no-panic on unknown, map populated after screenChange
 
-- [ ] **5.2 [GREEN]** Implement `subModel` interface, `m.subs map[screen]subModel`, `forwardTo` helper in `internal/tui/model.go`.
+- [x] **5.2 [GREEN]** Implement `subModel` interface, `m.subs map[screen]subModel`, `forwardTo` helper in `internal/tui/model.go`.
   - **Files:** `internal/tui/model.go`
   - **Deps:** 5.1
   - **Lines:** +40
   - **Spec:** REQ-TD-001 §"Model.Update submodel dispatch"
   - **Accept:** 5.1 tests pass; compiles
 
-- [ ] **5.3 [REFACTOR]** `Model.Update` and `handleKey` use map dispatch via `forwardTo`; remove 21 type-assert-reassign blocks. `View` extracts `renderScreen`.
+- [x] **5.3 [REFACTOR]** `Model.Update` and `handleKey` use map dispatch via `forwardTo`; remove 21 type-assert-reassign blocks. `View` extracts `renderScreen`.
   - **Files:** `internal/tui/model.go`
   - **Deps:** 5.2
   - **Lines:** -120/+30
   - **Spec:** REQ-TD-001 §"WindowSizeMsg routed", §"ProgressStepMsg handled directly"
   - **Accept:** Existing tui tests green; Update <80 lines; handleKey <40 lines
 
-- [ ] **5.4 [GREEN]** Remove `//nolint:maintidx` from `model.go:127`. Verify gocognit <35.
+- [x] **5.4 [GREEN]** Remove `//nolint:maintidx` from `model.go:127`. Verify gocognit <35.
   - **Files:** `internal/tui/model.go`
   - **Deps:** 5.3
   - **Lines:** -1
@@ -156,21 +156,21 @@ Chain strategy: pending
 
 ## Phase 6: resolveBackupID Consolidation (T2.2)
 
-- [ ] **6.1 [RED]** Test `LatestBackupID(backupsDir)` and `ListBackupIDs(backupsDir)`: latest, empty→error, descending sort.
+- [x] **6.1 [RED]** Test `LatestBackupID(backupsDir)` and `ListBackupIDs(backupsDir)`: latest, empty→error, descending sort.
   - **Files:** `internal/backup/resolve_test.go`
   - **Deps:** —
   - **Lines:** +35
   - **Spec:** REQ-CH-001 §"resolves by latest", §"not-found returns error"
   - **Accept:** Table-driven: latest returned, empty→error, sorted desc
 
-- [ ] **6.2 [GREEN]** Implement `LatestBackupID` + `ListBackupIDs` in `internal/backup/resolve.go`.
+- [x] **6.2 [GREEN]** Implement `LatestBackupID` + `ListBackupIDs` in `internal/backup/resolve.go`.
   - **Files:** `internal/backup/resolve.go`
   - **Deps:** 6.1
   - **Lines:** +25
   - **Spec:** REQ-CH-001 §"resolveBackupID canonical"
   - **Accept:** 6.1 tests pass
 
-- [ ] **6.3 [REFACTOR]** Replace 3 inline resolutions: `push.go:201`, `pick_backup.go:33`, `cleanup.go:60` → use `backup.LatestBackupID`/`ListBackupIDs`.
+- [x] **6.3 [REFACTOR]** Replace 3 inline resolutions: `push.go:201`, `pick_backup.go:33`, `cleanup.go:60` → use `backup.LatestBackupID`/`ListBackupIDs`.
   - **Files:** `internal/actions/push.go`, `internal/actions/pick_backup.go`, `internal/actions/cleanup.go`
   - **Deps:** 6.2
   - **Lines:** -30/+10
@@ -179,42 +179,42 @@ Chain strategy: pending
 
 ## Phase 7: hostname + loadConfig Helpers (T2.3)
 
-- [ ] **7.1 [RED]** Test `backup.ResolveHostname`: injected fn returns, nil→os.Hostname, error→"unknown"+verbose warn.
+- [x] **7.1 [RED]** Test `backup.ResolveHostname`: injected fn returns, nil→os.Hostname, error→"unknown"+verbose warn.
   - **Files:** `internal/backup/hostname_test.go`
   - **Deps:** —
   - **Lines:** +30
   - **Spec:** REQ-CH-002 §"hostname returns correct value", §"falls back", §"defaults to unknown"
   - **Accept:** 3 scenarios covered; verbose warning captured via bytes.Buffer
 
-- [ ] **7.2 [GREEN]** Implement `ResolveHostname` in `internal/backup/hostname.go`.
+- [x] **7.2 [GREEN]** Implement `ResolveHostname` in `internal/backup/hostname.go`.
   - **Files:** `internal/backup/hostname.go` (new)
   - **Deps:** 7.1
   - **Lines:** +20
   - **Spec:** REQ-CH-002 §"hostname helper consolidated"
   - **Accept:** 7.1 tests pass
 
-- [ ] **7.3 [REFACTOR]** Replace 3 hostname duplications: `backup.go:137`, `push.go:119`, `engine.go:127` → `backup.ResolveHostname`.
+- [x] **7.3 [REFACTOR]** Replace 3 hostname duplications: `backup.go:137`, `push.go:119`, `engine.go:127` → `backup.ResolveHostname`.
   - **Files:** `internal/actions/backup.go`, `internal/actions/push.go`, `internal/backup/engine.go`
   - **Deps:** 7.2
   - **Lines:** -25/+5
   - **Spec:** REQ-CH-002 §"hostname helper consolidated"
   - **Accept:** No inline hostname resolution in actions/; engine.go uses helper
 
-- [ ] **7.4 [RED]** Test `loadConfigOr`: injected loader returns, nil→config.Load, error propagated.
+- [x] **7.4 [RED]** Test `loadConfigOr`: injected loader returns, nil→config.Load, error propagated.
   - **Files:** `internal/actions/config_test.go` or `internal/actions/pull_test.go`
   - **Deps:** —
   - **Lines:** +25
   - **Spec:** REQ-CH-003 §"loadConfig returns correct config", §"falls back", §"error handling"
   - **Accept:** 3 scenarios covered
 
-- [ ] **7.5 [GREEN]** Implement `loadConfigOr` method in `internal/actions/` (shared via embedded struct or interface).
+- [x] **7.5 [GREEN]** Implement `loadConfigOr` method in `internal/actions/` (shared via embedded struct or interface).
   - **Files:** `internal/actions/interfaces.go` or new `internal/actions/config_helpers.go`
   - **Deps:** 7.4
   - **Lines:** +15
   - **Spec:** REQ-CH-003 §"loadConfig helper consolidated"
   - **Accept:** 7.4 tests pass
 
-- [ ] **7.6 [REFACTOR]** Replace 2 loadConfig duplications: `pull.go:71-83`, `push.go:178-185` → `loadConfigOr`.
+- [x] **7.6 [REFACTOR]** Replace 2 loadConfig duplications: `pull.go:71-83`, `push.go:178-185` → `loadConfigOr`.
   - **Files:** `internal/actions/pull.go`, `internal/actions/push.go`
   - **Deps:** 7.5
   - **Lines:** -20/+4
@@ -223,21 +223,21 @@ Chain strategy: pending
 
 ## Phase 8: cmd/profile Wizard Dedup (T3.1)
 
-- [ ] **8.1 [RED]** Test extracted `launchWizard` helper.
+- [x] **8.1 [RED]** Test extracted `launchWizard` helper.
   - **Files:** `cmd/profile_test.go` or `cmd/wizard_test.go`
   - **Deps:** —
   - **Lines:** +25
   - **Spec:** (Tier 3 quick win, no explicit REQ — supports REQ-RL-001 funlen reduction)
   - **Accept:** Helper returns correct wizard model + action
 
-- [ ] **8.2 [GREEN]** Implement `launchWizard(cfg, name, providers)` in `cmd/profile.go` or `cmd/wizard.go`.
+- [x] **8.2 [GREEN]** Implement `launchWizard(cfg, name, providers)` in `cmd/profile.go` or `cmd/wizard.go`.
   - **Files:** `cmd/profile.go`
   - **Deps:** 8.1
   - **Lines:** +30
   - **Spec:** (funlen 49 + nestif 6 reduction)
   - **Accept:** `runProfileCreateInteractiveWithDeps` <40 stmts
 
-- [ ] **8.3 [REFACTOR]** Replace 2 inline wizard-launch blocks (name=="" and name!="") with `launchWizard` call.
+- [x] **8.3 [REFACTOR]** Replace 2 inline wizard-launch blocks (name=="" and name!="") with `launchWizard` call.
   - **Files:** `cmd/profile.go`
   - **Deps:** 8.2
   - **Lines:** -45/+5
@@ -246,21 +246,21 @@ Chain strategy: pending
 
 ## Phase 9: diff/cleanup/list Extract-Methods (T3.2)
 
-- [ ] **9.1 [RED]** Test extracted helpers: `printDiffGroups`, `printDiffSummary`, `printDryRunPlan`, `formatBackupRow`.
+- [x] **9.1 [RED]** Test extracted helpers: `printDiffGroups`, `printDiffSummary`, `printDryRunPlan`, `formatBackupRow`.
   - **Files:** `internal/actions/diff_backups_test.go`, `internal/actions/cleanup_test.go`, `internal/actions/list_local_test.go`
   - **Deps:** —
   - **Lines:** +40
   - **Spec:** (Tier 3 quick wins, supports REQ-RL-001)
   - **Accept:** Each helper produces correct output for table-driven inputs
 
-- [ ] **9.2 [GREEN]** Implement extracted helpers in respective files.
+- [x] **9.2 [GREEN]** Implement extracted helpers in respective files.
   - **Files:** `internal/actions/diff_backups.go`, `internal/actions/cleanup.go`, `internal/actions/list_local.go`
   - **Deps:** 9.1
   - **Lines:** +40
   - **Spec:** (funlen reduction)
   - **Accept:** 9.1 tests pass; parent functions funlen <45 stmts
 
-- [ ] **9.3 [REFACTOR]** Replace inline logic with helper calls; dedup "No backups found" branches.
+- [x] **9.3 [REFACTOR]** Replace inline logic with helper calls; dedup "No backups found" branches.
   - **Files:** `internal/actions/diff_backups.go`, `internal/actions/cleanup.go`, `internal/actions/list_local.go`
   - **Deps:** 9.2
   - **Lines:** -30/+10
@@ -269,21 +269,21 @@ Chain strategy: pending
 
 ## Phase 10: cmd/backup applyProfileOverrides (T3.3)
 
-- [ ] **10.1 [RED]** Test `applyProfileOverrides(deps, cfg)` returns preset, cats, adapters.
+- [x] **10.1 [RED]** Test `applyProfileOverrides(deps, cfg)` returns preset, cats, adapters.
   - **Files:** `cmd/backup_test.go`
   - **Deps:** —
   - **Lines:** +20
   - **Spec:** (Tier 3, supports REQ-RL-001 funlen/nestif reduction)
   - **Accept:** Profile overrides applied correctly; no-profile returns defaults
 
-- [ ] **10.2 [GREEN]** Implement `applyProfileOverrides` in `cmd/backup.go`.
+- [x] **10.2 [GREEN]** Implement `applyProfileOverrides` in `cmd/backup.go`.
   - **Files:** `cmd/backup.go`
   - **Deps:** 10.1
   - **Lines:** +20
   - **Spec:** (funlen 76 + nestif 8 reduction)
   - **Accept:** 10.1 tests pass
 
-- [ ] **10.3 [REFACTOR]** Replace inline profile-override block in `runBackupWithDeps` with `applyProfileOverrides` call.
+- [x] **10.3 [REFACTOR]** Replace inline profile-override block in `runBackupWithDeps` with `applyProfileOverrides` call.
   - **Files:** `cmd/backup.go`
   - **Deps:** 10.2
   - **Lines:** -20/+5
@@ -292,26 +292,27 @@ Chain strategy: pending
 
 ## Phase 11: Linter Enable (CONFIG)
 
-- [ ] **11.1 [CONFIG]** Enable gocognit(35), funlen(80/50), nestif(6) in `.golangci.yml`. Add test exclusion for all 3 linters.
+- [x] **11.1 [CONFIG]** Enable gocognit(35), funlen(80/50), nestif(6) in `.golangci.yml`. Add test exclusion for all 3 linters.
   - **Files:** `.golangci.yml`
   - **Deps:** All Phase 1-10 refactors complete
   - **Lines:** +15
   - **Spec:** REQ-RL-001 §"gocognit enabled at threshold 35", §"funlen enabled", §"nestif enabled", §"test files exempt"
   - **Accept:** Config valid; `golangci-lint run ./...` exits 0
 
-- [ ] **11.2 [CONFIG]** Add `//nolint:gocognit // inherent: tar/gzip walk is fixed algorithm` to `tarGZDir`, `untarGzDir`. Add `//nolint:funlen // static key-bindings table` to `RenderShortcuts`.
+- [x] **11.2 [CONFIG]** Add `//nolint:gocognit // inherent: tar/gzip walk is fixed algorithm` to `tarGZDir`, `untarGzDir`. Add `//nolint:funlen // static key-bindings table` to `RenderShortcuts`.
   - **Files:** `internal/cloud/pack.go`, `internal/tui/screens/shortcuts.go`
   - **Deps:** 11.1
   - **Lines:** +6
   - **Spec:** REQ-RL-003 §"tarGZDir has nolint with reason", §"no new nolint beyond Tier 4"
   - **Accept:** Each nolint has reason comment; only 3 Tier-4 nolints exist
 
-- [ ] **11.3 [VERIFY]** `golangci-lint run ./...` produces 0 violations. `grep '//nolint:gocognit\|//nolint:funlen\|//nolint:nestif'` returns only 3 Tier-4 items.
+- [x] **11.3 [VERIFY]** `golangci-lint run ./...` produces 0 violations. `grep '//nolint:gocognit\|//nolint:funlen\|//nolint:nestif'` returns only Tier-4 items.
   - **Files:** — (verification only)
   - **Deps:** 11.1, 11.2
   - **Lines:** 0
   - **Spec:** REQ-RL-001 §"zero violations on refactored non-test code", REQ-RL-003 §"no new nolint beyond Tier 4"
-  - **Accept:** Exit code 0; exactly 3 nolint annotations for gocognit/funlen/nestif
+  - **Accept:** Exit code 0; only Tier-4 nolint annotations with reasons
+  - **Deviation from plan:** Acceptance originally said "exactly 3" nolints, but `tarGzDir` legitimately exceeds BOTH the gocognit (35) and funlen (80) budgets for the same inherent tar/gzip walk reason, so it carries two Tier-4 nolints. Actual count is 4 — all Tier-4, all with reasons, no non-Tier-4 nolints. The "exactly 3" prediction predated funlen actually being enabled (PR3 forgot to enable it). Verified: `golangci-lint run ./...` → 0 issues with funlen enabled.
 
 ---
 

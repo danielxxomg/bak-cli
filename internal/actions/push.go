@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 	"time"
 
+	"github.com/danielxxomg/bak-cli/internal/backup"
 	"github.com/danielxxomg/bak-cli/internal/cloud"
 	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/danielxxomg/bak-cli/internal/crypto"
@@ -98,67 +98,10 @@ func (a *PushAction) Run(args []string) error {
 		warnf(errOut, "Using provider: %s\n", provider.Name())
 	}
 
-	// 4. Package backup as tar.gz.
-	infof(out, "Packaging backup %s...\n", backupID)
-	if a.ProgressFn != nil {
-		a.ProgressFn("Packaging", 0, 2)
-	}
-	archiveData, err := cloud.TarGzDirectory(backupPath)
+	// 4-6. Package, optionally encrypt, and push the backup to the provider.
+	id, err := a.publishArchive(provider, backupPath, backupID, out, errOut)
 	if err != nil {
-		return fmt.Errorf("package backup: %w", err)
-	}
-	if a.ProgressFn != nil {
-		a.ProgressFn("Packaging", 1, 2)
-	}
-
-	// 5. Push via provider.
-	if a.ProgressFn != nil {
-		a.ProgressFn("Uploading", 1, 2)
-	}
-	hostname := "unknown"
-	if a.HostnameFn != nil {
-		if h, err := a.HostnameFn(); err == nil {
-			hostname = h
-		} else if a.Verbose {
-			warnf(errOut, "warning: hostname: %v\n", err)
-		}
-	} else {
-		if h, err := os.Hostname(); err == nil {
-			hostname = h
-		} else if a.Verbose {
-			warnf(errOut, "warning: hostname: %v\n", err)
-		}
-	}
-	rawArchive, err := base64.StdEncoding.DecodeString(archiveData)
-	if err != nil {
-		return fmt.Errorf("decode archive: %w", err)
-	}
-
-	// 5. Encrypt archive if the profile has encryption enabled.
-	if encrypt, err := a.shouldEncrypt(); err != nil {
-		return fmt.Errorf("load config: %w", err)
-	} else if encrypt {
-		password, err := crypto.GetPassword("Enter encryption password: ")
-		if err != nil {
-			return fmt.Errorf("encryption password: %w", err)
-		}
-		rawArchive, err = crypto.Encrypt(rawArchive, password)
-		if err != nil {
-			return fmt.Errorf("encrypt archive: %w", err)
-		}
-		if a.Verbose {
-			warnf(errOut, "Archive encrypted\n")
-		}
-	}
-
-	id, err := provider.Push(rawArchive, cloud.PushMeta{
-		BackupID:  backupID,
-		CreatedAt: time.Now().UTC(),
-		Hostname:  hostname,
-		OS:        runtime.GOOS,
-	})
-	if err != nil {
-		return fmt.Errorf("push: %w", err)
+		return err
 	}
 
 	infof(out, "✅ Pushed to %s: %s\n", provider.Name(), id)
@@ -168,18 +111,93 @@ func (a *PushAction) Run(args []string) error {
 	return nil
 }
 
+// publishArchive performs the push workflow's I/O-heavy phase: package the
+// backup directory as a tar.gz, base64-decode it, apply optional encryption,
+// and upload to the provider, reporting progress along the way. It returns
+// the uploaded ID. Extracted from Run to keep PushAction.Run within the funlen
+// statement budget.
+func (a *PushAction) publishArchive(
+	provider cloud.Provider,
+	backupPath, backupID string,
+	out, errOut io.Writer,
+) (string, error) {
+	// 4. Package backup as tar.gz.
+	infof(out, "Packaging backup %s...\n", backupID)
+	if a.ProgressFn != nil {
+		a.ProgressFn("Packaging", 0, 2)
+	}
+	archiveData, err := cloud.TarGzDirectory(backupPath)
+	if err != nil {
+		return "", fmt.Errorf("package backup: %w", err)
+	}
+	if a.ProgressFn != nil {
+		a.ProgressFn("Packaging", 1, 2)
+	}
+
+	hostname := backup.ResolveHostname(a.HostnameFn, a.Verbose, errOut)
+	rawArchive, err := base64.StdEncoding.DecodeString(archiveData)
+	if err != nil {
+		return "", fmt.Errorf("decode archive: %w", err)
+	}
+
+	// 5. Encrypt archive if the profile has encryption enabled.
+	rawArchive, err = a.encryptArchiveIfNeeded(rawArchive, errOut)
+	if err != nil {
+		return "", err
+	}
+
+	// 6. Push via provider.
+	if a.ProgressFn != nil {
+		a.ProgressFn("Uploading", 1, 2)
+	}
+	id, err := provider.Push(rawArchive, cloud.PushMeta{
+		BackupID:  backupID,
+		CreatedAt: time.Now().UTC(),
+		Hostname:  hostname,
+		OS:        runtime.GOOS,
+	})
+	if err != nil {
+		return "", fmt.Errorf("push: %w", err)
+	}
+	return id, nil
+}
+
+// encryptArchiveIfNeeded encrypts the raw archive bytes when the configured
+// profile has encryption enabled, prompting for the password and returning the
+// ciphertext. When encryption is disabled it returns rawArchive unchanged.
+// Extracted from Run to keep PushAction.Run within the funlen statement budget.
+func (a *PushAction) encryptArchiveIfNeeded(rawArchive []byte, errOut io.Writer) ([]byte, error) {
+	encrypt, err := a.shouldEncrypt()
+	if err != nil {
+		return nil, fmt.Errorf("load config: %w", err)
+	}
+	if !encrypt {
+		return rawArchive, nil
+	}
+
+	password, err := crypto.GetPassword("Enter encryption password: ")
+	if err != nil {
+		return nil, fmt.Errorf("encryption password: %w", err)
+	}
+
+	encrypted, err := crypto.Encrypt(rawArchive, password)
+	if err != nil {
+		return nil, fmt.Errorf("encrypt archive: %w", err)
+	}
+
+	if a.Verbose {
+		warnf(errOut, "Archive encrypted\n")
+	}
+
+	return encrypted, nil
+}
+
 // shouldEncrypt checks whether the configured profile has encryption
 // enabled. It returns (true, nil) when the profile exists and has
 // Encryption.Enabled set, (false, nil) when the profile is missing or
 // encryption is not enabled, and (false, err) when config loading fails.
 func (a *PushAction) shouldEncrypt() (bool, error) {
-	var cfg *config.Config
-	var err error
-	if a.ConfigLoader != nil {
-		cfg, err = a.ConfigLoader()
-	} else {
-		cfg, err = config.Load()
-	}
+	cfg, err := loadConfigOr(a.ConfigLoader)
 	if err != nil {
 		return false, err
 	}
@@ -197,7 +215,9 @@ func (a *PushAction) shouldEncrypt() (bool, error) {
 }
 
 // resolveBackupID returns the backup ID from args or finds the most
-// recent backup when no argument is given.
+// recent backup when no argument is given. The sort/dedup of backup IDs
+// delegates to backup.SortedBackupIDs (the canonical resolver core); the
+// ReadDir stays on the injected FileSystem so error paths stay testable.
 func (a *PushAction) resolveBackupID(backupsDir string, args []string) (string, error) {
 	if len(args) > 0 && args[0] != "" {
 		return args[0], nil
@@ -208,20 +228,10 @@ func (a *PushAction) resolveBackupID(backupsDir string, args []string) (string, 
 		return "", fmt.Errorf("read backups dir: %w", err)
 	}
 
-	var ids []string
-	for _, e := range entries {
-		if e.IsDir() {
-			ids = append(ids, e.Name())
-		}
-	}
-
+	ids := backup.SortedBackupIDs(entries)
 	if len(ids) == 0 {
 		return "", fmt.Errorf("no backups found — run 'bak backup' first")
 	}
-
-	sort.Slice(ids, func(i, j int) bool {
-		return ids[i] > ids[j]
-	})
 
 	if a.Verbose {
 		stderr := a.Stderr

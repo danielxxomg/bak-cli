@@ -67,19 +67,9 @@ func (a *PullAction) Run(args []string) error {
 	bakDir := filepath.Join(homeDir, ".bak")
 
 	// 2. Load config (for stored backup ID resolution).
-	var cfg *config.Config
-	if a.ConfigLoader != nil {
-		var err error
-		cfg, err = a.ConfigLoader()
-		if err != nil {
-			return fmt.Errorf("load config: %w", err)
-		}
-	} else {
-		var err error
-		cfg, err = config.Load()
-		if err != nil {
-			return fmt.Errorf("load config: %w", err)
-		}
+	cfg, err := loadConfigOr(a.ConfigLoader)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
 	}
 
 	// 3. Resolve provider via injected factory.
@@ -123,22 +113,9 @@ func (a *PullAction) Run(args []string) error {
 	archiveStr := string(archiveData)
 
 	// 5. Decrypt if encrypted.
-	if rawBytes, decErr := base64.StdEncoding.DecodeString(archiveStr); decErr == nil && crypto.IsEncrypted(rawBytes) {
-		password, err := crypto.GetPassword("Enter decryption password: ")
-		if err != nil {
-			return fmt.Errorf("decryption password: %w", err)
-		}
-
-		decrypted, err := crypto.Decrypt(rawBytes, password)
-		if err != nil {
-			return fmt.Errorf("decrypt archive: %w", err)
-		}
-
-		archiveStr = base64.StdEncoding.EncodeToString(decrypted)
-
-		if a.Verbose {
-			fmt.Fprintf(a.stderr(), "Decrypted archive\n") //nolint:errcheck
-		}
+	archiveStr, err = a.decryptArchiveIfNeeded(archiveStr)
+	if err != nil {
+		return err
 	}
 
 	// 6. Extract to local bak dir.
@@ -164,4 +141,37 @@ func (a *PullAction) Run(args []string) error {
 	}
 
 	return nil
+}
+
+// decryptArchiveIfNeeded decodes + decrypts the archive when it is recognized
+// as encrypted, prompting for the password and returning the re-base64-encoded
+// plaintext archive string. When the archive is not encrypted (decode failed or
+// not recognized) it returns the archiveString unchanged. Extracted from Run to
+// keep PullAction.Run within the funlen statement budget.
+func (a *PullAction) decryptArchiveIfNeeded(archiveStr string) (string, error) {
+	rawBytes, decErr := base64.StdEncoding.DecodeString(archiveStr)
+	if decErr != nil {
+		// Not base64-encoded, so it cannot be an encrypted archive blob; return
+		// the archive unchanged so the caller proceeds with extraction.
+		return archiveStr, nil //nolint:nilerr // intentional: decode failure means the archive is not an encrypted blob
+	}
+	if !crypto.IsEncrypted(rawBytes) {
+		return archiveStr, nil
+	}
+
+	password, err := crypto.GetPassword("Enter decryption password: ")
+	if err != nil {
+		return "", fmt.Errorf("decryption password: %w", err)
+	}
+
+	decrypted, err := crypto.Decrypt(rawBytes, password)
+	if err != nil {
+		return "", fmt.Errorf("decrypt archive: %w", err)
+	}
+
+	if a.Verbose {
+		fmt.Fprintf(a.stderr(), "Decrypted archive\n") //nolint:errcheck
+	}
+
+	return base64.StdEncoding.EncodeToString(decrypted), nil
 }

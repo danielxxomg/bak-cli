@@ -248,3 +248,152 @@ func TestRunBackup_OverrideFlagRegistered(t *testing.T) {
 		t.Errorf("--override default = %q, want 'false'", overrideFlag.DefValue)
 	}
 }
+
+// --- extracted helper tests (Phase 10) ---
+
+// TestApplyProfileOverrides verifies the profile-override helper: defaults
+// pass through when no profile is selected, overrides apply when a profile
+// exists, and error/verbose paths behave correctly.
+func TestApplyProfileOverrides(t *testing.T) {
+	t.Run("no profile returns defaults unchanged without loading config", func(t *testing.T) {
+		resetBackupVars()
+		defer resetBackupVars()
+
+		loaderCalled := false
+		deps := cmdDeps{
+			ConfigLoader: func() (*config.Config, error) {
+				loaderCalled = true
+				return &config.Config{}, nil
+			},
+			Stderr: new(bytes.Buffer),
+		}
+		preset, adapters, cats, err := applyProfileOverrides(deps, "quick", []string{"opencode"}, []string{"config"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if loaderCalled {
+			t.Error("config loader must not be called when no profile is selected")
+		}
+		if preset != "quick" {
+			t.Errorf("preset = %q, want quick", preset)
+		}
+		if !equalStrings(adapters, []string{"opencode"}) {
+			t.Errorf("adapters = %v, want [opencode]", adapters)
+		}
+		if !equalStrings(cats, []string{"config"}) {
+			t.Errorf("categories = %v, want [config]", cats)
+		}
+	})
+
+	t.Run("profile found applies preset categories and adapters", func(t *testing.T) {
+		resetBackupVars()
+		backupProfile = "work"
+		defer resetBackupVars()
+
+		deps := cmdDeps{
+			ConfigLoader: func() (*config.Config, error) {
+				return &config.Config{
+					Profiles: map[string]config.ProfileConfig{
+						"work": {
+							Preset:     "full",
+							Categories: []string{"skills", "config"},
+							Adapters:   []string{"opencode", "cursor"},
+							Provider:   "github-gist",
+						},
+					},
+				}, nil
+			},
+			Stderr: new(bytes.Buffer),
+		}
+		preset, adapters, cats, err := applyProfileOverrides(deps, "quick", nil, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if preset != "full" {
+			t.Errorf("preset = %q, want full (overridden)", preset)
+		}
+		if !equalStrings(adapters, []string{"opencode", "cursor"}) {
+			t.Errorf("adapters = %v, want [opencode cursor]", adapters)
+		}
+		if !equalStrings(cats, []string{"skills", "config"}) {
+			t.Errorf("categories = %v, want [skills config]", cats)
+		}
+	})
+
+	t.Run("profile not found returns error", func(t *testing.T) {
+		resetBackupVars()
+		backupProfile = "missing"
+		defer resetBackupVars()
+
+		deps := cmdDeps{
+			ConfigLoader: func() (*config.Config, error) {
+				return &config.Config{Profiles: map[string]config.ProfileConfig{}}, nil
+			},
+			Stderr: new(bytes.Buffer),
+		}
+		_, _, _, err := applyProfileOverrides(deps, "quick", nil, nil)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "not found") {
+			t.Errorf("error = %q, want substring 'not found'", err.Error())
+		}
+	})
+
+	t.Run("config loader error is wrapped", func(t *testing.T) {
+		resetBackupVars()
+		backupProfile = "work"
+		defer resetBackupVars()
+
+		deps := cmdDeps{
+			ConfigLoader: func() (*config.Config, error) {
+				return nil, errors.New("disk failure")
+			},
+			Stderr: new(bytes.Buffer),
+		}
+		_, _, _, err := applyProfileOverrides(deps, "quick", nil, nil)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "load config for profile") {
+			t.Errorf("error = %q, want substring 'load config for profile'", err.Error())
+		}
+	})
+
+	t.Run("verbose writes overridden profile summary to stderr", func(t *testing.T) {
+		resetBackupVars()
+		backupProfile = "work"
+		origVerbose := verbose
+		verbose = true
+		defer func() {
+			resetBackupVars()
+			verbose = origVerbose
+		}()
+
+		stderr := new(bytes.Buffer)
+		deps := cmdDeps{
+			ConfigLoader: func() (*config.Config, error) {
+				return &config.Config{
+					Profiles: map[string]config.ProfileConfig{
+						"work": {Preset: "full", Provider: "github-gist"},
+					},
+				}, nil
+			},
+			Stderr: stderr,
+		}
+		_, _, _, err := applyProfileOverrides(deps, "quick", nil, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		got := stderr.String()
+		if !strings.Contains(got, "Using profile") {
+			t.Errorf("stderr should contain 'Using profile'; got: %q", got)
+		}
+		if !strings.Contains(got, `profile "work"`) {
+			t.Errorf("stderr should mention profile name; got: %q", got)
+		}
+		if !strings.Contains(got, "preset=full") {
+			t.Errorf("stderr should show overridden preset; got: %q", got)
+		}
+	})
+}
