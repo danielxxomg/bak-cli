@@ -67,10 +67,7 @@ func (a *CleanupAction) Run() error {
 
 	// Dry-run: print plan only.
 	if a.DryRun {
-		_, _ = fmt.Fprintf(a.Stdout, "Would delete %d backups (keeping %d newest):\n", len(toDelete), keep)
-		for _, id := range toDelete {
-			_, _ = fmt.Fprintln(a.Stdout, "  "+id)
-		}
+		printDryRunPlan(a.Stdout, toDelete, keep)
 		return nil
 	}
 
@@ -100,4 +97,14 @@ func (a *CleanupAction) Run() error {
 	deleted := len(toDelete) - failed
 	_, _ = fmt.Fprintf(a.Stdout, "Deleted %d/%d backups (%d failed).\n", deleted, len(toDelete), failed)
 	return nil
+}
+
+// printDryRunPlan writes a dry-run deletion plan to out: a header line
+// naming how many backups would be deleted and how many kept, followed by
+// each backup ID to be deleted (indented).
+func printDryRunPlan(out io.Writer, toDelete []string, keep int) {
+	_, _ = fmt.Fprintf(out, "Would delete %d backups (keeping %d newest):\n", len(toDelete), keep)
+	for _, id := range toDelete {
+		_, _ = fmt.Fprintln(out, "  "+id)
+	}
 }

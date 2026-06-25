@@ -246,21 +246,21 @@ Chain strategy: pending
 
 ## Phase 9: diff/cleanup/list Extract-Methods (T3.2)
 
-- [ ] **9.1 [RED]** Test extracted helpers: `printDiffGroups`, `printDiffSummary`, `printDryRunPlan`, `formatBackupRow`.
+- [x] **9.1 [RED]** Test extracted helpers: `printDiffGroups`, `printDiffSummary`, `printDryRunPlan`, `formatBackupRow`.
   - **Files:** `internal/actions/diff_backups_test.go`, `internal/actions/cleanup_test.go`, `internal/actions/list_local_test.go`
   - **Deps:** —
   - **Lines:** +40
   - **Spec:** (Tier 3 quick wins, supports REQ-RL-001)
   - **Accept:** Each helper produces correct output for table-driven inputs
 
-- [ ] **9.2 [GREEN]** Implement extracted helpers in respective files.
+- [x] **9.2 [GREEN]** Implement extracted helpers in respective files.
   - **Files:** `internal/actions/diff_backups.go`, `internal/actions/cleanup.go`, `internal/actions/list_local.go`
   - **Deps:** 9.1
   - **Lines:** +40
   - **Spec:** (funlen reduction)
   - **Accept:** 9.1 tests pass; parent functions funlen <45 stmts
 
-- [ ] **9.3 [REFACTOR]** Replace inline logic with helper calls; dedup "No backups found" branches.
+- [x] **9.3 [REFACTOR]** Replace inline logic with helper calls; dedup "No backups found" branches.
   - **Files:** `internal/actions/diff_backups.go`, `internal/actions/cleanup.go`, `internal/actions/list_local.go`
   - **Deps:** 9.2
   - **Lines:** -30/+10
