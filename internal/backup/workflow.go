@@ -111,15 +111,9 @@ func Run(ctx Context) (*Result, error) {
 	}
 
 	// --- 1. Resolve categories -------------------------------------------
-	var categories []string
-	if len(ctx.CustomCategories) > 0 {
-		categories = ctx.CustomCategories
-	} else {
-		cats, err := presets.Resolve(ctx.Preset)
-		if err != nil {
-			return nil, fmt.Errorf("resolve preset %q: %w", ctx.Preset, err)
-		}
-		categories = cats
+	categories, err := resolveCategories(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	// --- 2. Identify which adapters to run --------------------------------
@@ -132,16 +126,8 @@ func Run(ctx Context) (*Result, error) {
 	}
 
 	// --- 3. Apply exclusion rules (if loader is set) ----------------------
-	if ctx.ExcludesLoader != nil {
-		opts, err := ctx.ExcludesLoader()
-		if err != nil {
-			return nil, fmt.Errorf("load excludes: %w", err)
-		}
-		for _, d := range detected {
-			if sc, ok := d.Adapter.(adapters.ScanConfigurable); ok {
-				sc.SetScanOptions(opts)
-			}
-		}
+	if err := applyExcludes(ctx, detected); err != nil {
+		return nil, err
 	}
 
 	// --- 4. Create backup directory ---------------------------------------
@@ -163,7 +149,7 @@ func Run(ctx Context) (*Result, error) {
 	defer func() {
 		if cleanupOnError {
 			if removeErr := fsys.RemoveAll(backupDir); removeErr != nil && ctx.Verbose {
-				fmt.Fprintf(stderr, "warning: cleanup failed: %v\n", removeErr)
+				fmt.Fprintf(stderr, "warning: cleanup failed: %v\n", removeErr) //nolint:errcheck // non-critical diagnostic
 			}
 		}
 	}()
@@ -176,100 +162,18 @@ func Run(ctx Context) (*Result, error) {
 	// --- 6. Collect items, backup, scan secrets, build manifest items -----
 	// First pass: collect items from every adapter to compute the total file
 	// count for progress reporting.
-	type adapterItems struct {
-		adapter adapters.DetectedAdapter
-		items   []adapters.Item
-	}
-	var allItems []adapterItems
-	filesTotal := 0
-	for _, d := range detected {
-		items, err := d.Adapter.ListItems(ctx.HomeDir, categories)
-		if err != nil {
-			return nil, fmt.Errorf("list items for %q: %w", d.Adapter.Name(), err)
-		}
-		allItems = append(allItems, adapterItems{adapter: d, items: items})
-		for _, item := range items {
-			if !item.IsDir {
-				filesTotal++
-			}
-		}
+	allItems, filesTotal, err := collectAdapterItems(detected, ctx.HomeDir, categories)
+	if err != nil {
+		return nil, err
 	}
 
 	// Second pass: backup, scan for secrets, remove secret files, and build
 	// the manifest items with the secretRelPaths skip-map.
-	var allSecretFiles []string
-	totalFiles := 0
-	var totalSize int64
-	filesDone := 0
-
-	for _, entry := range allItems {
-		d := entry.adapter
-
-		if err := d.Adapter.Backup(ctx.HomeDir, backupDir, entry.items); err != nil {
-			return nil, fmt.Errorf("backup %q: %w", d.Adapter.Name(), err)
-		}
-
-		adapterBackupDir := filepath.Join(backupDir, d.Adapter.Name())
-		secretFiles := scanBackupForSecretsFS(fsys, adapterBackupDir, patterns, ctx.Verbose, stderr)
-		allSecretFiles = append(allSecretFiles, secretFiles...)
-
-		// Exclude secret-containing files from the manifest AND remove them
-		// from the backup directory (canonical Engine.Run behavior). RemoveAll
-		// is used so directories containing only secrets are cleaned up too.
-		secretRelPaths := make(map[string]bool)
-		for _, secretFile := range secretFiles {
-			if rel, relErr := filepath.Rel(backupDir, secretFile); relErr == nil {
-				secretRelPaths[paths.Slash(rel)] = true
-			}
-			if rmErr := fsys.RemoveAll(secretFile); rmErr != nil && ctx.Verbose {
-				fmt.Fprintf(stderr, "warning: could not remove secret file: %v\n", rmErr)
-			}
-		}
-
-		manifestItems := make([]manifest.Item, 0, len(entry.items))
-		for _, item := range entry.items {
-			if item.IsDir {
-				continue // manifest tracks files only
-			}
-
-			filesDone++
-			if ctx.ProgressFn != nil {
-				ctx.ProgressFn(item.RelPath, filesDone, filesTotal)
-			}
-
-			backupPath := paths.Slash(filepath.Join(d.Adapter.Name(), item.RelPath))
-
-			// Skip items whose backed-up file was removed (contained secrets)
-			// so the manifest never carries dangling references.
-			if secretRelPaths[backupPath] {
-				continue
-			}
-
-			// Security: validate the source path stays under the home dir.
-			absSource := item.SourcePath
-			if strings.HasPrefix(absSource, "~/") {
-				absSource = paths.FromCanonical(absSource, ctx.HomeDir)
-			}
-			cleanSource := paths.CanonicalPath(absSource)
-			cleanHome := paths.CanonicalPath(ctx.HomeDir) + "/"
-			if !strings.HasPrefix(strings.ToLower(cleanSource), strings.ToLower(cleanHome)) &&
-				!strings.EqualFold(cleanSource, paths.CanonicalPath(ctx.HomeDir)) {
-				return nil, fmt.Errorf("adapter %q returned source path outside home directory", d.Adapter.Name())
-			}
-
-			manifestItems = append(manifestItems, manifest.Item{
-				Category:   item.Category,
-				SourcePath: item.SourcePath,
-				BackupPath: backupPath,
-				Hash:       item.Hash,
-				Size:       item.Size,
-			})
-			totalFiles++
-			totalSize += item.Size
-		}
-
-		configDirCanonical := paths.ToCanonical(d.ConfigDir)
-		m.AddAdapter(d.Adapter.Name(), "", configDirCanonical, manifestItems)
+	allSecretFiles, totalFiles, totalSize, err := backupAndBuildManifest(
+		ctx, fsys, allItems, backupDir, patterns, filesTotal, m, stderr,
+	)
+	if err != nil {
+		return nil, err
 	}
 
 	// --- 7. Generate .env.example when secrets were detected -------------
@@ -298,6 +202,180 @@ func Run(ctx Context) (*Result, error) {
 		AdaptersRun:     len(detected),
 		Preset:          ctx.Preset,
 	}, nil
+}
+
+// resolveCategories returns the custom categories when provided, otherwise
+// resolves them from the named preset.
+func resolveCategories(ctx Context) ([]string, error) {
+	if len(ctx.CustomCategories) > 0 {
+		return ctx.CustomCategories, nil
+	}
+	cats, err := presets.Resolve(ctx.Preset)
+	if err != nil {
+		return nil, fmt.Errorf("resolve preset %q: %w", ctx.Preset, err)
+	}
+	return cats, nil
+}
+
+// applyExcludes loads scan options (when an ExcludesLoader is configured) and
+// applies them to every ScanConfigurable adapter before ListItems runs. nil
+// loader means no exclusions.
+func applyExcludes(ctx Context, detected []adapters.DetectedAdapter) error {
+	if ctx.ExcludesLoader == nil {
+		return nil
+	}
+	opts, err := ctx.ExcludesLoader()
+	if err != nil {
+		return fmt.Errorf("load excludes: %w", err)
+	}
+	for _, d := range detected {
+		if sc, ok := d.Adapter.(adapters.ScanConfigurable); ok {
+			sc.SetScanOptions(opts)
+		}
+	}
+	return nil
+}
+
+// adapterItems pairs a detected adapter with the items its ListItems call
+// returned, so the second pass can iterate without re-listing.
+type adapterItems struct {
+	adapter adapters.DetectedAdapter
+	items   []adapters.Item
+}
+
+// collectAdapterItems runs the first pass: ask every detected adapter for its
+// items and tally the non-directory files so progress reporting knows the
+// total upfront.
+func collectAdapterItems(detected []adapters.DetectedAdapter, homeDir string, categories []string) ([]adapterItems, int, error) {
+	var allItems []adapterItems
+	filesTotal := 0
+	for _, d := range detected {
+		items, err := d.Adapter.ListItems(homeDir, categories)
+		if err != nil {
+			return nil, 0, fmt.Errorf("list items for %q: %w", d.Adapter.Name(), err)
+		}
+		allItems = append(allItems, adapterItems{adapter: d, items: items})
+		for _, item := range items {
+			if !item.IsDir {
+				filesTotal++
+			}
+		}
+	}
+	return allItems, filesTotal, nil
+}
+
+// backupAndBuildManifest runs the second pass: for each adapter it backs the
+// items up, scans for secrets, removes secret files from the backup dir, and
+// builds the manifest entries with the secretRelPaths skip-map so no dangling
+// references remain. It mutates m by adding one adapter section per pass.
+func backupAndBuildManifest(
+	ctx Context,
+	fsys FS,
+	allItems []adapterItems,
+	backupDir string,
+	patterns []*regexp.Regexp,
+	filesTotal int,
+	m *manifest.Manifest,
+	stderr io.Writer,
+) (allSecretFiles []string, totalFiles int, totalSize int64, err error) {
+	filesDone := 0
+	for _, entry := range allItems {
+		d := entry.adapter
+
+		if err := d.Adapter.Backup(ctx.HomeDir, backupDir, entry.items); err != nil {
+			return nil, 0, 0, fmt.Errorf("backup %q: %w", d.Adapter.Name(), err)
+		}
+
+		adapterBackupDir := filepath.Join(backupDir, d.Adapter.Name())
+		secretFiles := scanBackupForSecretsFS(fsys, adapterBackupDir, patterns, ctx.Verbose, stderr)
+		allSecretFiles = append(allSecretFiles, secretFiles...)
+
+		secretRelPaths := removeSecretFiles(fsys, secretFiles, backupDir, ctx.Verbose, stderr)
+
+		items, files, size, fdone, berr := buildAdapterManifestItems(entry, ctx, d, backupDir, secretRelPaths, filesDone, filesTotal)
+		if berr != nil {
+			return nil, 0, 0, berr
+		}
+		filesDone = fdone
+		totalFiles += files
+		totalSize += size
+
+		m.AddAdapter(d.Adapter.Name(), "", paths.ToCanonical(d.ConfigDir), items)
+	}
+	return allSecretFiles, totalFiles, totalSize, nil
+}
+
+// removeSecretFiles builds the secretRelPaths skip-map and removes each
+// secret-bearing file from the backup directory via FS.RemoveAll (handles
+// directories containing only secrets). The skip-map keys are backup-relative
+// slash paths so the manifest builder can match item.BackupPath exactly.
+func removeSecretFiles(fsys FS, secretFiles []string, backupDir string, verbose bool, stderr io.Writer) map[string]bool {
+	secretRelPaths := make(map[string]bool)
+	for _, secretFile := range secretFiles {
+		if rel, relErr := filepath.Rel(backupDir, secretFile); relErr == nil {
+			secretRelPaths[paths.Slash(rel)] = true
+		}
+		if rmErr := fsys.RemoveAll(secretFile); rmErr != nil && verbose {
+			fmt.Fprintf(stderr, "warning: could not remove secret file: %v\n", rmErr) //nolint:errcheck // non-critical diagnostic
+		}
+	}
+	return secretRelPaths
+}
+
+// buildAdapterManifestItems walks one adapter's items, advancing progress,
+// skipping removed-secret entries, validating source paths stay under the
+// home dir, and assembling the manifest.Item slice. It returns the per-adapter
+// item count and size deltas plus the updated running filesDone counter.
+func buildAdapterManifestItems(
+	entry adapterItems,
+	ctx Context,
+	d adapters.DetectedAdapter,
+	backupDir string,
+	secretRelPaths map[string]bool,
+	filesDone, filesTotal int,
+) (items []manifest.Item, files int, size int64, done int, err error) {
+	items = make([]manifest.Item, 0, len(entry.items))
+	for _, item := range entry.items {
+		if item.IsDir {
+			continue // manifest tracks files only
+		}
+
+		filesDone++
+		if ctx.ProgressFn != nil {
+			ctx.ProgressFn(item.RelPath, filesDone, filesTotal)
+		}
+
+		backupPath := paths.Slash(filepath.Join(d.Adapter.Name(), item.RelPath))
+
+		// Skip items whose backed-up file was removed (contained secrets) so
+		// the manifest never carries dangling references.
+		if secretRelPaths[backupPath] {
+			continue
+		}
+
+		// Security: validate the source path stays under the home dir.
+		absSource := item.SourcePath
+		if strings.HasPrefix(absSource, "~/") {
+			absSource = paths.FromCanonical(absSource, ctx.HomeDir)
+		}
+		cleanSource := paths.CanonicalPath(absSource)
+		cleanHome := paths.CanonicalPath(ctx.HomeDir) + "/"
+		if !strings.HasPrefix(strings.ToLower(cleanSource), strings.ToLower(cleanHome)) &&
+			!strings.EqualFold(cleanSource, paths.CanonicalPath(ctx.HomeDir)) {
+			return nil, 0, 0, filesDone, fmt.Errorf("adapter %q returned source path outside home directory", d.Adapter.Name())
+		}
+
+		items = append(items, manifest.Item{
+			Category:   item.Category,
+			SourcePath: item.SourcePath,
+			BackupPath: backupPath,
+			Hash:       item.Hash,
+			Size:       item.Size,
+		})
+		files++
+		size += item.Size
+	}
+	return items, files, size, filesDone, nil
 }
 
 // detectAdapters resolves the detected adapter set, honoring an explicit
@@ -342,7 +420,7 @@ func resolveHostname(fn func() (string, error), verbose bool, stderr io.Writer) 
 	hostname, err := hostnameFn()
 	if err != nil {
 		if verbose {
-			fmt.Fprintf(stderr, "warning: could not get hostname: %v\n", err)
+			fmt.Fprintf(stderr, "warning: could not get hostname: %v\n", err) //nolint:errcheck // non-critical diagnostic
 		}
 		return "unknown"
 	}
@@ -375,7 +453,7 @@ func scanBackupForSecretsFS(fsys FS, adapterBackupDir string, patterns []*regexp
 	err := fsys.WalkDir(adapterBackupDir, func(fpath string, d os.DirEntry, err error) error {
 		if err != nil {
 			if verbose {
-				fmt.Fprintf(stderr, "warning: walk %s: %v\n", fpath, err)
+				fmt.Fprintf(stderr, "warning: walk %s: %v\n", fpath, err) //nolint:errcheck // non-critical diagnostic
 			}
 			// Skip entries with access errors and continue walking.
 			return nil //nolint:nilerr // intentional: continue the walk
@@ -386,7 +464,7 @@ func scanBackupForSecretsFS(fsys FS, adapterBackupDir string, patterns []*regexp
 		results, scanErr := ScanFile(fpath, patterns)
 		if scanErr != nil {
 			if verbose {
-				fmt.Fprintf(stderr, "warning: scan %s: %v\n", fpath, scanErr)
+				fmt.Fprintf(stderr, "warning: scan %s: %v\n", fpath, scanErr) //nolint:errcheck // non-critical diagnostic
 			}
 			return nil //nolint:nilerr // intentional: keep scanning siblings
 		}
@@ -396,7 +474,7 @@ func scanBackupForSecretsFS(fsys FS, adapterBackupDir string, patterns []*regexp
 		return nil
 	})
 	if err != nil && verbose {
-		fmt.Fprintf(stderr, "warning: secret scan walk %s: %v\n", adapterBackupDir, err)
+		fmt.Fprintf(stderr, "warning: secret scan walk %s: %v\n", adapterBackupDir, err) //nolint:errcheck // non-critical diagnostic
 	}
 
 	return secretFiles
