@@ -98,6 +98,62 @@ func pullContentFromAPI(client *http.Client, token, repo, id, url, accept, errPr
 	return decoded, nil
 }
 
+// listContentsDir fetches a Contents API directory listing and maps the
+// entries to BackupMeta. It is the shared backing for GiteaProvider.List and
+// GitHubRepoProvider.List, parameterized by the list URL, accept header,
+// provider error prefix (errPrefix), and a urlBuilder that maps each
+// contentResponse item to the provider-specific human-readable backup URL.
+//
+// The caller retains the token/repo guards; this helper only performs the
+// HTTP fetch and mapping. A 404 response means "directory does not exist yet"
+// and is reported as an empty slice with a nil error. Any other non-2xx
+// status is returned as an error wrapped with errPrefix.
+func listContentsDir(
+	client *http.Client,
+	url, token, accept, errPrefix string,
+	urlBuilder func(item contentResponse) string,
+) ([]BackupMeta, error) {
+	wrap := func(format string, args ...any) error {
+		return fmt.Errorf(errPrefix+": "+format, args...)
+	}
+
+	req, err := newRequest(http.MethodGet, url, token, accept, "", nil)
+	if err != nil {
+		return nil, wrap("build request: %w", err)
+	}
+
+	body, status, err := doRequest(client, req)
+	if err != nil {
+		return nil, wrap("%w", err)
+	}
+
+	// Directory listing may return 404 if the directory doesn't exist yet.
+	if status == http.StatusNotFound {
+		return nil, nil
+	}
+
+	if status < 200 || status >= 300 {
+		return nil, wrap("%w", formatAPIError(body, status))
+	}
+
+	var items []contentResponse
+	if err := json.Unmarshal(body, &items); err != nil {
+		return nil, wrap("parse response: %w", err)
+	}
+
+	metas := make([]BackupMeta, 0, len(items))
+	for _, item := range items {
+		backupID := strings.TrimSuffix(item.Name, ".tar.gz")
+		metas = append(metas, BackupMeta{
+			ID:       backupID,
+			BackupID: backupID,
+			Size:     item.Size,
+			URL:      urlBuilder(item),
+		})
+	}
+	return metas, nil
+}
+
 // formatAPIError formats an API error from a response body and status code.
 // It attempts to parse JSON error responses (e.g., GitHub OAuth) and
 // surfaces the error_description or error field. Falls back to the raw body

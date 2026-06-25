@@ -147,9 +147,7 @@ func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View renders the progress screen with spinner, progress bar, and step list.
 func (m ProgressModel) View() tea.View {
 	if styles.IsTooSmall(m.Width, m.Height) {
-		msg := fmt.Sprintf("Terminal too small (%dx%d). Need at least %dx%d.",
-			m.Width, m.Height, styles.MinWidth, styles.MinHeight)
-		return tea.NewView(msg)
+		return tea.NewView(styles.RenderTooSmall(m.Width, m.Height))
 	}
 
 	var b strings.Builder

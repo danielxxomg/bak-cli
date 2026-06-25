@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,7 +13,7 @@ import (
 
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 	opencodeadapter "github.com/danielxxomg/bak-cli/internal/adapters/opencode"
-	"github.com/danielxxomg/bak-cli/internal/backup"
+	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
 
 // --- test helpers ------------------------------------------------------
@@ -29,6 +30,11 @@ func (h *homeFS) UserHomeDir() (string, error) { return h.home, nil }
 func newHomeFS(home string) FileSystem {
 	return &homeFS{OSFileSystem: &OSFileSystem{}, home: home}
 }
+
+// Compile-time interface compliance checks for the test file system doubles.
+var (
+	_ FileSystem = (*homeFS)(nil)
+)
 
 func setupMockFS() *MockFileSystem {
 	return &MockFileSystem{
@@ -175,6 +181,12 @@ func (m *mkdirFailingFS) UserHomeDir() (string, error) { return m.home, nil }
 func (m *mkdirFailingFS) MkdirAll(path string, _ os.FileMode) error {
 	return errors.New("permission denied")
 }
+
+// Compile-time interface compliance checks for the remaining FS doubles.
+var (
+	_ FileSystem = (*mkdirFailingFS)(nil)
+	_ FileSystem = (*writeFailingFS)(nil)
+)
 
 func TestBackupAction_HappyPath_QuickPreset(t *testing.T) {
 	home := t.TempDir()
@@ -706,88 +718,13 @@ func TestBackupAction_StdoutNotLeaked(t *testing.T) {
 	}
 }
 
-// --- scanBackupForSecrets tests ----------------------------------------
-
-func TestBackupAction_ScanBackupForSecrets_DetectsPattern(t *testing.T) {
-	home := t.TempDir()
-	adapterDir := filepath.Join(home, "adapter")
-	if err := os.MkdirAll(adapterDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	// Write a file containing a GitHub PAT pattern (ghp_ prefix).
-	secretFile := filepath.Join(adapterDir, "config.json")
-	if err := os.WriteFile(secretFile,
-		[]byte(`{"token":"ghp_abcdef1234567890123456789012345678901234"}`), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	action := &BackupAction{FS: &OSFileSystem{}}
-	patterns := backup.DefaultPatterns()
-
-	got := action.scanBackupForSecrets(adapterDir, patterns)
-	if len(got) != 1 {
-		t.Fatalf("expected 1 secret file, got %d: %v", len(got), got)
-	}
-	if got[0] != secretFile {
-		t.Errorf("expected %q, got %q", secretFile, got[0])
-	}
-}
-
-func TestBackupAction_ScanBackupForSecrets_NoSecrets(t *testing.T) {
-	home := t.TempDir()
-	adapterDir := filepath.Join(home, "adapter")
-	if err := os.MkdirAll(adapterDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	// Write a file with no secret patterns.
-	cleanFile := filepath.Join(adapterDir, "settings.json")
-	if err := os.WriteFile(cleanFile, []byte(`{"theme":"dark"}`), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	action := &BackupAction{FS: &OSFileSystem{}}
-	patterns := backup.DefaultPatterns()
-
-	got := action.scanBackupForSecrets(adapterDir, patterns)
-	if len(got) != 0 {
-		t.Errorf("expected 0 secret files, got %d: %v", len(got), got)
-	}
-}
-
-func TestBackupAction_ScanBackupForSecrets_EmptyDir(t *testing.T) {
-	home := t.TempDir()
-	adapterDir := filepath.Join(home, "adapter")
-	if err := os.MkdirAll(adapterDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	action := &BackupAction{FS: &OSFileSystem{}}
-	patterns := backup.DefaultPatterns()
-
-	got := action.scanBackupForSecrets(adapterDir, patterns)
-	if len(got) != 0 {
-		t.Errorf("expected 0 secret files in empty dir, got %d: %v", len(got), got)
-	}
-}
-
-func TestBackupAction_ScanBackupForSecrets_WalkError(t *testing.T) {
-	mockFS := &MockFileSystem{
-		HomeDir:    "/home/test",
-		StatResult: make(map[string]MockStatResult),
-		Files:      make(map[string][]byte),
-		WalkErrors: map[string]error{
-			"/home/test/adapter": errors.New("permission denied"),
-		},
-	}
-
-	action := &BackupAction{FS: mockFS}
-	patterns := backup.DefaultPatterns()
-
-	got := action.scanBackupForSecrets("/home/test/adapter", patterns)
-	if len(got) != 0 {
-		t.Errorf("expected 0 secret files on walk error, got %d: %v", len(got), got)
-	}
-}
+// NOTE: The former TestBackupAction_ScanBackupForSecrets_* suite tested the
+// private BackupAction.scanBackupForSecrets helper, which was removed during
+// the qa-refactor-analysis engine consolidation (the canonical scanner now
+// lives in internal/backup.scanBackupForSecretsFS). That coverage is retained
+// at the correct layer: internal/backup/secrets_test.go covers ScanFile, and
+// TestBackupAction_ManifestExcludesSecretFiles* + TestEngine_Run_WithSecret
+// cover the integrated secret-exclusion behavior.
 
 // TestBackupAction_Run_AppliesExcludes verifies that when ExcludesLoader is
 // set, BackupAction.Run calls it and applies ScanOptions to adapters that
@@ -820,5 +757,195 @@ func TestBackupAction_Run_AppliesExcludes(t *testing.T) {
 
 	if !loadCalled {
 		t.Error("ExcludesLoader was not called during Run")
+	}
+}
+
+// --- secret-exclusion tests (qa-refactor-analysis) ----------------------
+
+// stubSecretAdapter is a test double that lists a fixed set of file items
+// and copies the underlying source files into the backup directory. Two of
+// the items (file8.txt, file9.txt) carry secret-bearing content, exercising
+// the consolidated backup workflow's secret-exclusion path deterministically
+// without coupling the test to the real OpenCode adapter's scanning rules.
+type stubSecretAdapter struct {
+	name      string
+	configDir string
+	home      string
+	secretAt  []int // indexes of items whose source file contains a secret
+	itemCount int
+}
+
+func (s *stubSecretAdapter) Name() string { return s.name }
+
+// Compile-time check that stubSecretAdapter satisfies the adapter contract.
+var _ adapters.Adapter = (*stubSecretAdapter)(nil)
+
+func (s *stubSecretAdapter) Detect(string) (bool, string, error) {
+	return true, s.configDir, nil
+}
+
+func (s *stubSecretAdapter) ListItems(string, []string) ([]adapters.Item, error) {
+	items := make([]adapters.Item, 0, s.itemCount)
+	for i := 0; i < s.itemCount; i++ {
+		rel := fmt.Sprintf("file%d.txt", i)
+		src := filepath.Join(s.home, "src", rel)
+		info, err := os.Stat(src)
+		if err != nil {
+			return nil, fmt.Errorf("stat source: %w", err)
+		}
+		items = append(items, adapters.Item{
+			Category:   "config",
+			SourcePath: src,
+			RelPath:    rel,
+			IsDir:      false,
+			Size:       info.Size(),
+		})
+	}
+	return items, nil
+}
+
+func (s *stubSecretAdapter) Backup(_ string, backupDir string, items []adapters.Item) error {
+	for _, it := range items {
+		dst := filepath.Join(backupDir, s.name, it.RelPath)
+		if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+			return fmt.Errorf("mkdir: %w", err)
+		}
+		data, err := os.ReadFile(it.SourcePath)
+		if err != nil {
+			return fmt.Errorf("read source: %w", err)
+		}
+		if err := os.WriteFile(dst, data, 0644); err != nil {
+			return fmt.Errorf("write backup: %w", err)
+		}
+	}
+	return nil
+}
+
+func (s *stubSecretAdapter) Restore(string, string, []adapters.Item) error { return nil }
+
+// writeStubSources writes itemCount plain source files into home/src, with
+// files at the indexes in secretAt containing a secret pattern.
+func writeStubSources(t *testing.T, home string, itemCount int, secretAt []int) {
+	t.Helper()
+	srcDir := filepath.Join(home, "src")
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	secretSet := make(map[int]bool, len(secretAt))
+	for _, i := range secretAt {
+		secretSet[i] = true
+	}
+	for i := 0; i < itemCount; i++ {
+		rel := fmt.Sprintf("file%d.txt", i)
+		var content []byte
+		if secretSet[i] {
+			content = []byte(`github_token=ghp_abcdef1234567890123456789012345678901234` + "\n")
+		} else {
+			content = []byte(fmt.Sprintf("file %d benign contents\n", i))
+		}
+		if err := os.WriteFile(filepath.Join(srcDir, rel), content, 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// loadManifestItems loads the manifest from the most recent backup and
+// flattens all adapter Items into a single slice.
+func loadManifestItems(t *testing.T, home string) []manifest.Item {
+	t.Helper()
+	entries, err := os.ReadDir(filepath.Join(home, ".bak", "backups"))
+	if err != nil {
+		t.Fatalf("read backups dir: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("no backup directory created")
+	}
+	backupDir := filepath.Join(home, ".bak", "backups", entries[0].Name())
+	m, err := manifest.Load(backupDir)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+	var items []manifest.Item
+	for _, am := range m.Adapters {
+		items = append(items, am.Items...)
+	}
+	return items
+}
+
+// TestBackupAction_ManifestExcludesSecretFiles is the RED test for the
+// qa-refactor-analysis engine consolidation. Given N backed-up files, S of
+// which contain secret patterns, the manifest MUST list only N-S items — the
+// secret files MUST NOT appear as dangling references.
+//
+// This originally FAILED on the CLI path (BackupAction.Run): the
+// pre-consolidation implementation included all items in the manifest and
+// only removed the secret files from disk, leaving dangling references. The
+// table exercises two cases: a partial-secret fixture (10 files, 2 secrets)
+// and an all-secrets fixture (2 files, 2 secrets) so the secretRelPaths skip
+// logic is both present and general.
+func TestBackupAction_ManifestExcludesSecretFiles(t *testing.T) {
+	tests := []struct {
+		name       string
+		itemCount  int
+		secretAt   []int
+		wantItems  int
+		wantLeaked []string // BackupPath suffixes that must NOT appear
+	}{
+		{
+			name:       "10 files with 2 secrets excludes secrets",
+			itemCount:  10,
+			secretAt:   []int{8, 9},
+			wantItems:  8,
+			wantLeaked: []string{"file8.txt", "file9.txt"},
+		},
+		{
+			name:      "all-secret fixture excludes everything",
+			itemCount: 2,
+			secretAt:  []int{0, 1},
+			wantItems: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+			writeStubSources(t, home, tt.itemCount, tt.secretAt)
+
+			reg := adapters.NewRegistry()
+			if err := reg.Register(&stubSecretAdapter{
+				name:      "stub",
+				configDir: filepath.Join(home, "src"),
+				home:      home,
+				secretAt:  tt.secretAt,
+				itemCount: tt.itemCount,
+			}); err != nil {
+				t.Fatal(err)
+			}
+
+			action := &BackupAction{
+				FS:         newHomeFS(home),
+				Registry:   reg,
+				Stdout:     io.Discard,
+				Stderr:     io.Discard,
+				Preset:     "quick",
+				BakVersion: "test",
+			}
+			if err := action.Run(); err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+
+			items := loadManifestItems(t, home)
+			if len(items) != tt.wantItems {
+				t.Fatalf("manifest Items count = %d, want %d", len(items), tt.wantItems)
+			}
+
+			for _, it := range items {
+				for _, leaked := range tt.wantLeaked {
+					if strings.HasSuffix(it.BackupPath, leaked) {
+						t.Errorf("secret file %q leaked into manifest as dangling reference", it.BackupPath)
+					}
+				}
+			}
+		})
 	}
 }
