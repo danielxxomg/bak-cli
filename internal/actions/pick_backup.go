@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/danielxxomg/bak-cli/internal/adapters"
@@ -29,31 +28,13 @@ type PickResult struct {
 type Picker func(categories []CategoryItem) (PickResult, error)
 
 // ResolveBackupID returns the backup ID from args or finds the most
-// recent backup when no argument is given.
+// recent backup when no argument is given. The fallback delegates to
+// backup.LatestBackupID, the canonical latest-backup resolver.
 func ResolveBackupID(backupsDir string, args []string) (string, error) {
 	if len(args) > 0 && args[0] != "" {
 		return args[0], nil
 	}
-
-	entries, err := os.ReadDir(backupsDir)
-	if err != nil {
-		return "", fmt.Errorf("read backups dir: %w", err)
-	}
-
-	var ids []string
-	for _, e := range entries {
-		if e.IsDir() {
-			ids = append(ids, e.Name())
-		}
-	}
-
-	if len(ids) == 0 {
-		return "", fmt.Errorf("no backups found — run 'bak backup' first")
-	}
-
-	sort.Strings(ids)
-	// Most recent backup has the largest timestamp string.
-	return ids[len(ids)-1], nil
+	return backup.LatestBackupID(backupsDir)
 }
 
 // PickBackupAction orchestrates the interactive picker and backup workflow.

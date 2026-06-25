@@ -102,3 +102,87 @@ func TestResolveBackupID(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// Phase 6: resolveBackupID consolidation — RED (ListBackupIDs/LatestBackupID absent)
+// =============================================================================
+
+func TestListBackupIDs_DescendingSort(t *testing.T) {
+	dir := t.TempDir()
+	for _, id := range []string{"20260101-120000", "20260102-130000", "20260103-140000"} {
+		if err := os.MkdirAll(filepath.Join(dir, id), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A non-directory entry must be ignored.
+	if err := os.WriteFile(filepath.Join(dir, "README.txt"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	ids, err := ListBackupIDs(dir)
+	if err != nil {
+		t.Fatalf("ListBackupIDs: %v", err)
+	}
+	if len(ids) != 3 {
+		t.Fatalf("len(ids) = %d, want 3 (non-dir entry ignored)", len(ids))
+	}
+	want := []string{"20260103-140000", "20260102-130000", "20260101-120000"}
+	for i, w := range want {
+		if ids[i] != w {
+			t.Errorf("ids[%d] = %q, want %q (descending)", i, ids[i], w)
+		}
+	}
+}
+
+func TestListBackupIDs_EmptyDirReturnsEmpty(t *testing.T) {
+	ids, err := ListBackupIDs(t.TempDir())
+	if err != nil {
+		t.Fatalf("ListBackupIDs on empty dir: %v", err)
+	}
+	if len(ids) != 0 {
+		t.Errorf("len(ids) = %d, want 0", len(ids))
+	}
+}
+
+func TestListBackupIDs_ReadDirError(t *testing.T) {
+	_, err := ListBackupIDs(filepath.Join(t.TempDir(), "does-not-exist"))
+	if err == nil {
+		t.Fatal("ListBackupIDs on missing dir: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "read backups dir") {
+		t.Errorf("error should mention reading backups dir: %v", err)
+	}
+}
+
+func TestLatestBackupID_ReturnsMostRecent(t *testing.T) {
+	dir := t.TempDir()
+	for _, id := range []string{"20260101-120000", "20260102-130000", "20260103-140000"} {
+		if err := os.MkdirAll(filepath.Join(dir, id), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	latest, err := LatestBackupID(dir)
+	if err != nil {
+		t.Fatalf("LatestBackupID: %v", err)
+	}
+	if latest != "20260103-140000" {
+		t.Errorf("LatestBackupID = %q, want %q", latest, "20260103-140000")
+	}
+}
+
+func TestLatestBackupID_EmptyDirReturnsError(t *testing.T) {
+	_, err := LatestBackupID(t.TempDir())
+	if err == nil {
+		t.Fatal("LatestBackupID on empty dir: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "no backups found") {
+		t.Errorf("error should mention no backups found: %v", err)
+	}
+}
+
+func TestLatestBackupID_ReadDirError(t *testing.T) {
+	_, err := LatestBackupID(filepath.Join(t.TempDir(), "nope"))
+	if err == nil {
+		t.Fatal("LatestBackupID on missing dir: expected error, got nil")
+	}
+}

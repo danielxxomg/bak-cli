@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 	"time"
 
+	"github.com/danielxxomg/bak-cli/internal/backup"
 	"github.com/danielxxomg/bak-cli/internal/cloud"
 	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/danielxxomg/bak-cli/internal/crypto"
@@ -197,7 +197,9 @@ func (a *PushAction) shouldEncrypt() (bool, error) {
 }
 
 // resolveBackupID returns the backup ID from args or finds the most
-// recent backup when no argument is given.
+// recent backup when no argument is given. The sort/dedup of backup IDs
+// delegates to backup.SortedBackupIDs (the canonical resolver core); the
+// ReadDir stays on the injected FileSystem so error paths stay testable.
 func (a *PushAction) resolveBackupID(backupsDir string, args []string) (string, error) {
 	if len(args) > 0 && args[0] != "" {
 		return args[0], nil
@@ -208,20 +210,10 @@ func (a *PushAction) resolveBackupID(backupsDir string, args []string) (string, 
 		return "", fmt.Errorf("read backups dir: %w", err)
 	}
 
-	var ids []string
-	for _, e := range entries {
-		if e.IsDir() {
-			ids = append(ids, e.Name())
-		}
-	}
-
+	ids := backup.SortedBackupIDs(entries)
 	if len(ids) == 0 {
 		return "", fmt.Errorf("no backups found — run 'bak backup' first")
 	}
-
-	sort.Slice(ids, func(i, j int) bool {
-		return ids[i] > ids[j]
-	})
 
 	if a.Verbose {
 		stderr := a.Stderr
