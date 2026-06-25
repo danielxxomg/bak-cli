@@ -82,6 +82,13 @@ type Model struct {
 	profiles  *screens.ProfilesModel
 	cloud     *screens.CloudModel
 
+	// subs is the lazy sub-model dispatch cache. It holds the same pointers
+	// as the typed fields above and is populated by screenChangeMsg (and kept
+	// in sync by forwardTo). The authoritative source for dispatch is the
+	// subEntries closures, which read the typed fields live so direct field
+	// assignment (e.g. in tests) stays consistent with map-based routing.
+	subs map[screen]subModel
+
 	// Reusable components owned by the root model.
 	search components.Search
 	toast  components.Toast
@@ -122,59 +129,162 @@ func (m Model) Init() tea.Cmd {
 	return nil
 }
 
+// subModel is the contract a screen sub-model satisfies for message
+// dispatch. All root sub-models (dashboard, progress, settings, health,
+// restore, profiles, cloud) implement Update with a value receiver, so
+// their pointer types (*screens.XModel) satisfy this interface via Go's
+// method-set promotion.
+type subModel interface {
+	Update(tea.Msg) (tea.Model, tea.Cmd)
+}
+
+// subEntry binds a screen to get/set closures that read and write its typed
+// sub-model field on Model. The closures are stateless and always reflect
+// the current typed field, so direct field assignment (used in tests and by
+// screenChangeMsg) stays consistent with map-based dispatch without a
+// separate synchronization step.
+type subEntry struct {
+	get func(m *Model) subModel     // current typed field as subModel, or nil
+	set func(m *Model, u tea.Model) // persist an updated sub-model value
+}
+
+// subEntries is the dispatch map: one entry per screen that owns a
+// sub-model. Each set closure performs the single type assertion +
+// address-of + field assignment that was previously duplicated ~21 times
+// across Update, handleKey, and the WindowSizeMsg forwarding.
+var subEntries = map[screen]subEntry{
+	ScreenDashboard: {
+		get: func(m *Model) subModel {
+			if m.dashboard == nil {
+				return nil
+			}
+			return m.dashboard
+		},
+		set: func(m *Model, u tea.Model) {
+			d := u.(screens.DashboardModel)
+			m.dashboard = &d
+			m.subs[ScreenDashboard] = m.dashboard
+		},
+	},
+	ScreenProgress: {
+		get: func(m *Model) subModel {
+			if m.progress == nil {
+				return nil
+			}
+			return m.progress
+		},
+		set: func(m *Model, u tea.Model) {
+			p := u.(screens.ProgressModel)
+			m.progress = &p
+			m.subs[ScreenProgress] = m.progress
+		},
+	},
+	ScreenSettings: {
+		get: func(m *Model) subModel {
+			if m.settings == nil {
+				return nil
+			}
+			return m.settings
+		},
+		set: func(m *Model, u tea.Model) {
+			s := u.(screens.SettingsModel)
+			m.settings = &s
+			m.subs[ScreenSettings] = m.settings
+		},
+	},
+	ScreenHealth: {
+		get: func(m *Model) subModel {
+			if m.health == nil {
+				return nil
+			}
+			return m.health
+		},
+		set: func(m *Model, u tea.Model) {
+			h := u.(screens.HealthModel)
+			m.health = &h
+			m.subs[ScreenHealth] = m.health
+		},
+	},
+	ScreenRestore: {
+		get: func(m *Model) subModel {
+			if m.restore == nil {
+				return nil
+			}
+			return m.restore
+		},
+		set: func(m *Model, u tea.Model) {
+			r := u.(screens.RestoreModel)
+			m.restore = &r
+			m.subs[ScreenRestore] = m.restore
+		},
+	},
+	ScreenProfiles: {
+		get: func(m *Model) subModel {
+			if m.profiles == nil {
+				return nil
+			}
+			return m.profiles
+		},
+		set: func(m *Model, u tea.Model) {
+			p := u.(screens.ProfilesModel)
+			m.profiles = &p
+			m.subs[ScreenProfiles] = m.profiles
+		},
+	},
+	ScreenCloud: {
+		get: func(m *Model) subModel {
+			if m.cloud == nil {
+				return nil
+			}
+			return m.cloud
+		},
+		set: func(m *Model, u tea.Model) {
+			c := u.(screens.CloudModel)
+			m.cloud = &c
+			m.subs[ScreenCloud] = m.cloud
+		},
+	},
+}
+
+// ensureSubs lazily initializes the sub-model dispatch cache. Idempotent.
+func (m *Model) ensureSubs() {
+	if m.subs == nil {
+		m.subs = make(map[screen]subModel)
+	}
+}
+
+// forwardTo dispatches msg to the sub-model registered for screen s. It
+// reads the current sub-model from the typed field (via the get closure, so
+// direct field assignment stays consistent), calls Update, and persists the
+// result back to the typed field and the subs cache (via the set closure).
+// It returns (cmd, true) when a sub-model handled the message and
+// (nil, false) when no sub-model is registered or present, so callers can
+// fall through to other handling (e.g. toast forwarding) without panicking.
+func (m *Model) forwardTo(s screen, msg tea.Msg) (tea.Cmd, bool) {
+	m.ensureSubs()
+	entry, ok := subEntries[s]
+	if !ok {
+		return nil, false
+	}
+	sub := entry.get(m)
+	if sub == nil {
+		return nil, false
+	}
+	m.subs[s] = sub
+	updated, cmd := sub.Update(msg)
+	entry.set(m, updated)
+	return cmd, true
+}
+
 // Update handles incoming messages and routes them based on the current
 // screen and message type. It implements the tea.Model interface.
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:maintidx // SEVERE: tracked for qa-refactor-analysis (needs extraction, not config)
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 		m.tooSmall = styles.IsTooSmall(msg.Width, msg.Height)
-		// Forward to active sub-model.
-		switch m.screen {
-		case ScreenDashboard:
-			if m.dashboard != nil {
-				newDash, _ := m.dashboard.Update(msg)
-				nd := newDash.(screens.DashboardModel)
-				m.dashboard = &nd
-			}
-		case ScreenProgress:
-			if m.progress != nil {
-				newProg, _ := m.progress.Update(msg)
-				np := newProg.(screens.ProgressModel)
-				m.progress = &np
-			}
-		case ScreenSettings:
-			if m.settings != nil {
-				newSet, _ := m.settings.Update(msg)
-				ns := newSet.(screens.SettingsModel)
-				m.settings = &ns
-			}
-		case ScreenHealth:
-			if m.health != nil {
-				newH, _ := m.health.Update(msg)
-				nh := newH.(screens.HealthModel)
-				m.health = &nh
-			}
-		case ScreenRestore:
-			if m.restore != nil {
-				newR, _ := m.restore.Update(msg)
-				nr := newR.(screens.RestoreModel)
-				m.restore = &nr
-			}
-		case ScreenProfiles:
-			if m.profiles != nil {
-				newP, _ := m.profiles.Update(msg)
-				np := newP.(screens.ProfilesModel)
-				m.profiles = &np
-			}
-		case ScreenCloud:
-			if m.cloud != nil {
-				newC, _ := m.cloud.Update(msg)
-				nc := newC.(screens.CloudModel)
-				m.cloud = &nc
-			}
-		}
+		m.forwardTo(m.screen, msg)
 		return m, nil
 
 	case tea.KeyPressMsg:
@@ -196,57 +306,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:maintidx // S
 		return m.handleKey(msg)
 
 	case screenChangeMsg:
-		m.screen = msg.screen
-		// Lazy-init sub-models on first screen entry.
-		switch msg.screen {
-		case ScreenDashboard:
-			if m.dashboard == nil {
-				d := m.initDashboard()
-				m.dashboard = &d
-			}
-			return m, m.dashboard.Init()
-		case ScreenProgress:
-			if m.progress == nil {
-				p := m.initProgress()
-				p.Width = m.width
-				p.Height = m.height
-				m.progress = &p
-			}
-			return m, m.progress.Init()
-		case ScreenSettings:
-			if m.settings == nil {
-				s := m.initSettings()
-				m.settings = &s
-			}
-			return m, m.settings.Init()
-		case ScreenHealth:
-			if m.health == nil {
-				h := screens.NewHealthModel()
-				m.health = &h
-			}
-			return m, m.health.Init()
-		case ScreenRestore:
-			if m.restore == nil {
-				r := m.initRestore()
-				m.restore = &r
-			}
-			return m, m.restore.Init()
-		case ScreenProfiles:
-			if m.profiles == nil {
-				p := m.initProfiles()
-				m.profiles = &p
-			}
-			return m, m.profiles.Init()
-		case ScreenCloud:
-			if m.cloud == nil {
-				c := m.initCloud()
-				m.cloud = &c
-			}
-			return m, m.cloud.Init()
-		case ScreenWelcome:
-			return m, nil
-		}
-		return m, nil
+		return m.handleScreenChange(msg)
 
 	case screens.ScreenBackMsg:
 		m.screen = ScreenMenu
@@ -265,86 +325,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:maintidx // S
 
 	case screens.ProgressStepMsg:
 		// Forward to progress sub-model and re-issue channel drain.
-		if m.progress != nil && m.screen == ScreenProgress {
-			newProg, cmd := m.progress.Update(msg)
-			np := newProg.(screens.ProgressModel)
-			m.progress = &np
-			return m, tea.Batch(cmd, drainProgressCmd(m.backupCh))
+		if m.screen == ScreenProgress {
+			if cmd, ok := m.forwardTo(ScreenProgress, msg); ok {
+				return m, tea.Batch(cmd, drainProgressCmd(m.backupCh))
+			}
 		}
 		// Keep draining even if progress model isn't initialized.
 		return m, drainProgressCmd(m.backupCh)
 
 	case screens.ProgressDoneMsg:
-		// Collect result from backupDone channel (non-blocking select).
-		var resultErr error
-		if m.backupDone != nil {
-			select {
-			case err := <-m.backupDone:
-				resultErr = err
-			default:
+		resultErr := m.collectBackupResult()
+		if m.screen == ScreenProgress {
+			if cmd, ok := m.forwardTo(ScreenProgress, msg); ok {
+				return m, tea.Batch(cmd, func() tea.Msg { return actionResultMsg{err: resultErr} })
 			}
-		}
-		// Forward to progress sub-model.
-		if m.progress != nil && m.screen == ScreenProgress {
-			newProg, cmd := m.progress.Update(msg)
-			np := newProg.(screens.ProgressModel)
-			m.progress = &np
-			return m, tea.Batch(cmd, func() tea.Msg { return actionResultMsg{err: resultErr} })
 		}
 		return m, func() tea.Msg { return actionResultMsg{err: resultErr} }
 	}
 
 	// Forward remaining messages to the active sub-model.
-	switch m.screen {
-	case ScreenDashboard:
-		if m.dashboard != nil {
-			newDash, cmd := m.dashboard.Update(msg)
-			nd := newDash.(screens.DashboardModel)
-			m.dashboard = &nd
-			return m, cmd
-		}
-	case ScreenProgress:
-		if m.progress != nil {
-			newProg, cmd := m.progress.Update(msg)
-			np := newProg.(screens.ProgressModel)
-			m.progress = &np
-			return m, cmd
-		}
-	case ScreenSettings:
-		if m.settings != nil {
-			newSet, cmd := m.settings.Update(msg)
-			ns := newSet.(screens.SettingsModel)
-			m.settings = &ns
-			return m, cmd
-		}
-	case ScreenHealth:
-		if m.health != nil {
-			newH, cmd := m.health.Update(msg)
-			nh := newH.(screens.HealthModel)
-			m.health = &nh
-			return m, cmd
-		}
-	case ScreenRestore:
-		if m.restore != nil {
-			newR, cmd := m.restore.Update(msg)
-			nr := newR.(screens.RestoreModel)
-			m.restore = &nr
-			return m, cmd
-		}
-	case ScreenProfiles:
-		if m.profiles != nil {
-			newP, cmd := m.profiles.Update(msg)
-			np := newP.(screens.ProfilesModel)
-			m.profiles = &np
-			return m, cmd
-		}
-	case ScreenCloud:
-		if m.cloud != nil {
-			newC, cmd := m.cloud.Update(msg)
-			nc := newC.(screens.CloudModel)
-			m.cloud = &nc
-			return m, cmd
-		}
+	if cmd, ok := m.forwardTo(m.screen, msg); ok {
+		return m, cmd
 	}
 
 	// Always forward tick messages to the toast component.
@@ -353,8 +354,85 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:maintidx // S
 	if cmd != nil {
 		return m, cmd
 	}
-
 	return m, nil
+}
+
+// handleScreenChange processes a screenChangeMsg: it records the new screen,
+// lazily initializes its sub-model on first entry (populating the subs
+// dispatch cache), and returns the sub-model's Init command.
+func (m *Model) handleScreenChange(msg screenChangeMsg) (tea.Model, tea.Cmd) {
+	m.screen = msg.screen
+	m.ensureSubs()
+	switch msg.screen {
+	case ScreenDashboard:
+		if m.dashboard == nil {
+			d := m.initDashboard()
+			m.dashboard = &d
+		}
+		m.subs[ScreenDashboard] = m.dashboard
+		return *m, m.dashboard.Init()
+	case ScreenProgress:
+		if m.progress == nil {
+			p := m.initProgress()
+			p.Width = m.width
+			p.Height = m.height
+			m.progress = &p
+		}
+		m.subs[ScreenProgress] = m.progress
+		return *m, m.progress.Init()
+	case ScreenSettings:
+		if m.settings == nil {
+			s := m.initSettings()
+			m.settings = &s
+		}
+		m.subs[ScreenSettings] = m.settings
+		return *m, m.settings.Init()
+	case ScreenHealth:
+		if m.health == nil {
+			h := screens.NewHealthModel()
+			m.health = &h
+		}
+		m.subs[ScreenHealth] = m.health
+		return *m, m.health.Init()
+	case ScreenRestore:
+		if m.restore == nil {
+			r := m.initRestore()
+			m.restore = &r
+		}
+		m.subs[ScreenRestore] = m.restore
+		return *m, m.restore.Init()
+	case ScreenProfiles:
+		if m.profiles == nil {
+			p := m.initProfiles()
+			m.profiles = &p
+		}
+		m.subs[ScreenProfiles] = m.profiles
+		return *m, m.profiles.Init()
+	case ScreenCloud:
+		if m.cloud == nil {
+			c := m.initCloud()
+			m.cloud = &c
+		}
+		m.subs[ScreenCloud] = m.cloud
+		return *m, m.cloud.Init()
+	case ScreenWelcome:
+		return *m, nil
+	}
+	return *m, nil
+}
+
+// collectBackupResult drains the backupDone channel non-blockingly,
+// returning the backup result error (or nil when no result is available).
+func (m *Model) collectBackupResult() error {
+	if m.backupDone == nil {
+		return nil
+	}
+	select {
+	case err := <-m.backupDone:
+		return err
+	default:
+		return nil
+	}
 }
 
 // handleKey processes key presses based on the active screen.
@@ -388,10 +466,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.screen = ScreenMenu
 			return m, nil
 		default:
-			if m.cloud != nil {
-				newC, cmd := m.cloud.Update(msg)
-				nc := newC.(screens.CloudModel)
-				m.cloud = &nc
+			if cmd, ok := m.forwardTo(ScreenCloud, msg); ok {
 				return m, cmd
 			}
 		}
@@ -399,24 +474,21 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// When search is active, forward keystrokes to the search component
 		// first, then filter the dashboard table with the current query.
 		if m.search.IsActive() {
-			switch msg.Code {
-			case KeyEsc:
+			if msg.Code == KeyEsc {
 				// Esc deactivates search and restores all rows.
 				m.search.Deactivate()
 				if m.dashboard != nil {
 					m.dashboard.SetFilter("")
 				}
 				return m, nil
-			default:
-				newSearch, cmd := m.search.Update(msg)
-				m.search = newSearch
-				if m.dashboard != nil {
-					m.dashboard.SetFilter(m.search.Query())
-				}
-				return m, cmd
 			}
+			newSearch, cmd := m.search.Update(msg)
+			m.search = newSearch
+			if m.dashboard != nil {
+				m.dashboard.SetFilter(m.search.Query())
+			}
+			return m, cmd
 		}
-
 		// When search is inactive, handle normal dashboard navigation.
 		switch msg.Code {
 		case KeyQuit, KeyEsc:
@@ -426,11 +498,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.search.Activate()
 			return m, nil
 		default:
-			// Forward to dashboard sub-model.
-			if m.dashboard != nil {
-				newDash, cmd := m.dashboard.Update(msg)
-				nd := newDash.(screens.DashboardModel)
-				m.dashboard = &nd
+			if cmd, ok := m.forwardTo(ScreenDashboard, msg); ok {
 				return m, cmd
 			}
 		}
@@ -440,39 +508,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.screen = ScreenMenu
 			return m, nil
 		}
-	case ScreenSettings:
-		if m.settings != nil {
-			newSet, cmd := m.settings.Update(msg)
-			ns := newSet.(screens.SettingsModel)
-			m.settings = &ns
-			return m, cmd
-		}
-	case ScreenHealth:
-		if m.health != nil {
-			newH, cmd := m.health.Update(msg)
-			nh := newH.(screens.HealthModel)
-			m.health = &nh
-			return m, cmd
-		}
-	case ScreenProgress:
-		if m.progress != nil {
-			newProg, cmd := m.progress.Update(msg)
-			np := newProg.(screens.ProgressModel)
-			m.progress = &np
-			return m, cmd
-		}
-	case ScreenRestore:
-		if m.restore != nil {
-			newR, cmd := m.restore.Update(msg)
-			nr := newR.(screens.RestoreModel)
-			m.restore = &nr
-			return m, cmd
-		}
-	case ScreenProfiles:
-		if m.profiles != nil {
-			newP, cmd := m.profiles.Update(msg)
-			np := newP.(screens.ProfilesModel)
-			m.profiles = &np
+	case ScreenSettings, ScreenHealth, ScreenProgress, ScreenRestore, ScreenProfiles:
+		if cmd, ok := m.forwardTo(m.screen, msg); ok {
 			return m, cmd
 		}
 	}
@@ -523,56 +560,11 @@ func (m Model) View() tea.View {
 	if m.tooSmall {
 		content = styles.RenderTooSmall(m.width, m.height)
 	} else {
-		switch m.screen {
-		case ScreenMenu:
-			content = m.renderMenu()
-		case ScreenDashboard:
-			if m.dashboard != nil {
-				content = m.dashboard.View().Content
-			}
-		case ScreenProgress:
-			if m.progress != nil {
-				content = m.progress.View().Content
-			}
-		case ScreenCloud:
-			if m.cloud != nil {
-				content = m.cloud.View().Content
-			} else {
-				content = screens.RenderCloudStatus(screens.CloudInfo{}, m.width)
-			}
-		case ScreenSettings:
-			if m.settings != nil {
-				content = m.settings.View().Content
-			}
-		case ScreenHealth:
-			if m.health != nil {
-				content = m.health.View().Content
-			}
-		case ScreenRestore:
-			if m.restore != nil {
-				content = m.restore.View().Content
-			} else {
-				content = "Restore"
-			}
-		case ScreenProfiles:
-			if m.profiles != nil {
-				content = m.profiles.View().Content
-			} else {
-				content = "Profiles"
-			}
-		case ScreenWelcome:
-			content = screens.RenderWelcome(m.width)
-		case ScreenShortcuts:
-			content = screens.RenderShortcuts(m.width)
-		default:
-			content = ""
-		}
-
+		content = m.renderScreen()
 		// Overlay help when toggled via '?'.
 		if m.showHelp {
 			content = screens.RenderShortcuts(m.width)
 		}
-
 		// Render toast overlay. On wide terminals (>= 50 cols), position
 		// the toast at bottom-right using lipgloss.Place. On narrow terminals,
 		// fall back to inline append below the screen content.
@@ -591,6 +583,52 @@ func (m Model) View() tea.View {
 	v := tea.NewView(content)
 	v.AltScreen = true
 	return v
+}
+
+// renderScreen returns the content for the active screen, delegating to the
+// sub-model when one is initialized and falling back to placeholder text or
+// the stateless screen renderers otherwise.
+func (m Model) renderScreen() string {
+	switch m.screen {
+	case ScreenMenu:
+		return m.renderMenu()
+	case ScreenDashboard:
+		if m.dashboard != nil {
+			return m.dashboard.View().Content
+		}
+	case ScreenProgress:
+		if m.progress != nil {
+			return m.progress.View().Content
+		}
+	case ScreenCloud:
+		if m.cloud != nil {
+			return m.cloud.View().Content
+		}
+		return screens.RenderCloudStatus(screens.CloudInfo{}, m.width)
+	case ScreenSettings:
+		if m.settings != nil {
+			return m.settings.View().Content
+		}
+	case ScreenHealth:
+		if m.health != nil {
+			return m.health.View().Content
+		}
+	case ScreenRestore:
+		if m.restore != nil {
+			return m.restore.View().Content
+		}
+		return "Restore"
+	case ScreenProfiles:
+		if m.profiles != nil {
+			return m.profiles.View().Content
+		}
+		return "Profiles"
+	case ScreenWelcome:
+		return screens.RenderWelcome(m.width)
+	case ScreenShortcuts:
+		return screens.RenderShortcuts(m.width)
+	}
+	return ""
 }
 
 // renderMenu composes the main menu view using the full screen renderer

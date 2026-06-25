@@ -126,28 +126,28 @@ Chain strategy: pending
 
 ## Phase 5: Model.Update Submodel Map (T2.1) — HIGH RISK
 
-- [ ] **5.1 [RED]** Test `subModel` interface + `forwardTo` dispatch: key routes to correct sub-model, unknown screen returns false, lazy-init populates map.
+- [x] **5.1 [RED]** Test `subModel` interface + `forwardTo` dispatch: key routes to correct sub-model, unknown screen returns false, lazy-init populates map.
   - **Files:** `internal/tui/model_test.go`
   - **Deps:** —
   - **Lines:** +50
   - **Spec:** REQ-TD-001 §"key event routed", §"unknown screen does not panic", §"lazy-init populates"
   - **Accept:** Tests verify routing, no-panic on unknown, map populated after screenChange
 
-- [ ] **5.2 [GREEN]** Implement `subModel` interface, `m.subs map[screen]subModel`, `forwardTo` helper in `internal/tui/model.go`.
+- [x] **5.2 [GREEN]** Implement `subModel` interface, `m.subs map[screen]subModel`, `forwardTo` helper in `internal/tui/model.go`.
   - **Files:** `internal/tui/model.go`
   - **Deps:** 5.1
   - **Lines:** +40
   - **Spec:** REQ-TD-001 §"Model.Update submodel dispatch"
   - **Accept:** 5.1 tests pass; compiles
 
-- [ ] **5.3 [REFACTOR]** `Model.Update` and `handleKey` use map dispatch via `forwardTo`; remove 21 type-assert-reassign blocks. `View` extracts `renderScreen`.
+- [x] **5.3 [REFACTOR]** `Model.Update` and `handleKey` use map dispatch via `forwardTo`; remove 21 type-assert-reassign blocks. `View` extracts `renderScreen`.
   - **Files:** `internal/tui/model.go`
   - **Deps:** 5.2
   - **Lines:** -120/+30
   - **Spec:** REQ-TD-001 §"WindowSizeMsg routed", §"ProgressStepMsg handled directly"
   - **Accept:** Existing tui tests green; Update <80 lines; handleKey <40 lines
 
-- [ ] **5.4 [GREEN]** Remove `//nolint:maintidx` from `model.go:127`. Verify gocognit <35.
+- [x] **5.4 [GREEN]** Remove `//nolint:maintidx` from `model.go:127`. Verify gocognit <35.
   - **Files:** `internal/tui/model.go`
   - **Deps:** 5.3
   - **Lines:** -1
