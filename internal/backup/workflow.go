@@ -138,7 +138,7 @@ func Run(ctx Context) (*Result, error) {
 	}
 
 	// --- 5. Build manifest (hostname + fail-fast save) --------------------
-	hostname := resolveHostname(ctx.HostnameFn, ctx.Verbose, stderr)
+	hostname := ResolveHostname(ctx.HostnameFn, ctx.Verbose, stderr)
 	m := manifest.New(backupID, runtime.GOOS, hostname, ctx.BakVersion, ctx.Preset, categories)
 	if err := saveManifest(fsys, m, backupDir); err != nil {
 		return nil, fmt.Errorf("save manifest (fail-fast): %w", err)
@@ -407,24 +407,6 @@ func detectAdapters(reg *adapters.Registry, homeDir string, filter []string) ([]
 		})
 	}
 	return detected, nil
-}
-
-// resolveHostname returns the hostname via the injected function, falling
-// back to os.Hostname when fn is nil. Errors default to "unknown" and, when
-// verbose is set, emit a warning to stderr.
-func resolveHostname(fn func() (string, error), verbose bool, stderr io.Writer) string {
-	hostnameFn := fn
-	if hostnameFn == nil {
-		hostnameFn = os.Hostname
-	}
-	hostname, err := hostnameFn()
-	if err != nil {
-		if verbose {
-			fmt.Fprintf(stderr, "warning: could not get hostname: %v\n", err) //nolint:errcheck // non-critical diagnostic
-		}
-		return "unknown"
-	}
-	return hostname
 }
 
 // saveManifest serializes m as indented JSON and writes it through fs. Keeping
