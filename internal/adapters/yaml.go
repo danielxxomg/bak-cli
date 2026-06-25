@@ -92,32 +92,45 @@ func (a *ConfigAdapter) ListItems(homeDir string, categories []string) ([]Item, 
 			}
 			items = append(items, dirItems...)
 		} else {
-			// Non-directory category — use RootFiles or scan root.
-			for _, fname := range cp.RootFiles {
-				absPath := filepath.Join(configDir, fname)
-				info, err := os.Stat(absPath)
-				if err != nil {
-					if os.IsNotExist(err) {
-						continue
-					}
-					return nil, fmt.Errorf("stat %s: %w", fname, err)
-				}
-				hash, sz, hashErr := FileHash(absPath)
-				if hashErr != nil {
-					return nil, fmt.Errorf("hash %s: %w", fname, hashErr)
-				}
-				items = append(items, Item{
-					Category:   cat,
-					SourcePath: absPath,
-					RelPath:    fname,
-					IsDir:      info.IsDir(),
-					Hash:       hash,
-					Size:       sz,
-				})
+			// Non-directory category — hash configured root files.
+			rootItems, err := scanRootFilesYAML(configDir, cat, cp.RootFiles)
+			if err != nil {
+				return nil, err
 			}
+			items = append(items, rootItems...)
 		}
 	}
 
+	return items, nil
+}
+
+// scanRootFilesYAML scans the configured root files for a non-directory
+// category, hashing each existing file and returning Items in order.
+// Missing files are silently skipped (the category may list optional files).
+func scanRootFilesYAML(configDir, cat string, rootFiles []string) ([]Item, error) {
+	var items []Item
+	for _, fname := range rootFiles {
+		absPath := filepath.Join(configDir, fname)
+		info, err := os.Stat(absPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("stat %s: %w", fname, err)
+		}
+		hash, sz, hashErr := FileHash(absPath)
+		if hashErr != nil {
+			return nil, fmt.Errorf("hash %s: %w", fname, hashErr)
+		}
+		items = append(items, Item{
+			Category:   cat,
+			SourcePath: absPath,
+			RelPath:    fname,
+			IsDir:      info.IsDir(),
+			Hash:       hash,
+			Size:       sz,
+		})
+	}
 	return items, nil
 }
 

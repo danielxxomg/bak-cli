@@ -560,29 +560,37 @@ func (m Model) View() tea.View {
 	if m.tooSmall {
 		content = styles.RenderTooSmall(m.width, m.height)
 	} else {
-		content = m.renderScreen()
-		// Overlay help when toggled via '?'.
-		if m.showHelp {
-			content = screens.RenderShortcuts(m.width)
-		}
-		// Render toast overlay. On wide terminals (>= 50 cols), position
-		// the toast at bottom-right using lipgloss.Place. On narrow terminals,
-		// fall back to inline append below the screen content.
-		if toastContent := m.toast.View(); toastContent != "" {
-			if m.width >= 50 {
-				content = lipgloss.Place(
-					m.width, m.height,
-					lipgloss.Right, lipgloss.Bottom,
-					toastContent,
-				)
-			} else {
-				content += "\n" + toastContent
-			}
-		}
+		content = m.renderContent()
 	}
 	v := tea.NewView(content)
 	v.AltScreen = true
 	return v
+}
+
+// renderContent renders the active screen with optional help and toast
+// overlays. It is the non-tooSmall branch of View, extracted to keep View's
+// nesting shallow.
+func (m Model) renderContent() string {
+	content := m.renderScreen()
+	// Overlay help when toggled via '?'.
+	if m.showHelp {
+		content = screens.RenderShortcuts(m.width)
+	}
+	// Render toast overlay. On wide terminals (>= 50 cols), position
+	// the toast at bottom-right using lipgloss.Place. On narrow terminals,
+	// fall back to inline append below the screen content.
+	if toastContent := m.toast.View(); toastContent != "" {
+		if m.width >= 50 {
+			content = lipgloss.Place(
+				m.width, m.height,
+				lipgloss.Right, lipgloss.Bottom,
+				toastContent,
+			)
+		} else {
+			content += "\n" + toastContent
+		}
+	}
+	return content
 }
 
 // renderScreen returns the content for the active screen, delegating to the
