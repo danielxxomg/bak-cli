@@ -48,9 +48,9 @@ Chain strategy: stacked-to-main (PR1 config → PR2 coverage → PR3 DRY)
 
 ## Phase 7: DRY Consolidation (Item G)
 
-- [ ] 7.1 [RED] Test `pullContentFromAPI` (httptest table: success, 4xx, decode err). `cloud/httputil_test.go`. **~45 lines**.
-- [ ] 7.2 [GREEN] Implement `pullContentFromAPI` in `cloud/httputil.go`. **Dep**: 7.1. **~28 lines**.
-- [ ] 7.3 [REFACTOR] `GiteaProvider.Pull` + `GitHubRepoProvider.Pull` → delegate to helper. **Dep**: 7.2. **~45 lines**.
+- [x] 7.1 [RED] Test `pullContentFromAPI` (httptest table: success, 4xx, decode err). `cloud/httputil_test.go`. **~45 lines**.
+- [x] 7.2 [GREEN] Implement `pullContentFromAPI` in `cloud/httputil.go`. **Dep**: 7.1. **~28 lines**.
+- [x] 7.3 [REFACTOR] `GiteaProvider.Pull` + `GitHubRepoProvider.Pull` → delegate to helper. **Dep**: 7.2. **~45 lines**.
 - [ ] 7.4 [RED] Test `loadExcludes` via `setConfigHome`. `cmd/excludes_test.go`. **~30 lines**.
 - [ ] 7.5 [GREEN] Create `cmd/excludes.go` with `loadExcludes()`. **Dep**: 7.4. **~18 lines**.
 - [ ] 7.6 [REFACTOR] Replace inline closures in `cmd/backup.go` + `cmd/root.go`. **Dep**: 7.5. **~36 lines**.

@@ -132,45 +132,11 @@ func (p *GiteaProvider) Push(archive []byte, meta PushMeta) (string, error) {
 }
 
 // Pull downloads a backup archive from the Gitea repository by its backup ID.
-func (p *GiteaProvider) Pull(id string) ([]byte, error) { //nolint:dupl // consolidation tracked in ci-hardening-v2 PR 3 (pullContentFromAPI extraction)
-	if p.token == "" {
-		return nil, p.errf("pull: token is required")
-	}
-	if id == "" {
-		return nil, p.errf("pull: backup ID is required")
-	}
-	if p.repo == "" {
-		return nil, p.errf("pull: repo is required")
-	}
-
+func (p *GiteaProvider) Pull(id string) ([]byte, error) {
 	filePath := fmt.Sprintf("%s/%s.tar.gz", giteaBackupDir, id)
 	url := fmt.Sprintf("%s/api/v1/repos/%s/contents/%s", p.baseURL, p.repo, filePath)
 
-	req, err := newRequest(http.MethodGet, url, p.token, "application/json", "", nil)
-	if err != nil {
-		return nil, p.errf("pull: build request: %w", err)
-	}
-
-	body, status, err := doRequest(p.client, req)
-	if err != nil {
-		return nil, p.errf("pull: %w", err)
-	}
-
-	if status < 200 || status >= 300 {
-		return nil, p.errf("pull: %w", formatAPIError(body, status))
-	}
-
-	var cr contentResponse
-	if err := json.Unmarshal(body, &cr); err != nil {
-		return nil, p.errf("pull: parse response: %w", err)
-	}
-
-	decoded, err := base64.StdEncoding.DecodeString(cr.Content.Content)
-	if err != nil {
-		return nil, p.errf("pull: decode content: %w", err)
-	}
-
-	return decoded, nil
+	return pullContentFromAPI(p.client, p.token, p.repo, id, url, "application/json", p.name+": pull")
 }
 
 // List returns metadata for all bak backups stored in the Gitea repo.

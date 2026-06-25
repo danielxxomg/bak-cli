@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -46,6 +47,55 @@ func doRequest(client *http.Client, req *http.Request) (body []byte, status int,
 	}
 
 	return body, resp.StatusCode, nil
+}
+
+// pullContentFromAPI validates the pull preconditions, fetches a single file
+// from a Contents API endpoint, and returns its decoded (base64) content. It
+// validates that token, id, and repo are non-empty before issuing the request,
+// then performs the GET, checks the HTTP status, unmarshals the
+// contentResponse, and decodes the content. errPrefix is prepended to every
+// returned error (e.g., "gitea: pull", "pull github-repo"). The caller builds
+// url because the Contents API path differs between providers.
+func pullContentFromAPI(client *http.Client, token, repo, id, url, accept, errPrefix string) ([]byte, error) {
+	wrap := func(format string, args ...any) error {
+		return fmt.Errorf(errPrefix+": "+format, args...)
+	}
+
+	if token == "" {
+		return nil, wrap("token is required")
+	}
+	if id == "" {
+		return nil, wrap("backup ID is required")
+	}
+	if repo == "" {
+		return nil, wrap("repo is required")
+	}
+
+	req, err := newRequest(http.MethodGet, url, token, accept, "", nil)
+	if err != nil {
+		return nil, wrap("build request: %w", err)
+	}
+
+	body, status, err := doRequest(client, req)
+	if err != nil {
+		return nil, wrap("%w", err)
+	}
+
+	if status < 200 || status >= 300 {
+		return nil, wrap("%w", formatAPIError(body, status))
+	}
+
+	var cr contentResponse
+	if err := json.Unmarshal(body, &cr); err != nil {
+		return nil, wrap("parse response: %w", err)
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(cr.Content.Content)
+	if err != nil {
+		return nil, wrap("decode content: %w", err)
+	}
+
+	return decoded, nil
 }
 
 // formatAPIError formats an API error from a response body and status code.
