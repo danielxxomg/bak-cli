@@ -60,4 +60,4 @@ Chain strategy: stacked-to-main (PR1 config → PR2 coverage → PR3 DRY)
 
 ## Phase 8: Documentation (Item H)
 
-- [ ] 8.1 [CONFIG] `CONTRIBUTING.md`: document `task setup`, note deferred linters. **Dep**: 2.2. **~12 lines**. (REQ-RL-003)
+- [x] 8.1 [CONFIG] `CONTRIBUTING.md`: document `task setup`, note deferred linters. **Dep**: 2.2. **~12 lines**. (REQ-RL-003)
