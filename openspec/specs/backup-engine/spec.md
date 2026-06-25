@@ -109,3 +109,45 @@ The Codex adapter MUST restrict root-level backup to a whitelist: `config.toml`,
 - GIVEN all four whitelisted files exist in `~/.codex/`
 - WHEN Codex adapter scans root files
 - THEN exactly those four files are included
+
+### Requirement: Consolidated backup engine
+
+`BackupAction.Run` (CLI path) and `Engine.Run` (TUI path) MUST delegate to a single shared implementation in `internal/backup/workflow.go`. Neither entry point may contain its own copy of the backup pipeline.
+
+#### Scenario: CLI and TUI paths use same implementation
+
+- GIVEN both `BackupAction.Run` and `Engine.Run` are called with equivalent inputs
+- WHEN each invokes the backup pipeline
+- THEN both delegate to `backup.Run` in `internal/backup/workflow.go`
+- AND neither contains duplicated pipeline logic
+
+#### Scenario: Backup with secrets produces manifest without secret entries
+
+- GIVEN a config directory containing 10 normal files and 2 secret files
+- WHEN `backup.Run` executes
+- THEN the manifest contains exactly 8 items
+- AND secret files are excluded from the manifest
+
+#### Scenario: CLI and TUI produce byte-identical manifests
+
+- GIVEN identical fixture directories
+- WHEN `BackupAction.Run` and `Engine.Run` each produce a manifest
+- THEN manifest Items, checksums, and ordering are byte-identical
+
+### Requirement: Engine.Run error classification
+
+`Engine.Run` MUST distinguish user-facing input errors from internal system errors when returning failures. Callers MUST be able to programmatically determine whether the error is due to invalid user input or an internal failure.
+
+#### Scenario: Invalid backup ID returns user error
+
+- GIVEN `Engine.Run` is called with a non-existent backup ID
+- WHEN the engine attempts to resolve the backup
+- THEN the returned error MUST be classifiable as a user input error
+- AND the error message includes the invalid backup ID
+
+#### Scenario: Disk read failure returns system error
+
+- GIVEN `Engine.Run` is called with a valid backup ID
+- WHEN a manifest file cannot be read due to I/O error
+- THEN the returned error MUST be classifiable as a system error
+- AND the error wraps the underlying I/O error
