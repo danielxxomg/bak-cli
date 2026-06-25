@@ -269,21 +269,21 @@ Chain strategy: pending
 
 ## Phase 10: cmd/backup applyProfileOverrides (T3.3)
 
-- [ ] **10.1 [RED]** Test `applyProfileOverrides(deps, cfg)` returns preset, cats, adapters.
+- [x] **10.1 [RED]** Test `applyProfileOverrides(deps, cfg)` returns preset, cats, adapters.
   - **Files:** `cmd/backup_test.go`
   - **Deps:** —
   - **Lines:** +20
   - **Spec:** (Tier 3, supports REQ-RL-001 funlen/nestif reduction)
   - **Accept:** Profile overrides applied correctly; no-profile returns defaults
 
-- [ ] **10.2 [GREEN]** Implement `applyProfileOverrides` in `cmd/backup.go`.
+- [x] **10.2 [GREEN]** Implement `applyProfileOverrides` in `cmd/backup.go`.
   - **Files:** `cmd/backup.go`
   - **Deps:** 10.1
   - **Lines:** +20
   - **Spec:** (funlen 76 + nestif 8 reduction)
   - **Accept:** 10.1 tests pass
 
-- [ ] **10.3 [REFACTOR]** Replace inline profile-override block in `runBackupWithDeps` with `applyProfileOverrides` call.
+- [x] **10.3 [REFACTOR]** Replace inline profile-override block in `runBackupWithDeps` with `applyProfileOverrides` call.
   - **Files:** `cmd/backup.go`
   - **Deps:** 10.2
   - **Lines:** -20/+5
