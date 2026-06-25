@@ -37,6 +37,18 @@ go build -o bak .
 
 The project uses Go modules. All dependencies are declared in `go.mod`. The module path is `github.com/danielxxomg/bak-cli`.
 
+### One-Time: Activate the Pre-Commit Hook
+
+bak-cli ships a versioned pre-commit hook in `.githooks/pre-commit`. Activate it once per clone:
+
+```bash
+task setup
+```
+
+This runs `git config core.hooksPath .githooks`, so the hook lives under version control instead of `.git/hooks`. On every commit it runs the local gate fail-fast: `golangci-lint run` → `go vet ./...` → `go build ./...` → `gga run` (Guardian Angel code review against `AGENTS.md`).
+
+If the hook must be bypassed for a legitimate technical reason (per AGENTS.md rule #41 — e.g., GGA flags pre-existing out-of-scope issues, provider timeout, or `ARG_MAX`), use `git commit --no-verify` and include `NO-VERIFY: <reason>` in the commit body, with a follow-up fix commit in the same PR.
+
 ### Recommended: golangci-lint
 
 ```bash
@@ -161,6 +173,28 @@ The release matrix covers:
 ## Code Style
 
 The project follows the conventions documented in **[AGENTS.md](AGENTS.md)**. Key points:
+
+### Linters
+
+`golangci-lint` enforces the active linter set in `.golangci.yml`. Two refactoring linters are enabled:
+
+- **`maintidx`** (maintainability index, threshold 20) — flags functions that are hard to maintain.
+- **`dupl`** (token threshold 80) — flags duplicated code blocks. New duplications must be consolidated, not suppressed.
+
+Three SEVERE `maintidx` cases carry a documented `//nolint:maintidx` suppression (`actions/backup.go`, `backup/engine.go`, `tui/model.go`). These require real code extraction and are **deferred** — see below.
+
+#### Deferred to `qa-refactor-analysis`
+
+The following are intentionally **not** addressed yet and are tracked for the `qa-refactor-analysis` follow-up change:
+
+- **Complexity linters** `gocognit`, `funlen`, and `nestif` are NOT enabled. Turning them on surfaces 44 violations, including 3 architectural SEVERE cases that need extraction rather than configuration:
+  - `Model.Update` (cognitive complexity 84)
+  - `BackupAction.Run` (80)
+  - `Engine.Run` (79)
+- **DRY follow-ups** surfaced during the `ci-hardening-v2` DRY pass but left out of its scope (they are pre-existing and not part of the three `dupl`-detected pairs that pass already):
+  - `internal/cloud/{gitea,github_repo}.go` — the `List()` methods share ~78% logic and could be consolidated into a shared `listContentFromAPI` helper (mirrors the existing `pullContentFromAPI`).
+  - `internal/cloud/github_repo.go` — adopt a `name`-based `errf` helper like `GiteaProvider` instead of hardcoding the provider name in each `fmt.Errorf`.
+  - `cmd/{root,backup}.go` — the registry-build logic (`NewRegistry` → `register.All` → `LoadYAMLAdapters`) could be extracted into a shared `buildRegistry` helper.
 
 ### Go Idioms
 
