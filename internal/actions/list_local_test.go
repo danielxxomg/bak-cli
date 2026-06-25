@@ -249,3 +249,75 @@ func TestFormatSizeBytes(t *testing.T) {
 		})
 	}
 }
+
+// --- extracted helper tests (Phase 9) ---
+
+// TestFormatBackupDate verifies the backup-ID-to-date parser.
+func TestFormatBackupDate(t *testing.T) {
+	tests := []struct {
+		name     string
+		backupID string
+		want     string
+	}{
+		{
+			name:     "full timestamp",
+			backupID: "20260625-143012",
+			want:     "2026-06-25 14:30:12",
+		},
+		{
+			name:     "too short returns empty",
+			backupID: "2026062",
+			want:     "",
+		},
+		{
+			name:     "exactly 15 chars parses",
+			backupID: "20260101-000000",
+			want:     "2026-01-01 00:00:00",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := formatBackupDate(tt.backupID); got != tt.want {
+				t.Errorf("formatBackupDate(%q) = %q, want %q", tt.backupID, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestFormatBackupRow verifies the row formatter produces a tab-separated
+// line with sorted adapters and the parsed date.
+func TestFormatBackupRow(t *testing.T) {
+	m := &manifest.Manifest{
+		Preset:    "full",
+		FileCount: 7,
+		TotalSize: 2048,
+		Adapters: map[string]manifest.AdapterManifest{
+			"cursor":   {},
+			"opencode": {},
+			"codex":    {},
+		},
+	}
+
+	row := formatBackupRow("20260625-143012", m)
+
+	if !strings.HasPrefix(row, "20260625-143012\t") {
+		t.Errorf("row should start with backup ID; got: %q", row)
+	}
+	if !strings.Contains(row, "2026-06-25 14:30:12") {
+		t.Errorf("row should contain parsed date; got: %q", row)
+	}
+	if !strings.Contains(row, "full") {
+		t.Errorf("row should contain preset; got: %q", row)
+	}
+	if !strings.Contains(row, "\t7\t") {
+		t.Errorf("row should contain file count 7; got: %q", row)
+	}
+	// Adapters must be sorted alphabetically: codex, cursor, opencode.
+	if !strings.Contains(row, "codex, cursor, opencode") {
+		t.Errorf("row should contain sorted adapters; got: %q", row)
+	}
+	if !strings.HasSuffix(row, "\n") {
+		t.Errorf("row should end with newline; got: %q", row)
+	}
+}
