@@ -2661,3 +2661,111 @@ func TestModel_Update_ToastTickForwarding(t *testing.T) {
 	}
 	_ = cmd
 }
+
+// TestMapBackupInfo verifies the pure mapBackupInfo converts tui.BackupInfo
+// records into screens.BackupInfo preserving every field, in order.
+func TestMapBackupInfo(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []BackupInfo
+		want []screens.BackupInfo
+	}{
+		{
+			name: "nil input returns nil",
+			in:   nil,
+			want: nil,
+		},
+		{
+			name: "empty input returns nil",
+			in:   []BackupInfo{},
+			want: nil,
+		},
+		{
+			name: "maps all fields for multiple records",
+			in: []BackupInfo{
+				{ID: "b1", Date: "2026-01-01", Size: "1.2 MB", Status: "ok", Cloud: "gitea"},
+				{ID: "b2", Date: "2026-02-02", Size: "3.4 MB", Status: "fail", Cloud: ""},
+			},
+			want: []screens.BackupInfo{
+				{ID: "b1", Date: "2026-01-01", Size: "1.2 MB", Status: "ok", Cloud: "gitea"},
+				{ID: "b2", Date: "2026-02-02", Size: "3.4 MB", Status: "fail", Cloud: ""},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := mapBackupInfo(tt.in)
+			if len(got) != len(tt.want) {
+				t.Fatalf("mapBackupInfo() len = %d, want %d", len(got), len(tt.want))
+			}
+			for i, w := range tt.want {
+				if got[i] != w {
+					t.Errorf("mapBackupInfo()[%d] = %+v, want %+v", i, got[i], w)
+				}
+			}
+		})
+	}
+}
+
+// TestListBackupsForScreens verifies the shared listBackupsForScreens method
+// handles nil deps, propagates errors, and maps successful results.
+func TestListBackupsForScreens(t *testing.T) {
+	sentinel := errors.New("backend down")
+
+	tests := []struct {
+		name        string
+		listBackups func() ([]BackupInfo, error)
+		wantLen     int
+		wantErr     error
+		wantFirstID string
+	}{
+		{
+			name:        "nil ListBackups returns nil, nil",
+			listBackups: nil,
+			wantLen:     0,
+			wantErr:     nil,
+		},
+		{
+			name: "error from ListBackups is propagated",
+			listBackups: func() ([]BackupInfo, error) {
+				return nil, sentinel
+			},
+			wantErr: sentinel,
+		},
+		{
+			name: "success maps records to screens.BackupInfo",
+			listBackups: func() ([]BackupInfo, error) {
+				return []BackupInfo{
+					{ID: "x1", Date: "2026-03-03", Size: "5 MB", Status: "ok", Cloud: "gh"},
+				}, nil
+			},
+			wantLen:     1,
+			wantFirstID: "x1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewModel(Deps{Version: "1.0.0", ListBackups: tt.listBackups})
+
+			got, err := m.listBackupsForScreens()
+
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("listBackupsForScreens() err = %v, want %v", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("listBackupsForScreens() unexpected err = %v", err)
+			}
+			if len(got) != tt.wantLen {
+				t.Fatalf("listBackupsForScreens() len = %d, want %d", len(got), tt.wantLen)
+			}
+			if tt.wantFirstID != "" && got[0].ID != tt.wantFirstID {
+				t.Errorf("listBackupsForScreens()[0].ID = %q, want %q", got[0].ID, tt.wantFirstID)
+			}
+		})
+	}
+}

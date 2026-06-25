@@ -54,9 +54,9 @@ Chain strategy: stacked-to-main (PR1 config → PR2 coverage → PR3 DRY)
 - [x] 7.4 [RED] Test `loadExcludes` via `setConfigHome`. `cmd/excludes_test.go`. **~30 lines**.
 - [x] 7.5 [GREEN] Create `cmd/excludes.go` with `loadExcludes()`. **Dep**: 7.4. **~18 lines**.
 - [x] 7.6 [REFACTOR] Replace inline closures in `cmd/backup.go` + `cmd/root.go`. **Dep**: 7.5. **~36 lines**.
-- [ ] 7.7 [RED] Test `mapBackupInfo` + `listBackupsForScreens` (nil-deps, error). `tui/model_test.go`. **~45 lines**.
-- [ ] 7.8 [GREEN] Implement both helpers in `tui/model.go`. **Dep**: 7.7. **~22 lines**.
-- [ ] 7.9 [REFACTOR] `initDashboard` + `initRestore` → `listBackupsForScreens`. **Dep**: 7.8. **~34 lines**.
+- [x] 7.7 [RED] Test `mapBackupInfo` + `listBackupsForScreens` (nil-deps, error). `tui/model_test.go`. **~45 lines**.
+- [x] 7.8 [GREEN] Implement both helpers in `tui/model.go`. **Dep**: 7.7. **~22 lines**.
+- [x] 7.9 [REFACTOR] `initDashboard` + `initRestore` → `listBackupsForScreens`. **Dep**: 7.8. **~34 lines**.
 
 ## Phase 8: Documentation (Item H)
 
