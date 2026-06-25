@@ -20,8 +20,16 @@ jobs:
           go-version: '1.25'
       - name: Install GGA
         run: |
-          brew update
-          brew install gga
+          git clone --depth 1 --branch v2.8.1 \
+            https://github.com/Gentleman-Programming/gentleman-guardian-angel /tmp/gga
+          cd /tmp/gga
+          ./install.sh
+          # install.sh prefers /usr/local/bin (in PATH on ubuntu-latest) but
+          # may fall back to $HOME/.local/bin. Add both to PATH defensively.
+          echo "/usr/local/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Verify GGA
+        run: gga --version
       - name: Run GGA
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
