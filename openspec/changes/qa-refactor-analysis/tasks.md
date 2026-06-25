@@ -55,14 +55,14 @@ Chain strategy: pending
   - **Spec:** REQ-BE-001 §"CLI and TUI paths use same implementation"
   - **Accept:** `go test ./internal/backup/...` green; Engine.Run <30 lines
 
-- [ ] **1.5 [VERIFY]** Integration: CLI and TUI paths produce byte-identical manifests over same fixture.
+- [x] **1.5 [VERIFY]** Integration: CLI and TUI paths produce byte-identical manifests over same fixture.
   - **Files:** `internal/backup/workflow_test.go` or `internal/actions/backup_test.go`
   - **Deps:** 1.3, 1.4
   - **Lines:** +40
   - **Spec:** REQ-BE-001 §"CLI and TUI paths use same implementation"
   - **Accept:** Test runs both paths, asserts identical Items/checksums/ordering
 
-- [ ] **1.6 [GREEN]** Preserve exclusion pipeline: test `config.LoadExcludes` called, `SetScanOptions` called, `.bakignore` applied.
+- [x] **1.6 [GREEN]** Preserve exclusion pipeline: test `config.LoadExcludes` called, `SetScanOptions` called, `.bakignore` applied.
   - **Files:** `internal/backup/workflow_test.go`
   - **Deps:** 1.2
   - **Lines:** +30
