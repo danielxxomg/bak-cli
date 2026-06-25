@@ -32,10 +32,10 @@ Chain strategy: stacked-to-main (PR1 config → PR2 coverage → PR3 DRY)
 
 ## Phase 4: Coverage Gate (Item D)
 
-- [ ] 4.1 [RED] Tests for `progress.Running`, `wizard.renderCheckboxList`, `wizard.renderConfirmSummary`. **Dep**: none. **~55 lines**. (REQ-CI-005)
-- [ ] 4.2 [GREEN] Verify coverage 80.0% → ~83%. No code changes. **Dep**: 4.1. **~0 lines**. (REQ-CI-005)
-- [ ] 4.3 [CONFIG] `cover:pkg` task in `Taskfile.yml` — awk per-pkg ≥80% for `internal/`, excludes `cmd/`. **Dep**: 4.1. **~25 lines**. (REQ-CI-005)
-- [ ] 4.4 [CONFIG] Add `task cover:pkg` to coverage job in `ci.yml`. **Dep**: 4.3. **~5 lines**. (REQ-CI-005)
+- [x] 4.1 [RED] Tests for `progress.Running`, `wizard.renderCheckboxList`, `wizard.renderConfirmSummary`. **Dep**: none. **~55 lines**. (REQ-CI-005)
+- [x] 4.2 [GREEN] Verify coverage 80.0% → ~83%. No code changes. **Dep**: 4.1. **~0 lines**. (REQ-CI-005)
+- [x] 4.3 [CONFIG] `cover:pkg` task in `Taskfile.yml` — per-pkg ≥80% for `internal/`, excludes `cmd/`. **Dep**: 4.1. **~25 lines**. (REQ-CI-005)
+- [x] 4.4 [CONFIG] Add `task cover:pkg` to coverage job in `ci.yml`. **Dep**: 4.3. **~5 lines**. (REQ-CI-005)
 
 ## Phase 5: govulncheck Blocking (Item E)
 
@@ -48,16 +48,16 @@ Chain strategy: stacked-to-main (PR1 config → PR2 coverage → PR3 DRY)
 
 ## Phase 7: DRY Consolidation (Item G)
 
-- [ ] 7.1 [RED] Test `pullContentFromAPI` (httptest table: success, 4xx, decode err). `cloud/httputil_test.go`. **~45 lines**.
-- [ ] 7.2 [GREEN] Implement `pullContentFromAPI` in `cloud/httputil.go`. **Dep**: 7.1. **~28 lines**.
-- [ ] 7.3 [REFACTOR] `GiteaProvider.Pull` + `GitHubRepoProvider.Pull` → delegate to helper. **Dep**: 7.2. **~45 lines**.
-- [ ] 7.4 [RED] Test `loadExcludes` via `setConfigHome`. `cmd/excludes_test.go`. **~30 lines**.
-- [ ] 7.5 [GREEN] Create `cmd/excludes.go` with `loadExcludes()`. **Dep**: 7.4. **~18 lines**.
-- [ ] 7.6 [REFACTOR] Replace inline closures in `cmd/backup.go` + `cmd/root.go`. **Dep**: 7.5. **~36 lines**.
-- [ ] 7.7 [RED] Test `mapBackupInfo` + `listBackupsForScreens` (nil-deps, error). `tui/model_test.go`. **~45 lines**.
-- [ ] 7.8 [GREEN] Implement both helpers in `tui/model.go`. **Dep**: 7.7. **~22 lines**.
-- [ ] 7.9 [REFACTOR] `initDashboard` + `initRestore` → `listBackupsForScreens`. **Dep**: 7.8. **~34 lines**.
+- [x] 7.1 [RED] Test `pullContentFromAPI` (httptest table: success, 4xx, decode err). `cloud/httputil_test.go`. **~45 lines**.
+- [x] 7.2 [GREEN] Implement `pullContentFromAPI` in `cloud/httputil.go`. **Dep**: 7.1. **~28 lines**.
+- [x] 7.3 [REFACTOR] `GiteaProvider.Pull` + `GitHubRepoProvider.Pull` → delegate to helper. **Dep**: 7.2. **~45 lines**.
+- [x] 7.4 [RED] Test `loadExcludes` via `setConfigHome`. `cmd/excludes_test.go`. **~30 lines**.
+- [x] 7.5 [GREEN] Create `cmd/excludes.go` with `loadExcludes()`. **Dep**: 7.4. **~18 lines**.
+- [x] 7.6 [REFACTOR] Replace inline closures in `cmd/backup.go` + `cmd/root.go`. **Dep**: 7.5. **~36 lines**.
+- [x] 7.7 [RED] Test `mapBackupInfo` + `listBackupsForScreens` (nil-deps, error). `tui/model_test.go`. **~45 lines**.
+- [x] 7.8 [GREEN] Implement both helpers in `tui/model.go`. **Dep**: 7.7. **~22 lines**.
+- [x] 7.9 [REFACTOR] `initDashboard` + `initRestore` → `listBackupsForScreens`. **Dep**: 7.8. **~34 lines**.
 
 ## Phase 8: Documentation (Item H)
 
-- [ ] 8.1 [CONFIG] `CONTRIBUTING.md`: document `task setup`, note deferred linters. **Dep**: 2.2. **~12 lines**. (REQ-RL-003)
+- [x] 8.1 [CONFIG] `CONTRIBUTING.md`: document `task setup`, note deferred linters. **Dep**: 2.2. **~12 lines**. (REQ-RL-003)

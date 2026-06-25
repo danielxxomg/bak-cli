@@ -648,28 +648,44 @@ func (m Model) Selection() MenuSelection {
 	}
 }
 
+// mapBackupInfo converts a slice of tui.BackupInfo records into the
+// screens.BackupInfo type used by the dashboard and restore screens. The
+// local screens type mirrors tui.BackupInfo to avoid a circular import.
+// Returns nil for nil/empty input.
+func mapBackupInfo(backups []BackupInfo) []screens.BackupInfo {
+	if len(backups) == 0 {
+		return nil
+	}
+	result := make([]screens.BackupInfo, 0, len(backups))
+	for _, b := range backups {
+		result = append(result, screens.BackupInfo{
+			ID:     b.ID,
+			Date:   b.Date,
+			Size:   b.Size,
+			Status: b.Status,
+			Cloud:  b.Cloud,
+		})
+	}
+	return result
+}
+
+// listBackupsForScreens fetches backups via the injected ListBackups dep and
+// maps them to screens.BackupInfo. When ListBackups is nil (e.g., during
+// testing) it returns (nil, nil). Errors from ListBackups are propagated.
+func (m Model) listBackupsForScreens() ([]screens.BackupInfo, error) {
+	if m.deps.ListBackups == nil {
+		return nil, nil
+	}
+	backups, err := m.deps.ListBackups()
+	if err != nil {
+		return nil, err
+	}
+	return mapBackupInfo(backups), nil
+}
+
 // initDashboard creates a new DashboardModel using the injected deps.
 func (m Model) initDashboard() screens.DashboardModel {
-	return screens.NewDashboardModel(func() ([]screens.BackupInfo, error) { //nolint:dupl // consolidation tracked in ci-hardening-v2 PR 3 (listBackupsForScreens extraction)
-		if m.deps.ListBackups == nil {
-			return nil, nil
-		}
-		backups, err := m.deps.ListBackups()
-		if err != nil {
-			return nil, err
-		}
-		var result []screens.BackupInfo
-		for _, b := range backups {
-			result = append(result, screens.BackupInfo{
-				ID:     b.ID,
-				Date:   b.Date,
-				Size:   b.Size,
-				Status: b.Status,
-				Cloud:  b.Cloud,
-			})
-		}
-		return result, nil
-	})
+	return screens.NewDashboardModel(m.listBackupsForScreens)
 }
 
 // initProgress creates a new ProgressModel.
@@ -693,26 +709,7 @@ func (m Model) initSettings() screens.SettingsModel {
 
 // initRestore creates a new RestoreModel using injected deps.
 func (m Model) initRestore() screens.RestoreModel {
-	listFn := func() ([]screens.BackupInfo, error) { //nolint:dupl // consolidation tracked in ci-hardening-v2 PR 3 (listBackupsForScreens extraction)
-		if m.deps.ListBackups == nil {
-			return nil, nil
-		}
-		backups, err := m.deps.ListBackups()
-		if err != nil {
-			return nil, err
-		}
-		var result []screens.BackupInfo
-		for _, b := range backups {
-			result = append(result, screens.BackupInfo{
-				ID:     b.ID,
-				Date:   b.Date,
-				Size:   b.Size,
-				Status: b.Status,
-				Cloud:  b.Cloud,
-			})
-		}
-		return result, nil
-	}
+	listFn := m.listBackupsForScreens
 	restoreFn := func(backupID string, dryRun bool) (string, error) {
 		if m.deps.RunRestore == nil {
 			return "", nil

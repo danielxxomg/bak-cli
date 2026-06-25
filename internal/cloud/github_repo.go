@@ -89,45 +89,11 @@ func (p *GitHubRepoProvider) Push(archive []byte, meta PushMeta) (string, error)
 
 // Pull downloads a backup archive from the GitHub repository by its
 // backup ID via the GitHub Contents API.
-func (p *GitHubRepoProvider) Pull(id string) ([]byte, error) { //nolint:dupl // consolidation tracked in ci-hardening-v2 PR 3 (pullContentFromAPI extraction)
-	if p.token == "" {
-		return nil, fmt.Errorf("pull github-repo: token is required")
-	}
-	if id == "" {
-		return nil, fmt.Errorf("pull github-repo: backup ID is required")
-	}
-	if p.repo == "" {
-		return nil, fmt.Errorf("pull github-repo: repo is required")
-	}
-
+func (p *GitHubRepoProvider) Pull(id string) ([]byte, error) {
 	filePath := fmt.Sprintf("%s/%s.tar.gz", githubRepoDir, id)
 	url := fmt.Sprintf("%s/repos/%s/contents/%s", p.apiBase, p.repo, filePath)
 
-	req, err := newRequest(http.MethodGet, url, p.token, "application/vnd.github+json", "", nil)
-	if err != nil {
-		return nil, fmt.Errorf("pull github-repo: build request: %w", err)
-	}
-
-	body, status, err := doRequest(p.client, req)
-	if err != nil {
-		return nil, fmt.Errorf("pull github-repo: %w", err)
-	}
-
-	if status < 200 || status >= 300 {
-		return nil, fmt.Errorf("pull github-repo: %w", formatAPIError(body, status))
-	}
-
-	var cr contentResponse
-	if err := json.Unmarshal(body, &cr); err != nil {
-		return nil, fmt.Errorf("pull github-repo: parse response: %w", err)
-	}
-
-	decoded, err := base64.StdEncoding.DecodeString(cr.Content.Content)
-	if err != nil {
-		return nil, fmt.Errorf("pull github-repo: decode content: %w", err)
-	}
-
-	return decoded, nil
+	return pullContentFromAPI(p.client, p.token, p.repo, id, url, "application/vnd.github+json", "pull github-repo")
 }
 
 // List returns metadata for all bak backups stored in the GitHub repo.
