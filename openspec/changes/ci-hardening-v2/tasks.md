@@ -32,10 +32,10 @@ Chain strategy: stacked-to-main (PR1 config → PR2 coverage → PR3 DRY)
 
 ## Phase 4: Coverage Gate (Item D)
 
-- [ ] 4.1 [RED] Tests for `progress.Running`, `wizard.renderCheckboxList`, `wizard.renderConfirmSummary`. **Dep**: none. **~55 lines**. (REQ-CI-005)
-- [ ] 4.2 [GREEN] Verify coverage 80.0% → ~83%. No code changes. **Dep**: 4.1. **~0 lines**. (REQ-CI-005)
-- [ ] 4.3 [CONFIG] `cover:pkg` task in `Taskfile.yml` — awk per-pkg ≥80% for `internal/`, excludes `cmd/`. **Dep**: 4.1. **~25 lines**. (REQ-CI-005)
-- [ ] 4.4 [CONFIG] Add `task cover:pkg` to coverage job in `ci.yml`. **Dep**: 4.3. **~5 lines**. (REQ-CI-005)
+- [x] 4.1 [RED] Tests for `progress.Running`, `wizard.renderCheckboxList`, `wizard.renderConfirmSummary`. **Dep**: none. **~55 lines**. (REQ-CI-005)
+- [x] 4.2 [GREEN] Verify coverage 80.0% → ~83%. No code changes. **Dep**: 4.1. **~0 lines**. (REQ-CI-005)
+- [x] 4.3 [CONFIG] `cover:pkg` task in `Taskfile.yml` — per-pkg ≥80% for `internal/`, excludes `cmd/`. **Dep**: 4.1. **~25 lines**. (REQ-CI-005)
+- [x] 4.4 [CONFIG] Add `task cover:pkg` to coverage job in `ci.yml`. **Dep**: 4.3. **~5 lines**. (REQ-CI-005)
 
 ## Phase 5: govulncheck Blocking (Item E)
 
