@@ -88,6 +88,9 @@ jobs:
       - name: Run coverage
         run: task cover
 
+      - name: Enforce per-package coverage gate
+        run: task cover:pkg
+
       - name: Upload to Codecov
         uses: codecov/codecov-action@v4
         with:

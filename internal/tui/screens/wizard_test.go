@@ -301,3 +301,159 @@ func TestMoveCursor(t *testing.T) {
 		})
 	}
 }
+
+// --- renderCheckboxList ---
+
+// TestWizardModel_renderCheckboxList verifies the checkbox list renderer
+// produces one rendered line per item, includes each item's label, and
+// reflects the checked state via the shared checkbox component ([x] vs [ ]).
+func TestWizardModel_renderCheckboxList(t *testing.T) {
+	tests := []struct {
+		name        string
+		items       []ToggleItem
+		cursor      int
+		wantLabels  []string
+		wantNewline int // number of '\n' separators between items
+	}{
+		{
+			name:        "empty list renders nothing",
+			items:       nil,
+			cursor:      0,
+			wantLabels:  nil,
+			wantNewline: 0,
+		},
+		{
+			name:        "single item has no separator",
+			items:       []ToggleItem{{Name: "opencode", Checked: true}},
+			cursor:      0,
+			wantLabels:  []string{"opencode"},
+			wantNewline: 0,
+		},
+		{
+			name: "multiple items separated by newlines",
+			items: []ToggleItem{
+				{Name: "opencode", Checked: true},
+				{Name: "claude-code", Checked: false},
+				{Name: "codex", Checked: false},
+			},
+			cursor:      1,
+			wantLabels:  []string{"opencode", "claude-code", "codex"},
+			wantNewline: 2, // 3 items → 2 separators
+		},
+		{
+			name: "out-of-bounds cursor still renders all items",
+			items: []ToggleItem{
+				{Name: "a", Checked: false},
+				{Name: "b", Checked: true},
+			},
+			cursor:      99,
+			wantLabels:  []string{"a", "b"},
+			wantNewline: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewWizardModel("profile-create", nil)
+			got := m.renderCheckboxList(tt.items, tt.cursor)
+
+			for _, label := range tt.wantLabels {
+				if !strings.Contains(got, label) {
+					t.Errorf("renderCheckboxList output missing label %q\ngot: %q", label, got)
+				}
+			}
+
+			if n := strings.Count(got, "\n"); n != tt.wantNewline {
+				t.Errorf("renderCheckboxList newline count = %d, want %d\ngot: %q", n, tt.wantNewline, got)
+			}
+
+			if len(tt.items) == 0 && got != "" {
+				t.Errorf("renderCheckboxList for empty list = %q, want empty string", got)
+			}
+		})
+	}
+}
+
+// TestWizardModel_renderCheckboxList_CheckedState verifies that checked and
+// unchecked items render their respective indicators from the checkbox
+// component, proving the Checked field flows through to the output.
+func TestWizardModel_renderCheckboxList_CheckedState(t *testing.T) {
+	m := NewWizardModel("profile-create", nil)
+	items := []ToggleItem{
+		{Name: "checked-item", Checked: true},
+		{Name: "unchecked-item", Checked: false},
+	}
+
+	got := m.renderCheckboxList(items, 0)
+
+	if !strings.Contains(got, "[x]") {
+		t.Errorf("renderCheckboxList missing checked indicator [x]\ngot: %q", got)
+	}
+	if !strings.Contains(got, "[ ]") {
+		t.Errorf("renderCheckboxList missing unchecked indicator [ ]\ngot: %q", got)
+	}
+}
+
+// --- renderConfirmSummary ---
+
+// TestWizardModel_renderConfirmSummary verifies the confirm summary includes
+// the selected provider, preset, only the checked adapters/categories, and
+// the closing call-to-action line.
+func TestWizardModel_renderConfirmSummary(t *testing.T) {
+	m := NewWizardModel("profile-create", []string{"github"})
+	m.SelectedProvider = "github"
+	m.SelectedPreset = "full"
+	m.AdapterItems = []ToggleItem{
+		{Name: "opencode", Checked: true},
+		{Name: "claude-code", Checked: false},
+		{Name: "codex", Checked: true},
+	}
+	m.CategoryItems = []ToggleItem{
+		{Name: "skills", Checked: true},
+		{Name: "config", Checked: false},
+	}
+
+	got := m.renderConfirmSummary()
+
+	wantContains := []string{
+		"Provider:   github",
+		"Preset:     full",
+		"Adapters:   opencode, codex",
+		"Categories: skills",
+		"Press Enter to create the profile.",
+	}
+	for _, want := range wantContains {
+		if !strings.Contains(got, want) {
+			t.Errorf("renderConfirmSummary missing %q\ngot:\n%s", want, got)
+		}
+	}
+
+	// Unchecked items must NOT appear in the joined lists.
+	if strings.Contains(got, "Adapters:   opencode, claude-code") {
+		t.Errorf("renderConfirmSummary included unchecked adapter claude-code\ngot:\n%s", got)
+	}
+	if strings.Contains(got, "config") {
+		t.Errorf("renderConfirmSummary included unchecked category config\ngot:\n%s", got)
+	}
+}
+
+// TestWizardModel_renderConfirmSummary_NoSelections verifies the summary
+// renders cleanly when nothing is selected: empty provider/preset and empty
+// adapter/category lists produce trailing empty values, not a panic.
+func TestWizardModel_renderConfirmSummary_NoSelections(t *testing.T) {
+	m := NewWizardModel("profile-create", nil)
+	m.AdapterItems = nil
+	m.CategoryItems = nil
+
+	got := m.renderConfirmSummary()
+
+	if !strings.Contains(got, "Provider:") {
+		t.Errorf("renderConfirmSummary missing Provider label\ngot:\n%s", got)
+	}
+	if !strings.Contains(got, "Adapters:   \n") {
+		t.Errorf("renderConfirmSummary should render empty adapters line\ngot:\n%q", got)
+	}
+	if !strings.Contains(got, "Press Enter to create the profile.") {
+		t.Errorf("renderConfirmSummary missing call-to-action\ngot:\n%s", got)
+	}
+}

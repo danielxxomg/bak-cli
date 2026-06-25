@@ -60,6 +60,12 @@ tasks:
             }
         platforms: [windows]
 
+  cover:pkg:
+    desc: Enforce a per-package 80% coverage floor for internal/ packages
+    cmds:
+      - cmd: bash scripts/cover-pkg.sh
+        platforms: [linux, darwin]
+
   e2e:
     desc: Run end-to-end testscript tests
     cmds:
@@ -105,6 +111,7 @@ tasks:
       - task vet
       - task test
       - task cover
+      - task cover:pkg
       - task security
       - task build
 
