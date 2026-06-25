@@ -7,11 +7,13 @@ linters:
     - dupl
     - errcheck
     - errorlint
+    - gocognit
     - gocritic
     - gosec
     - govet
     - ineffassign
     - maintidx
+    - nestif
     - nilerr
     - staticcheck
     - unused
@@ -26,6 +28,13 @@ linters:
       under: 20  # flag functions with maintainability index below 20
     dupl:
       threshold: 80  # flag duplicate code blocks with >=80 tokens
+    gocognit:
+      min-complexity: 35  # ratcheted threshold — refactors keep functions below this
+    funlen:
+      lines: 80       # ratcheted: functions must be <80 lines
+      statements: 50  # ratcheted: functions must be <50 statements
+    nestif:
+      min-complexity: 6  # ratcheted: nesting depth must be <6
 
   exclusions:
     rules:
@@ -35,6 +44,9 @@ linters:
           - gosec  # tests don't need security scanning
           - maintidx  # tests may have long table-driven setups
           - dupl  # tests legitimately repeat setup patterns
+          - gocognit  # test setup is inherently branchy; complexity not actionable
+          - funlen  # table-driven tests legitimately exceed line/statements limits
+          - nestif  # test arrange/act/assert nesting is structural, not a smell
 
 run:
   timeout: 5m

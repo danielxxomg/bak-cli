@@ -48,17 +48,10 @@ func (a *RestoreAction) ResolveBackup(backupID string) error {
 }
 
 // Run executes the restore workflow: load manifest, compute diffs, and
-// optionally apply changes.
+// optionally apply changes. Each phase is delegated to a helper to keep the
+// orchestration readable and below the cognitive-complexity threshold.
 func (a *RestoreAction) Run() error {
-	// Resolve output writers — fall back to os.Stdout/Stderr when nil.
-	out := a.Stdout
-	if out == nil {
-		out = os.Stdout
-	}
-	errOut := a.Stderr
-	if errOut == nil {
-		errOut = os.Stderr
-	}
+	out, errOut := a.resolveWriters()
 
 	// 1. Load manifest.
 	m, err := manifest.Load(a.BackupDir)
@@ -79,16 +72,7 @@ func (a *RestoreAction) Run() error {
 	}
 
 	// 4. Show diffs.
-	if len(diffs) > 0 {
-		_, _ = fmt.Fprintln(out, "Dry-run diff:")
-		for _, d := range diffs {
-			_, _ = fmt.Fprintf(out, "  [%s] %s\n", d.Status, d.SourcePath)
-			if d.Status == restorepkg.DiffModified && d.Diff != "" && a.Verbose {
-				_, _ = fmt.Fprint(out, d.Diff)
-			}
-		}
-		_, _ = fmt.Fprintln(out)
-	}
+	a.printDryRunDiff(out, diffs)
 
 	if a.DryRun {
 		_, _ = fmt.Fprintf(out, "Dry-run complete. %d file(s) would be restored, %d unchanged, %d missing.\n",
@@ -100,6 +84,61 @@ func (a *RestoreAction) Run() error {
 	}
 
 	// 5. Validate manifest checksums before applying.
+	if err := a.validateManifest(m, errOut); err != nil {
+		return err
+	}
+
+	// 6. Confirmation prompt (unless --force).
+	proceed, err := a.confirmRestore(out, errOut)
+	if err != nil {
+		return err
+	}
+	if !proceed {
+		return nil
+	}
+
+	// 7. Apply restore.
+	restored, skipped, failed := a.applyRestore(diffs, out, errOut)
+
+	// 8. Report results.
+	reportRestore(out, m, restored, skipped, failed)
+
+	return nil
+}
+
+// resolveWriters returns the output and error writers, falling back to
+// os.Stdout / os.Stderr when the action's fields are nil.
+func (a *RestoreAction) resolveWriters() (io.Writer, io.Writer) {
+	out := a.Stdout
+	if out == nil {
+		out = os.Stdout
+	}
+	errOut := a.Stderr
+	if errOut == nil {
+		errOut = os.Stderr
+	}
+	return out, errOut
+}
+
+// printDryRunDiff writes the per-file dry-run diff to out. When verbose and
+// a file is modified with a non-empty diff, the unified diff is appended.
+func (a *RestoreAction) printDryRunDiff(out io.Writer, diffs []restorepkg.FileDiff) {
+	if len(diffs) == 0 {
+		return
+	}
+	_, _ = fmt.Fprintln(out, "Dry-run diff:")
+	for _, d := range diffs {
+		_, _ = fmt.Fprintf(out, "  [%s] %s\n", d.Status, d.SourcePath)
+		if d.Status == restorepkg.DiffModified && d.Diff != "" && a.Verbose {
+			_, _ = fmt.Fprint(out, d.Diff)
+		}
+	}
+	_, _ = fmt.Fprintln(out)
+}
+
+// validateManifest validates checksums; with --force a validation failure is
+// downgraded to a verbose warning, otherwise it is a hard error.
+func (a *RestoreAction) validateManifest(m *manifest.Manifest, errOut io.Writer) error {
 	if err := m.Validate(a.BackupDir, nil); err != nil {
 		if !a.Force {
 			return fmt.Errorf("manifest validation failed (use --force to override): %w", err)
@@ -108,30 +147,39 @@ func (a *RestoreAction) Run() error {
 			_, _ = fmt.Fprintf(errOut, "warning: manifest validation: %v\n", err)
 		}
 	}
+	return nil
+}
 
-	// 6. Confirmation prompt (unless --force).
-	if !a.Force {
-		_, _ = fmt.Fprint(out, "Apply restore? [y/N]: ")
-		stdin := a.Stdin
-		if stdin == nil {
-			stdin = os.Stdin
-		}
-		reader := bufio.NewReader(stdin)
-		answer, err := reader.ReadString('\n')
-		if err != nil {
-			return fmt.Errorf("read input: %w", err)
-		}
-		answer = strings.TrimSpace(strings.ToLower(answer))
-		if answer != "y" && answer != "yes" {
-			_, _ = fmt.Fprintln(errOut, "Restore cancelled.")
-			return nil
-		}
+// confirmRestore prompts the user (unless --force) and reports whether the
+// restore should proceed. A "y"/"yes" answer (or --force) returns true; any
+// other answer prints "Restore cancelled." and returns false. A read error
+// is propagated.
+func (a *RestoreAction) confirmRestore(out, errOut io.Writer) (bool, error) {
+	if a.Force {
+		return true, nil
 	}
+	_, _ = fmt.Fprint(out, "Apply restore? [y/N]: ")
+	stdin := a.Stdin
+	if stdin == nil {
+		stdin = os.Stdin
+	}
+	reader := bufio.NewReader(stdin)
+	answer, err := reader.ReadString('\n')
+	if err != nil {
+		return false, fmt.Errorf("read input: %w", err)
+	}
+	answer = strings.TrimSpace(strings.ToLower(answer))
+	if answer != "y" && answer != "yes" {
+		_, _ = fmt.Fprintln(errOut, "Restore cancelled.")
+		return false, nil
+	}
+	return true, nil
+}
 
-	// 7. Apply restore.
-	restored, skipped, failed := 0, 0, 0
-
-	// Compute total files to restore (count DiffNew + DiffModified).
+// applyRestore copies each new/modified file, skipping unchanged and missing
+// files. Progress is reported via ProgressFn when set. Returns the counts of
+// restored, skipped, and failed files.
+func (a *RestoreAction) applyRestore(diffs []restorepkg.FileDiff, out, errOut io.Writer) (restored, skipped, failed int) {
 	filesTotal := 0
 	for _, d := range diffs {
 		if d.Status == restorepkg.DiffNew || d.Status == restorepkg.DiffModified {
@@ -164,16 +212,18 @@ func (a *RestoreAction) Run() error {
 			}
 		}
 	}
+	return restored, skipped, failed
+}
 
-	// 8. Report results.
+// reportRestore writes the final restore summary to out, including the failed
+// count only when at least one file failed.
+func reportRestore(out io.Writer, m *manifest.Manifest, restored, skipped, failed int) {
 	_, _ = fmt.Fprintf(out, "Restore complete: %s\n", m.ID)
 	_, _ = fmt.Fprintf(out, "  Restored: %d\n", restored)
 	_, _ = fmt.Fprintf(out, "  Skipped:  %d\n", skipped)
 	if failed > 0 {
 		_, _ = fmt.Fprintf(out, "  Failed:   %d\n", failed)
 	}
-
-	return nil
 }
 
 // restoreFile copies a single file from the backup directory to the

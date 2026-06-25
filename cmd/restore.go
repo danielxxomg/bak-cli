@@ -50,42 +50,12 @@ func runRestore(cmd *cobra.Command, args []string) error {
 }
 
 func runRestoreWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
-	// No-arg: launch interactive picker (TTY) or error (non-TTY).
-	if len(args) == 0 {
-		if !isTTY() {
-			return fmt.Errorf("specify a backup-id (see 'bak list') or run 'bak' for interactive mode")
-		}
-
-		// List backups for the picker.
-		backups, err := listBackups()
-		if err != nil {
-			return fmt.Errorf("list backups: %w", err)
-		}
-
-		if len(backups) == 0 {
-			return fmt.Errorf("no backups found — create one with 'bak backup' first")
-		}
-
-		// Launch interactive picker.
-		m := restorePickerModel{backups: backups}
-		p := tea.NewProgram(m)
-		result, runErr := p.Run()
-		if runErr != nil {
-			return fmt.Errorf("picker: %w", runErr)
-		}
-
-		model, ok := result.(restorePickerModel)
-		if !ok {
-			return fmt.Errorf("picker: unexpected model type %T", result)
-		}
-
-		selectedID := model.SelectedID()
-		if selectedID == "" {
-			_, _ = fmt.Fprintln(deps.Stdout, "Restore cancelled.")
-			return nil
-		}
-
-		args = []string{selectedID}
+	args, proceed, err := resolveRestoreArg(args, deps)
+	if err != nil {
+		return err
+	}
+	if !proceed {
+		return nil
 	}
 
 	backupID := args[0]
@@ -110,4 +80,50 @@ func runRestoreWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 	}
 
 	return action.Run()
+}
+
+// resolveRestoreArg resolves the backup ID to restore. When args is empty it
+// launches the interactive picker (requires a TTY). It returns the resolved
+// args plus a proceed flag: when proceed is false the caller should return
+// nil (the user cancelled or there was nothing to do, already reported).
+// Returns an error for TTY/list/picker failures.
+func resolveRestoreArg(args []string, deps cmdDeps) ([]string, bool, error) {
+	if len(args) > 0 {
+		return args, true, nil
+	}
+
+	if !isTTY() {
+		return nil, false, fmt.Errorf("specify a backup-id (see 'bak list') or run 'bak' for interactive mode")
+	}
+
+	// List backups for the picker.
+	backups, err := listBackups()
+	if err != nil {
+		return nil, false, fmt.Errorf("list backups: %w", err)
+	}
+
+	if len(backups) == 0 {
+		return nil, false, fmt.Errorf("no backups found — create one with 'bak backup' first")
+	}
+
+	// Launch interactive picker.
+	m := restorePickerModel{backups: backups}
+	p := tea.NewProgram(m)
+	result, runErr := p.Run()
+	if runErr != nil {
+		return nil, false, fmt.Errorf("picker: %w", runErr)
+	}
+
+	model, ok := result.(restorePickerModel)
+	if !ok {
+		return nil, false, fmt.Errorf("picker: unexpected model type %T", result)
+	}
+
+	selectedID := model.SelectedID()
+	if selectedID == "" {
+		_, _ = fmt.Fprintln(deps.Stdout, "Restore cancelled.")
+		return nil, false, nil
+	}
+
+	return []string{selectedID}, true, nil
 }
