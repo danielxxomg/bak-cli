@@ -1039,7 +1039,7 @@ func TestModel_View_UnknownScreen(t *testing.T) {
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
-	m.screen = Screen(99) // invalid screen value
+	m.screen = screen(99) // invalid screen value
 
 	output := m.View().Content
 
@@ -1406,8 +1406,8 @@ func TestModel_Update_WindowSize_HealthNil(t *testing.T) {
 func TestScreenIotaValues(t *testing.T) {
 	tests := []struct {
 		name  string
-		value Screen
-		want  Screen
+		value screen
+		want  screen
 	}{
 		{"ScreenMenu", ScreenMenu, 0},
 		{"ScreenDashboard", ScreenDashboard, 1},

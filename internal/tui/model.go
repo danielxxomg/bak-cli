@@ -12,13 +12,15 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// Screen represents the active TUI screen. The root Model routes Update
-// and View calls based on the current screen value.
-type Screen int
+// screen represents the active TUI screen. The root Model routes Update
+// and View calls based on the current screen value. The type is unexported;
+// the Screen* constants below remain exported so callers can use the values
+// without naming the type.
+type screen int
 
 const (
 	// ScreenMenu is the main navigation menu (default screen).
-	ScreenMenu Screen = iota
+	ScreenMenu screen = iota
 	// ScreenDashboard displays backup records in a table.
 	ScreenDashboard
 	// ScreenProgress shows a live backup/restore progress bar.
@@ -43,7 +45,7 @@ const (
 // It is returned as a tea.Cmd from handleKey when the user presses enter
 // on a menu item that navigates to a sub-screen.
 type screenChangeMsg struct {
-	screen Screen
+	screen screen
 }
 
 // actionResultMsg is a tea.Msg that signals an action (backup/restore)
@@ -63,7 +65,7 @@ type actionResultMsg struct {
 // All fields are unexported; tests in the tui package access them directly
 // for white-box assertions.
 type Model struct {
-	screen   Screen
+	screen   screen
 	width    int
 	height   int
 	cursor   int

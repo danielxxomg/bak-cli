@@ -94,7 +94,7 @@ Chain strategy: pending
 
 ## Phase 3: tui.Screen Unexport (T1.3)
 
-- [ ] **3.1 [REFACTOR]** Rename `type Screen int` → `type screen int`. Verify zero `cmd/` references (confirmed). Constants stay exported if needed.
+- [x] **3.1 [REFACTOR]** Rename `type Screen int` → `type screen int`. Verify zero `cmd/` references (confirmed). Constants stay exported if needed.
   - **Files:** `internal/tui/model.go` (or `types.go`/`dispatch.go`)
   - **Deps:** —
   - **Lines:** ~10
