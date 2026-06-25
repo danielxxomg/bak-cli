@@ -156,21 +156,21 @@ Chain strategy: pending
 
 ## Phase 6: resolveBackupID Consolidation (T2.2)
 
-- [ ] **6.1 [RED]** Test `LatestBackupID(backupsDir)` and `ListBackupIDs(backupsDir)`: latest, empty→error, descending sort.
+- [x] **6.1 [RED]** Test `LatestBackupID(backupsDir)` and `ListBackupIDs(backupsDir)`: latest, empty→error, descending sort.
   - **Files:** `internal/backup/resolve_test.go`
   - **Deps:** —
   - **Lines:** +35
   - **Spec:** REQ-CH-001 §"resolves by latest", §"not-found returns error"
   - **Accept:** Table-driven: latest returned, empty→error, sorted desc
 
-- [ ] **6.2 [GREEN]** Implement `LatestBackupID` + `ListBackupIDs` in `internal/backup/resolve.go`.
+- [x] **6.2 [GREEN]** Implement `LatestBackupID` + `ListBackupIDs` in `internal/backup/resolve.go`.
   - **Files:** `internal/backup/resolve.go`
   - **Deps:** 6.1
   - **Lines:** +25
   - **Spec:** REQ-CH-001 §"resolveBackupID canonical"
   - **Accept:** 6.1 tests pass
 
-- [ ] **6.3 [REFACTOR]** Replace 3 inline resolutions: `push.go:201`, `pick_backup.go:33`, `cleanup.go:60` → use `backup.LatestBackupID`/`ListBackupIDs`.
+- [x] **6.3 [REFACTOR]** Replace 3 inline resolutions: `push.go:201`, `pick_backup.go:33`, `cleanup.go:60` → use `backup.LatestBackupID`/`ListBackupIDs`.
   - **Files:** `internal/actions/push.go`, `internal/actions/pick_backup.go`, `internal/actions/cleanup.go`
   - **Deps:** 6.2
   - **Lines:** -30/+10
