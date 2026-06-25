@@ -239,9 +239,7 @@ func (m *WizardModel) View() tea.View {
 
 	// Guard against terminals below the minimum usable size.
 	if m.Width > 0 && m.Height > 0 && styles.IsTooSmall(m.Width, m.Height) {
-		msg := fmt.Sprintf("Terminal too small (%dx%d). Need at least %dx%d.",
-			m.Width, m.Height, styles.MinWidth, styles.MinHeight)
-		return tea.NewView(styles.HelpStyle.Render(msg))
+		return tea.NewView(styles.HelpStyle.Render(styles.RenderTooSmall(m.Width, m.Height)))
 	}
 
 	var b strings.Builder

@@ -103,21 +103,21 @@ Chain strategy: pending
 
 ## Phase 4: styles.RenderTooSmall (T1.4)
 
-- [ ] **4.1 [RED]** Test `RenderTooSmall(width, height int) string` returns "Terminal too small (WxH)".
+- [x] **4.1 [RED]** Test `RenderTooSmall(width, height int) string` returns "Terminal too small (WxH)".
   - **Files:** `internal/tui/styles/styles_test.go`
   - **Deps:** —
   - **Lines:** +15
   - **Spec:** REQ-TD-003 §"RenderTooSmall produces correct message"
   - **Accept:** `RenderTooSmall(15, 5)` contains "Terminal too small (15x5)"
 
-- [ ] **4.2 [GREEN]** Implement `RenderTooSmall` in `internal/tui/styles/styles.go`.
+- [x] **4.2 [GREEN]** Implement `RenderTooSmall` in `internal/tui/styles/styles.go`.
   - **Files:** `internal/tui/styles/styles.go`
   - **Deps:** 4.1
   - **Lines:** +10
   - **Spec:** REQ-TD-003 §"RenderTooSmall produces correct message"
   - **Accept:** 4.1 test passes
 
-- [ ] **4.3 [REFACTOR]** Replace inline "Terminal too small" in `model.go:523`, `dashboard.go:150`, `health.go:127` with `styles.RenderTooSmall`.
+- [x] **4.3 [REFACTOR]** Replace inline "Terminal too small" in `model.go:523`, `dashboard.go:150`, `health.go:127` with `styles.RenderTooSmall`.
   - **Files:** `internal/tui/model.go`, `internal/tui/screens/dashboard.go`, `internal/tui/screens/health.go`
   - **Deps:** 4.2
   - **Lines:** -15/+5

@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"fmt"
-
 	"charm.land/lipgloss/v2"
 
 	"github.com/danielxxomg/bak-cli/internal/tui/components"
@@ -523,10 +521,7 @@ func (m Model) handleMenuEnter() (tea.Model, tea.Cmd) {
 func (m Model) View() tea.View {
 	var content string
 	if m.tooSmall {
-		content = fmt.Sprintf(
-			"Terminal too small (%dx%d). Need at least %d\u00d7%d.",
-			m.width, m.height, styles.MinWidth, styles.MinHeight,
-		)
+		content = styles.RenderTooSmall(m.width, m.height)
 	} else {
 		switch m.screen {
 		case ScreenMenu:

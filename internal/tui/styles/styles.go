@@ -3,7 +3,11 @@
 // avoid per-frame allocations during rendering.
 package styles
 
-import "charm.land/lipgloss/v2"
+import (
+	"fmt"
+
+	"charm.land/lipgloss/v2"
+)
 
 // Package-level style variables. All styles use the Rose Pine palette and are
 // defined at package scope to avoid per-frame allocations during TUI rendering.
@@ -88,6 +92,15 @@ const MinHeight = 15
 // minimum terminal dimensions required for the TUI layout.
 func IsTooSmall(w, h int) bool {
 	return w < MinWidth || h < MinHeight
+}
+
+// RenderTooSmall returns the rendered "Terminal too small" warning for the
+// given current dimensions, including the minimum required dimensions hint.
+// It is the single source of truth for the too-small message so every screen
+// guard renders the identical text (spec REQ-TD-003 §"RenderTooSmall helper").
+func RenderTooSmall(width, height int) string {
+	return fmt.Sprintf("Terminal too small (%dx%d). Need at least %dx%d.",
+		width, height, MinWidth, MinHeight)
 }
 
 // CursorIndicator is the prefix character used to indicate the currently
