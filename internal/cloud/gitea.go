@@ -132,7 +132,7 @@ func (p *GiteaProvider) Push(archive []byte, meta PushMeta) (string, error) {
 }
 
 // Pull downloads a backup archive from the Gitea repository by its backup ID.
-func (p *GiteaProvider) Pull(id string) ([]byte, error) {
+func (p *GiteaProvider) Pull(id string) ([]byte, error) { //nolint:dupl // consolidation tracked in ci-hardening-v2 PR 3 (pullContentFromAPI extraction)
 	if p.token == "" {
 		return nil, p.errf("pull: token is required")
 	}
