@@ -16,7 +16,7 @@ type shortcutsEntry struct {
 // Keybindings are grouped into Navigation, Actions, Screens, and Meta sections.
 // Each group heading uses HeadingStyle; individual key names use SelectedStyle.
 // On terminals wider than 50 columns, the content is wrapped in a Frame.
-func RenderShortcuts(width int) string {
+func RenderShortcuts(width int) string { //nolint:funlen // static key-bindings table
 	groups := []struct {
 		heading string
 		entries []shortcutsEntry
