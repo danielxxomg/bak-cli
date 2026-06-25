@@ -138,7 +138,7 @@ func Run(ctx Context) (*Result, error) {
 	}
 
 	// --- 5. Build manifest (hostname + fail-fast save) --------------------
-	hostname := resolveHostname(ctx.HostnameFn, ctx.Verbose, stderr)
+	hostname := ResolveHostname(ctx.HostnameFn, ctx.Verbose, stderr)
 	m := manifest.New(backupID, runtime.GOOS, hostname, ctx.BakVersion, ctx.Preset, categories)
 	if err := saveManifest(fsys, m, backupDir); err != nil {
 		return nil, fmt.Errorf("save manifest (fail-fast): %w", err)
@@ -159,6 +159,33 @@ func Run(ctx Context) (*Result, error) {
 		patterns = DefaultPatterns()
 	}
 
+	// --- 6,7,8. Collect items, backup, scan secrets, finalize manifest ---
+	result, err := executeBackupPhases(
+		ctx, fsys, detected, categories, backupDir, backupID, patterns, m, stderr,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	cleanupOnError = false
+	return result, nil
+}
+
+// executeBackupPhases runs phases 6-8 of the backup workflow: collect adapter
+// items, back them up while scanning for secret-bearing files, generate the
+// .env.example companion when secrets were detected, save the final manifest,
+// and assemble the Result summary. It is the post-setup half of Run, extracted
+// to keep Run itself within the funlen line budget.
+func executeBackupPhases(
+	ctx Context,
+	fsys FS,
+	detected []adapters.DetectedAdapter,
+	categories []string,
+	backupDir, backupID string,
+	patterns []*regexp.Regexp,
+	m *manifest.Manifest,
+	stderr io.Writer,
+) (*Result, error) {
 	// --- 6. Collect items, backup, scan secrets, build manifest items -----
 	// First pass: collect items from every adapter to compute the total file
 	// count for progress reporting.
@@ -189,8 +216,6 @@ func Run(ctx Context) (*Result, error) {
 	if err := saveManifest(fsys, m, backupDir); err != nil {
 		return nil, fmt.Errorf("save manifest: %w", err)
 	}
-
-	cleanupOnError = false
 
 	return &Result{
 		ID:              backupID,
@@ -407,24 +432,6 @@ func detectAdapters(reg *adapters.Registry, homeDir string, filter []string) ([]
 		})
 	}
 	return detected, nil
-}
-
-// resolveHostname returns the hostname via the injected function, falling
-// back to os.Hostname when fn is nil. Errors default to "unknown" and, when
-// verbose is set, emit a warning to stderr.
-func resolveHostname(fn func() (string, error), verbose bool, stderr io.Writer) string {
-	hostnameFn := fn
-	if hostnameFn == nil {
-		hostnameFn = os.Hostname
-	}
-	hostname, err := hostnameFn()
-	if err != nil {
-		if verbose {
-			fmt.Fprintf(stderr, "warning: could not get hostname: %v\n", err) //nolint:errcheck // non-critical diagnostic
-		}
-		return "unknown"
-	}
-	return hostname
 }
 
 // saveManifest serializes m as indented JSON and writes it through fs. Keeping

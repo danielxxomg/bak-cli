@@ -207,3 +207,47 @@ func readDirEntries(t *testing.T, dir string) []os.DirEntry {
 	}
 	return entries
 }
+
+// --- extracted helper tests (Phase 9) ---
+
+// TestPrintDryRunPlan verifies the extracted dry-run plan printer emits a
+// header with counts followed by each backup ID to delete.
+func TestPrintDryRunPlan(t *testing.T) {
+	tests := []struct {
+		name     string
+		toDelete []string
+		keep     int
+		wantSubs []string
+	}{
+		{
+			name:     "three deletions keeping two",
+			toDelete: []string{"20260601-120000", "20260602-120000", "20260603-120000"},
+			keep:     2,
+			wantSubs: []string{
+				"Would delete 3 backups (keeping 2 newest):",
+				"20260601-120000",
+				"20260602-120000",
+				"20260603-120000",
+			},
+		},
+		{
+			name:     "no deletions",
+			toDelete: nil,
+			keep:     5,
+			wantSubs: []string{"Would delete 0 backups (keeping 5 newest):"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out bytes.Buffer
+			printDryRunPlan(&out, tt.toDelete, tt.keep)
+			got := out.String()
+			for _, want := range tt.wantSubs {
+				if !strings.Contains(got, want) {
+					t.Errorf("output missing %q; got: %q", want, got)
+				}
+			}
+		})
+	}
+}

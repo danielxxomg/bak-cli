@@ -191,7 +191,7 @@ func (m ProfilesModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // View renders the profiles list or empty state.
 func (m ProfilesModel) View() tea.View {
 	if m.Width < styles.MinWidth || m.Height < styles.MinHeight {
-		return tea.NewView("Terminal too small")
+		return tea.NewView(styles.RenderTooSmall(m.Width, m.Height))
 	}
 
 	var content string

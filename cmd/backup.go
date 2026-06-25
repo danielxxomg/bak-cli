@@ -76,37 +76,9 @@ func runBackupWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 	if backupAdapter != "" {
 		adapterFilter = []string{backupAdapter}
 	}
-	var customCategories []string
-
-	if backupProfile != "" {
-		cfg, loadErr := deps.ConfigLoader()
-		if loadErr != nil {
-			return fmt.Errorf("load config for profile: %w", loadErr)
-		}
-
-		p, ok := cfg.Profiles[backupProfile]
-		if !ok {
-			return fmt.Errorf("profile %q not found — create it with 'bak profile create %s --provider <name>'", backupProfile, backupProfile)
-		}
-
-		if p.Preset != "" {
-			preset = p.Preset
-		}
-		if len(p.Categories) > 0 {
-			customCategories = p.Categories
-		}
-		if len(p.Adapters) > 0 {
-			adapterFilter = p.Adapters
-		}
-
-		if verbose {
-			enc := "disabled"
-			if p.Encryption != nil {
-				enc = "enabled"
-			}
-			_, _ = fmt.Fprintf(deps.Stderr, "Using profile %q (provider=%s, preset=%s, encryption=%s)\n",
-				backupProfile, p.Provider, preset, enc)
-		}
+	preset, adapterFilter, customCategories, err := applyProfileOverrides(deps, preset, adapterFilter, nil)
+	if err != nil {
+		return err
 	}
 
 	// --- Resolve categories (YAML-aware) -----------------------------------
@@ -134,4 +106,50 @@ func runBackupWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 	}
 
 	return action.Run()
+}
+
+// applyProfileOverrides applies the named profile's overrides (preset,
+// categories, adapters) on top of the CLI-flag defaults. When no profile is
+// selected (backupProfile == ""), the defaults are returned unchanged and
+// config is NOT loaded. When a profile is selected, config is loaded and the
+// profile must exist or an error is returned. A verbose summary is written
+// to deps.Stderr when verbose is true.
+//
+// It preserves the lazy config-loading behavior of the original inline block:
+// config is only fetched when a profile is actually named.
+func applyProfileOverrides(deps cmdDeps, preset string, adapterFilter, customCategories []string) (string, []string, []string, error) {
+	if backupProfile == "" {
+		return preset, adapterFilter, customCategories, nil
+	}
+
+	cfg, err := deps.ConfigLoader()
+	if err != nil {
+		return preset, adapterFilter, customCategories, fmt.Errorf("load config for profile: %w", err)
+	}
+
+	p, ok := cfg.Profiles[backupProfile]
+	if !ok {
+		return preset, adapterFilter, customCategories, fmt.Errorf("profile %q not found — create it with 'bak profile create %s --provider <name>'", backupProfile, backupProfile)
+	}
+
+	if p.Preset != "" {
+		preset = p.Preset
+	}
+	if len(p.Categories) > 0 {
+		customCategories = p.Categories
+	}
+	if len(p.Adapters) > 0 {
+		adapterFilter = p.Adapters
+	}
+
+	if verbose {
+		enc := "disabled"
+		if p.Encryption != nil {
+			enc = "enabled"
+		}
+		_, _ = fmt.Fprintf(deps.Stderr, "Using profile %q (provider=%s, preset=%s, encryption=%s)\n",
+			backupProfile, p.Provider, preset, enc)
+	}
+
+	return preset, adapterFilter, customCategories, nil
 }

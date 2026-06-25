@@ -21,8 +21,8 @@ func RunListLocal(bakDir string, verbose bool, out, errOut io.Writer) error {
 	// Check if backups directory exists.
 	if _, err := os.Stat(backupsDir); err != nil {
 		if os.IsNotExist(err) {
-			if _, werr := fmt.Fprintln(out, "No backups found. Run 'bak backup' first."); werr != nil {
-				return fmt.Errorf("write output: %w", werr)
+			if err := writeNoBackupsFound(out); err != nil {
+				return fmt.Errorf("write output: %w", err)
 			}
 			return nil
 		}
@@ -43,7 +43,7 @@ func RunListLocal(bakDir string, verbose bool, out, errOut io.Writer) error {
 	}
 
 	if len(backupDirs) == 0 {
-		if _, err := fmt.Fprintln(out, "No backups found. Run 'bak backup' first."); err != nil {
+		if err := writeNoBackupsFound(out); err != nil {
 			return fmt.Errorf("write output: %w", err)
 		}
 		return nil
@@ -72,27 +72,7 @@ func RunListLocal(bakDir string, verbose bool, out, errOut io.Writer) error {
 			continue
 		}
 
-		// Format date from backup ID (YYYYMMDD-HHMMSS).
-		date := ""
-		if len(backupID) >= 15 {
-			date = fmt.Sprintf("%s-%s-%s %s:%s:%s",
-				backupID[:4], backupID[4:6], backupID[6:8],
-				backupID[9:11], backupID[11:13], backupID[13:15])
-		}
-
-		// Get adapter names (sorted for deterministic output).
-		adapterNames := make([]string, 0, len(m.Adapters))
-		for name := range m.Adapters {
-			adapterNames = append(adapterNames, name)
-		}
-		sort.Strings(adapterNames)
-		adapterStr := strings.Join(adapterNames, ", ")
-
-		// Format size.
-		sizeStr := FormatSizeBytes(m.TotalSize)
-
-		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n",
-			backupID, date, m.Preset, m.FileCount, sizeStr, adapterStr); err != nil {
+		if _, err := fmt.Fprint(w, formatBackupRow(backupID, m)); err != nil {
 			return fmt.Errorf("write row: %w", err)
 		}
 	}
@@ -126,4 +106,41 @@ func FormatSizeBytes(bytes int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%s%.1f %cB", sign, float64(abs)/float64(div), "KMGTPE"[exp])
+}
+
+// formatBackupDate parses a backup ID of the form YYYYMMDD-HHMMSS into a
+// readable date string. Returns an empty string when the ID is too short
+// to parse (fewer than 15 characters).
+func formatBackupDate(backupID string) string {
+	if len(backupID) < 15 {
+		return ""
+	}
+	return fmt.Sprintf("%s-%s-%s %s:%s:%s",
+		backupID[:4], backupID[4:6], backupID[6:8],
+		backupID[9:11], backupID[11:13], backupID[13:15])
+}
+
+// formatBackupRow formats a single backup into a tab-separated table row
+// (ID, date, preset, file count, size, adapters). Adapter names are sorted
+// and joined for deterministic output. The returned string ends with a
+// newline.
+func formatBackupRow(backupID string, m *manifest.Manifest) string {
+	date := formatBackupDate(backupID)
+	adapterNames := make([]string, 0, len(m.Adapters))
+	for name := range m.Adapters {
+		adapterNames = append(adapterNames, name)
+	}
+	sort.Strings(adapterNames)
+	adapterStr := strings.Join(adapterNames, ", ")
+	sizeStr := FormatSizeBytes(m.TotalSize)
+	return fmt.Sprintf("%s\t%s\t%s\t%d\t%s\t%s\n",
+		backupID, date, m.Preset, m.FileCount, sizeStr, adapterStr)
+}
+
+// writeNoBackupsFound writes the "No backups found" guidance message to out
+// and returns any write error. Shared by the early-return branches in
+// RunListLocal to keep the message in one place.
+func writeNoBackupsFound(out io.Writer) error {
+	_, err := fmt.Fprintln(out, "No backups found. Run 'bak backup' first.")
+	return err
 }

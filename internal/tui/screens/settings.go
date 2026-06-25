@@ -102,24 +102,32 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cursor = (m.cursor - 1 + len(m.options)) % len(m.options)
 		case '\r', ' ':
 			// Toggle the focused option if it is a toggle type.
-			if m.cursor >= 0 && m.cursor < len(m.options) {
-				opt := &m.options[m.cursor]
-				if opt.Type == "toggle" {
-					opt.Value = !opt.Value
-					// Persist immediately.
-					if m.saveFunc != nil && opt.Key != "" {
-						if err := m.saveFunc(opt.Key, opt.Value); err != nil {
-							m.msg = fmt.Sprintf("save setting: %s", err.Error())
-						}
-					}
-				}
-			}
+			m.toggleFocused()
 		case 'q', 27:
 			return m, func() tea.Msg { return ScreenBackMsg{} }
 		}
 	}
 
 	return m, nil
+}
+
+// toggleFocused toggles the focused option when it is a toggle type and
+// persists the new value immediately via saveFunc. It is a no-op when the
+// cursor is out of bounds or the focused option is not a toggle.
+func (m *SettingsModel) toggleFocused() {
+	if m.cursor < 0 || m.cursor >= len(m.options) {
+		return
+	}
+	opt := &m.options[m.cursor]
+	if opt.Type != "toggle" {
+		return
+	}
+	opt.Value = !opt.Value
+	if m.saveFunc != nil && opt.Key != "" {
+		if err := m.saveFunc(opt.Key, opt.Value); err != nil {
+			m.msg = fmt.Sprintf("save setting: %s", err.Error())
+		}
+	}
 }
 
 // View renders the settings screen as a list of checkbox-style options.

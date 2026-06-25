@@ -2769,3 +2769,114 @@ func TestListBackupsForScreens(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// Phase 5: subModel dispatch map — RED (forwardTo / subs / subModel absent)
+// =============================================================================
+
+// TestModel_forwardTo_RoutesToSubModel verifies forwardTo dispatches a
+// message to the sub-model registered for the given screen, returns
+// (cmd, true) when a sub-model is present, and keeps the cached instance.
+func TestModel_forwardTo_RoutesToSubModel(t *testing.T) {
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		ListBackups: func() ([]BackupInfo, error) {
+			return []BackupInfo{{ID: "abc-1", Date: "2024-01-01", Size: "1MB", Status: "ok", Cloud: "none"}}, nil
+		},
+	})
+	// Lazy-init the dashboard sub-model via a screen change.
+	m2, _ := m.Update(screenChangeMsg{screen: ScreenDashboard})
+	m = m2.(Model)
+
+	if m.subs == nil || m.subs[ScreenDashboard] == nil {
+		t.Fatal("subs[ScreenDashboard] not populated after screenChange")
+	}
+
+	// Forward a window-size message: should route to the dashboard sub-model.
+	_, ok := m.forwardTo(ScreenDashboard, tea.WindowSizeMsg{Width: 80, Height: 24})
+	if !ok {
+		t.Error("forwardTo(ScreenDashboard) = false, want true (sub-model exists)")
+	}
+
+	// The cached instance survives the forward: dashboard still renders its data.
+	if m.dashboard == nil {
+		t.Fatal("dashboard sub-model nil after forwardTo")
+	}
+	if !strings.Contains(m.dashboard.View().Content, "abc-1") {
+		t.Error("cached dashboard lost its loaded data after forwardTo")
+	}
+}
+
+// TestModel_forwardTo_UnknownScreenReturnsFalse verifies forwardTo returns
+// (nil, false) for an unrecognized screen value without panicking.
+func TestModel_forwardTo_UnknownScreenReturnsFalse(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+
+	_, ok := m.forwardTo(screen(99), tea.KeyPressMsg{Code: 'j'})
+	if ok {
+		t.Error("forwardTo(unknown screen) = true, want false")
+	}
+}
+
+// TestModel_forwardTo_NilSubModelReturnsFalse verifies forwardTo returns
+// (nil, false) when the screen is registered but its sub-model is nil,
+// without panicking (mirrors the `if m.x != nil` guards in the old code).
+func TestModel_forwardTo_NilSubModelReturnsFalse(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	// Dashboard never initialized → get returns nil.
+
+	_, ok := m.forwardTo(ScreenDashboard, tea.KeyPressMsg{Code: 'j'})
+	if ok {
+		t.Error("forwardTo(ScreenDashboard) with nil sub-model = true, want false")
+	}
+}
+
+// TestModel_Update_LazyInitPopulatesSubsMap verifies that processing a
+// screenChangeMsg lazily creates the sub-model and stores it in the subs map,
+// and that subsequent screen changes add entries without clearing prior ones.
+func TestModel_Update_LazyInitPopulatesSubsMap(t *testing.T) {
+	m := NewModel(Deps{
+		Version:     "1.0.0",
+		ListBackups: func() ([]BackupInfo, error) { return nil, nil },
+	})
+	if m.subs != nil {
+		t.Error("subs should be nil before any screenChange")
+	}
+
+	m2, _ := m.Update(screenChangeMsg{screen: ScreenDashboard})
+	result := m2.(Model)
+	if result.subs == nil {
+		t.Fatal("subs map nil after screenChange")
+	}
+	if result.subs[ScreenDashboard] == nil {
+		t.Error("subs[ScreenDashboard] nil after screenChange (lazy-init failed)")
+	}
+
+	// A second screen change populates another entry without clearing the first.
+	m3, _ := result.Update(screenChangeMsg{screen: ScreenSettings})
+	result = m3.(Model)
+	if result.subs[ScreenSettings] == nil {
+		t.Error("subs[ScreenSettings] nil after second screenChange")
+	}
+	if result.subs[ScreenDashboard] == nil {
+		t.Error("subs[ScreenDashboard] lost after entering Settings")
+	}
+}
+
+// TestModel_Update_UnknownScreenNoPanic verifies that a model on an
+// unrecognized screen value handles a forwardable message without panicking
+// and returns (m, nil).
+func TestModel_Update_UnknownScreenNoPanic(t *testing.T) {
+	m := NewModel(Deps{Version: "1.0.0"})
+	m.screen = screen(99)
+
+	newModel, cmd := m.Update(tea.KeyPressMsg{Code: 'j'})
+	result := newModel.(Model)
+
+	if result.screen != screen(99) {
+		t.Errorf("unknown screen: screen = %v, want 99", result.screen)
+	}
+	if cmd != nil {
+		t.Errorf("unknown screen: cmd = %v, want nil", cmd)
+	}
+}
