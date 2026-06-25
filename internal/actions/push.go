@@ -98,54 +98,10 @@ func (a *PushAction) Run(args []string) error {
 		warnf(errOut, "Using provider: %s\n", provider.Name())
 	}
 
-	// 4. Package backup as tar.gz.
-	infof(out, "Packaging backup %s...\n", backupID)
-	if a.ProgressFn != nil {
-		a.ProgressFn("Packaging", 0, 2)
-	}
-	archiveData, err := cloud.TarGzDirectory(backupPath)
+	// 4-6. Package, optionally encrypt, and push the backup to the provider.
+	id, err := a.publishArchive(provider, backupPath, backupID, out, errOut)
 	if err != nil {
-		return fmt.Errorf("package backup: %w", err)
-	}
-	if a.ProgressFn != nil {
-		a.ProgressFn("Packaging", 1, 2)
-	}
-
-	// 5. Push via provider.
-	if a.ProgressFn != nil {
-		a.ProgressFn("Uploading", 1, 2)
-	}
-	hostname := backup.ResolveHostname(a.HostnameFn, a.Verbose, errOut)
-	rawArchive, err := base64.StdEncoding.DecodeString(archiveData)
-	if err != nil {
-		return fmt.Errorf("decode archive: %w", err)
-	}
-
-	// 5. Encrypt archive if the profile has encryption enabled.
-	if encrypt, err := a.shouldEncrypt(); err != nil {
-		return fmt.Errorf("load config: %w", err)
-	} else if encrypt {
-		password, err := crypto.GetPassword("Enter encryption password: ")
-		if err != nil {
-			return fmt.Errorf("encryption password: %w", err)
-		}
-		rawArchive, err = crypto.Encrypt(rawArchive, password)
-		if err != nil {
-			return fmt.Errorf("encrypt archive: %w", err)
-		}
-		if a.Verbose {
-			warnf(errOut, "Archive encrypted\n")
-		}
-	}
-
-	id, err := provider.Push(rawArchive, cloud.PushMeta{
-		BackupID:  backupID,
-		CreatedAt: time.Now().UTC(),
-		Hostname:  hostname,
-		OS:        runtime.GOOS,
-	})
-	if err != nil {
-		return fmt.Errorf("push: %w", err)
+		return err
 	}
 
 	infof(out, "✅ Pushed to %s: %s\n", provider.Name(), id)
@@ -153,6 +109,87 @@ func (a *PushAction) Run(args []string) error {
 		a.ProgressFn("Complete", 2, 2)
 	}
 	return nil
+}
+
+// publishArchive performs the push workflow's I/O-heavy phase: package the
+// backup directory as a tar.gz, base64-decode it, apply optional encryption,
+// and upload to the provider, reporting progress along the way. It returns
+// the uploaded ID. Extracted from Run to keep PushAction.Run within the funlen
+// statement budget.
+func (a *PushAction) publishArchive(
+	provider cloud.Provider,
+	backupPath, backupID string,
+	out, errOut io.Writer,
+) (string, error) {
+	// 4. Package backup as tar.gz.
+	infof(out, "Packaging backup %s...\n", backupID)
+	if a.ProgressFn != nil {
+		a.ProgressFn("Packaging", 0, 2)
+	}
+	archiveData, err := cloud.TarGzDirectory(backupPath)
+	if err != nil {
+		return "", fmt.Errorf("package backup: %w", err)
+	}
+	if a.ProgressFn != nil {
+		a.ProgressFn("Packaging", 1, 2)
+	}
+
+	hostname := backup.ResolveHostname(a.HostnameFn, a.Verbose, errOut)
+	rawArchive, err := base64.StdEncoding.DecodeString(archiveData)
+	if err != nil {
+		return "", fmt.Errorf("decode archive: %w", err)
+	}
+
+	// 5. Encrypt archive if the profile has encryption enabled.
+	rawArchive, err = a.encryptArchiveIfNeeded(rawArchive, errOut)
+	if err != nil {
+		return "", err
+	}
+
+	// 6. Push via provider.
+	if a.ProgressFn != nil {
+		a.ProgressFn("Uploading", 1, 2)
+	}
+	id, err := provider.Push(rawArchive, cloud.PushMeta{
+		BackupID:  backupID,
+		CreatedAt: time.Now().UTC(),
+		Hostname:  hostname,
+		OS:        runtime.GOOS,
+	})
+	if err != nil {
+		return "", fmt.Errorf("push: %w", err)
+	}
+	return id, nil
+}
+
+// encryptArchiveIfNeeded encrypts the raw archive bytes when the configured
+// profile has encryption enabled, prompting for the password and returning the
+// ciphertext. When encryption is disabled it returns rawArchive unchanged.
+// Extracted from Run to keep PushAction.Run within the funlen statement budget.
+func (a *PushAction) encryptArchiveIfNeeded(rawArchive []byte, errOut io.Writer) ([]byte, error) {
+	encrypt, err := a.shouldEncrypt()
+	if err != nil {
+		return nil, fmt.Errorf("load config: %w", err)
+	}
+	if !encrypt {
+		return rawArchive, nil
+	}
+
+	password, err := crypto.GetPassword("Enter encryption password: ")
+	if err != nil {
+		return nil, fmt.Errorf("encryption password: %w", err)
+	}
+
+	encrypted, err := crypto.Encrypt(rawArchive, password)
+	if err != nil {
+		return nil, fmt.Errorf("encrypt archive: %w", err)
+	}
+
+	if a.Verbose {
+		warnf(errOut, "Archive encrypted\n")
+	}
+
+	return encrypted, nil
 }
 
 // shouldEncrypt checks whether the configured profile has encryption
