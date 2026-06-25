@@ -71,21 +71,21 @@ Chain strategy: pending
 
 ## Phase 2: Cloud List() Dedup (T1.2)
 
-- [ ] **2.1 [RED]** Test `listContentsDir` shared helper: parameterized URL/accept/prefix, 404→empty, error prefix propagation.
+- [x] **2.1 [RED]** Test `listContentsDir` shared helper: parameterized URL/accept/prefix, 404→empty, error prefix propagation.
   - **Files:** `internal/cloud/httputil_test.go`
   - **Deps:** —
   - **Lines:** +50
   - **Spec:** REQ-CP-001 §"shared logic parameterized", §"HTTP error propagated"
   - **Accept:** httptest server validates URL/headers/prefix per provider
 
-- [ ] **2.2 [GREEN]** Implement `listContentsDir(client, url, token, accept, errPrefix, urlBuilder)` in `internal/cloud/httputil.go`.
+- [x] **2.2 [GREEN]** Implement `listContentsDir(client, url, token, accept, errPrefix, urlBuilder)` in `internal/cloud/httputil.go`.
   - **Files:** `internal/cloud/httputil.go`
   - **Deps:** 2.1
   - **Lines:** +40
   - **Spec:** REQ-CP-001 §"Cloud List() consolidation"
   - **Accept:** 2.1 tests pass
 
-- [ ] **2.3 [REFACTOR]** `GiteaProvider.List` and `GitHubRepoProvider.List` delegate to `listContentsDir`.
+- [x] **2.3 [REFACTOR]** `GiteaProvider.List` and `GitHubRepoProvider.List` delegate to `listContentsDir`.
   - **Files:** `internal/cloud/gitea.go`, `internal/cloud/github_repo.go`
   - **Deps:** 2.2
   - **Lines:** -50/+10

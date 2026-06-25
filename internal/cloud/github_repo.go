@@ -2,11 +2,9 @@ package cloud
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/danielxxomg/bak-cli/internal/config"
@@ -97,6 +95,9 @@ func (p *GitHubRepoProvider) Pull(id string) ([]byte, error) {
 }
 
 // List returns metadata for all bak backups stored in the GitHub repo.
+// It delegates the HTTP listing logic to the shared listContentsDir helper,
+// parameterizing the GitHub Contents API URL, accept header, error prefix,
+// and per-item blob URL. Token and repo guards stay here.
 func (p *GitHubRepoProvider) List() ([]BackupMeta, error) {
 	if p.token == "" {
 		return nil, fmt.Errorf("list github-repo: token is required")
@@ -106,44 +107,10 @@ func (p *GitHubRepoProvider) List() ([]BackupMeta, error) {
 	}
 
 	url := fmt.Sprintf("%s/repos/%s/contents/%s", p.apiBase, p.repo, githubRepoDir)
-
-	req, err := newRequest(http.MethodGet, url, p.token, "application/vnd.github+json", "", nil)
-	if err != nil {
-		return nil, fmt.Errorf("list github-repo: build request: %w", err)
-	}
-
-	body, status, err := doRequest(p.client, req)
-	if err != nil {
-		return nil, fmt.Errorf("list github-repo: %w", err)
-	}
-
-	// Directory listing returns 404 if the directory doesn't exist yet.
-	if status == http.StatusNotFound {
-		return nil, nil
-	}
-
-	if status < 200 || status >= 300 {
-		return nil, fmt.Errorf("list github-repo: %w", formatAPIError(body, status))
-	}
-
-	var items []contentResponse
-	if err := json.Unmarshal(body, &items); err != nil {
-		return nil, fmt.Errorf("list github-repo: parse response: %w", err)
-	}
-
-	metas := make([]BackupMeta, 0, len(items))
-	for _, item := range items {
-		backupID := strings.TrimSuffix(item.Name, ".tar.gz")
-
-		metas = append(metas, BackupMeta{
-			ID:       backupID,
-			BackupID: backupID,
-			Size:     item.Size,
-			URL:      fmt.Sprintf("https://github.com/%s/blob/%s/%s/%s", p.repo, p.branch, githubRepoDir, item.Name),
+	return listContentsDir(p.client, url, p.token, "application/vnd.github+json", "list github-repo",
+		func(item contentResponse) string {
+			return fmt.Sprintf("https://github.com/%s/blob/%s/%s/%s", p.repo, p.branch, githubRepoDir, item.Name)
 		})
-	}
-
-	return metas, nil
 }
 
 // getFileSHA checks if a file exists by fetching its metadata from the
