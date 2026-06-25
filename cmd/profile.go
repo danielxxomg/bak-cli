@@ -3,11 +3,9 @@ package cmd
 import (
 	"fmt"
 
-	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
-	"github.com/danielxxomg/bak-cli/internal/tui/screens"
 )
 
 // profileCmd is the parent command for profile management.
@@ -206,92 +204,30 @@ func runProfileCreateInteractiveWithDeps(cmd *cobra.Command, name string, deps c
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	// When no name is provided, skip pre-validation — the wizard
-	// will collect the name via NameStep and validate internally.
+	// When a name is supplied, validate it up front and pre-resolve the
+	// provider list for the wizard. The wizard then runs with those
+	// providers; the supplied name is used directly.
 	if name != "" {
 		providers, err := actions.ProfileValidateForCreation(cfg, name)
 		if err != nil {
 			return err
 		}
-
-		// Launch wizard with providers pre-validated.
-		if !isTTY() {
-			return fmt.Errorf("interactive wizard requires a terminal (TTY)")
+		fromWizard, _, err := launchWizard(providers)
+		if err != nil {
+			return err
 		}
-		m := screens.NewWizardModel("profile-create", providers)
-		p := tea.NewProgram(m)
-		finalModel, runErr := p.Run()
-		if runErr != nil {
-			return fmt.Errorf("wizard: %w", runErr)
-		}
-
-		wm, ok := finalModel.(*screens.WizardModel)
-		if !ok {
-			return fmt.Errorf("wizard: unexpected model type %T", finalModel)
-		}
-
-		var adapterNames []string
-		for _, item := range wm.AdapterItems {
-			if item.Checked {
-				adapterNames = append(adapterNames, item.Name)
-			}
-		}
-		var categoryNames []string
-		for _, item := range wm.CategoryItems {
-			if item.Checked {
-				categoryNames = append(categoryNames, item.Name)
-			}
-		}
-
-		return actions.ProfileCreateInteractive(cfg, name, actions.ProfileCreateFromWizard{
-			Confirmed:        wm.Confirmed,
-			SelectedProvider: wm.SelectedProvider,
-			SelectedPreset:   wm.SelectedPreset,
-			AdapterNames:     adapterNames,
-			CategoryNames:    categoryNames,
-		}, out)
+		return actions.ProfileCreateInteractive(cfg, name, fromWizard, out)
 	}
 
-	// name == "" — wizard collects name. Use wizard's ProfileName().
-	if !isTTY() {
-		return fmt.Errorf("interactive wizard requires a terminal (TTY)")
+	// No name supplied — the wizard collects it via the NameStep and
+	// auto-detects providers (nil providers). Use the wizard's name.
+	fromWizard, wm, err := launchWizard(nil) // nil providers → wizard auto-detects
+	if err != nil {
+		return err
 	}
-	m := screens.NewWizardModel("profile-create", nil) // nil providers → auto-detect
-	p := tea.NewProgram(m)
-	finalModel, runErr := p.Run()
-	if runErr != nil {
-		return fmt.Errorf("wizard: %w", runErr)
-	}
-
-	wm, ok := finalModel.(*screens.WizardModel)
-	if !ok {
-		return fmt.Errorf("wizard: unexpected model type %T", finalModel)
-	}
-
-	// Use wizard's collected name when arg was empty.
 	wizardName := wm.ProfileName()
 	if wizardName == "" {
 		return fmt.Errorf("profile name is required")
 	}
-
-	var adapterNames []string
-	for _, item := range wm.AdapterItems {
-		if item.Checked {
-			adapterNames = append(adapterNames, item.Name)
-		}
-	}
-	var categoryNames []string
-	for _, item := range wm.CategoryItems {
-		if item.Checked {
-			categoryNames = append(categoryNames, item.Name)
-		}
-	}
-
-	return actions.ProfileCreateInteractive(cfg, wizardName, actions.ProfileCreateFromWizard{
-		Confirmed:        wm.Confirmed,
-		SelectedProvider: wm.SelectedProvider,
-		SelectedPreset:   wm.SelectedPreset,
-		AdapterNames:     adapterNames,
-		CategoryNames:    categoryNames,
-	}, out)
+	return actions.ProfileCreateInteractive(cfg, wizardName, fromWizard, out)
 }

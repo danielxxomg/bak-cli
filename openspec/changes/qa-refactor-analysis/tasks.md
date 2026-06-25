@@ -223,21 +223,21 @@ Chain strategy: pending
 
 ## Phase 8: cmd/profile Wizard Dedup (T3.1)
 
-- [ ] **8.1 [RED]** Test extracted `launchWizard` helper.
+- [x] **8.1 [RED]** Test extracted `launchWizard` helper.
   - **Files:** `cmd/profile_test.go` or `cmd/wizard_test.go`
   - **Deps:** —
   - **Lines:** +25
   - **Spec:** (Tier 3 quick win, no explicit REQ — supports REQ-RL-001 funlen reduction)
   - **Accept:** Helper returns correct wizard model + action
 
-- [ ] **8.2 [GREEN]** Implement `launchWizard(cfg, name, providers)` in `cmd/profile.go` or `cmd/wizard.go`.
+- [x] **8.2 [GREEN]** Implement `launchWizard(cfg, name, providers)` in `cmd/profile.go` or `cmd/wizard.go`.
   - **Files:** `cmd/profile.go`
   - **Deps:** 8.1
   - **Lines:** +30
   - **Spec:** (funlen 49 + nestif 6 reduction)
   - **Accept:** `runProfileCreateInteractiveWithDeps` <40 stmts
 
-- [ ] **8.3 [REFACTOR]** Replace 2 inline wizard-launch blocks (name=="" and name!="") with `launchWizard` call.
+- [x] **8.3 [REFACTOR]** Replace 2 inline wizard-launch blocks (name=="" and name!="") with `launchWizard` call.
   - **Files:** `cmd/profile.go`
   - **Deps:** 8.2
   - **Lines:** -45/+5
