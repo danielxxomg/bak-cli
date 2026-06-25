@@ -34,6 +34,9 @@ bak/
 .atl/
 .gga
 
+# OpenCode local project config (personal MCP server set)
+opencode.json
+
 # Deprecated brand assets (source variants, not for repo)
 docs/bak-logo-options/
 
