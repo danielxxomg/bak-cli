@@ -59,7 +59,7 @@ type Result struct {
 }
 
 // Run executes the full backup flow and returns a summary.
-func (e *Engine) Run() (*Result, error) {
+func (e *Engine) Run() (*Result, error) { //nolint:maintidx // SEVERE: tracked for qa-refactor-analysis (needs extraction, not config)
 	// --- 1. Resolve preset ------------------------------------------------
 	// --- 1. Resolve categories -------------------------------------------
 	var categories []string

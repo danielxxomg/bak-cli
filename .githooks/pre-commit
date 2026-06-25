@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+#
+# Versioned pre-commit hook for bak-cli.
+# Activate once per clone with: task setup
+#
+# Runs the full local gate fail-fast: deterministic checks first
+# (golangci-lint, go vet, go build), then GGA code review last.
+#
+# Escape hatch (per AGENTS.md rule #41): git commit --no-verify, but the
+# commit body MUST include "NO-VERIFY: <reason>" and a follow-up fix commit
+# is expected in the same PR.
+set -euo pipefail
+
+echo "pre-commit: golangci-lint run"
+golangci-lint run
+
+echo "pre-commit: go vet ./..."
+go vet ./...
+
+echo "pre-commit: go build ./..."
+go build ./...
+
+echo "pre-commit: gga run"
+gga run
+
+echo "pre-commit: all checks passed"

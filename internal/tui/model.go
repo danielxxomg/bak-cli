@@ -124,7 +124,7 @@ func (m Model) Init() tea.Cmd {
 
 // Update handles incoming messages and routes them based on the current
 // screen and message type. It implements the tea.Model interface.
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:maintidx // SEVERE: tracked for qa-refactor-analysis (needs extraction, not config)
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -650,7 +650,7 @@ func (m Model) Selection() MenuSelection {
 
 // initDashboard creates a new DashboardModel using the injected deps.
 func (m Model) initDashboard() screens.DashboardModel {
-	return screens.NewDashboardModel(func() ([]screens.BackupInfo, error) {
+	return screens.NewDashboardModel(func() ([]screens.BackupInfo, error) { //nolint:dupl // consolidation tracked in ci-hardening-v2 PR 3 (listBackupsForScreens extraction)
 		if m.deps.ListBackups == nil {
 			return nil, nil
 		}
@@ -693,7 +693,7 @@ func (m Model) initSettings() screens.SettingsModel {
 
 // initRestore creates a new RestoreModel using injected deps.
 func (m Model) initRestore() screens.RestoreModel {
-	listFn := func() ([]screens.BackupInfo, error) {
+	listFn := func() ([]screens.BackupInfo, error) { //nolint:dupl // consolidation tracked in ci-hardening-v2 PR 3 (listBackupsForScreens extraction)
 		if m.deps.ListBackups == nil {
 			return nil, nil
 		}

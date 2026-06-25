@@ -55,7 +55,7 @@ type BackupAction struct {
 // Run executes the backup workflow: resolve preset, detect adapters,
 // copy files, scan secrets, and write manifest. All OS operations go
 // through a.FS.
-func (a *BackupAction) Run() error {
+func (a *BackupAction) Run() error { //nolint:maintidx // SEVERE: tracked for qa-refactor-analysis (needs extraction, not config)
 	out := a.Stdout
 	if out == nil {
 		out = os.Stdout

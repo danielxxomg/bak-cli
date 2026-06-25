@@ -89,7 +89,7 @@ func (p *GitHubRepoProvider) Push(archive []byte, meta PushMeta) (string, error)
 
 // Pull downloads a backup archive from the GitHub repository by its
 // backup ID via the GitHub Contents API.
-func (p *GitHubRepoProvider) Pull(id string) ([]byte, error) {
+func (p *GitHubRepoProvider) Pull(id string) ([]byte, error) { //nolint:dupl // consolidation tracked in ci-hardening-v2 PR 3 (pullContentFromAPI extraction)
 	if p.token == "" {
 		return nil, fmt.Errorf("pull github-repo: token is required")
 	}

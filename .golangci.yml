@@ -4,12 +4,14 @@ version: "2"
 linters:
   enable:
     - bodyclose
+    - dupl
     - errcheck
     - errorlint
     - gocritic
     - gosec
     - govet
     - ineffassign
+    - maintidx
     - nilerr
     - staticcheck
     - unused
@@ -20,6 +22,10 @@ linters:
         - G301  # directory permissions (false positive for backup tool)
         - G306  # WriteFile permissions (false positive for backup tool)
         - G304  # file inclusion via variable (backup tool MUST read dynamic paths)
+    maintidx:
+      under: 20  # flag functions with maintainability index below 20
+    dupl:
+      threshold: 80  # flag duplicate code blocks with >=80 tokens
 
   exclusions:
     rules:
@@ -27,6 +33,8 @@ linters:
         linters:
           - errcheck
           - gosec  # tests don't need security scanning
+          - maintidx  # tests may have long table-driven setups
+          - dupl  # tests legitimately repeat setup patterns
 
 run:
   timeout: 5m
