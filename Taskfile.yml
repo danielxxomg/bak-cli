@@ -85,7 +85,10 @@ tasks:
   security:
     desc: Run vulnerability and security checks
     cmds:
-      - govulncheck ./... || true
+      # govulncheck BLOCKS on any reachable vulnerability. v1.4.0 has no
+      # severity flag — its reachability analysis IS the filter (low FP).
+      - govulncheck ./...
+      # gosec stays advisory: G301/G306/G304 are known false positives.
       - gosec -quiet ./... || true
 
   goreleaser-verify:
