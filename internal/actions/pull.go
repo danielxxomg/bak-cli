@@ -67,19 +67,9 @@ func (a *PullAction) Run(args []string) error {
 	bakDir := filepath.Join(homeDir, ".bak")
 
 	// 2. Load config (for stored backup ID resolution).
-	var cfg *config.Config
-	if a.ConfigLoader != nil {
-		var err error
-		cfg, err = a.ConfigLoader()
-		if err != nil {
-			return fmt.Errorf("load config: %w", err)
-		}
-	} else {
-		var err error
-		cfg, err = config.Load()
-		if err != nil {
-			return fmt.Errorf("load config: %w", err)
-		}
+	cfg, err := loadConfigOr(a.ConfigLoader)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
 	}
 
 	// 3. Resolve provider via injected factory.

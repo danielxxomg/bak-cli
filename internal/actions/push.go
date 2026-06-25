@@ -115,20 +115,7 @@ func (a *PushAction) Run(args []string) error {
 	if a.ProgressFn != nil {
 		a.ProgressFn("Uploading", 1, 2)
 	}
-	hostname := "unknown"
-	if a.HostnameFn != nil {
-		if h, err := a.HostnameFn(); err == nil {
-			hostname = h
-		} else if a.Verbose {
-			warnf(errOut, "warning: hostname: %v\n", err)
-		}
-	} else {
-		if h, err := os.Hostname(); err == nil {
-			hostname = h
-		} else if a.Verbose {
-			warnf(errOut, "warning: hostname: %v\n", err)
-		}
-	}
+	hostname := backup.ResolveHostname(a.HostnameFn, a.Verbose, errOut)
 	rawArchive, err := base64.StdEncoding.DecodeString(archiveData)
 	if err != nil {
 		return fmt.Errorf("decode archive: %w", err)
@@ -173,13 +160,7 @@ func (a *PushAction) Run(args []string) error {
 // Encryption.Enabled set, (false, nil) when the profile is missing or
 // encryption is not enabled, and (false, err) when config loading fails.
 func (a *PushAction) shouldEncrypt() (bool, error) {
-	var cfg *config.Config
-	var err error
-	if a.ConfigLoader != nil {
-		cfg, err = a.ConfigLoader()
-	} else {
-		cfg, err = config.Load()
-	}
+	cfg, err := loadConfigOr(a.ConfigLoader)
 	if err != nil {
 		return false, err
 	}

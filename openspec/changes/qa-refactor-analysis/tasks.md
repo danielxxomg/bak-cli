@@ -179,42 +179,42 @@ Chain strategy: pending
 
 ## Phase 7: hostname + loadConfig Helpers (T2.3)
 
-- [ ] **7.1 [RED]** Test `backup.ResolveHostname`: injected fn returns, nil→os.Hostname, error→"unknown"+verbose warn.
+- [x] **7.1 [RED]** Test `backup.ResolveHostname`: injected fn returns, nil→os.Hostname, error→"unknown"+verbose warn.
   - **Files:** `internal/backup/hostname_test.go`
   - **Deps:** —
   - **Lines:** +30
   - **Spec:** REQ-CH-002 §"hostname returns correct value", §"falls back", §"defaults to unknown"
   - **Accept:** 3 scenarios covered; verbose warning captured via bytes.Buffer
 
-- [ ] **7.2 [GREEN]** Implement `ResolveHostname` in `internal/backup/hostname.go`.
+- [x] **7.2 [GREEN]** Implement `ResolveHostname` in `internal/backup/hostname.go`.
   - **Files:** `internal/backup/hostname.go` (new)
   - **Deps:** 7.1
   - **Lines:** +20
   - **Spec:** REQ-CH-002 §"hostname helper consolidated"
   - **Accept:** 7.1 tests pass
 
-- [ ] **7.3 [REFACTOR]** Replace 3 hostname duplications: `backup.go:137`, `push.go:119`, `engine.go:127` → `backup.ResolveHostname`.
+- [x] **7.3 [REFACTOR]** Replace 3 hostname duplications: `backup.go:137`, `push.go:119`, `engine.go:127` → `backup.ResolveHostname`.
   - **Files:** `internal/actions/backup.go`, `internal/actions/push.go`, `internal/backup/engine.go`
   - **Deps:** 7.2
   - **Lines:** -25/+5
   - **Spec:** REQ-CH-002 §"hostname helper consolidated"
   - **Accept:** No inline hostname resolution in actions/; engine.go uses helper
 
-- [ ] **7.4 [RED]** Test `loadConfigOr`: injected loader returns, nil→config.Load, error propagated.
+- [x] **7.4 [RED]** Test `loadConfigOr`: injected loader returns, nil→config.Load, error propagated.
   - **Files:** `internal/actions/config_test.go` or `internal/actions/pull_test.go`
   - **Deps:** —
   - **Lines:** +25
   - **Spec:** REQ-CH-003 §"loadConfig returns correct config", §"falls back", §"error handling"
   - **Accept:** 3 scenarios covered
 
-- [ ] **7.5 [GREEN]** Implement `loadConfigOr` method in `internal/actions/` (shared via embedded struct or interface).
+- [x] **7.5 [GREEN]** Implement `loadConfigOr` method in `internal/actions/` (shared via embedded struct or interface).
   - **Files:** `internal/actions/interfaces.go` or new `internal/actions/config_helpers.go`
   - **Deps:** 7.4
   - **Lines:** +15
   - **Spec:** REQ-CH-003 §"loadConfig helper consolidated"
   - **Accept:** 7.4 tests pass
 
-- [ ] **7.6 [REFACTOR]** Replace 2 loadConfig duplications: `pull.go:71-83`, `push.go:178-185` → `loadConfigOr`.
+- [x] **7.6 [REFACTOR]** Replace 2 loadConfig duplications: `pull.go:71-83`, `push.go:178-185` → `loadConfigOr`.
   - **Files:** `internal/actions/pull.go`, `internal/actions/push.go`
   - **Deps:** 7.5
   - **Lines:** -20/+4
