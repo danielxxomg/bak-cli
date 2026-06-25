@@ -471,36 +471,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case ScreenDashboard:
-		// When search is active, forward keystrokes to the search component
-		// first, then filter the dashboard table with the current query.
-		if m.search.IsActive() {
-			if msg.Code == KeyEsc {
-				// Esc deactivates search and restores all rows.
-				m.search.Deactivate()
-				if m.dashboard != nil {
-					m.dashboard.SetFilter("")
-				}
-				return m, nil
-			}
-			newSearch, cmd := m.search.Update(msg)
-			m.search = newSearch
-			if m.dashboard != nil {
-				m.dashboard.SetFilter(m.search.Query())
-			}
-			return m, cmd
-		}
-		// When search is inactive, handle normal dashboard navigation.
-		switch msg.Code {
-		case KeyQuit, KeyEsc:
-			m.screen = ScreenMenu
-			return m, nil
-		case '/':
-			m.search.Activate()
-			return m, nil
-		default:
-			if cmd, ok := m.forwardTo(ScreenDashboard, msg); ok {
-				return m, cmd
-			}
+		if newM, cmd, handled := m.handleDashboardKey(msg); handled {
+			return newM, cmd
 		}
 	case ScreenShortcuts:
 		switch msg.Code {
@@ -514,6 +486,47 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// handleDashboardKey routes keystrokes on the dashboard screen. When the
+// search field is active, keystrokes feed the search query and keep the table
+// filter in sync; otherwise normal dashboard navigation and forwarding apply.
+// It returns (model, cmd, true) when the key was consumed and (model, nil,
+// false) when handleKey should fall through to its default no-op return.
+// Extracted from handleKey to keep handleKey within the funlen statement budget.
+func (m Model) handleDashboardKey(msg tea.KeyPressMsg) (Model, tea.Cmd, bool) {
+	// When search is active, forward keystrokes to the search component first,
+	// then filter the dashboard table with the current query.
+	if m.search.IsActive() {
+		if msg.Code == KeyEsc {
+			// Esc deactivates search and restores all rows.
+			m.search.Deactivate()
+			if m.dashboard != nil {
+				m.dashboard.SetFilter("")
+			}
+			return m, nil, true
+		}
+		newSearch, cmd := m.search.Update(msg)
+		m.search = newSearch
+		if m.dashboard != nil {
+			m.dashboard.SetFilter(m.search.Query())
+		}
+		return m, cmd, true
+	}
+	// When search is inactive, handle normal dashboard navigation.
+	switch msg.Code {
+	case KeyQuit, KeyEsc:
+		m.screen = ScreenMenu
+		return m, nil, true
+	case '/':
+		m.search.Activate()
+		return m, nil, true
+	default:
+		if cmd, ok := m.forwardTo(ScreenDashboard, msg); ok {
+			return m, cmd, true
+		}
+	}
+	return m, nil, false
 }
 
 // handleMenuEnter routes the enter key on the main menu to the appropriate
