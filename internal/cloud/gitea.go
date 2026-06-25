@@ -2,11 +2,9 @@ package cloud
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/danielxxomg/bak-cli/internal/config"
@@ -140,6 +138,9 @@ func (p *GiteaProvider) Pull(id string) ([]byte, error) {
 }
 
 // List returns metadata for all bak backups stored in the Gitea repo.
+// It delegates the HTTP listing logic to the shared listContentsDir helper,
+// parameterizing the Gitea Contents API URL, accept header, error prefix,
+// and per-item source-branch URL. Token and repo guards stay here.
 func (p *GiteaProvider) List() ([]BackupMeta, error) {
 	if p.token == "" {
 		return nil, p.errf("list: token is required")
@@ -149,45 +150,10 @@ func (p *GiteaProvider) List() ([]BackupMeta, error) {
 	}
 
 	url := fmt.Sprintf("%s/api/v1/repos/%s/contents/%s", p.baseURL, p.repo, giteaBackupDir)
-
-	req, err := newRequest(http.MethodGet, url, p.token, "application/json", "", nil)
-	if err != nil {
-		return nil, p.errf("list: build request: %w", err)
-	}
-
-	body, status, err := doRequest(p.client, req)
-	if err != nil {
-		return nil, p.errf("list: %w", err)
-	}
-
-	// Directory listing may return 404 if the directory doesn't exist yet.
-	if status == http.StatusNotFound {
-		return nil, nil
-	}
-
-	if status < 200 || status >= 300 {
-		return nil, p.errf("list: %w", formatAPIError(body, status))
-	}
-
-	var items []contentResponse
-	if err := json.Unmarshal(body, &items); err != nil {
-		return nil, p.errf("list: parse response: %w", err)
-	}
-
-	metas := make([]BackupMeta, 0, len(items))
-	for _, item := range items {
-		// Extract backup ID from filename: "YYYYMMDD-HHMMSS.tar.gz".
-		backupID := strings.TrimSuffix(item.Name, ".tar.gz")
-
-		metas = append(metas, BackupMeta{
-			ID:       backupID,
-			BackupID: backupID,
-			Size:     item.Size,
-			URL:      fmt.Sprintf("%s/%s/src/branch/%s/%s/%s", p.baseURL, p.repo, p.branch, giteaBackupDir, item.Name),
+	return listContentsDir(p.client, url, p.token, "application/json", p.name+": list",
+		func(item contentResponse) string {
+			return fmt.Sprintf("%s/%s/src/branch/%s/%s/%s", p.baseURL, p.repo, p.branch, giteaBackupDir, item.Name)
 		})
-	}
-
-	return metas, nil
 }
 
 // getFileSHA checks if a file exists by fetching its metadata from the Gitea API.

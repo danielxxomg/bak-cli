@@ -174,6 +174,52 @@ func TestIsTooSmall(t *testing.T) {
 	}
 }
 
+// TestRenderTooSmall verifies styles.RenderTooSmall produces the "Terminal too
+// small" warning showing the current dimensions and the required minimum.
+// Covers spec REQ-TD-003 §"RenderTooSmall produces correct message" (task 4.1,
+// RED): RenderTooSmall(15, 5) must contain "Terminal too small (15x5)".
+func TestRenderTooSmall(t *testing.T) {
+	tests := []struct {
+		name    string
+		width   int
+		height  int
+		wantSub []string // substrings that MUST appear (proves real output, not hardcoded)
+	}{
+		{
+			name:    "15x5 contains current dims and minimum hint",
+			width:   15,
+			height:  5,
+			wantSub: []string{"Terminal too small (15x5)", "Need at least 30x15"},
+		},
+		{
+			name:    "10x3 uses different current dims (triangulation)",
+			width:   10,
+			height:  3,
+			wantSub: []string{"Terminal too small (10x3)", "Need at least 30x15"},
+		},
+		{
+			name:    "80x24 still reports current dimensions",
+			width:   80,
+			height:  24,
+			wantSub: []string{"Terminal too small (80x24)", "Need at least 30x15"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := RenderTooSmall(tt.width, tt.height)
+			if got == "" {
+				t.Fatal("RenderTooSmall returned empty string")
+			}
+			for _, sub := range tt.wantSub {
+				if !strings.Contains(got, sub) {
+					t.Errorf("RenderTooSmall(%d, %d) = %q, want substring %q", tt.width, tt.height, got, sub)
+				}
+			}
+		})
+	}
+}
+
 // TestFrame verifies that Frame() wraps content in a DoubleBorder
 // and produces the expected box-drawing characters.
 func TestFrame(t *testing.T) {
