@@ -304,3 +304,51 @@ func TestProgress_Update_WindowSize(t *testing.T) {
 		t.Errorf("WindowSize height = %d, want 30", result.Height)
 	}
 }
+
+// =============================================================================
+// TestProgress_Running — exercises the Running() accessor across the full
+// state machine: idle (false) → running (true) → done (false). Each transition
+// is driven by a real message through Update, proving Running() reflects the
+// model's internal running flag.
+// =============================================================================
+
+func TestProgress_Running(t *testing.T) {
+	tests := []struct {
+		name string
+		// msgs is the ordered sequence of messages applied to a fresh model.
+		msgs []tea.Msg
+		want bool
+	}{
+		{
+			name: "fresh model is not running",
+			msgs: nil,
+			want: false,
+		},
+		{
+			name: "running after a step message",
+			msgs: []tea.Msg{ProgressStepMsg{Step: "copying", Current: 1, Total: 2}},
+			want: true,
+		},
+		{
+			name: "not running after done message",
+			msgs: []tea.Msg{
+				ProgressStepMsg{Step: "copying", Current: 1, Total: 2},
+				ProgressDoneMsg{},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var model tea.Model = NewProgressModel()
+			for _, msg := range tt.msgs {
+				model, _ = model.Update(msg)
+			}
+			got := model.(ProgressModel).Running()
+			if got != tt.want {
+				t.Errorf("Running() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
