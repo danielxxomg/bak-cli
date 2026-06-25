@@ -8,6 +8,12 @@ vars:
   COVERAGE_THRESHOLD: 75
 
 tasks:
+  setup:
+    desc: One-time dev setup — activate versioned git hooks (.githooks)
+    cmds:
+      - git config core.hooksPath .githooks
+      - echo "hooks activated — .githooks/pre-commit runs lint, vet, build, gga on commit"
+
   fmt:
     desc: Format Go code with goimports
     cmds:
