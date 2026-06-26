@@ -26,13 +26,13 @@ func TestPullContentFromAPI(t *testing.T) {
 			name:  "success returns decoded content",
 			token: "token",
 			repo:  "user/repo",
-			id:    "20260101-000000",
+			id:    testOldID,
 			handler: func(w http.ResponseWriter, _ *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("Content-Type", acceptJSON)
 				_ = json.NewEncoder(w).Encode(contentResponse{
 					Content: contentFile{
 						Name:     "20260101-000000.tar.gz",
-						Encoding: "base64",
+						Encoding: testEncoding,
 						Content:  validEncoded,
 					},
 				})
@@ -44,10 +44,10 @@ func TestPullContentFromAPI(t *testing.T) {
 			name:  "empty token returns validation error before request",
 			token: "",
 			repo:  "user/repo",
-			id:    "20260101-000000",
+			id:    testOldID,
 			handler: func(w http.ResponseWriter, _ *http.Request) {
 				t.Error("server must not be called when token empty")
-				w.WriteHeader(500)
+				w.WriteHeader(http.StatusInternalServerError)
 			},
 			wantErr:    true,
 			wantErrSub: "token is required",
@@ -59,7 +59,7 @@ func TestPullContentFromAPI(t *testing.T) {
 			id:    "",
 			handler: func(w http.ResponseWriter, _ *http.Request) {
 				t.Error("server must not be called when id empty")
-				w.WriteHeader(500)
+				w.WriteHeader(http.StatusInternalServerError)
 			},
 			wantErr:    true,
 			wantErrSub: "backup ID is required",
@@ -68,10 +68,10 @@ func TestPullContentFromAPI(t *testing.T) {
 			name:  "empty repo returns validation error before request",
 			token: "token",
 			repo:  "",
-			id:    "20260101-000000",
+			id:    testOldID,
 			handler: func(w http.ResponseWriter, _ *http.Request) {
 				t.Error("server must not be called when repo empty")
-				w.WriteHeader(500)
+				w.WriteHeader(http.StatusInternalServerError)
 			},
 			wantErr:    true,
 			wantErrSub: "repo is required",
@@ -80,7 +80,7 @@ func TestPullContentFromAPI(t *testing.T) {
 			name:  "4xx status returns wrapped error",
 			token: "token",
 			repo:  "user/repo",
-			id:    "20260101-000000",
+			id:    testOldID,
 			handler: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusForbidden)
 				_, _ = w.Write([]byte(`{"message":"forbidden"}`))
@@ -92,13 +92,13 @@ func TestPullContentFromAPI(t *testing.T) {
 			name:  "invalid base64 content returns decode error",
 			token: "token",
 			repo:  "user/repo",
-			id:    "20260101-000000",
+			id:    testOldID,
 			handler: func(w http.ResponseWriter, _ *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("Content-Type", acceptJSON)
 				_ = json.NewEncoder(w).Encode(contentResponse{
 					Content: contentFile{
 						Name:     "bad.tar.gz",
-						Encoding: "base64",
+						Encoding: testEncoding,
 						Content:  "!!!not-valid-base64!!!",
 					},
 				})
@@ -114,7 +114,7 @@ func TestPullContentFromAPI(t *testing.T) {
 			defer srv.Close()
 
 			url := srv.URL + "/contents/" + tt.id
-			data, err := pullContentFromAPI(srv.Client(), tt.token, tt.repo, tt.id, url, "application/json", "pull")
+			data, err := pullContentFromAPI(srv.Client(), tt.token, tt.repo, tt.id, url, acceptJSON, "pull")
 
 			if tt.wantErr {
 				if err == nil {
@@ -168,12 +168,12 @@ func TestListContentsDir(t *testing.T) {
 		{
 			name:      "gitea-like success returns metas with gitea URLs and json accept",
 			token:     "gitea-token",
-			accept:    "application/json",
+			accept:    acceptJSON,
 			errPrefix: "gitea: list",
 			wantPath:  "/api/v1/repos/user/repo/contents/bak-backups",
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				if got := r.Header.Get("Accept"); got != "application/json" {
-					t.Errorf("Accept header = %q, want %q", got, "application/json")
+				if got := r.Header.Get("Accept"); got != acceptJSON {
+					t.Errorf("Accept header = %q, want %q", got, acceptJSON)
 				}
 				if got := r.Header.Get("Authorization"); got != "Bearer gitea-token" {
 					t.Errorf("Authorization = %q, want %q", got, "Bearer gitea-token")
@@ -189,12 +189,12 @@ func TestListContentsDir(t *testing.T) {
 		{
 			name:      "github-like success uses different accept and github URL builder",
 			token:     "gh-token",
-			accept:    "application/vnd.github+json",
+			accept:    acceptGitHub,
 			errPrefix: "list github-repo",
 			wantPath:  "/repos/user/repo/contents/bak-backups",
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				if got := r.Header.Get("Accept"); got != "application/vnd.github+json" {
-					t.Errorf("Accept header = %q, want %q", got, "application/vnd.github+json")
+				if got := r.Header.Get("Accept"); got != acceptGitHub {
+					t.Errorf("Accept header = %q, want %q", got, acceptGitHub)
 				}
 				_ = json.NewEncoder(w).Encode(dirItems)
 			},
@@ -207,9 +207,9 @@ func TestListContentsDir(t *testing.T) {
 		{
 			name:       "404 returns empty slice and nil error",
 			token:      "tok",
-			accept:     "application/json",
+			accept:     acceptJSON,
 			errPrefix:  "gitea: list",
-			wantPath:   "/contents/bak-backups",
+			wantPath:   testContentsDir,
 			handler:    func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) },
 			urlBuilder: func(contentResponse) string { return "" },
 			wantCount:  0,
@@ -217,9 +217,9 @@ func TestListContentsDir(t *testing.T) {
 		{
 			name:        "non-2xx error wrapped with provider prefix",
 			token:       "tok",
-			accept:      "application/json",
+			accept:      acceptJSON,
 			errPrefix:   "gitea: list",
-			wantPath:    "/contents/bak-backups",
+			wantPath:    testContentsDir,
 			handler:     func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusInternalServerError) },
 			urlBuilder:  func(contentResponse) string { return "" },
 			wantErr:     true,
@@ -229,9 +229,9 @@ func TestListContentsDir(t *testing.T) {
 		{
 			name:        "github error uses github prefix",
 			token:       "tok",
-			accept:      "application/vnd.github+json",
+			accept:      acceptGitHub,
 			errPrefix:   "list github-repo",
-			wantPath:    "/contents/bak-backups",
+			wantPath:    testContentsDir,
 			handler:     func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusForbidden) },
 			urlBuilder:  func(contentResponse) string { return "" },
 			wantErr:     true,
@@ -277,11 +277,11 @@ func TestListContentsDir(t *testing.T) {
 				if metas[0].URL != tt.wantURL {
 					t.Errorf("metas[0].URL = %q, want %q", metas[0].URL, tt.wantURL)
 				}
-				if metas[0].ID != "20260101-000000" {
-					t.Errorf("metas[0].ID = %q, want %q", metas[0].ID, "20260101-000000")
+				if metas[0].ID != testOldID {
+					t.Errorf("metas[0].ID = %q, want %q", metas[0].ID, testOldID)
 				}
-				if metas[0].BackupID != "20260101-000000" {
-					t.Errorf("metas[0].BackupID = %q, want %q", metas[0].BackupID, "20260101-000000")
+				if metas[0].BackupID != testOldID {
+					t.Errorf("metas[0].BackupID = %q, want %q", metas[0].BackupID, testOldID)
 				}
 				if metas[0].Size != 100 {
 					t.Errorf("metas[0].Size = %d, want %d", metas[0].Size, 100)

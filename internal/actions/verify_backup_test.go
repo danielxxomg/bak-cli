@@ -27,7 +27,7 @@ func setupVerifyFixture(t *testing.T, homeDir string, backupID string, files map
 		t.Fatal(err)
 	}
 
-	var items []manifest.Item
+	items := make([]manifest.Item, 0, len(files))
 	for relPath, content := range files {
 		fullPath := filepath.Join(backupDir, relPath)
 		// Ensure parent directory exists.

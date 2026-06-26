@@ -24,10 +24,10 @@ type GitHubGistProvider struct {
 // falls back to GITHUB_TOKEN env var or config providers.github.token.
 func NewGitHubGistProvider(cfg *config.Config, token string) *GitHubGistProvider {
 	if token == "" {
-		token = os.Getenv("GITHUB_TOKEN")
+		token = os.Getenv(githubTokenEnv)
 	}
 	if token == "" && cfg != nil {
-		if t, err := cfg.Get("github.token"); err == nil && t != "" {
+		if t, err := cfg.Get(githubTokenKey); err == nil && t != "" {
 			token = t
 		}
 	}
@@ -39,7 +39,7 @@ func NewGitHubGistProvider(cfg *config.Config, token string) *GitHubGistProvider
 
 // Name returns "github-gist".
 func (p *GitHubGistProvider) Name() string {
-	return "github-gist"
+	return providerGithubGist
 }
 
 // Push uploads a backup archive to a GitHub Gist.
@@ -54,7 +54,7 @@ func (p *GitHubGistProvider) Push(archive []byte, meta PushMeta) (string, error)
 	desc := fmt.Sprintf("bak backup %s — %s", meta.BackupID, time.Now().UTC().Format(time.RFC3339))
 
 	files := []GistFile{
-		{Filename: "backup.tar.gz", Content: content},
+		{Filename: gistBackupFile, Content: content},
 	}
 
 	// Check for existing gist ID.
@@ -102,7 +102,7 @@ func (p *GitHubGistProvider) Pull(id string) ([]byte, error) {
 	}
 
 	for _, f := range files {
-		if f.Filename == "backup.tar.gz" {
+		if f.Filename == gistBackupFile {
 			return []byte(f.Content), nil
 		}
 	}
@@ -116,8 +116,8 @@ func (p *GitHubGistProvider) List() ([]BackupMeta, error) {
 		return nil, fmt.Errorf("list gists: token is required")
 	}
 
-	url := GistAPIBase + "/gists"
-	req, err := newRequest(http.MethodGet, url, p.token, "application/vnd.github+json", "", nil)
+	url := GistAPIBase + gistsEndpoint
+	req, err := newRequest(http.MethodGet, url, p.token, acceptGitHub, "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("list gists: %w", err)
 	}

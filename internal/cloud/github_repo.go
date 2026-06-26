@@ -34,7 +34,7 @@ type GitHubRepoProvider struct {
 // falls back to GITHUB_TOKEN env var or config providers.github-repo.token.
 func NewGitHubRepoProvider(cfg *config.Config, token, repo string) *GitHubRepoProvider {
 	if token == "" {
-		token = os.Getenv("GITHUB_TOKEN")
+		token = os.Getenv(githubTokenEnv)
 	}
 	if token == "" && cfg != nil {
 		if t, err := cfg.Get("providers.github-repo.token"); err == nil && t != "" {
@@ -53,7 +53,7 @@ func NewGitHubRepoProvider(cfg *config.Config, token, repo string) *GitHubRepoPr
 
 // Name returns "github-repo".
 func (p *GitHubRepoProvider) Name() string {
-	return "github-repo"
+	return providerGithubRepo
 }
 
 // Push uploads a backup archive to the GitHub repository.
@@ -91,7 +91,7 @@ func (p *GitHubRepoProvider) Pull(id string) ([]byte, error) {
 	filePath := fmt.Sprintf("%s/%s.tar.gz", githubRepoDir, id)
 	url := fmt.Sprintf("%s/repos/%s/contents/%s", p.apiBase, p.repo, filePath)
 
-	return pullContentFromAPI(p.client, p.token, p.repo, id, url, "application/vnd.github+json", "pull github-repo")
+	return pullContentFromAPI(p.client, p.token, p.repo, id, url, acceptGitHub, "pull github-repo")
 }
 
 // List returns metadata for all bak backups stored in the GitHub repo.
@@ -107,7 +107,7 @@ func (p *GitHubRepoProvider) List() ([]BackupMeta, error) {
 	}
 
 	url := fmt.Sprintf("%s/repos/%s/contents/%s", p.apiBase, p.repo, githubRepoDir)
-	return listContentsDir(p.client, url, p.token, "application/vnd.github+json", "list github-repo",
+	return listContentsDir(p.client, url, p.token, acceptGitHub, "list github-repo",
 		func(item contentResponse) string {
 			return fmt.Sprintf("https://github.com/%s/blob/%s/%s/%s", p.repo, p.branch, githubRepoDir, item.Name)
 		})
@@ -131,5 +131,5 @@ func (p *GitHubRepoProvider) putFile(filePath, content, message, sha string) err
 		Branch:  p.branch,
 		SHA:     sha,
 	}
-	return writeContentFile(p.client, p.token, http.MethodPut, "application/vnd.github+json", url, req)
+	return writeContentFile(p.client, p.token, http.MethodPut, acceptGitHub, url, req)
 }

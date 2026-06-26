@@ -21,7 +21,7 @@ func withOAuthServer(deviceResp any, tokenResps []any) (*httptest.Server, *Devic
 	tokenIdx := 0
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 		body, _ := io.ReadAll(r.Body)
 
 		switch {
@@ -29,14 +29,14 @@ func withOAuthServer(deviceResp any, tokenResps []any) (*httptest.Server, *Devic
 			vals, _ := url.ParseQuery(string(body))
 			if vals.Get("client_id") == "" {
 				json.NewEncoder(w).Encode(map[string]string{
-					"error":             "invalid_request",
+					errorKey:            "invalid_request",
 					"error_description": "client_id is required",
 				})
 				return
 			}
 			if vals.Get("scope") != "gist" {
 				json.NewEncoder(w).Encode(map[string]string{
-					"error":             "invalid_scope",
+					errorKey:            "invalid_scope",
 					"error_description": "scope must be gist",
 				})
 				return
@@ -48,13 +48,13 @@ func withOAuthServer(deviceResp any, tokenResps []any) (*httptest.Server, *Devic
 			if vals.Get("grant_type") != "urn:ietf:params:oauth:grant-type:device_code" {
 				w.WriteHeader(http.StatusBadRequest)
 				json.NewEncoder(w).Encode(map[string]string{
-					"error": "unsupported_grant_type",
+					errorKey: "unsupported_grant_type",
 				})
 				return
 			}
 			if tokenIdx >= len(tokenResps) {
 				json.NewEncoder(w).Encode(map[string]string{
-					"error": "expired_token",
+					errorKey: errExpiredToken,
 				})
 				return
 			}
@@ -95,7 +95,7 @@ func tokenSuccess(tok string) map[string]string {
 
 // tokenError returns a token error response.
 func tokenError(code string) map[string]string {
-	return map[string]string{"error": code}
+	return map[string]string{errorKey: code}
 }
 
 // --- Table-Driven Polling Tests ---
@@ -123,8 +123,8 @@ func TestDeviceClient_PollingStates(t *testing.T) {
 			wantToken:  "gho_after_slow",
 		},
 		{
-			name:       "expired_token",
-			tokenResps: []any{tokenError("expired_token")},
+			name:       errExpiredToken,
+			tokenResps: []any{tokenError(errExpiredToken)},
 			wantErr:    "expired",
 		},
 		{
@@ -247,7 +247,7 @@ func TestDeviceClient_OpenBrowserCalled(t *testing.T) {
 	browserCalled := make(chan struct{}, 1)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/login/device/code"):
 			json.NewEncoder(w).Encode(deviceBaseResp())
@@ -290,7 +290,7 @@ func TestDeviceClient_ClipboardCalled(t *testing.T) {
 	clipCalled := make(chan struct{}, 1)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/login/device/code"):
 			json.NewEncoder(w).Encode(deviceBaseResp())
@@ -333,7 +333,7 @@ func TestDeviceClient_ClipboardCalled(t *testing.T) {
 
 func TestDeviceClient_ClipboardErrorNonFatal(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/login/device/code"):
 			json.NewEncoder(w).Encode(deviceBaseResp())
@@ -369,7 +369,7 @@ func TestDeviceClient_UserFriendlyOutput(t *testing.T) {
 	var buf strings.Builder
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/login/device/code"):
 			json.NewEncoder(w).Encode(deviceBaseResp())
@@ -403,7 +403,7 @@ func TestDeviceClient_UserFriendlyOutput(t *testing.T) {
 
 func TestDeviceClient_DefaultsApplied(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/login/device/code"):
 			json.NewEncoder(w).Encode(deviceBaseResp())

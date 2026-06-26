@@ -415,7 +415,7 @@ func (m *Model) handleScreenChange(msg screenChangeMsg) (tea.Model, tea.Cmd) {
 		}
 		m.subs[ScreenCloud] = m.cloud
 		return *m, m.cloud.Init()
-	case ScreenWelcome:
+	case ScreenWelcome, ScreenMenu, ScreenShortcuts:
 		return *m, nil
 	}
 	return *m, nil

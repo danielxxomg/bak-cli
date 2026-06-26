@@ -194,6 +194,8 @@ func (m RestoreModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case 'q', 27, '\r', ' ':
 			return m, func() tea.Msg { return ScreenBackMsg{} }
 		}
+	default:
+		// restoreStateConfirm and restoreStateRunning are handled by modal/async logic
 	}
 
 	return m, nil

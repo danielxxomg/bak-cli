@@ -56,16 +56,16 @@ func TestGistCRUD_RoundTrip(t *testing.T) {
 
 	_, cleanup := setupMockGistAPI(t, func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
-		if auth != "Bearer valid-token" {
+		if auth != testBearerToken {
 			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode(map[string]string{"message": "Bad credentials"})
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 
 		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/gists":
+		case r.Method == http.MethodPost && r.URL.Path == gistsEndpoint:
 			var req gistCreateRequest
 			json.NewDecoder(r.Body).Decode(&req)
 			storedGist = gistResponse{

@@ -120,14 +120,14 @@ func TestProviderRegistry_SetDefault_Unknown(t *testing.T) {
 func TestPushMeta_Fields(t *testing.T) {
 	now := time.Date(2026, 6, 5, 12, 0, 0, 0, time.UTC)
 	meta := PushMeta{
-		BackupID:  "20260605-120000",
+		BackupID:  testBackupID,
 		CreatedAt: now,
 		Hostname:  "devbox",
 		OS:        "windows",
 		Agents:    []string{"opencode", "claude-code"},
 	}
 
-	if meta.BackupID != "20260605-120000" {
+	if meta.BackupID != testBackupID {
 		t.Errorf("BackupID = %q, want 20260605-120000", meta.BackupID)
 	}
 	if !meta.CreatedAt.Equal(now) {
@@ -209,11 +209,11 @@ func TestProviderRegistry_PushPullList_Delegation(t *testing.T) {
 		name: "delegator",
 		pushFn: func(_ []byte, _ PushMeta) (string, error) {
 			calledPush = true
-			return "delegated-id", nil
+			return testDelegatedID, nil
 		},
 		pullFn: func(id string) ([]byte, error) {
 			calledPull = true
-			if id != "delegated-id" {
+			if id != testDelegatedID {
 				return nil, errors.New("unexpected id")
 			}
 			return []byte("delegated-data"), nil
@@ -232,7 +232,7 @@ func TestProviderRegistry_PushPullList_Delegation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Push: %v", err)
 	}
-	if id != "delegated-id" {
+	if id != testDelegatedID {
 		t.Errorf("Push id = %q, want delegated-id", id)
 	}
 	if !calledPush {
@@ -240,7 +240,7 @@ func TestProviderRegistry_PushPullList_Delegation(t *testing.T) {
 	}
 
 	// Pull.
-	data, err := mp.Pull("delegated-id")
+	data, err := mp.Pull(testDelegatedID)
 	if err != nil {
 		t.Fatalf("Pull: %v", err)
 	}

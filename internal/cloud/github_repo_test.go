@@ -28,12 +28,12 @@ func TestGitHubRepoProvider_Push_Create(t *testing.T) {
 		}
 		// PUT to create new file (GitHub uses PUT for both create and update)
 		if r.Method == http.MethodPut && strings.Contains(r.URL.Path, "/contents/") {
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Type", acceptJSON)
 			w.WriteHeader(http.StatusCreated)
 			json.NewEncoder(w).Encode(contentResponse{
 				Content: contentFile{
-					Name: "20260605-120000.tar.gz",
-					Path: "bak-backups/20260605-120000.tar.gz",
+					Name: testBackupName,
+					Path: testBackupPath,
 					SHA:  "sha-new-001",
 				},
 			})
@@ -53,14 +53,14 @@ func TestGitHubRepoProvider_Push_Create(t *testing.T) {
 	}
 
 	id, err := p.Push([]byte("test-archive-data"), PushMeta{
-		BackupID:  "20260605-120000",
+		BackupID:  testBackupID,
 		CreatedAt: time.Now(),
 		Hostname:  "testbox",
 	})
 	if err != nil {
 		t.Fatalf("Push: %v", err)
 	}
-	if id != "20260605-120000" {
+	if id != testBackupID {
 		t.Errorf("Push id = %q, want 20260605-120000", id)
 	}
 }
@@ -71,11 +71,11 @@ func TestGitHubRepoProvider_Push_Update(t *testing.T) {
 		// GET returns existing file with SHA
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") {
 			getCalled = true
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Type", acceptJSON)
 			json.NewEncoder(w).Encode(contentResponse{
 				Content: contentFile{
-					Name: "20260605-120000.tar.gz",
-					Path: "bak-backups/20260605-120000.tar.gz",
+					Name: testBackupName,
+					Path: testBackupPath,
 					SHA:  "sha-existing-001",
 				},
 			})
@@ -89,12 +89,12 @@ func TestGitHubRepoProvider_Push_Update(t *testing.T) {
 				w.WriteHeader(http.StatusConflict)
 				return
 			}
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Type", acceptJSON)
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(contentResponse{
 				Content: contentFile{
-					Name: "20260605-120000.tar.gz",
-					Path: "bak-backups/20260605-120000.tar.gz",
+					Name: testBackupName,
+					Path: testBackupPath,
 					SHA:  "sha-new-002",
 				},
 			})
@@ -114,12 +114,12 @@ func TestGitHubRepoProvider_Push_Update(t *testing.T) {
 	}
 
 	id, err := p.Push([]byte("updated-archive"), PushMeta{
-		BackupID: "20260605-120000",
+		BackupID: testBackupID,
 	})
 	if err != nil {
 		t.Fatalf("Push: %v", err)
 	}
-	if id != "20260605-120000" {
+	if id != testBackupID {
 		t.Errorf("Push id = %q, want 20260605-120000", id)
 	}
 	if !getCalled {
@@ -160,13 +160,13 @@ func TestGitHubRepoProvider_Pull(t *testing.T) {
 	encoded := base64.StdEncoding.EncodeToString([]byte("backup-data-here"))
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") {
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Type", acceptJSON)
 			json.NewEncoder(w).Encode(contentResponse{
 				Content: contentFile{
-					Name:     "20260605-120000.tar.gz",
-					Path:     "bak-backups/20260605-120000.tar.gz",
+					Name:     testBackupName,
+					Path:     testBackupPath,
 					SHA:      "sha-pull-001",
-					Encoding: "base64",
+					Encoding: testEncoding,
 					Content:  encoded,
 				},
 			})
@@ -184,7 +184,7 @@ func TestGitHubRepoProvider_Pull(t *testing.T) {
 		apiBase: srv.URL,
 	}
 
-	data, err := p.Pull("20260605-120000")
+	data, err := p.Pull(testBackupID)
 	if err != nil {
 		t.Fatalf("Pull: %v", err)
 	}
@@ -241,11 +241,11 @@ func TestGitHubRepoProvider_Pull_EmptyID(t *testing.T) {
 
 func TestGitHubRepoProvider_List(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 		json.NewEncoder(w).Encode([]contentResponse{
 			{
-				Name: "20260605-120000.tar.gz",
-				Path: "bak-backups/20260605-120000.tar.gz",
+				Name: testBackupName,
+				Path: testBackupPath,
 				SHA:  "sha-list-1",
 				Size: 102400,
 			},
@@ -274,7 +274,7 @@ func TestGitHubRepoProvider_List(t *testing.T) {
 	if len(metas) != 2 {
 		t.Fatalf("List length = %d, want 2", len(metas))
 	}
-	if metas[0].ID != "20260605-120000" {
+	if metas[0].ID != testBackupID {
 		t.Errorf("metas[0].ID = %q, want 20260605-120000", metas[0].ID)
 	}
 	if metas[0].Size != 102400 {
@@ -284,7 +284,7 @@ func TestGitHubRepoProvider_List(t *testing.T) {
 
 func TestGitHubRepoProvider_List_Empty(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 		json.NewEncoder(w).Encode([]contentResponse{})
 	}))
 	defer srv.Close()
@@ -333,9 +333,9 @@ func TestGitHubRepoProvider_PushIntegration(t *testing.T) {
 	var storedSHA string
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 		auth := r.Header.Get("Authorization")
-		if auth != "Bearer valid-token" {
+		if auth != testBearerToken {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -348,10 +348,10 @@ func TestGitHubRepoProvider_PushIntegration(t *testing.T) {
 			}
 			json.NewEncoder(w).Encode(contentResponse{
 				Content: contentFile{
-					Name:     "20260605-120000.tar.gz",
-					Path:     "bak-backups/20260605-120000.tar.gz",
+					Name:     testBackupName,
+					Path:     testBackupPath,
 					SHA:      storedSHA,
-					Encoding: "base64",
+					Encoding: testEncoding,
 					Content:  storedContent,
 				},
 			})
@@ -369,7 +369,7 @@ func TestGitHubRepoProvider_PushIntegration(t *testing.T) {
 			}
 			json.NewEncoder(w).Encode(contentResponse{
 				Content: contentFile{
-					Path: "bak-backups/20260605-120000.tar.gz",
+					Path: testBackupPath,
 					SHA:  storedSHA,
 				},
 			})
@@ -389,11 +389,11 @@ func TestGitHubRepoProvider_PushIntegration(t *testing.T) {
 	}
 
 	// First push: creates new file.
-	id, err := p.Push([]byte("first-push"), PushMeta{BackupID: "20260605-120000"})
+	id, err := p.Push([]byte("first-push"), PushMeta{BackupID: testBackupID})
 	if err != nil {
 		t.Fatalf("first Push: %v", err)
 	}
-	if id != "20260605-120000" {
+	if id != testBackupID {
 		t.Errorf("id = %q, want 20260605-120000", id)
 	}
 
@@ -407,12 +407,12 @@ func TestGitHubRepoProvider_PushIntegration(t *testing.T) {
 	}
 
 	// Second push: updates existing file.
-	_, err = p.Push([]byte("second-push"), PushMeta{BackupID: "20260605-120000"})
+	_, err = p.Push([]byte("second-push"), PushMeta{BackupID: testBackupID})
 	if err != nil {
 		t.Fatalf("second Push: %v", err)
 	}
 
-	data, err = p.Pull("20260605-120000")
+	data, err = p.Pull(testBackupID)
 	if err != nil {
 		t.Fatalf("Pull after update: %v", err)
 	}

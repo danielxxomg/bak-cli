@@ -38,7 +38,7 @@ func ProfileCreate(cfg *config.Config, name string, opts ProfileCreateOptions, o
 
 	// Validate provider has a token set (or remote for rclone).
 	pc := cfg.Providers[providerName]
-	if providerName == "rclone" {
+	if providerName == providerRclone {
 		if pc.Remote == "" {
 			return fmt.Errorf("rclone remote not configured — run 'bak config set providers.rclone.remote <name>'")
 		}

@@ -10,7 +10,7 @@ import (
 
 func TestGetFileSHA_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 		json.NewEncoder(w).Encode(contentResponse{
 			Content: contentFile{
 				SHA: "abc123def456",
@@ -71,7 +71,7 @@ func TestWriteContentFile_Success(t *testing.T) {
 		Branch:  "main",
 	}
 
-	err := writeContentFile(srv.Client(), "token", http.MethodPut, "application/json", srv.URL+"/path", req)
+	err := writeContentFile(srv.Client(), "token", http.MethodPut, acceptJSON, srv.URL+"/path", req)
 	if err != nil {
 		t.Fatalf("writeContentFile: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestWriteContentFile_Error(t *testing.T) {
 		SHA:     "wrong-sha",
 	}
 
-	err := writeContentFile(srv.Client(), "token", http.MethodPut, "application/json", srv.URL+"/path", req)
+	err := writeContentFile(srv.Client(), "token", http.MethodPut, acceptJSON, srv.URL+"/path", req)
 	if err == nil {
 		t.Fatal("expected error for 409 status")
 	}
@@ -117,7 +117,7 @@ func TestWriteContentFile_WithSHA(t *testing.T) {
 		SHA:     "existing-sha",
 	}
 
-	err := writeContentFile(srv.Client(), "token", http.MethodPut, "application/json", srv.URL+"/path", req)
+	err := writeContentFile(srv.Client(), "token", http.MethodPut, acceptJSON, srv.URL+"/path", req)
 	if err != nil {
 		t.Fatalf("writeContentFile: %v", err)
 	}

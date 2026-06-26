@@ -13,7 +13,7 @@ import (
 var listProvider string
 
 var listCmd = &cobra.Command{
-	Use:   "list",
+	Use:   listAction,
 	Short: "List all local backups",
 	Long: `Scans ~/.bak/backups/ and displays a table of all local backups
 with their ID, date, preset, file count, and size.

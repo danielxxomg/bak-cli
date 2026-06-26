@@ -174,7 +174,7 @@ func (c *DeviceClient) pollForAccessToken(
 			interval += 5
 			_, _ = fmt.Fprintf(out, "Slow down requested — polling every %ds\n", interval)
 
-		case "expired_token":
+		case errExpiredToken:
 			return "", fmt.Errorf("login: code expired; run 'bak login' again")
 
 		case "access_denied":
@@ -243,7 +243,7 @@ func postOAuthForm(ctx context.Context, httpClient *http.Client, baseURL, path s
 		return fmt.Errorf("build request: %w", err)
 	}
 	// Device Flow endpoints are unauthenticated: no Authorization header.
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept", acceptJSON)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("User-Agent", "bak-cli")
 

@@ -16,7 +16,7 @@ func TestValidateToken_Success(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		if r.Header.Get("Authorization") != "Bearer valid-token" {
+		if r.Header.Get("Authorization") != testBearerToken {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -155,7 +155,7 @@ func TestResolveProviderToken(t *testing.T) {
 		os.Unsetenv("GITHUB_TOKEN")
 		defer os.Unsetenv("CODEBERG_TOKEN")
 
-		tok, source := ResolveProviderToken("codeberg", nil)
+		tok, source := ResolveProviderToken(codebergName, nil)
 		if tok != "cb_token789" {
 			t.Errorf("token = %q, want cb_token789", tok)
 		}

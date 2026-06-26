@@ -43,7 +43,7 @@ type contentFile struct {
 // if the file does not exist (HTTP 404). For any other non-2xx
 // status, returns a descriptive error.
 func getFileSHA(client *http.Client, token, url string) (string, error) {
-	req, err := newRequest(http.MethodGet, url, token, "application/json", "", nil)
+	req, err := newRequest(http.MethodGet, url, token, acceptJSON, "", nil)
 	if err != nil {
 		return "", fmt.Errorf("check file: %w", err)
 	}
@@ -78,7 +78,7 @@ func writeContentFile(client *http.Client, token, method, accept, url string, re
 		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	httpReq, err := newRequest(method, url, token, accept, "application/json", bytes.NewReader(bodyBytes))
+	httpReq, err := newRequest(method, url, token, accept, acceptJSON, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)
 	}

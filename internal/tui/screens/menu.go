@@ -44,10 +44,10 @@ func RenderMainMenu(version string, banner string, menuItems []string, cursor in
 
 	// Help bar with contextual keys.
 	helpKeys := []components.HelpKey{
-		{Key: "\u2191/\u2193", Desc: "navigate"},
-		{Key: "enter", Desc: "select"},
+		{Key: keyArrowUpDown, Desc: keyNavigate},
+		{Key: keyEnter, Desc: keySelect},
 		{Key: "?", Desc: "help"},
-		{Key: "q", Desc: "quit"},
+		{Key: "q", Desc: keyQuit},
 	}
 	b.WriteString(components.RenderHelp(helpKeys))
 

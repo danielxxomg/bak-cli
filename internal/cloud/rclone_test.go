@@ -87,14 +87,14 @@ func TestRcloneProvider_Push(t *testing.T) {
 	}
 
 	id, err := p.Push([]byte("archive-data"), PushMeta{
-		BackupID:  "20260605-120000",
+		BackupID:  testBackupID,
 		CreatedAt: time.Now(),
 		Hostname:  "testbox",
 	})
 	if err != nil {
 		t.Fatalf("Push: %v", err)
 	}
-	if id != "20260605-120000" {
+	if id != testBackupID {
 		t.Errorf("id = %q, want 20260605-120000", id)
 	}
 }
@@ -158,7 +158,7 @@ func TestRcloneProvider_Pull(t *testing.T) {
 		RcloneBin: rcloneBin,
 	}
 
-	data, err := p.Pull("20260605-120000")
+	data, err := p.Pull(testBackupID)
 	if err != nil {
 		t.Fatalf("Pull: %v", err)
 	}
@@ -220,7 +220,7 @@ func TestRcloneProvider_List(t *testing.T) {
 	if len(metas) != 2 {
 		t.Fatalf("List length = %d, want 2", len(metas))
 	}
-	if metas[0].ID != "20260605-120000" {
+	if metas[0].ID != testBackupID {
 		t.Errorf("metas[0].ID = %q, want 20260605-120000", metas[0].ID)
 	}
 	if metas[1].ID != "20260604-100000" {

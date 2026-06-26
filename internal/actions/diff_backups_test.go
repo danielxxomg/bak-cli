@@ -29,7 +29,7 @@ func setupDiffFixture(t *testing.T, homeDir string, backupID string, files map[s
 		t.Fatal(err)
 	}
 
-	var items []manifest.Item
+	items := make([]manifest.Item, 0, len(files))
 	for relPath, content := range files {
 		fullPath := filepath.Join(backupDir, relPath)
 		if dir := filepath.Dir(fullPath); dir != backupDir {

@@ -26,7 +26,7 @@ func TestIntegration_RestoreRoundTrip(t *testing.T) {
 			"opencode/AGENTS.md":                  "You are a helpful assistant.",
 		}
 
-		var manifestItems []manifestItem
+		manifestItems := make([]manifestItem, 0, len(backupFiles))
 		for backupPath, content := range backupFiles {
 			fullPath := filepath.Join(backupDir, backupPath)
 			mustWrite(t, fullPath, content)

@@ -179,7 +179,7 @@ func (a *RestoreAction) confirmRestore(out, errOut io.Writer) (bool, error) {
 // applyRestore copies each new/modified file, skipping unchanged and missing
 // files. Progress is reported via ProgressFn when set. Returns the counts of
 // restored, skipped, and failed files.
-func (a *RestoreAction) applyRestore(diffs []restorepkg.FileDiff, out, errOut io.Writer) (restored, skipped, failed int) {
+func (a *RestoreAction) applyRestore(diffs []restorepkg.FileDiff, _, errOut io.Writer) (restored, skipped, failed int) {
 	filesTotal := 0
 	for _, d := range diffs {
 		if d.Status == restorepkg.DiffNew || d.Status == restorepkg.DiffModified {

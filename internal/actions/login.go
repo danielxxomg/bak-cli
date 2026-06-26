@@ -50,7 +50,7 @@ type LoginAction struct {
 // with a hint to use bak config set.
 func (a *LoginAction) Run(provider string, out io.Writer) error {
 	// Only GitHub login is interactive; other providers use bak config set.
-	if provider != "" && provider != "github-gist" && provider != "github" {
+	if provider != "" && provider != "github-gist" && provider != providerGithub {
 		return fmt.Errorf(
 			"login for %q is not interactive — use 'bak config set providers.%s.token <your-token>'",
 			provider, provider,
