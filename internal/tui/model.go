@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"fmt"
+
 	"charm.land/lipgloss/v2"
 
 	"github.com/danielxxomg/bak-cli/internal/tui/components"
@@ -618,7 +620,47 @@ func (m Model) View() tea.View {
 	}
 	v := tea.NewView(content)
 	v.AltScreen = true
+	v.WindowTitle = titleForScreen(m)
 	return v
+}
+
+// titleForScreen maps the active screen to a contextual terminal window title
+// of the form "bak — {Screen}" (REQ-TP-001). On ScreenProgress with a running
+// operation it appends the live step counter ("bak — Backup 3/7"); on
+// ScreenRestore it appends the selected backup id when present. The title is a
+// pure read of current model state, recomputed every render — no command
+// plumbing, matching the existing v.AltScreen field-assignment pattern.
+func titleForScreen(m Model) string {
+	switch m.screen {
+	case ScreenMenu:
+		return "bak — Main Menu"
+	case ScreenWelcome:
+		return "bak — Welcome"
+	case ScreenDashboard:
+		return "bak — Backups"
+	case ScreenSettings:
+		return "bak — Settings"
+	case ScreenCloud:
+		return "bak — Cloud"
+	case ScreenShortcuts:
+		return "bak — Shortcuts"
+	case ScreenHealth:
+		return "bak — Health"
+	case ScreenProfiles:
+		return "bak — Profiles"
+	case ScreenProgress:
+		if m.progress != nil && m.progress.Running() && m.progress.Total > 0 {
+			return fmt.Sprintf("bak — Backup %d/%d", m.progress.Current, m.progress.Total)
+		}
+		return "bak — Backup"
+	case ScreenRestore:
+		if m.restore != nil && m.restore.SelectedID != "" {
+			return "bak — Restore:" + m.restore.SelectedID
+		}
+		return "bak — Restore"
+	default:
+		return "bak"
+	}
 }
 
 // renderContent renders the active screen with optional help and toast
