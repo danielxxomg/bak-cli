@@ -9,7 +9,7 @@ import (
 // TestRenderWelcome — RED (welcome.go does not exist yet)
 // =============================================================================
 
-func TestRenderWelcome(t *testing.T) {
+func TestRenderWelcome(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	output := RenderWelcome(80)
 
 	if len(output) == 0 {
@@ -36,7 +36,7 @@ func TestRenderWelcome(t *testing.T) {
 
 // TestRenderWelcome_NarrowTerminal verifies the welcome screen adapts to
 // narrow terminals: no Frame border, but content still present.
-func TestRenderWelcome_NarrowTerminal(t *testing.T) {
+func TestRenderWelcome_NarrowTerminal(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	output := RenderWelcome(30)
 
 	if len(output) == 0 {
@@ -51,7 +51,7 @@ func TestRenderWelcome_NarrowTerminal(t *testing.T) {
 
 // TestRenderWelcome_WideTerminalHasFrame verifies the Frame border
 // appears on terminals wide enough (>= 50).
-func TestRenderWelcome_WideTerminalHasFrame(t *testing.T) {
+func TestRenderWelcome_WideTerminalHasFrame(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	output := RenderWelcome(80)
 
 	if !strings.Contains(output, "\u2554") { // ╔ (top-left double border)
@@ -66,7 +66,7 @@ func TestRenderWelcome_WideTerminalHasFrame(t *testing.T) {
 // TestShouldShowWelcome — RED
 // =============================================================================
 
-func TestShouldShowWelcome(t *testing.T) {
+func TestShouldShowWelcome(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name         string
 		configExists bool
@@ -84,8 +84,8 @@ func TestShouldShowWelcome(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := ShouldShowWelcome(func() bool { return tt.configExists })
 			if got != tt.want {
 				t.Errorf("ShouldShowWelcome(configExists=%v) = %v, want %v",
@@ -97,7 +97,7 @@ func TestShouldShowWelcome(t *testing.T) {
 
 // TestShouldShowWelcome_NilFunc verifies ShouldShowWelcome handles a nil
 // function gracefully (returns false — safe default).
-func TestShouldShowWelcome_NilFunc(t *testing.T) {
+func TestShouldShowWelcome_NilFunc(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	got := ShouldShowWelcome(nil)
 	if got {
 		t.Error("ShouldShowWelcome(nil) = true, want false (safe default)")
@@ -106,7 +106,7 @@ func TestShouldShowWelcome_NilFunc(t *testing.T) {
 
 // TestWelcomeView_HasLogoAndTagline verifies the welcome screen includes
 // the ASCII logo and tagline.
-func TestWelcomeView_HasLogoAndTagline(t *testing.T) {
+func TestWelcomeView_HasLogoAndTagline(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	output := RenderWelcome(80)
 
 	// Tagline must be present.

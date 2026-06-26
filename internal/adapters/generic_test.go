@@ -77,10 +77,10 @@ func writeMultiCatRoot(t *testing.T) string {
 // scanRootFiles: a root file is included iff its mapped category is in the
 // requested set, its Item.Category is the mapped category (not a fixed
 // default), and the root scan runs once across multiple categories.
-func TestGenericAdapter_MultiCategoryRootFiles(t *testing.T) {
+func TestGenericAdapter_MultiCategoryRootFiles(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	ga := newMultiCatAdapter("multicat")
 
-	t.Run("file included when its category is requested", func(t *testing.T) {
+	t.Run("file included when its category is requested", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := writeMultiCatRoot(t)
 		items, err := ga.ListItems(home, []string{"mcp"})
 		if err != nil {
@@ -97,7 +97,7 @@ func TestGenericAdapter_MultiCategoryRootFiles(t *testing.T) {
 		}
 	})
 
-	t.Run("file excluded when its category is not requested", func(t *testing.T) {
+	t.Run("file excluded when its category is not requested", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := writeMultiCatRoot(t)
 		items, err := ga.ListItems(home, []string{"config"})
 		if err != nil {
@@ -123,7 +123,7 @@ func TestGenericAdapter_MultiCategoryRootFiles(t *testing.T) {
 		}
 	})
 
-	t.Run("root scan runs once for multiple matching categories", func(t *testing.T) {
+	t.Run("root scan runs once for multiple matching categories", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := writeMultiCatRoot(t)
 		items, err := ga.ListItems(home, []string{"config", "mcp"})
 		if err != nil {
@@ -157,7 +157,7 @@ func TestGenericAdapter_MultiCategoryRootFiles(t *testing.T) {
 // adapter (every root file is "config") and the multi-category adapter.
 // In each case an oversized file is skipped with a stderr warning while a
 // small file is included.
-func TestGenericAdapter_MaxFileSizeRootFiles(t *testing.T) {
+func TestGenericAdapter_MaxFileSizeRootFiles(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name       string
 		adapter    adapters.GenericAdapter
@@ -181,8 +181,8 @@ func TestGenericAdapter_MaxFileSizeRootFiles(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			home := t.TempDir()
 			configDir := filepath.Join(home, ".test")
 			if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -268,7 +268,7 @@ func setupConfigHome(t *testing.T) string {
 	return home
 }
 
-func TestGenericAdapter_Name(t *testing.T) {
+func TestGenericAdapter_Name(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name        string
 		adapterName string
@@ -279,8 +279,8 @@ func TestGenericAdapter_Name(t *testing.T) {
 		{name: "cursor", adapterName: "cursor", want: "cursor"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			ga := newTestAdapter(tt.adapterName)
 			if got := ga.Name(); got != tt.want {
 				t.Errorf("Name() = %q, want %q", got, tt.want)
@@ -289,10 +289,10 @@ func TestGenericAdapter_Name(t *testing.T) {
 	}
 }
 
-func TestGenericAdapter_Detect(t *testing.T) {
+func TestGenericAdapter_Detect(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	ga := newTestAdapter("test-tool")
 
-	t.Run("installed", func(t *testing.T) {
+	t.Run("installed", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".test")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -311,7 +311,7 @@ func TestGenericAdapter_Detect(t *testing.T) {
 		}
 	})
 
-	t.Run("not installed", func(t *testing.T) {
+	t.Run("not installed", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 
 		installed, _, err := ga.Detect(home)
@@ -323,7 +323,7 @@ func TestGenericAdapter_Detect(t *testing.T) {
 		}
 	})
 
-	t.Run("exists but is file not dir", func(t *testing.T) {
+	t.Run("exists but is file not dir", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configPath := filepath.Join(home, ".test")
 		if err := os.WriteFile(configPath, []byte("not a dir"), 0644); err != nil {
@@ -339,7 +339,7 @@ func TestGenericAdapter_Detect(t *testing.T) {
 		}
 	})
 
-	t.Run("stat error", func(t *testing.T) {
+	t.Run("stat error", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".test")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -357,7 +357,7 @@ func TestGenericAdapter_Detect(t *testing.T) {
 		}
 	})
 
-	t.Run("stat not exist via injection", func(t *testing.T) {
+	t.Run("stat not exist via injection", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 
 		gaStat := newTestAdapter("notexist-test")
@@ -374,7 +374,7 @@ func TestGenericAdapter_Detect(t *testing.T) {
 		}
 	})
 
-	t.Run("path traversal blocked", func(t *testing.T) {
+	t.Run("path traversal blocked", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		evil := newTestAdapter("evil")
 		evil.ConfigRelPath = "../../etc"
 		home := t.TempDir()
@@ -386,10 +386,10 @@ func TestGenericAdapter_Detect(t *testing.T) {
 	})
 }
 
-func TestGenericAdapter_ListItems(t *testing.T) {
+func TestGenericAdapter_ListItems(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	ga := newTestAdapter("test-tool")
 
-	t.Run("config category returns root files", func(t *testing.T) {
+	t.Run("config category returns root files", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupConfigHome(t)
 		items, err := ga.ListItems(home, []string{"config"})
 		if err != nil {
@@ -408,7 +408,7 @@ func TestGenericAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("scripts category returns dir contents", func(t *testing.T) {
+	t.Run("scripts category returns dir contents", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupConfigHome(t)
 		items, err := ga.ListItems(home, []string{"scripts"})
 		if err != nil {
@@ -424,7 +424,7 @@ func TestGenericAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("rel path uses forward slashes", func(t *testing.T) {
+	t.Run("rel path uses forward slashes", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupConfigHome(t)
 		items, err := ga.ListItems(home, []string{"config", "scripts"})
 		if err != nil {
@@ -440,7 +440,7 @@ func TestGenericAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("all categories", func(t *testing.T) {
+	t.Run("all categories", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupConfigHome(t)
 		items, err := ga.ListItems(home, []string{"config", "scripts"})
 		if err != nil {
@@ -451,7 +451,7 @@ func TestGenericAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("empty categories returns empty slice", func(t *testing.T) {
+	t.Run("empty categories returns empty slice", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupConfigHome(t)
 		items, err := ga.ListItems(home, []string{})
 		if err != nil {
@@ -462,7 +462,7 @@ func TestGenericAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("unknown category returns empty slice", func(t *testing.T) {
+	t.Run("unknown category returns empty slice", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupConfigHome(t)
 		items, err := ga.ListItems(home, []string{"nonexistent"})
 		if err != nil {
@@ -473,7 +473,7 @@ func TestGenericAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("empty result for missing dirs", func(t *testing.T) {
+	t.Run("empty result for missing dirs", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".test")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -489,10 +489,10 @@ func TestGenericAdapter_ListItems(t *testing.T) {
 	})
 }
 
-func TestGenericAdapter_Backup(t *testing.T) {
+func TestGenericAdapter_Backup(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	ga := newTestAdapter("test-tool")
 
-	t.Run("copies file to backup dir", func(t *testing.T) {
+	t.Run("copies file to backup dir", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".test")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -528,7 +528,7 @@ func TestGenericAdapter_Backup(t *testing.T) {
 		}
 	})
 
-	t.Run("creates directory for dir items", func(t *testing.T) {
+	t.Run("creates directory for dir items", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".test")
 		scriptsDir := filepath.Join(configDir, "scripts")
@@ -568,7 +568,7 @@ func TestGenericAdapter_Backup(t *testing.T) {
 		}
 	})
 
-	t.Run("copy error on missing source", func(t *testing.T) {
+	t.Run("copy error on missing source", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".test")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -589,10 +589,10 @@ func TestGenericAdapter_Backup(t *testing.T) {
 	})
 }
 
-func TestGenericAdapter_Restore(t *testing.T) {
+func TestGenericAdapter_Restore(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	ga := newTestAdapter("test-tool")
 
-	t.Run("copies file from backup to home", func(t *testing.T) {
+	t.Run("copies file from backup to home", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		backupDir := filepath.Join(t.TempDir(), "backup")
 		backupFile := filepath.Join(backupDir, "test-tool", "settings.json")
 		if err := os.MkdirAll(filepath.Dir(backupFile), 0755); err != nil {
@@ -621,7 +621,7 @@ func TestGenericAdapter_Restore(t *testing.T) {
 		}
 	})
 
-	t.Run("creates directory for dir items on restore", func(t *testing.T) {
+	t.Run("creates directory for dir items on restore", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		backupDir := filepath.Join(t.TempDir(), "backup")
 		scriptsDir := filepath.Join(backupDir, "test-tool", "scripts")
 		if err := os.MkdirAll(scriptsDir, 0755); err != nil {
@@ -647,7 +647,7 @@ func TestGenericAdapter_Restore(t *testing.T) {
 		}
 	})
 
-	t.Run("copy error on restore", func(t *testing.T) {
+	t.Run("copy error on restore", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		// Create a file at the config path instead of a directory.
 		// This causes os.MkdirAll inside copyItems to fail because
@@ -679,8 +679,8 @@ func TestGenericAdapter_Restore(t *testing.T) {
 
 // TestScanRootFiles_AppliesExcludes verifies that scanRootFiles honors
 // ScanOptions (MatchExclude + MaxFileSize) when filtering root-level files.
-func TestScanRootFiles_AppliesExcludes(t *testing.T) {
-	t.Run("excludes sqlite files", func(t *testing.T) {
+func TestScanRootFiles_AppliesExcludes(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("excludes sqlite files", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".test")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -730,7 +730,7 @@ func TestScanRootFiles_AppliesExcludes(t *testing.T) {
 		}
 	})
 
-	t.Run("custom exclude patterns apply", func(t *testing.T) {
+	t.Run("custom exclude patterns apply", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".test")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -773,7 +773,7 @@ func TestScanRootFiles_AppliesExcludes(t *testing.T) {
 // chmod-000 fixture. It proves the error is wrapped with a lowercase context
 // prefix and uses the relative path (not the absolute home path). Skipped on
 // Windows where chmod 000 does not block reads.
-func TestGenericAdapter_HashErrorBranches(t *testing.T) {
+func TestGenericAdapter_HashErrorBranches(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod 000 does not block file reads on Windows")
 	}
@@ -781,7 +781,7 @@ func TestGenericAdapter_HashErrorBranches(t *testing.T) {
 		t.Skip("running as root bypasses chmod 000 permissions")
 	}
 
-	t.Run("scanDir wraps hash error with rel path", func(t *testing.T) {
+	t.Run("scanDir wraps hash error with rel path", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".test")
 		scriptsDir := filepath.Join(configDir, "scripts")
@@ -816,7 +816,7 @@ func TestGenericAdapter_HashErrorBranches(t *testing.T) {
 		}
 	})
 
-	t.Run("scanRootFiles wraps hash error with entry name", func(t *testing.T) {
+	t.Run("scanRootFiles wraps hash error with entry name", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".test")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -850,7 +850,7 @@ func TestGenericAdapter_HashErrorBranches(t *testing.T) {
 	})
 }
 
-func TestGenericAdapter_InterfaceCompliance(t *testing.T) {
+func TestGenericAdapter_InterfaceCompliance(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	ga := newTestAdapter("iface-test")
 
 	if ga.Name() == "" {

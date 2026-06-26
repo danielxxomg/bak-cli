@@ -8,8 +8,8 @@ import (
 	gogit "github.com/go-git/go-git/v5"
 )
 
-func TestStageAll(t *testing.T) {
-	t.Run("stages new files in worktree", func(t *testing.T) {
+func TestStageAll(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("stages new files in worktree", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 		repo := mustInit(t, dir)
 
@@ -31,7 +31,7 @@ func TestStageAll(t *testing.T) {
 		}
 	})
 
-	t.Run("stages modified files", func(t *testing.T) {
+	t.Run("stages modified files", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 		repo := mustInit(t, dir)
 
@@ -58,8 +58,8 @@ func TestStageAll(t *testing.T) {
 	})
 }
 
-func TestCommit(t *testing.T) {
-	t.Run("creates commit with correct message", func(t *testing.T) {
+func TestCommit(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("creates commit with correct message", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 		repo := mustInit(t, dir)
 
@@ -87,7 +87,7 @@ func TestCommit(t *testing.T) {
 		}
 	})
 
-	t.Run("creates commit with author set to bak", func(t *testing.T) {
+	t.Run("creates commit with author set to bak", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 		repo := mustInit(t, dir)
 
@@ -106,7 +106,7 @@ func TestCommit(t *testing.T) {
 		}
 	})
 
-	t.Run("returns error when nothing to commit", func(t *testing.T) {
+	t.Run("returns error when nothing to commit", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 		repo := mustInit(t, dir)
 
@@ -118,8 +118,8 @@ func TestCommit(t *testing.T) {
 	})
 }
 
-func TestAutoCommitMessage(t *testing.T) {
-	t.Run("commit message contains bak prefix and timestamp", func(t *testing.T) {
+func TestAutoCommitMessage(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("commit message contains bak prefix and timestamp", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 		repo := mustInit(t, dir)
 

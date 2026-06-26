@@ -48,10 +48,10 @@ type SettingsModel struct {
 func NewSettingsModel(saveFunc func(key string, value any) error) SettingsModel {
 	m := SettingsModel{
 		options: []SettingsOption{
-			{Label: "Cloud Provider", Type: "toggle", Value: false, Key: "default_provider"},
-			{Label: "Theme", Type: "select", Value: true, Key: ""},
-			{Label: "Auto-sync", Type: "toggle", Value: false, Key: "auto_sync"},
-			{Label: "Verbose", Type: "toggle", Value: false, Key: "verbose_default"},
+			{Label: "Cloud Provider", Type: keyToggle, Value: false, Key: "default_provider"},
+			{Label: "Theme", Type: keySelect, Value: true, Key: ""},
+			{Label: "Auto-sync", Type: keyToggle, Value: false, Key: "auto_sync"},
+			{Label: "Verbose", Type: keyToggle, Value: false, Key: "verbose_default"},
 		},
 		saveFunc: saveFunc,
 	}
@@ -119,7 +119,7 @@ func (m *SettingsModel) toggleFocused() {
 		return
 	}
 	opt := &m.options[m.cursor]
-	if opt.Type != "toggle" {
+	if opt.Type != keyToggle {
 		return
 	}
 	opt.Value = !opt.Value
@@ -153,9 +153,9 @@ func (m SettingsModel) View() tea.View {
 	// Help bar with context-appropriate keybindings.
 	b.WriteString("\n\n")
 	helpKeys := []components.HelpKey{
-		{Key: "↑/↓", Desc: "navigate"},
-		{Key: "enter", Desc: "toggle"},
-		{Key: "q", Desc: "back"},
+		{Key: keyArrowUpDown, Desc: keyNavigate},
+		{Key: keyEnter, Desc: keyToggle},
+		{Key: "q", Desc: keyBack},
 	}
 	b.WriteString(components.RenderHelp(helpKeys))
 

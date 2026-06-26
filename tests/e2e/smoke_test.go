@@ -14,7 +14,7 @@ import (
 
 // TestBinaryHelp verifies that `bak --help` exits cleanly and prints the
 // expected help banner.
-func TestBinaryHelp(t *testing.T) {
+func TestBinaryHelp(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	bakBin := buildSmokeBinary(t)
 
 	cmd := exec.Command(bakBin, "--help")
@@ -38,7 +38,7 @@ func TestBinaryHelp(t *testing.T) {
 // non-TTY environment falls through to cobra's help output and exits 0.
 // In CI/test environments, stdin is piped so isTTY() returns false,
 // triggering the help fallback in root.go instead of the interactive TUI.
-func TestBinaryNoArgs(t *testing.T) {
+func TestBinaryNoArgs(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	bakBin := buildSmokeBinary(t)
 
 	// exec.Command with nil stdin → child process has no TTY → isTTY() false
@@ -56,7 +56,7 @@ func TestBinaryNoArgs(t *testing.T) {
 
 // TestBinaryUnknownCommand verifies that `bak <nonexistent>` fails with a
 // non-zero exit code and an error message indicating the command is unknown.
-func TestBinaryUnknownCommand(t *testing.T) {
+func TestBinaryUnknownCommand(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	bakBin := buildSmokeBinary(t)
 
 	cmd := exec.Command(bakBin, "nonexistent-command")

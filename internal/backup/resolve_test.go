@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestResolveBackupID(t *testing.T) {
+func TestResolveBackupID(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name      string
 		setup     func(tmpDir string) string // returns backupID to test
@@ -67,8 +67,8 @@ func TestResolveBackupID(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			tmpDir := t.TempDir()
 
 			// Override home directory so BakDir() resolves to tmpDir/.bak.
@@ -107,7 +107,7 @@ func TestResolveBackupID(t *testing.T) {
 // Phase 6: resolveBackupID consolidation — RED (ListBackupIDs/LatestBackupID absent)
 // =============================================================================
 
-func TestListBackupIDs_DescendingSort(t *testing.T) {
+func TestListBackupIDs_DescendingSort(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	for _, id := range []string{"20260101-120000", "20260102-130000", "20260103-140000"} {
 		if err := os.MkdirAll(filepath.Join(dir, id), 0755); err != nil {
@@ -134,7 +134,7 @@ func TestListBackupIDs_DescendingSort(t *testing.T) {
 	}
 }
 
-func TestListBackupIDs_EmptyDirReturnsEmpty(t *testing.T) {
+func TestListBackupIDs_EmptyDirReturnsEmpty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	ids, err := ListBackupIDs(t.TempDir())
 	if err != nil {
 		t.Fatalf("ListBackupIDs on empty dir: %v", err)
@@ -144,7 +144,7 @@ func TestListBackupIDs_EmptyDirReturnsEmpty(t *testing.T) {
 	}
 }
 
-func TestListBackupIDs_ReadDirError(t *testing.T) {
+func TestListBackupIDs_ReadDirError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, err := ListBackupIDs(filepath.Join(t.TempDir(), "does-not-exist"))
 	if err == nil {
 		t.Fatal("ListBackupIDs on missing dir: expected error, got nil")
@@ -154,7 +154,7 @@ func TestListBackupIDs_ReadDirError(t *testing.T) {
 	}
 }
 
-func TestLatestBackupID_ReturnsMostRecent(t *testing.T) {
+func TestLatestBackupID_ReturnsMostRecent(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	for _, id := range []string{"20260101-120000", "20260102-130000", "20260103-140000"} {
 		if err := os.MkdirAll(filepath.Join(dir, id), 0755); err != nil {
@@ -170,7 +170,7 @@ func TestLatestBackupID_ReturnsMostRecent(t *testing.T) {
 	}
 }
 
-func TestLatestBackupID_EmptyDirReturnsError(t *testing.T) {
+func TestLatestBackupID_EmptyDirReturnsError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, err := LatestBackupID(t.TempDir())
 	if err == nil {
 		t.Fatal("LatestBackupID on empty dir: expected error, got nil")
@@ -180,7 +180,7 @@ func TestLatestBackupID_EmptyDirReturnsError(t *testing.T) {
 	}
 }
 
-func TestLatestBackupID_ReadDirError(t *testing.T) {
+func TestLatestBackupID_ReadDirError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, err := LatestBackupID(filepath.Join(t.TempDir(), "nope"))
 	if err == nil {
 		t.Fatal("LatestBackupID on missing dir: expected error, got nil")

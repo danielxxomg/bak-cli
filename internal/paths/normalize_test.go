@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestToCanonical(t *testing.T) {
+func TestToCanonical(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := "/home/alice"
 	if runtime.GOOS == "windows" {
 		home = `C:\Users\alice`
@@ -52,8 +52,8 @@ func TestToCanonical(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			// Skip Windows-specific test cases on non-Windows platforms.
 			if strings.Contains(tt.name, "windows") && runtime.GOOS != "windows" {
 				t.Skip("skipping Windows-specific test on non-Windows platform")
@@ -66,7 +66,7 @@ func TestToCanonical(t *testing.T) {
 	}
 }
 
-func TestFromCanonical(t *testing.T) {
+func TestFromCanonical(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name      string
 		canonical string
@@ -99,8 +99,8 @@ func TestFromCanonical(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			// Skip Windows-specific test cases on non-Windows platforms.
 			if strings.Contains(tt.name, "windows") && runtime.GOOS != "windows" {
 				t.Skip("skipping Windows-specific test on non-Windows platform")
@@ -113,7 +113,7 @@ func TestFromCanonical(t *testing.T) {
 	}
 }
 
-func TestIsUnderHome(t *testing.T) {
+func TestIsUnderHome(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeLinux := "/home/alice"
 	homeWin := `C:\Users\alice`
 
@@ -132,8 +132,8 @@ func TestIsUnderHome(t *testing.T) {
 		{"windows outside", `C:\Windows\System32`, homeWin, false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			// Skip Windows-specific test cases on non-Windows platforms.
 			if strings.Contains(tt.name, "windows") && runtime.GOOS != "windows" {
 				t.Skip("skipping Windows-specific test on non-Windows platform")
@@ -146,7 +146,7 @@ func TestIsUnderHome(t *testing.T) {
 	}
 }
 
-func TestDetectOS(t *testing.T) {
+func TestDetectOS(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	info, err := DetectOS()
 	if err != nil {
 		t.Fatalf("DetectOS() error: %v", err)
@@ -168,7 +168,7 @@ func TestDetectOS(t *testing.T) {
 	}
 }
 
-func TestConfigDir(t *testing.T) {
+func TestConfigDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir, err := ConfigDir("bak")
 	if err != nil {
 		t.Fatalf("ConfigDir: %v", err)
@@ -185,7 +185,7 @@ func TestConfigDir(t *testing.T) {
 
 // TestToCanonical_PublicWrapper exercises the public ToCanonical function
 // that uses the real os.UserHomeDir().
-func TestToCanonical_PublicWrapper(t *testing.T) {
+func TestToCanonical_PublicWrapper(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Skipf("cannot determine home directory: %v", err)
@@ -217,7 +217,7 @@ func TestToCanonical_PublicWrapper(t *testing.T) {
 
 // TestIsUnderHome_PublicWrapper exercises the public IsUnderHome function
 // that uses the real os.UserHomeDir().
-func TestIsUnderHome_PublicWrapper(t *testing.T) {
+func TestIsUnderHome_PublicWrapper(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Skipf("cannot determine home directory: %v", err)
@@ -242,7 +242,7 @@ func TestIsUnderHome_PublicWrapper(t *testing.T) {
 
 // TestToCanonical_EdgeCases covers trailing separators, empty paths,
 // and other boundary inputs for the internal toCanonical function.
-func TestToCanonical_EdgeCases(t *testing.T) {
+func TestToCanonical_EdgeCases(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := "/home/alice"
 	if runtime.GOOS == "windows" {
 		home = `C:\Users\alice`
@@ -306,8 +306,8 @@ func TestToCanonical_EdgeCases(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := toCanonical(tt.absPath, tt.homeDir)
 			if got != tt.want {
 				t.Errorf("toCanonical(%q, %q) = %q, want %q", tt.absPath, tt.homeDir, got, tt.want)
@@ -317,7 +317,7 @@ func TestToCanonical_EdgeCases(t *testing.T) {
 }
 
 // TestIsUnder_EdgeCases covers boundary inputs for the isUnder function.
-func TestIsUnder_EdgeCases(t *testing.T) {
+func TestIsUnder_EdgeCases(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeLinux := "/home/alice"
 
 	tests := []struct {
@@ -336,8 +336,8 @@ func TestIsUnder_EdgeCases(t *testing.T) {
 		{"same prefix different user", "/home/alicebob", homeLinux, false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := isUnder(tt.absPath, tt.homeDir)
 			if got != tt.want {
 				t.Errorf("isUnder(%q, %q) = %v, want %v", tt.absPath, tt.homeDir, got, tt.want)
@@ -347,7 +347,7 @@ func TestIsUnder_EdgeCases(t *testing.T) {
 }
 
 // TestFromCanonical_EdgeCases covers additional boundary inputs.
-func TestFromCanonical_EdgeCases(t *testing.T) {
+func TestFromCanonical_EdgeCases(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name      string
 		canonical string
@@ -380,8 +380,8 @@ func TestFromCanonical_EdgeCases(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := FromCanonical(tt.canonical, tt.homeDir)
 			if got != tt.want {
 				t.Errorf("FromCanonical(%q, %q) = %q, want %q", tt.canonical, tt.homeDir, got, tt.want)
@@ -392,7 +392,7 @@ func TestFromCanonical_EdgeCases(t *testing.T) {
 
 // TestSlash verifies the Slash helper that replaces all backslashes
 // with forward slashes regardless of host OS.
-func TestSlash(t *testing.T) {
+func TestSlash(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name  string
 		input string
@@ -435,8 +435,8 @@ func TestSlash(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := Slash(tt.input)
 			if got != tt.want {
 				t.Errorf("Slash(%q) = %q, want %q", tt.input, got, tt.want)
@@ -447,7 +447,7 @@ func TestSlash(t *testing.T) {
 
 // TestCanonicalPath verifies the CanonicalPath helper that combines
 // Slash normalization with path.Clean for cross-platform canonical form.
-func TestCanonicalPath(t *testing.T) {
+func TestCanonicalPath(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name  string
 		input string
@@ -495,8 +495,8 @@ func TestCanonicalPath(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := CanonicalPath(tt.input)
 			if got != tt.want {
 				t.Errorf("CanonicalPath(%q) = %q, want %q", tt.input, got, tt.want)
@@ -506,7 +506,7 @@ func TestCanonicalPath(t *testing.T) {
 }
 
 // TestConfigDir_EdgeCases verifies ConfigDir with various relative paths.
-func TestConfigDir_EdgeCases(t *testing.T) {
+func TestConfigDir_EdgeCases(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name    string
 		relPath string
@@ -517,8 +517,8 @@ func TestConfigDir_EdgeCases(t *testing.T) {
 		{"opencode app", "opencode"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			dir, err := ConfigDir(tt.relPath)
 			if err != nil {
 				t.Fatalf("ConfigDir(%q) error: %v", tt.relPath, err)

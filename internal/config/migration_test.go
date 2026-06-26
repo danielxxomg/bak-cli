@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestConfigMigration_V010_Detected(t *testing.T) {
+func TestConfigMigration_V010_Detected(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -48,7 +48,7 @@ func TestConfigMigration_V010_Detected(t *testing.T) {
 	}
 }
 
-func TestConfigMigration_V030_Skipped(t *testing.T) {
+func TestConfigMigration_V030_Skipped(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -79,7 +79,7 @@ func TestConfigMigration_V030_Skipped(t *testing.T) {
 	}
 }
 
-func TestConfigMigration_BackupCreated(t *testing.T) {
+func TestConfigMigration_BackupCreated(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 	bakPath := cfgPath + ".v010.bak"
@@ -103,7 +103,7 @@ func TestConfigMigration_BackupCreated(t *testing.T) {
 	}
 }
 
-func TestConfigMigration_Idempotent(t *testing.T) {
+func TestConfigMigration_Idempotent(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -142,7 +142,7 @@ func TestConfigMigration_Idempotent(t *testing.T) {
 	// may have been overwritten with identical content — that's OK).
 }
 
-func TestConfigMigration_NoGitHubToken_V020Migrated(t *testing.T) {
+func TestConfigMigration_NoGitHubToken_V020Migrated(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -166,7 +166,7 @@ func TestConfigMigration_NoGitHubToken_V020Migrated(t *testing.T) {
 	}
 }
 
-func TestConfig_Get_NestedKeys(t *testing.T) {
+func TestConfig_Get_NestedKeys(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &Config{
 		SchemaVersion: "0.2.0",
 		Providers: map[string]ProviderConfig{
@@ -185,8 +185,8 @@ func TestConfig_Get_NestedKeys(t *testing.T) {
 		{"providers.github.gist_id", "nest123"},
 		{"providers.codeberg.token", "cb_token"},
 	}
-	for _, tt := range tests {
-		t.Run(tt.key, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.key, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got, err := cfg.Get(tt.key)
 			if err != nil {
 				t.Errorf("Get(%q): unexpected error: %v", tt.key, err)
@@ -199,7 +199,7 @@ func TestConfig_Get_NestedKeys(t *testing.T) {
 	}
 }
 
-func TestConfig_Get_NestedKeys_Unknown(t *testing.T) {
+func TestConfig_Get_NestedKeys_Unknown(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &Config{
 		SchemaVersion: "0.2.0",
 		Providers: map[string]ProviderConfig{
@@ -216,7 +216,7 @@ func TestConfig_Get_NestedKeys_Unknown(t *testing.T) {
 	}
 }
 
-func TestConfig_Set_NestedKeys(t *testing.T) {
+func TestConfig_Set_NestedKeys(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -233,8 +233,8 @@ func TestConfig_Set_NestedKeys(t *testing.T) {
 		{"providers.codeberg.token", "cb_set", "token"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.key, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.key, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			if err := cfg.Set(tt.key, tt.value); err != nil {
 				t.Fatalf("Set(%q, %q): %v", tt.key, tt.value, err)
 			}
@@ -249,7 +249,7 @@ func TestConfig_Set_NestedKeys(t *testing.T) {
 	}
 }
 
-func TestConfig_Set_NestedKeys_Unknown(t *testing.T) {
+func TestConfig_Set_NestedKeys_Unknown(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 	cfg := &Config{path: cfgPath}
@@ -268,7 +268,7 @@ func TestConfig_Set_NestedKeys_Unknown(t *testing.T) {
 	}
 }
 
-func TestConfig_Save_V030(t *testing.T) {
+func TestConfig_Save_V030(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -310,7 +310,7 @@ func TestConfig_Save_V030(t *testing.T) {
 	}
 }
 
-func TestConfig_Save_CompatShim_NotDuplicated(t *testing.T) {
+func TestConfig_Save_CompatShim_NotDuplicated(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -342,7 +342,7 @@ func TestConfig_Save_CompatShim_NotDuplicated(t *testing.T) {
 	}
 }
 
-func TestConfig_CompatShim_LoadV010(t *testing.T) {
+func TestConfig_CompatShim_LoadV010(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Loading a v0.1.0 config via compat shim (no migration)
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
@@ -373,7 +373,7 @@ func TestConfig_CompatShim_LoadV010(t *testing.T) {
 
 // ---- v0.2.0 → v0.3.0 migration tests ----
 
-func TestConfigMigration_V020_Detected(t *testing.T) {
+func TestConfigMigration_V020_Detected(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -410,7 +410,7 @@ func TestConfigMigration_V020_Detected(t *testing.T) {
 	}
 }
 
-func TestConfigMigration_V020_BackupCreated(t *testing.T) {
+func TestConfigMigration_V020_BackupCreated(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 	bakPath := cfgPath + ".v020.bak"
@@ -434,7 +434,7 @@ func TestConfigMigration_V020_BackupCreated(t *testing.T) {
 	}
 }
 
-func TestConfigMigration_V020_Idempotent(t *testing.T) {
+func TestConfigMigration_V020_Idempotent(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -469,7 +469,7 @@ func TestConfigMigration_V020_Idempotent(t *testing.T) {
 	}
 }
 
-func TestConfigMigration_V010_ChainToV030(t *testing.T) {
+func TestConfigMigration_V010_ChainToV030(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// v0.1.0 → v0.2.0 → v0.3.0 chain. Both .v010.bak and .v020.bak exist.
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")

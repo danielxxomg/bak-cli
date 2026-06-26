@@ -164,7 +164,7 @@ func RenderCloudStatus(info CloudInfo, width int) string {
 // renderCloudHelp returns the cloud screen help bar.
 func renderCloudHelp() string {
 	helpKeys := []components.HelpKey{
-		{Key: "q", Desc: "back"},
+		{Key: "q", Desc: keyBack},
 	}
 	return components.RenderHelp(helpKeys)
 }

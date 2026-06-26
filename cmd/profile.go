@@ -115,7 +115,7 @@ func runProfileCreateWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) e
 // --- list ---
 
 var profileListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   listAction,
 	Short: "List all configured profiles",
 	Long:  "Display a table of all configured machine profiles with their provider, preset, and encryption status.",
 	Args:  cobra.NoArgs,

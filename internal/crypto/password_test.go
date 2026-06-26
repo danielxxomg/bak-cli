@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestGetPassword_EnvVar(t *testing.T) {
+func TestGetPassword_EnvVar(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	os.Setenv("BAK_ENCRYPTION_PASSWORD", "env-secret")
 	defer os.Unsetenv("BAK_ENCRYPTION_PASSWORD")
 
@@ -19,7 +19,7 @@ func TestGetPassword_EnvVar(t *testing.T) {
 	}
 }
 
-func TestGetPassword_EnvVar_EmptyString(t *testing.T) {
+func TestGetPassword_EnvVar_EmptyString(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	os.Setenv("BAK_ENCRYPTION_PASSWORD", "")
 	defer os.Unsetenv("BAK_ENCRYPTION_PASSWORD")
 
@@ -32,7 +32,7 @@ func TestGetPassword_EnvVar_EmptyString(t *testing.T) {
 	}
 }
 
-func TestGetPassword_StdinPipe(t *testing.T) {
+func TestGetPassword_StdinPipe(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Unset env var so stdin is used.
 	os.Unsetenv("BAK_ENCRYPTION_PASSWORD")
 
@@ -62,7 +62,7 @@ func TestGetPassword_StdinPipe(t *testing.T) {
 	}
 }
 
-func TestGetPassword_Stdin_TrailingNewline(t *testing.T) {
+func TestGetPassword_Stdin_TrailingNewline(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	os.Unsetenv("BAK_ENCRYPTION_PASSWORD")
 
 	oldStdin := os.Stdin
@@ -91,7 +91,7 @@ func TestGetPassword_Stdin_TrailingNewline(t *testing.T) {
 	}
 }
 
-func TestGetPassword_NoTerminal_NoEnvVar(t *testing.T) {
+func TestGetPassword_NoTerminal_NoEnvVar(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	os.Unsetenv("BAK_ENCRYPTION_PASSWORD")
 
 	oldStdin := os.Stdin
@@ -108,7 +108,7 @@ func TestGetPassword_NoTerminal_NoEnvVar(t *testing.T) {
 	}
 }
 
-func TestGetPassword_EnvVar_SpecialChars(t *testing.T) {
+func TestGetPassword_EnvVar_SpecialChars(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	os.Setenv("BAK_ENCRYPTION_PASSWORD", "p@$$w0rd!%^&*()")
 	defer os.Unsetenv("BAK_ENCRYPTION_PASSWORD")
 
@@ -121,7 +121,7 @@ func TestGetPassword_EnvVar_SpecialChars(t *testing.T) {
 	}
 }
 
-func TestResolveFromEnv_NotSet(t *testing.T) {
+func TestResolveFromEnv_NotSet(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	os.Unsetenv("BAK_ENCRYPTION_PASSWORD")
 
 	_, ok := resolveFromEnv()

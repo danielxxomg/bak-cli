@@ -27,7 +27,7 @@ func testConfig() *config.Config {
 }
 
 // TestConfigShow_RedactsTokens verifies ConfigShow redacts tokens in output.
-func TestConfigShow_RedactsTokens(t *testing.T) {
+func TestConfigShow_RedactsTokens(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := testConfig()
 	var buf bytes.Buffer
 
@@ -60,7 +60,7 @@ func TestConfigShow_RedactsTokens(t *testing.T) {
 }
 
 // TestConfigShow_NoConfig handles nil config gracefully.
-func TestConfigShow_NoConfig(t *testing.T) {
+func TestConfigShow_NoConfig(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var buf bytes.Buffer
 	err := ConfigShow(nil, &buf)
 	if err != nil {
@@ -72,7 +72,7 @@ func TestConfigShow_NoConfig(t *testing.T) {
 }
 
 // TestConfigGet_RedactsToken verifies config get on sensitive keys redacts.
-func TestConfigGet_RedactsToken(t *testing.T) {
+func TestConfigGet_RedactsToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := testConfig()
 	var buf bytes.Buffer
 
@@ -91,7 +91,7 @@ func TestConfigGet_RedactsToken(t *testing.T) {
 }
 
 // TestConfigGet_NonSensitive returns plain value.
-func TestConfigGet_NonSensitive(t *testing.T) {
+func TestConfigGet_NonSensitive(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := testConfig()
 	var buf bytes.Buffer
 
@@ -107,7 +107,7 @@ func TestConfigGet_NonSensitive(t *testing.T) {
 }
 
 // TestConfigSet_Persists verifies set+get round-trip through config file.
-func TestConfigSet_Persists(t *testing.T) {
+func TestConfigSet_Persists(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 	data, _ := json.Marshal(testConfig())
@@ -139,7 +139,7 @@ func TestConfigSet_Persists(t *testing.T) {
 }
 
 // TestConfigSet_InvalidKey errors helpfully.
-func TestConfigSet_InvalidKey(t *testing.T) {
+func TestConfigSet_InvalidKey(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 	data, _ := json.Marshal(testConfig())
@@ -160,7 +160,7 @@ func TestConfigSet_InvalidKey(t *testing.T) {
 }
 
 // TestRedactString covers the redaction helper.
-func TestRedactString(t *testing.T) {
+func TestRedactString(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name string
 		key  string
@@ -176,8 +176,8 @@ func TestRedactString(t *testing.T) {
 		{"password key", "password", "pass12345678", "***5678"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := RedactString(tt.key, tt.val)
 			if got != tt.want {
 				t.Errorf("RedactString(%q, %q) = %q, want %q", tt.key, tt.val, got, tt.want)
@@ -187,7 +187,7 @@ func TestRedactString(t *testing.T) {
 }
 
 // TestRedactJSON covers recursive JSON redaction.
-func TestRedactJSON(t *testing.T) {
+func TestRedactJSON(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := testConfig()
 	data, err := json.Marshal(cfg)
 	if err != nil {

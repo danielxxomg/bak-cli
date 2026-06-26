@@ -14,7 +14,7 @@ import (
 // TestNewProgressModel — RED (progress.go does not exist yet)
 // =============================================================================
 
-func TestNewProgressModel(t *testing.T) {
+func TestNewProgressModel(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewProgressModel()
 
 	// Initial state: steps should be empty.
@@ -35,7 +35,7 @@ func TestNewProgressModel(t *testing.T) {
 // TestProgress_Update_StepMsg — RED
 // =============================================================================
 
-func TestProgress_Update_StepMsg(t *testing.T) {
+func TestProgress_Update_StepMsg(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewProgressModel()
 	m.Width = 80
 	m.Height = 24
@@ -93,7 +93,7 @@ func TestProgress_Update_StepMsg(t *testing.T) {
 // TestProgress_Update_DoneMsg — RED
 // =============================================================================
 
-func TestProgress_Update_DoneMsg(t *testing.T) {
+func TestProgress_Update_DoneMsg(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewProgressModel()
 	m.running = true
 	m.steps = []Step{
@@ -117,7 +117,7 @@ func TestProgress_Update_DoneMsg(t *testing.T) {
 // TestProgress_Update_Back — RED
 // =============================================================================
 
-func TestProgress_Update_Back(t *testing.T) {
+func TestProgress_Update_Back(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name    string
 		code    rune
@@ -130,8 +130,8 @@ func TestProgress_Update_Back(t *testing.T) {
 		{"esc when running is blocked", 27, true, false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := NewProgressModel()
 			m.running = tt.running
 
@@ -154,7 +154,7 @@ func TestProgress_Update_Back(t *testing.T) {
 // TestProgress_View_Running — RED
 // =============================================================================
 
-func TestProgress_View_Running(t *testing.T) {
+func TestProgress_View_Running(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewProgressModel()
 	m.Width = 80
 	m.Height = 24
@@ -198,7 +198,7 @@ func TestProgress_View_Running(t *testing.T) {
 // TestProgress_View_Complete — RED
 // =============================================================================
 
-func TestProgress_View_Complete(t *testing.T) {
+func TestProgress_View_Complete(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewProgressModel()
 	m.Width = 80
 	m.Height = 24
@@ -230,7 +230,7 @@ func TestProgress_View_Complete(t *testing.T) {
 // TestProgress_View_EmptySteps — RED
 // =============================================================================
 
-func TestProgress_View_EmptySteps(t *testing.T) {
+func TestProgress_View_EmptySteps(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewProgressModel()
 	m.Width = 80
 	m.Height = 24
@@ -247,7 +247,7 @@ func TestProgress_View_EmptySteps(t *testing.T) {
 // TestProgress_Init — RED
 // =============================================================================
 
-func TestProgress_Init(t *testing.T) {
+func TestProgress_Init(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewProgressModel()
 
 	cmd := m.Init()
@@ -261,7 +261,7 @@ func TestProgress_Init(t *testing.T) {
 // TestProgress_SpinnerTick — RED
 // =============================================================================
 
-func TestProgress_SpinnerTick(t *testing.T) {
+func TestProgress_SpinnerTick(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewProgressModel()
 	m.running = true
 
@@ -291,7 +291,7 @@ func TestProgress_SpinnerTick(t *testing.T) {
 // TestProgress_Update_WindowSize — RED
 // =============================================================================
 
-func TestProgress_Update_WindowSize(t *testing.T) {
+func TestProgress_Update_WindowSize(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewProgressModel()
 
 	newModel, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
@@ -312,7 +312,7 @@ func TestProgress_Update_WindowSize(t *testing.T) {
 // model's internal running flag.
 // =============================================================================
 
-func TestProgress_Running(t *testing.T) {
+func TestProgress_Running(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name string
 		// msgs is the ordered sequence of messages applied to a fresh model.
@@ -339,8 +339,8 @@ func TestProgress_Running(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			var model tea.Model = NewProgressModel()
 			for _, msg := range tt.msgs {
 				model, _ = model.Update(msg)

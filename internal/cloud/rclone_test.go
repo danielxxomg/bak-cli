@@ -69,14 +69,14 @@ esac
 	return scriptPath
 }
 
-func TestRcloneProvider_Name(t *testing.T) {
+func TestRcloneProvider_Name(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &RcloneProvider{Remote: "myremote", RcloneBin: "rclone"}
 	if p.Name() != "rclone" {
 		t.Errorf("Name() = %q, want rclone", p.Name())
 	}
 }
 
-func TestRcloneProvider_Push(t *testing.T) {
+func TestRcloneProvider_Push(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tmpDir := t.TempDir()
 	rcloneBin := createMockRclone(t, tmpDir, "")
 
@@ -87,19 +87,19 @@ func TestRcloneProvider_Push(t *testing.T) {
 	}
 
 	id, err := p.Push([]byte("archive-data"), PushMeta{
-		BackupID:  "20260605-120000",
+		BackupID:  testBackupID,
 		CreatedAt: time.Now(),
 		Hostname:  "testbox",
 	})
 	if err != nil {
 		t.Fatalf("Push: %v", err)
 	}
-	if id != "20260605-120000" {
+	if id != testBackupID {
 		t.Errorf("id = %q, want 20260605-120000", id)
 	}
 }
 
-func TestRcloneProvider_Push_NoRemote(t *testing.T) {
+func TestRcloneProvider_Push_NoRemote(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &RcloneProvider{
 		Cfg:       nil,
 		Remote:    "",
@@ -114,7 +114,7 @@ func TestRcloneProvider_Push_NoRemote(t *testing.T) {
 	}
 }
 
-func TestRcloneProvider_Push_MissingBinary(t *testing.T) {
+func TestRcloneProvider_Push_MissingBinary(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &RcloneProvider{
 		Cfg:       nil,
 		Remote:    "myremote:path",
@@ -126,7 +126,7 @@ func TestRcloneProvider_Push_MissingBinary(t *testing.T) {
 	}
 }
 
-func TestRcloneProvider_Push_RcloneError(t *testing.T) {
+func TestRcloneProvider_Push_RcloneError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tmpDir := t.TempDir()
 	rcloneBin := createMockRclone(t, tmpDir, "")
 
@@ -148,7 +148,7 @@ func TestRcloneProvider_Push_RcloneError(t *testing.T) {
 	}
 }
 
-func TestRcloneProvider_Pull(t *testing.T) {
+func TestRcloneProvider_Pull(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tmpDir := t.TempDir()
 	rcloneBin := createMockRclone(t, tmpDir, "pulled-backup-data")
 
@@ -158,7 +158,7 @@ func TestRcloneProvider_Pull(t *testing.T) {
 		RcloneBin: rcloneBin,
 	}
 
-	data, err := p.Pull("20260605-120000")
+	data, err := p.Pull(testBackupID)
 	if err != nil {
 		t.Fatalf("Pull: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestRcloneProvider_Pull(t *testing.T) {
 	}
 }
 
-func TestRcloneProvider_Pull_NoRemote(t *testing.T) {
+func TestRcloneProvider_Pull_NoRemote(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &RcloneProvider{
 		Cfg:       nil,
 		Remote:    "",
@@ -179,7 +179,7 @@ func TestRcloneProvider_Pull_NoRemote(t *testing.T) {
 	}
 }
 
-func TestRcloneProvider_Pull_EmptyID(t *testing.T) {
+func TestRcloneProvider_Pull_EmptyID(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &RcloneProvider{
 		Cfg:       nil,
 		Remote:    "myremote:path",
@@ -191,7 +191,7 @@ func TestRcloneProvider_Pull_EmptyID(t *testing.T) {
 	}
 }
 
-func TestRcloneProvider_Pull_MissingBinary(t *testing.T) {
+func TestRcloneProvider_Pull_MissingBinary(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &RcloneProvider{
 		Cfg:       nil,
 		Remote:    "myremote:path",
@@ -203,7 +203,7 @@ func TestRcloneProvider_Pull_MissingBinary(t *testing.T) {
 	}
 }
 
-func TestRcloneProvider_List(t *testing.T) {
+func TestRcloneProvider_List(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tmpDir := t.TempDir()
 	rcloneBin := createMockRclone(t, tmpDir, "20260605-120000.tar.gz\n20260604-100000.tar.gz")
 
@@ -220,7 +220,7 @@ func TestRcloneProvider_List(t *testing.T) {
 	if len(metas) != 2 {
 		t.Fatalf("List length = %d, want 2", len(metas))
 	}
-	if metas[0].ID != "20260605-120000" {
+	if metas[0].ID != testBackupID {
 		t.Errorf("metas[0].ID = %q, want 20260605-120000", metas[0].ID)
 	}
 	if metas[1].ID != "20260604-100000" {
@@ -228,7 +228,7 @@ func TestRcloneProvider_List(t *testing.T) {
 	}
 }
 
-func TestRcloneProvider_List_Empty(t *testing.T) {
+func TestRcloneProvider_List_Empty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tmpDir := t.TempDir()
 	rcloneBin := createMockRclone(t, tmpDir, "")
 
@@ -247,7 +247,7 @@ func TestRcloneProvider_List_Empty(t *testing.T) {
 	}
 }
 
-func TestRcloneProvider_List_NoRemote(t *testing.T) {
+func TestRcloneProvider_List_NoRemote(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &RcloneProvider{
 		Cfg:       nil,
 		Remote:    "",
@@ -259,7 +259,7 @@ func TestRcloneProvider_List_NoRemote(t *testing.T) {
 	}
 }
 
-func TestRcloneProvider_List_MissingBinary(t *testing.T) {
+func TestRcloneProvider_List_MissingBinary(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &RcloneProvider{
 		Cfg:       nil,
 		Remote:    "myremote:path",
@@ -271,21 +271,21 @@ func TestRcloneProvider_List_MissingBinary(t *testing.T) {
 	}
 }
 
-func TestRcloneProvider_TokenResolution(t *testing.T) {
+func TestRcloneProvider_TokenResolution(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &RcloneProvider{Remote: "myremote", RcloneBin: "rclone"}
 	if p.Remote != "myremote" {
 		t.Errorf("remote = %q, want myremote", p.Remote)
 	}
 }
 
-func TestRcloneProvider_ConfigRemote(t *testing.T) {
+func TestRcloneProvider_ConfigRemote(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &RcloneProvider{Remote: "gdrive:bak", RcloneBin: "rclone"}
 	if p.Remote != "gdrive:bak" {
 		t.Errorf("remote = %q, want gdrive:bak", p.Remote)
 	}
 }
 
-func TestRcloneProvider_DefaultBinary(t *testing.T) {
+func TestRcloneProvider_DefaultBinary(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &RcloneProvider{Remote: "myremote", RcloneBin: "rclone"}
 	if p.RcloneBin != "rclone" {
 		t.Errorf("rcloneBin = %q, want rclone", p.RcloneBin)

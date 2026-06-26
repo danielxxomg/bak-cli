@@ -355,7 +355,7 @@ func buildAdapterManifestItems(
 	entry adapterItems,
 	ctx Context,
 	d adapters.DetectedAdapter,
-	backupDir string,
+	_ string,
 	secretRelPaths map[string]bool,
 	filesDone, filesTotal int,
 ) (items []manifest.Item, files int, size int64, done int, err error) {

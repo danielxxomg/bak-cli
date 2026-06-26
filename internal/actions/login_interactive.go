@@ -30,7 +30,7 @@ type LoginInteractiveAction struct {
 // selected provider (or empty string if cancelled).
 func (a *LoginInteractiveAction) Run() (string, error) {
 	// Build provider list: include common providers even if not yet configured.
-	providers := []string{"github-gist", "github-repo", "codeberg", "gitea", "rclone"}
+	providers := []string{"github-gist", "github-repo", "codeberg", "gitea", providerRclone}
 
 	// Also include any providers already configured.
 	cfg, err := a.ConfigLoader()

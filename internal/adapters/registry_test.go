@@ -22,7 +22,7 @@ func (m *mockAdapter) ListItems(homeDir string, categories []string) ([]Item, er
 func (m *mockAdapter) Backup(homeDir, backupDir string, items []Item) error  { return nil }
 func (m *mockAdapter) Restore(backupDir, homeDir string, items []Item) error { return nil }
 
-func TestRegistry_Register(t *testing.T) {
+func TestRegistry_Register(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	r := NewRegistry()
 	if r == nil {
 		t.Fatal("NewRegistry returned nil")
@@ -40,7 +40,7 @@ func TestRegistry_Register(t *testing.T) {
 	}
 }
 
-func TestRegistry_Get(t *testing.T) {
+func TestRegistry_Get(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	r := NewRegistry()
 	r.Register(&mockAdapter{name: "opencode"})
 
@@ -58,7 +58,7 @@ func TestRegistry_Get(t *testing.T) {
 	}
 }
 
-func TestRegistry_GetByName(t *testing.T) {
+func TestRegistry_GetByName(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	r := NewRegistry()
 	r.Register(&mockAdapter{name: "opencode"})
 
@@ -71,7 +71,7 @@ func TestRegistry_GetByName(t *testing.T) {
 	}
 }
 
-func TestRegistry_All(t *testing.T) {
+func TestRegistry_All(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	r := NewRegistry()
 	r.Register(&mockAdapter{name: "opencode"})
 	r.Register(&mockAdapter{name: "claude-code"})
@@ -90,7 +90,7 @@ func TestRegistry_All(t *testing.T) {
 	}
 }
 
-func TestRegistry_List(t *testing.T) {
+func TestRegistry_List(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	r := NewRegistry()
 	r.Register(&mockAdapter{name: "opencode"})
 	r.Register(&mockAdapter{name: "claude-code"})
@@ -101,7 +101,7 @@ func TestRegistry_List(t *testing.T) {
 	}
 }
 
-func TestRegistry_DetectAll(t *testing.T) {
+func TestRegistry_DetectAll(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	r := NewRegistry()
 	r.Register(&mockAdapter{name: "opencode", installed: true, configDir: "/home/user/.config/opencode"})
 	r.Register(&mockAdapter{name: "claude-code", installed: false})
@@ -135,7 +135,7 @@ func (e *errorAdapter) Detect(homeDir string) (bool, string, error) {
 	return false, "", errors.New("detection failed")
 }
 
-func TestRegistry_RegisterOrReplace(t *testing.T) {
+func TestRegistry_RegisterOrReplace(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		first    string
@@ -178,8 +178,8 @@ func TestRegistry_RegisterOrReplace(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			r := NewRegistry()
 			if err := r.Register(&mockAdapter{name: tt.first}); err != nil {
 				t.Fatalf("first register: %v", err)
@@ -212,7 +212,7 @@ func TestRegistry_RegisterOrReplace(t *testing.T) {
 	}
 }
 
-func TestRegistry_DetectAll_GracefulError(t *testing.T) {
+func TestRegistry_DetectAll_GracefulError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	r := NewRegistry()
 	r.Register(&errorAdapter{mockAdapter{name: "broken"}})
 	r.Register(&mockAdapter{name: "opencode", installed: true, configDir: "/home/user/.config/opencode"})

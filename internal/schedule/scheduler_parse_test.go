@@ -8,7 +8,7 @@ import (
 
 // --- Schtasks CSV parsing ---
 
-func TestParseSchtasksCSV_ValidEntries(t *testing.T) {
+func TestParseSchtasksCSV_ValidEntries(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	output := `"bak-cli-work","2026-06-06 02:00:00","Ready"
 "bak-cli-home","2026-06-06 03:00:00","Ready"`
 	entries := parseSchtasksCSV(output)
@@ -23,14 +23,14 @@ func TestParseSchtasksCSV_ValidEntries(t *testing.T) {
 	}
 }
 
-func TestParseSchtasksCSV_EmptyOutput(t *testing.T) {
+func TestParseSchtasksCSV_EmptyOutput(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	entries := parseSchtasksCSV("")
 	if len(entries) != 0 {
 		t.Errorf("parseSchtasksCSV(empty) = %d entries, want 0", len(entries))
 	}
 }
 
-func TestParseSchtasksCSV_NonBakCLI(t *testing.T) {
+func TestParseSchtasksCSV_NonBakCLI(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	output := `"SomeTask","2026-06-06 02:00:00","Ready"
 "AnotherTask","2026-06-06 04:00:00","Ready"`
 	entries := parseSchtasksCSV(output)
@@ -39,7 +39,7 @@ func TestParseSchtasksCSV_NonBakCLI(t *testing.T) {
 	}
 }
 
-func TestParseSchtasksCSV_MixedEntries(t *testing.T) {
+func TestParseSchtasksCSV_MixedEntries(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	output := `"SomeTask","2026-06-06 02:00:00","Ready"
 "bak-cli-dev","2026-06-06 08:00:00","Ready"
 "AnotherTask","2026-06-06 04:00:00","Ready"`
@@ -52,7 +52,7 @@ func TestParseSchtasksCSV_MixedEntries(t *testing.T) {
 	}
 }
 
-func TestParseSchtasksCSV_SingleColumn(t *testing.T) {
+func TestParseSchtasksCSV_SingleColumn(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Malformed CSV with only task name, no extra columns.
 	output := `"bak-cli-test"`
 	entries := parseSchtasksCSV(output)
@@ -64,7 +64,7 @@ func TestParseSchtasksCSV_SingleColumn(t *testing.T) {
 	}
 }
 
-func TestParseSchtasksCSV_WhitespaceTrim(t *testing.T) {
+func TestParseSchtasksCSV_WhitespaceTrim(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	output := "\n\"bak-cli-ws\"\n\n"
 	entries := parseSchtasksCSV(output)
 	if len(entries) != 1 {

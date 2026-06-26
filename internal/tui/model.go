@@ -130,12 +130,13 @@ func (m Model) Init() tea.Cmd {
 }
 
 // subModel is the contract a screen sub-model satisfies for message
-// dispatch. All root sub-models (dashboard, progress, settings, health,
-// restore, profiles, cloud) implement Update with a value receiver, so
-// their pointer types (*screens.XModel) satisfy this interface via Go's
-// method-set promotion.
+// dispatch and rendering. All root sub-models (dashboard, progress,
+// settings, health, restore, profiles, cloud) implement Update with a
+// value receiver, so their pointer types (*screens.XModel) satisfy this
+// interface via Go's method-set promotion.
 type subModel interface {
 	Update(tea.Msg) (tea.Model, tea.Cmd)
+	View() tea.View
 }
 
 // subEntry binds a screen to get/set closures that read and write its typed
@@ -288,22 +289,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
-		// Global help overlay toggle: '?' shows help on any screen;
-		// Esc or second '?' dismisses it.
-		if m.showHelp {
-			switch msg.Code {
-			case KeyEsc, '?':
-				m.showHelp = false
-				return m, nil
-			}
-			// Block all other keys while help is visible.
-			return m, nil
-		}
-		if msg.Code == '?' {
-			m.showHelp = true
-			return m, nil
-		}
-		return m.handleKey(msg)
+		return m.handleKeyPressMsg(msg)
 
 	case screenChangeMsg:
 		return m.handleScreenChange(msg)
@@ -313,34 +299,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case actionResultMsg:
-		if msg.err == nil {
-			m.toast.Show("Backup complete", 3)
-		} else {
-			m.toast.Show(msg.err.Error(), 3)
-		}
-		// Forward to toast so it starts the tick countdown immediately.
-		newToast, cmd := m.toast.Update(msg)
-		m.toast = newToast
-		return m, cmd
+		return m.handleActionResultMsg(msg)
 
 	case screens.ProgressStepMsg:
-		// Forward to progress sub-model and re-issue channel drain.
-		if m.screen == ScreenProgress {
-			if cmd, ok := m.forwardTo(ScreenProgress, msg); ok {
-				return m, tea.Batch(cmd, drainProgressCmd(m.backupCh))
-			}
-		}
-		// Keep draining even if progress model isn't initialized.
-		return m, drainProgressCmd(m.backupCh)
+		return m.handleProgressStepMsg(msg)
 
 	case screens.ProgressDoneMsg:
-		resultErr := m.collectBackupResult()
-		if m.screen == ScreenProgress {
-			if cmd, ok := m.forwardTo(ScreenProgress, msg); ok {
-				return m, tea.Batch(cmd, func() tea.Msg { return actionResultMsg{err: resultErr} })
-			}
-		}
-		return m, func() tea.Msg { return actionResultMsg{err: resultErr} }
+		return m.handleProgressDoneMsg(msg)
 	}
 
 	// Forward remaining messages to the active sub-model.
@@ -357,9 +322,71 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleKeyPressMsg applies the global help-overlay toggle before delegating
+// to screen-specific key handling. Extracted from Update to keep the
+// message-type router within the cyclomatic complexity budget.
+func (m Model) handleKeyPressMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	// Global help overlay toggle: '?' shows help on any screen;
+	// Esc or second '?' dismisses it.
+	if m.showHelp {
+		switch msg.Code {
+		case KeyEsc, '?':
+			m.showHelp = false
+			return m, nil
+		}
+		// Block all other keys while help is visible.
+		return m, nil
+	}
+	if msg.Code == '?' {
+		m.showHelp = true
+		return m, nil
+	}
+	return m.handleKey(msg)
+}
+
+// handleActionResultMsg shows a toast for the backup result and forwards the
+// message to the toast component so its tick countdown starts immediately.
+func (m Model) handleActionResultMsg(msg actionResultMsg) (tea.Model, tea.Cmd) {
+	if msg.err == nil {
+		m.toast.Show("Backup complete", 3)
+	} else {
+		m.toast.Show(msg.err.Error(), 3)
+	}
+	newToast, cmd := m.toast.Update(msg)
+	m.toast = newToast
+	return m, cmd
+}
+
+// handleProgressStepMsg forwards a progress step to the progress sub-model
+// (when on the progress screen) and re-issues the channel drain command.
+func (m Model) handleProgressStepMsg(msg screens.ProgressStepMsg) (tea.Model, tea.Cmd) {
+	if m.screen == ScreenProgress {
+		if cmd, ok := m.forwardTo(ScreenProgress, msg); ok {
+			return m, tea.Batch(cmd, drainProgressCmd(m.backupCh))
+		}
+	}
+	// Keep draining even if progress model isn't initialized.
+	return m, drainProgressCmd(m.backupCh)
+}
+
+// handleProgressDoneMsg collects the backup result, forwards the done
+// message to the progress sub-model when visible, and emits an
+// actionResultMsg so the toast reflects the outcome.
+func (m Model) handleProgressDoneMsg(msg screens.ProgressDoneMsg) (tea.Model, tea.Cmd) {
+	resultErr := m.collectBackupResult()
+	if m.screen == ScreenProgress {
+		if cmd, ok := m.forwardTo(ScreenProgress, msg); ok {
+			return m, tea.Batch(cmd, func() tea.Msg { return actionResultMsg{err: resultErr} })
+		}
+	}
+	return m, func() tea.Msg { return actionResultMsg{err: resultErr} }
+}
+
 // handleScreenChange processes a screenChangeMsg: it records the new screen,
 // lazily initializes its sub-model on first entry (populating the subs
 // dispatch cache), and returns the sub-model's Init command.
+//
+//nolint:gocyclo // screen dispatch: each case is a uniform lazy-init + register step; per-screen construction varies (Progress sets dimensions, Health uses NewHealthModel directly), so a map-driven init closure would duplicate the get/set boilerplate (dupl) without reducing real complexity.
 func (m *Model) handleScreenChange(msg screenChangeMsg) (tea.Model, tea.Cmd) {
 	m.screen = msg.screen
 	m.ensureSubs()
@@ -415,7 +442,7 @@ func (m *Model) handleScreenChange(msg screenChangeMsg) (tea.Model, tea.Cmd) {
 		}
 		m.subs[ScreenCloud] = m.cloud
 		return *m, m.cloud.Init()
-	case ScreenWelcome:
+	case ScreenWelcome, ScreenMenu, ScreenShortcuts:
 		return *m, nil
 	}
 	return *m, nil
@@ -439,44 +466,23 @@ func (m *Model) collectBackupResult() error {
 func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch m.screen {
 	case ScreenMenu:
-		switch msg.Code {
-		case KeyQuit, KeyEsc:
-			return m, tea.Quit
-		case KeyDown, tea.KeyDown:
-			m.cursor = (m.cursor + 1) % len(m.menuItems)
-		case KeyUp, tea.KeyUp:
-			m.cursor = (m.cursor - 1 + len(m.menuItems)) % len(m.menuItems)
-		case KeyEnter:
-			return m.handleMenuEnter()
-		case '?':
-			m.screen = ScreenShortcuts
-			return m, nil
-		}
+		return m.handleMenuKey(msg)
 	case ScreenWelcome:
-		switch msg.Code {
-		case KeyQuit, KeyEsc:
-			return m, tea.Quit
-		case KeyEnter:
+		return m.handleWelcomeKey(msg)
+	case ScreenCloud:
+		if msg.Code == KeyQuit || msg.Code == KeyEsc {
 			m.screen = ScreenMenu
 			return m, nil
 		}
-	case ScreenCloud:
-		switch msg.Code {
-		case KeyQuit, KeyEsc:
-			m.screen = ScreenMenu
-			return m, nil
-		default:
-			if cmd, ok := m.forwardTo(ScreenCloud, msg); ok {
-				return m, cmd
-			}
+		if cmd, ok := m.forwardTo(ScreenCloud, msg); ok {
+			return m, cmd
 		}
 	case ScreenDashboard:
 		if newM, cmd, handled := m.handleDashboardKey(msg); handled {
 			return newM, cmd
 		}
 	case ScreenShortcuts:
-		switch msg.Code {
-		case KeyQuit, KeyEsc, '?':
+		if msg.Code == KeyQuit || msg.Code == KeyEsc || msg.Code == '?' {
 			m.screen = ScreenMenu
 			return m, nil
 		}
@@ -484,6 +490,41 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if cmd, ok := m.forwardTo(m.screen, msg); ok {
 			return m, cmd
 		}
+	}
+	return m, nil
+}
+
+// handleMenuKey routes keystrokes on the main menu: quit, cursor movement,
+// enter (screen selection), and the shortcuts overlay. Extracted from
+// handleKey to keep the screen router within the complexity budget.
+func (m Model) handleMenuKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch msg.Code {
+	case KeyQuit, KeyEsc:
+		return m, tea.Quit
+	case KeyDown, tea.KeyDown:
+		m.cursor = (m.cursor + 1) % len(m.menuItems)
+		return m, nil
+	case KeyUp, tea.KeyUp:
+		m.cursor = (m.cursor - 1 + len(m.menuItems)) % len(m.menuItems)
+		return m, nil
+	case KeyEnter:
+		return m.handleMenuEnter()
+	case '?':
+		m.screen = ScreenShortcuts
+		return m, nil
+	}
+	return m, nil
+}
+
+// handleWelcomeKey routes keystrokes on the first-run welcome screen:
+// quit or press enter to proceed to the main menu.
+func (m Model) handleWelcomeKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch msg.Code {
+	case KeyQuit, KeyEsc:
+		return m, tea.Quit
+	case KeyEnter:
+		m.screen = ScreenMenu
+		return m, nil
 	}
 	return m, nil
 }
@@ -610,46 +651,46 @@ func (m Model) renderContent() string {
 // sub-model when one is initialized and falling back to placeholder text or
 // the stateless screen renderers otherwise.
 func (m Model) renderScreen() string {
-	switch m.screen {
-	case ScreenMenu:
+	if m.screen == ScreenMenu {
 		return m.renderMenu()
-	case ScreenDashboard:
-		if m.dashboard != nil {
-			return m.dashboard.View().Content
-		}
-	case ScreenProgress:
-		if m.progress != nil {
-			return m.progress.View().Content
-		}
+	}
+	if content, ok := m.subView(m.screen); ok {
+		return content
+	}
+	// Fall back to stateless renderers / placeholders for screens without
+	// an initialized sub-model.
+	switch m.screen {
 	case ScreenCloud:
-		if m.cloud != nil {
-			return m.cloud.View().Content
-		}
 		return screens.RenderCloudStatus(screens.CloudInfo{}, m.width)
-	case ScreenSettings:
-		if m.settings != nil {
-			return m.settings.View().Content
-		}
-	case ScreenHealth:
-		if m.health != nil {
-			return m.health.View().Content
-		}
 	case ScreenRestore:
-		if m.restore != nil {
-			return m.restore.View().Content
-		}
 		return "Restore"
 	case ScreenProfiles:
-		if m.profiles != nil {
-			return m.profiles.View().Content
-		}
 		return "Profiles"
 	case ScreenWelcome:
 		return screens.RenderWelcome(m.width)
 	case ScreenShortcuts:
 		return screens.RenderShortcuts(m.width)
+	default:
+		// Screens with an initialized sub-model are handled by subView
+		// above; remaining screens render an empty placeholder.
+		return ""
 	}
-	return ""
+}
+
+// subView returns the rendered content of the sub-model registered for
+// screen s, or ("", false) when no sub-model is registered or initialized.
+// It reuses the subEntries dispatch map so render routing stays in sync with
+// message dispatch.
+func (m Model) subView(s screen) (string, bool) {
+	entry, ok := subEntries[s]
+	if !ok {
+		return "", false
+	}
+	sub := entry.get(&m)
+	if sub == nil {
+		return "", false
+	}
+	return sub.View().Content, true
 }
 
 // renderMenu composes the main menu view using the full screen renderer

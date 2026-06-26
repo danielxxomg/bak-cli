@@ -65,7 +65,7 @@ type ToggleItem struct {
 
 // NewWizardModel creates a WizardModel for the given mode.
 func NewWizardModel(mode string, providers []string) *WizardModel {
-	presets := []string{"quick", "full", "skills"}
+	presets := []string{"quick", "full", categorySkills}
 
 	// Start step depends on mode: profile-create in TUI path starts with
 	// name input; CLI-driven wizards (login, profile create) start at provider.
@@ -82,10 +82,10 @@ func NewWizardModel(mode string, providers []string) *WizardModel {
 	}
 
 	// Default categories.
-	defaultCategories := []string{"skills", "commands", "config", "plugins", "agents"}
+	defaultCategories := []string{categorySkills, "commands", "config", "plugins", "agents"}
 	categoryItems := make([]ToggleItem, len(defaultCategories))
 	for i, c := range defaultCategories {
-		categoryItems[i] = ToggleItem{Name: c, Checked: c == "skills" || c == "config"}
+		categoryItems[i] = ToggleItem{Name: c, Checked: c == categorySkills || c == "config"}
 	}
 
 	return &WizardModel{
@@ -136,7 +136,7 @@ func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Quitting = true
 			return m, tea.Quit
 
-		case "enter":
+		case keyEnter:
 			return m.handleEnter()
 
 		default:
@@ -218,15 +218,17 @@ func (m *WizardModel) handleNavigation(msg tea.KeyPressMsg) (tea.Model, tea.Cmd)
 
 	case StepAdapters:
 		MoveCursor(&m.AdapterCursor, len(m.AdapterItems)-1, msg.String())
-		if msg.String() == "space" && len(m.AdapterItems) > 0 {
+		if msg.String() == keySpace && len(m.AdapterItems) > 0 {
 			m.AdapterItems[m.AdapterCursor].Checked = !m.AdapterItems[m.AdapterCursor].Checked
 		}
 
 	case StepCategories:
 		MoveCursor(&m.CategoryCursor, len(m.CategoryItems)-1, msg.String())
-		if msg.String() == "space" && len(m.CategoryItems) > 0 {
+		if msg.String() == keySpace && len(m.CategoryItems) > 0 {
 			m.CategoryItems[m.CategoryCursor].Checked = !m.CategoryItems[m.CategoryCursor].Checked
 		}
+	default:
+		// StepConfirm displays a summary; no navigation keys
 	}
 	return m, nil
 }
@@ -292,8 +294,8 @@ func (m *WizardModel) View() tea.View {
 
 	b.WriteString("\n")
 	b.WriteString(components.RenderHelp([]components.HelpKey{
-		{Key: "enter", Desc: "next"},
-		{Key: "q/esc", Desc: "quit"},
+		{Key: keyEnter, Desc: "next"},
+		{Key: "q/esc", Desc: keyQuit},
 	}))
 
 	return tea.NewView(b.String())

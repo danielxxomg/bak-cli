@@ -73,52 +73,35 @@ func (a *PullAction) Run(args []string) error {
 	}
 
 	// 3. Resolve provider via injected factory.
-	if a.Factory == nil {
-		return fmt.Errorf("provider factory is not configured")
-	}
-
-	provider, err := a.Factory.CreateProvider(a.Provider)
+	provider, err := a.createProvider()
 	if err != nil {
-		return fmt.Errorf("provider: %w", err)
-	}
-	if a.Verbose {
-		fmt.Fprintf(a.stderr(), "Using provider: %s\n", provider.Name()) //nolint:errcheck
+		return err
 	}
 
 	// 4. Resolve remote backup ID.
-	var remoteID string
-	if len(args) > 0 && args[0] != "" {
-		remoteID = args[0]
-	} else {
-		id, err := cfg.Get("github.gist_id")
-		if err != nil || id == "" {
-			return fmt.Errorf("no stored backup ID — provide one as argument or run 'bak push' first")
-		}
-		remoteID = id
+	remoteID, err := a.resolveRemoteID(args, cfg)
+	if err != nil {
+		return err
 	}
 
-	// 4. Download from provider.
+	// 5. Download from provider.
 	fmt.Fprintf(a.stdout(), "Downloading backup %s...\n", remoteID) //nolint:errcheck
-	if a.ProgressFn != nil {
-		a.ProgressFn("Downloading", 0, 2)
-	}
+	a.reportProgress("Downloading", 0)
 	archiveData, err := provider.Pull(remoteID)
 	if err != nil {
 		return fmt.Errorf("pull: %w", err)
 	}
-	if a.ProgressFn != nil {
-		a.ProgressFn("Downloading", 1, 2)
-	}
+	a.reportProgress("Downloading", 1)
 
 	archiveStr := string(archiveData)
 
-	// 5. Decrypt if encrypted.
+	// 6. Decrypt if encrypted.
 	archiveStr, err = a.decryptArchiveIfNeeded(archiveStr)
 	if err != nil {
 		return err
 	}
 
-	// 6. Extract to local bak dir.
+	// 7. Extract to local bak dir.
 	backupID := time.Now().UTC().Format("20060102-150405")
 	backupPath := filepath.Join(bakDir, "backups", backupID)
 
@@ -127,20 +110,57 @@ func (a *PullAction) Run(args []string) error {
 	}
 
 	fmt.Fprintf(a.stdout(), "Extracting backup %s...\n", backupID) //nolint:errcheck
-	if a.ProgressFn != nil {
-		a.ProgressFn("Extracting", 1, 2)
-	}
+	a.reportProgress("Extracting", 1)
 	if err := cloud.UntarGz(archiveStr, backupPath); err != nil {
 		return fmt.Errorf("extract backup: %w", err)
 	}
 
 	fmt.Fprintf(a.stdout(), "✅ Backup pulled: %s\n", backupID)                  //nolint:errcheck
 	fmt.Fprintf(a.stdout(), "   Run 'bak restore %s' to apply it.\n", backupID) //nolint:errcheck
-	if a.ProgressFn != nil {
-		a.ProgressFn("Complete", 2, 2)
-	}
+	a.reportProgress("Complete", 2)
 
 	return nil
+}
+
+// createProvider resolves the cloud provider via the injected factory and
+// emits a verbose notice when available. Extracted from Run to keep the
+// linear pipeline readable and within the complexity budget.
+func (a *PullAction) createProvider() (cloud.Provider, error) {
+	if a.Factory == nil {
+		return nil, fmt.Errorf("provider factory is not configured")
+	}
+	provider, err := a.Factory.CreateProvider(a.Provider)
+	if err != nil {
+		return nil, fmt.Errorf("provider: %w", err)
+	}
+	if a.Verbose {
+		fmt.Fprintf(a.stderr(), "Using provider: %s\n", provider.Name()) //nolint:errcheck
+	}
+	return provider, nil
+}
+
+// resolveRemoteID picks the remote backup ID from the first positional
+// argument, falling back to the stored "github.gist_id" config key when no
+// argument is supplied.
+func (a *PullAction) resolveRemoteID(args []string, cfg *config.Config) (string, error) {
+	if len(args) > 0 && args[0] != "" {
+		return args[0], nil
+	}
+	id, err := cfg.Get("github.gist_id")
+	if err != nil || id == "" {
+		return "", fmt.Errorf("no stored backup ID — provide one as argument or run 'bak push' first")
+	}
+	return id, nil
+}
+
+// reportProgress invokes the optional ProgressFn callback when configured.
+// The pull workflow is a fixed 2-step pipeline (download + extract), so the
+// total is constant. Centralizes the nil check so the Run pipeline stays
+// linear.
+func (a *PullAction) reportProgress(step string, done int) {
+	if a.ProgressFn != nil {
+		a.ProgressFn(step, done, 2)
+	}
 }
 
 // decryptArchiveIfNeeded decodes + decrypts the archive when it is recognized

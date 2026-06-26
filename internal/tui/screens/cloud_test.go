@@ -15,7 +15,7 @@ import (
 // TestRenderCloudStatus — RED (cloud.go does not exist yet)
 // =============================================================================
 
-func TestRenderCloudStatus(t *testing.T) {
+func TestRenderCloudStatus(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	info := CloudInfo{
 		Provider:   "Google Drive",
 		Connected:  true,
@@ -58,7 +58,7 @@ func TestRenderCloudStatus(t *testing.T) {
 // TestRenderCloudStatus_NoProvider — RED
 // =============================================================================
 
-func TestRenderCloudStatus_NoProvider(t *testing.T) {
+func TestRenderCloudStatus_NoProvider(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	info := CloudInfo{
 		Provider: "",
 	}
@@ -78,7 +78,7 @@ func TestRenderCloudStatus_NoProvider(t *testing.T) {
 // TestRenderCloudStatus_Counts — RED
 // =============================================================================
 
-func TestRenderCloudStatus_Counts(t *testing.T) {
+func TestRenderCloudStatus_Counts(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name      string
 		info      CloudInfo
@@ -123,8 +123,8 @@ func TestRenderCloudStatus_Counts(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			output := RenderCloudStatus(tt.info, 80)
 
 			if !strings.Contains(output, tt.wantLocal) {
@@ -141,7 +141,7 @@ func TestRenderCloudStatus_Counts(t *testing.T) {
 // TestRenderCloudStatus_NarrowTerminal — RED
 // =============================================================================
 
-func TestRenderCloudStatus_NarrowTerminal(t *testing.T) {
+func TestRenderCloudStatus_NarrowTerminal(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	info := CloudInfo{
 		Provider:  "Google Drive",
 		Connected: true,
@@ -165,7 +165,7 @@ func TestRenderCloudStatus_NarrowTerminal(t *testing.T) {
 // TestRenderCloudStatus_DisconnectedProvider — RED
 // =============================================================================
 
-func TestRenderCloudStatus_DisconnectedProvider(t *testing.T) {
+func TestRenderCloudStatus_DisconnectedProvider(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	info := CloudInfo{
 		Provider:  "GitHub",
 		Connected: false,
@@ -184,7 +184,7 @@ func TestRenderCloudStatus_DisconnectedProvider(t *testing.T) {
 // TestRenderCloudStatus_HelpBar — RED (Phase 3: help bar persistence)
 // =============================================================================
 
-func TestRenderCloudStatus_HelpBar(t *testing.T) {
+func TestRenderCloudStatus_HelpBar(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	info := CloudInfo{
 		Provider:   "Google Drive",
 		Connected:  true,
@@ -203,7 +203,7 @@ func TestRenderCloudStatus_HelpBar(t *testing.T) {
 
 // TestRenderCloudStatus_HelpBar_NoProvider verifies the help bar appears
 // even when no cloud provider is configured (triangulation).
-func TestRenderCloudStatus_HelpBar_NoProvider(t *testing.T) {
+func TestRenderCloudStatus_HelpBar_NoProvider(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	info := CloudInfo{
 		Provider: "",
 	}
@@ -224,7 +224,7 @@ func TestRenderCloudStatus_HelpBar_NoProvider(t *testing.T) {
 // CloudModel Tests — RED (CloudModel sub-model does not exist yet)
 // =============================================================================
 
-func TestCloudModel_New(t *testing.T) {
+func TestCloudModel_New(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	statusFn := func() (CloudInfo, error) {
 		return CloudInfo{
 			Provider:  "github",
@@ -239,7 +239,7 @@ func TestCloudModel_New(t *testing.T) {
 	}
 }
 
-func TestCloudModel_Init(t *testing.T) {
+func TestCloudModel_Init(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	statusFn := func() (CloudInfo, error) {
 		return CloudInfo{
 			Provider:  "github",
@@ -266,7 +266,7 @@ func TestCloudModel_Init(t *testing.T) {
 	}
 }
 
-func TestCloudModel_View(t *testing.T) {
+func TestCloudModel_View(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	statusFn := func() (CloudInfo, error) {
 		return CloudInfo{
 			Provider:   "github",
@@ -297,7 +297,7 @@ func TestCloudModel_View(t *testing.T) {
 	}
 }
 
-func TestCloudModel_WindowSize(t *testing.T) {
+func TestCloudModel_WindowSize(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewCloudModel(nil)
 	newModel, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	cm := newModel.(CloudModel)
@@ -314,7 +314,7 @@ func TestCloudModel_WindowSize(t *testing.T) {
 // Phase 3: CloudModel error and disconnect coverage
 // =============================================================================
 
-func TestCloudModel_Update_StatusError(t *testing.T) {
+func TestCloudModel_Update_StatusError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	statusFn := func() (CloudInfo, error) {
 		return CloudInfo{}, fmt.Errorf("network unreachable")
 	}
@@ -336,7 +336,7 @@ func TestCloudModel_Update_StatusError(t *testing.T) {
 	}
 }
 
-func TestCloudModel_View_Disconnected(t *testing.T) {
+func TestCloudModel_View_Disconnected(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewCloudModel(nil)
 	m.Width = 80
 	m.Height = 24
@@ -356,7 +356,7 @@ func TestCloudModel_View_Disconnected(t *testing.T) {
 	}
 }
 
-func TestCloudModel_View_InitState(t *testing.T) {
+func TestCloudModel_View_InitState(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Before Init completes, Info is empty and no error — View shows "No provider".
 	m := NewCloudModel(nil)
 	m.Width = 80

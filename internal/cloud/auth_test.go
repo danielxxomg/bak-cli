@@ -10,13 +10,13 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/config"
 )
 
-func TestValidateToken_Success(t *testing.T) {
+func TestValidateToken_Success(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cleanup := setupMockGistAPI(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/user" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		if r.Header.Get("Authorization") != "Bearer valid-token" {
+		if r.Header.Get("Authorization") != testBearerToken {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -32,7 +32,7 @@ func TestValidateToken_Success(t *testing.T) {
 	}
 }
 
-func TestValidateToken_Unauthorized(t *testing.T) {
+func TestValidateToken_Unauthorized(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cleanup := setupMockGistAPI(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	})
@@ -47,14 +47,14 @@ func TestValidateToken_Unauthorized(t *testing.T) {
 	}
 }
 
-func TestValidateToken_Empty(t *testing.T) {
+func TestValidateToken_Empty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	err := ValidateToken("")
 	if err == nil {
 		t.Fatal("expected error for empty token")
 	}
 }
 
-func TestValidateToken_NoGistScope(t *testing.T) {
+func TestValidateToken_NoGistScope(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cleanup := setupMockGistAPI(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/user" {
 			w.WriteHeader(http.StatusNotFound)
@@ -76,7 +76,7 @@ func TestValidateToken_NoGistScope(t *testing.T) {
 	}
 }
 
-func TestValidateToken_FineGrainedPAT(t *testing.T) {
+func TestValidateToken_FineGrainedPAT(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Fine-grained PATs don't have X-OAuth-Scopes header.
 	_, cleanup := setupMockGistAPI(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -90,11 +90,11 @@ func TestValidateToken_FineGrainedPAT(t *testing.T) {
 	}
 }
 
-func TestResolveProviderToken(t *testing.T) {
+func TestResolveProviderToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	origEnv := os.Getenv("GITHUB_TOKEN")
 	defer os.Setenv("GITHUB_TOKEN", origEnv)
 
-	t.Run("github-gist from environment", func(t *testing.T) {
+	t.Run("github-gist from environment", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		os.Setenv("GITHUB_TOKEN", "ghp_env123")
 		defer os.Unsetenv("GITHUB_TOKEN")
 
@@ -107,7 +107,7 @@ func TestResolveProviderToken(t *testing.T) {
 		}
 	})
 
-	t.Run("github-gist from config", func(t *testing.T) {
+	t.Run("github-gist from config", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		os.Unsetenv("GITHUB_TOKEN")
 
 		cfg := &config.Config{}
@@ -122,7 +122,7 @@ func TestResolveProviderToken(t *testing.T) {
 		}
 	})
 
-	t.Run("env takes precedence over config", func(t *testing.T) {
+	t.Run("env takes precedence over config", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		os.Setenv("GITHUB_TOKEN", "env_wins")
 		defer os.Unsetenv("GITHUB_TOKEN")
 
@@ -138,7 +138,7 @@ func TestResolveProviderToken(t *testing.T) {
 		}
 	})
 
-	t.Run("no token anywhere", func(t *testing.T) {
+	t.Run("no token anywhere", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		os.Unsetenv("GITHUB_TOKEN")
 
 		tok, source := ResolveProviderToken("github-gist", nil)
@@ -150,12 +150,12 @@ func TestResolveProviderToken(t *testing.T) {
 		}
 	})
 
-	t.Run("codeberg from environment", func(t *testing.T) {
+	t.Run("codeberg from environment", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		os.Setenv("CODEBERG_TOKEN", "cb_token789")
 		os.Unsetenv("GITHUB_TOKEN")
 		defer os.Unsetenv("CODEBERG_TOKEN")
 
-		tok, source := ResolveProviderToken("codeberg", nil)
+		tok, source := ResolveProviderToken(codebergName, nil)
 		if tok != "cb_token789" {
 			t.Errorf("token = %q, want cb_token789", tok)
 		}
@@ -164,7 +164,7 @@ func TestResolveProviderToken(t *testing.T) {
 		}
 	})
 
-	t.Run("gitea from config", func(t *testing.T) {
+	t.Run("gitea from config", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		os.Unsetenv("GITEA_TOKEN")
 
 		cfg := &config.Config{}
@@ -179,7 +179,7 @@ func TestResolveProviderToken(t *testing.T) {
 		}
 	})
 
-	t.Run("unknown provider returns empty", func(t *testing.T) {
+	t.Run("unknown provider returns empty", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		tok, source := ResolveProviderToken("unknown-provider", nil)
 		if tok != "" {
 			t.Errorf("expected empty token for unknown provider, got %q", tok)
@@ -189,7 +189,7 @@ func TestResolveProviderToken(t *testing.T) {
 		}
 	})
 
-	t.Run("github-repo uses GITHUB_TOKEN", func(t *testing.T) {
+	t.Run("github-repo uses GITHUB_TOKEN", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		os.Setenv("GITHUB_TOKEN", "repo_token")
 		defer os.Unsetenv("GITHUB_TOKEN")
 
@@ -200,12 +200,12 @@ func TestResolveProviderToken(t *testing.T) {
 	})
 }
 
-func TestResolveToken(t *testing.T) {
+func TestResolveToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Save and restore env.
 	origEnv := os.Getenv("GITHUB_TOKEN")
 	defer os.Setenv("GITHUB_TOKEN", origEnv)
 
-	t.Run("from environment", func(t *testing.T) {
+	t.Run("from environment", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		os.Setenv("GITHUB_TOKEN", "env-token-123")
 		defer os.Unsetenv("GITHUB_TOKEN")
 
@@ -218,7 +218,7 @@ func TestResolveToken(t *testing.T) {
 		}
 	})
 
-	t.Run("from config", func(t *testing.T) {
+	t.Run("from config", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		os.Unsetenv("GITHUB_TOKEN")
 
 		cfg := &config.Config{}
@@ -233,7 +233,7 @@ func TestResolveToken(t *testing.T) {
 		}
 	})
 
-	t.Run("environment takes precedence over config", func(t *testing.T) {
+	t.Run("environment takes precedence over config", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		os.Setenv("GITHUB_TOKEN", "env-first")
 		defer os.Unsetenv("GITHUB_TOKEN")
 
@@ -249,7 +249,7 @@ func TestResolveToken(t *testing.T) {
 		}
 	})
 
-	t.Run("no token anywhere", func(t *testing.T) {
+	t.Run("no token anywhere", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		os.Unsetenv("GITHUB_TOKEN")
 
 		tok, source := ResolveToken(nil)

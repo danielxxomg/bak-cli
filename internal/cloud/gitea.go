@@ -52,7 +52,7 @@ func NewGiteaProvider(cfg *config.Config, token, baseURL, repo string) *GiteaPro
 		baseURL: baseURL,
 		repo:    repo,
 		branch:  defaultBranch,
-		name:    "gitea",
+		name:    providerGitea,
 		client:  &http.Client{Timeout: giteaTimeout},
 	}
 }
@@ -75,7 +75,7 @@ func NewCodebergProvider(cfg *config.Config, token, repo string) *CodebergProvid
 		}
 	}
 	gp := NewGiteaProvider(cfg, token, "https://codeberg.org", repo)
-	gp.name = "codeberg"
+	gp.name = codebergName
 	return &CodebergProvider{
 		GiteaProvider: gp,
 	}
@@ -83,7 +83,7 @@ func NewCodebergProvider(cfg *config.Config, token, repo string) *CodebergProvid
 
 // Name returns "codeberg".
 func (p *CodebergProvider) Name() string {
-	return "codeberg"
+	return codebergName
 }
 
 // Name returns the provider name.
@@ -134,7 +134,7 @@ func (p *GiteaProvider) Pull(id string) ([]byte, error) {
 	filePath := fmt.Sprintf("%s/%s.tar.gz", giteaBackupDir, id)
 	url := fmt.Sprintf("%s/api/v1/repos/%s/contents/%s", p.baseURL, p.repo, filePath)
 
-	return pullContentFromAPI(p.client, p.token, p.repo, id, url, "application/json", p.name+": pull")
+	return pullContentFromAPI(p.client, p.token, p.repo, id, url, acceptJSON, p.name+": pull")
 }
 
 // List returns metadata for all bak backups stored in the Gitea repo.
@@ -150,7 +150,7 @@ func (p *GiteaProvider) List() ([]BackupMeta, error) {
 	}
 
 	url := fmt.Sprintf("%s/api/v1/repos/%s/contents/%s", p.baseURL, p.repo, giteaBackupDir)
-	return listContentsDir(p.client, url, p.token, "application/json", p.name+": list",
+	return listContentsDir(p.client, url, p.token, acceptJSON, p.name+": list",
 		func(item contentResponse) string {
 			return fmt.Sprintf("%s/%s/src/branch/%s/%s/%s", p.baseURL, p.repo, p.branch, giteaBackupDir, item.Name)
 		})
@@ -183,5 +183,5 @@ func (p *GiteaProvider) writeFile(method, filePath, content, message, sha string
 		Branch:  p.branch,
 		SHA:     sha,
 	}
-	return writeContentFile(p.client, p.token, method, "application/json", url, req)
+	return writeContentFile(p.client, p.token, method, acceptJSON, url, req)
 }

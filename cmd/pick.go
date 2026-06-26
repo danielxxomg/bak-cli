@@ -80,7 +80,7 @@ func (m pickModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.items[m.cursor].checked = !m.items[m.cursor].checked
 			}
 
-		case "enter":
+		case keyEnter:
 			m.confirmed = true
 			return m, tea.Quit
 		}
@@ -112,7 +112,7 @@ func (m pickModel) View() tea.View {
 	b.WriteString("\n")
 	b.WriteString(components.RenderHelp([]components.HelpKey{
 		{Key: "space", Desc: "toggle"},
-		{Key: "enter", Desc: "confirm"},
+		{Key: keyEnter, Desc: "confirm"},
 		{Key: "q/esc", Desc: "quit"},
 	}))
 

@@ -28,8 +28,8 @@ func setupMockGistAPI(t *testing.T, handler http.HandlerFunc) (*httptest.Server,
 	}
 }
 
-func TestCreateGist_Validation(t *testing.T) {
-	t.Run("empty token", func(t *testing.T) {
+func TestCreateGist_Validation(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("empty token", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		_, err := CreateGist("", "desc", []GistFile{{Filename: "f", Content: "c"}})
 		if err == nil {
 			t.Fatal("expected error for empty token")
@@ -39,7 +39,7 @@ func TestCreateGist_Validation(t *testing.T) {
 		}
 	})
 
-	t.Run("no files", func(t *testing.T) {
+	t.Run("no files", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		_, err := CreateGist("token", "desc", nil)
 		if err == nil {
 			t.Fatal("expected error for empty files")
@@ -50,22 +50,22 @@ func TestCreateGist_Validation(t *testing.T) {
 	})
 }
 
-func TestGistCRUD_RoundTrip(t *testing.T) {
+func TestGistCRUD_RoundTrip(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// In-memory gist store for the mock server.
 	var storedGist gistResponse
 
 	_, cleanup := setupMockGistAPI(t, func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
-		if auth != "Bearer valid-token" {
+		if auth != testBearerToken {
 			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode(map[string]string{"message": "Bad credentials"})
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 
 		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/gists":
+		case r.Method == http.MethodPost && r.URL.Path == gistsEndpoint:
 			var req gistCreateRequest
 			json.NewDecoder(r.Body).Decode(&req)
 			storedGist = gistResponse{
@@ -164,7 +164,7 @@ func TestGistCRUD_RoundTrip(t *testing.T) {
 	}
 }
 
-func TestGist_InvalidToken(t *testing.T) {
+func TestGist_InvalidToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cleanup := setupMockGistAPI(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]string{"message": "Bad credentials"})
@@ -182,7 +182,7 @@ func TestGist_InvalidToken(t *testing.T) {
 	}
 }
 
-func TestGist_NetworkError(t *testing.T) {
+func TestGist_NetworkError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Point at an unreachable address.
 	origBase := GistAPIBase
 	origClient := httpClient
@@ -201,7 +201,7 @@ func TestGist_NetworkError(t *testing.T) {
 	}
 }
 
-func TestGist_NullInputs(t *testing.T) {
+func TestGist_NullInputs(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// GetGist with empty token.
 	_, err := GetGist("", "gist123")
 	if err == nil {

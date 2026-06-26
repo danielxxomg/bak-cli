@@ -18,7 +18,7 @@ import (
 // This is the [VERIFY] test for task 1.5. It lives in package actions (not
 // backup) because the backup package cannot import actions (import direction),
 // and a both-paths test needs to construct a BackupAction.
-func TestCLIAndTUIPathsProduceIdenticalManifest(t *testing.T) {
+func TestCLIAndTUIPathsProduceIdenticalManifest(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	const preset = "full"
 
 	runCLI := func(t *testing.T) []manifest.Item {

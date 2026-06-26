@@ -15,8 +15,8 @@ const ConfigRelPath = ".codex"
 
 // CategoryMap maps category names to their subdirectory/file patterns, exposed for knowledge validation.
 var CategoryMap = map[string]adapters.CategoryDir{
-	"config": {SubPath: "", IsDir: false},
-	"agents": {SubPath: "", IsDir: false},
+	configCategory: {SubPath: "", IsDir: false},
+	"agents":       {SubPath: "", IsDir: false},
 }
 
 var base = adapters.GenericAdapter{
@@ -25,9 +25,9 @@ var base = adapters.GenericAdapter{
 	Categories:       CategoryMap,
 	DetectErrContext: "stat codex config dir",
 	RootConfigFiles: map[string]string{
-		"config.toml":     "config",
-		"instructions.md": "config",
-		"config.json":     "config",
+		"config.toml":     configCategory,
+		"instructions.md": configCategory,
+		"config.json":     configCategory,
 		"mcp.json":        "mcp",
 	},
 }

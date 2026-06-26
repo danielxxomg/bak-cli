@@ -312,27 +312,41 @@ func (c *Config) Get(key string) (string, error) {
 
 	// Check nested providers first.
 	if provider, subkey, ok := parseNestedKey(key); ok {
-		pc, exists := c.Providers[provider]
-		if !exists {
-			return "", fmt.Errorf("unknown config key: %q (provider %q not configured)", key, provider)
-		}
-		switch subkey {
-		case "token":
-			return pc.Token, nil
-		case "gist_id":
-			return pc.GistID, nil
-		case "repo":
-			return pc.Repo, nil
-		case "remote":
-			return pc.Remote, nil
-		case "base_url":
-			return pc.BaseURL, nil
-		default:
-			return "", fmt.Errorf("unknown config key: %q (unsupported field %q)", key, subkey)
-		}
+		return c.getNestedProvider(key, provider, subkey)
 	}
 
 	// Legacy flat keys with compat shim.
+	return c.getLegacyFlat(key)
+}
+
+// getNestedProvider reads a field from a nested provider config entry
+// ("providers.<name>.<field>"). It returns an error when the provider is
+// not configured or the field is unsupported.
+func (c *Config) getNestedProvider(key, provider, subkey string) (string, error) {
+	pc, exists := c.Providers[provider]
+	if !exists {
+		return "", fmt.Errorf("unknown config key: %q (provider %q not configured)", key, provider)
+	}
+	switch subkey {
+	case "token":
+		return pc.Token, nil
+	case "gist_id":
+		return pc.GistID, nil
+	case "repo":
+		return pc.Repo, nil
+	case "remote":
+		return pc.Remote, nil
+	case "base_url":
+		return pc.BaseURL, nil
+	default:
+		return "", fmt.Errorf("unknown config key: %q (unsupported field %q)", key, subkey)
+	}
+}
+
+// getLegacyFlat resolves the v0.1.0 flat keys ("github.token",
+// "github.gist_id") with a compat shim: the nested providers map is
+// preferred, falling back to the legacy root-level fields.
+func (c *Config) getLegacyFlat(key string) (string, error) {
 	switch key {
 	case "github.token":
 		if c.Providers != nil {

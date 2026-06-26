@@ -70,7 +70,7 @@ func createBackupForRestore(t *testing.T, home string) string {
 
 // --- tests -------------------------------------------------------------
 
-func TestRestoreAction_DryRun(t *testing.T) {
+func TestRestoreAction_DryRun(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)
 
@@ -91,7 +91,7 @@ func TestRestoreAction_DryRun(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_MissingManifest(t *testing.T) {
+func TestRestoreAction_MissingManifest(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	// Backup dir without manifest.
@@ -117,7 +117,7 @@ func TestRestoreAction_MissingManifest(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_MissingBackup(t *testing.T) {
+func TestRestoreAction_MissingBackup(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	action := &RestoreAction{
@@ -131,7 +131,7 @@ func TestRestoreAction_MissingBackup(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_ChecksumMismatch(t *testing.T) {
+func TestRestoreAction_ChecksumMismatch(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)
 
@@ -157,7 +157,7 @@ func TestRestoreAction_ChecksumMismatch(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_DryRunShowsDiff(t *testing.T) {
+func TestRestoreAction_DryRunShowsDiff(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)
 
@@ -178,7 +178,7 @@ func TestRestoreAction_DryRunShowsDiff(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_ApplyRestore(t *testing.T) {
+func TestRestoreAction_ApplyRestore(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)
 
@@ -203,7 +203,7 @@ func TestRestoreAction_ApplyRestore(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_UserHomeDirError(t *testing.T) {
+func TestRestoreAction_UserHomeDirError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	mockFS := &MockFileSystem{
 		HomeDir:    "",
 		StatResult: map[string]MockStatResult{},
@@ -222,7 +222,7 @@ func TestRestoreAction_UserHomeDirError(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_VerboseOutput(t *testing.T) {
+func TestRestoreAction_VerboseOutput(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)
 
@@ -244,7 +244,7 @@ func TestRestoreAction_VerboseOutput(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_DryRunWithDiffs(t *testing.T) {
+func TestRestoreAction_DryRunWithDiffs(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)
 
@@ -266,7 +266,7 @@ func TestRestoreAction_DryRunWithDiffs(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_RestoreFile_MkdirError(t *testing.T) {
+func TestRestoreAction_RestoreFile_MkdirError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)
 
@@ -295,7 +295,7 @@ func TestRestoreAction_RestoreFile_MkdirError(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_CountByStatus_AllTypes(t *testing.T) {
+func TestRestoreAction_CountByStatus_AllTypes(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	diffs := []restorepkg.FileDiff{
 		{Status: restorepkg.DiffNew, SourcePath: "/a"},
 		{Status: restorepkg.DiffNew, SourcePath: "/b"},
@@ -318,7 +318,7 @@ func TestRestoreAction_CountByStatus_AllTypes(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_RestoreFile_PathTraversalBackupDir(t *testing.T) {
+func TestRestoreAction_RestoreFile_PathTraversalBackupDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	action := &RestoreAction{
 		FS:        newHomeFS(home),
@@ -338,7 +338,7 @@ func TestRestoreAction_RestoreFile_PathTraversalBackupDir(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_RestoreFile_PathTraversalTarget(t *testing.T) {
+func TestRestoreAction_RestoreFile_PathTraversalTarget(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	bakDir := filepath.Join(home, ".bak")
@@ -366,7 +366,7 @@ func TestRestoreAction_RestoreFile_PathTraversalTarget(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_UserHomeDir_Error(t *testing.T) {
+func TestRestoreAction_UserHomeDir_Error(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	mockFS := &MockFileSystem{
 		HomeDir:    "",
 		StatResult: make(map[string]MockStatResult),
@@ -385,7 +385,7 @@ func TestRestoreAction_UserHomeDir_Error(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_RestoreFile_CopyFile_Success(t *testing.T) {
+func TestRestoreAction_RestoreFile_CopyFile_Success(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	// Create only the backup directory structure (no real source file).
@@ -424,7 +424,7 @@ func TestRestoreAction_RestoreFile_CopyFile_Success(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_RestoreFile_CopyFile_Error(t *testing.T) {
+func TestRestoreAction_RestoreFile_CopyFile_Error(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	bakDir := filepath.Join(home, ".bak")
@@ -458,7 +458,7 @@ func TestRestoreAction_RestoreFile_CopyFile_Error(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_Stdin_Injected(t *testing.T) {
+func TestRestoreAction_Stdin_Injected(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	action := &RestoreAction{
@@ -474,7 +474,7 @@ func TestRestoreAction_Stdin_Injected(t *testing.T) {
 	}
 }
 
-func TestResolveBackup(t *testing.T) {
+func TestResolveBackup(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name        string
 		setup       func(home string) (backupID string)
@@ -531,8 +531,8 @@ func TestResolveBackup(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			home := t.TempDir()
 
 			// Override home directory for BakDir() resolution.
@@ -573,7 +573,7 @@ func TestResolveBackup(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_StdoutInjection(t *testing.T) {
+func TestRestoreAction_StdoutInjection(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)
 
@@ -601,7 +601,7 @@ func TestRestoreAction_StdoutInjection(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_StdoutNotLeaked(t *testing.T) {
+func TestRestoreAction_StdoutNotLeaked(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)
 
@@ -622,7 +622,7 @@ func TestRestoreAction_StdoutNotLeaked(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_NilWritersFallback(t *testing.T) {
+func TestRestoreAction_NilWritersFallback(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)
 
@@ -649,7 +649,7 @@ type errorReader struct{}
 
 func (e *errorReader) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
 
-func TestRestoreAction_CancelPrompt_AnswerNo(t *testing.T) {
+func TestRestoreAction_CancelPrompt_AnswerNo(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)
 
@@ -682,7 +682,7 @@ func TestRestoreAction_CancelPrompt_AnswerNo(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_CancelPrompt_EmptyInput(t *testing.T) {
+func TestRestoreAction_CancelPrompt_EmptyInput(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)
 
@@ -711,7 +711,7 @@ func TestRestoreAction_CancelPrompt_EmptyInput(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_CancelPrompt_ReadError(t *testing.T) {
+func TestRestoreAction_CancelPrompt_ReadError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)
 
@@ -737,7 +737,7 @@ func TestRestoreAction_CancelPrompt_ReadError(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_ConfirmPrompt_AnswerYes(t *testing.T) {
+func TestRestoreAction_ConfirmPrompt_AnswerYes(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)
 
@@ -776,7 +776,7 @@ func TestRestoreAction_ConfirmPrompt_AnswerYes(t *testing.T) {
 	}
 }
 
-func TestRestoreAction_ForceSkipsPrompt(t *testing.T) {
+func TestRestoreAction_ForceSkipsPrompt(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)
 

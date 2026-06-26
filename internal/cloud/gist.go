@@ -16,7 +16,7 @@ import (
 
 // GistFile represents a single file inside a Gist.
 type GistFile struct {
-	Filename string // display name (e.g. "backup.tar.gz")
+	Filename string // display name (e.g. gistBackupFile)
 	Content  string // raw text content
 }
 
@@ -92,8 +92,8 @@ func CreateGist(token, description string, files []GistFile) (string, error) {
 		return "", fmt.Errorf("create gist: marshal request: %w", err)
 	}
 
-	url := GistAPIBase + "/gists"
-	req, err := newRequest(http.MethodPost, url, token, "application/vnd.github+json", "application/json", bytes.NewReader(data))
+	url := GistAPIBase + gistsEndpoint
+	req, err := newRequest(http.MethodPost, url, token, acceptGitHub, acceptJSON, bytes.NewReader(data))
 	if err != nil {
 		return "", fmt.Errorf("create gist: %w", err)
 	}
@@ -142,7 +142,7 @@ func UpdateGist(token, gistID, description string, files []GistFile) error {
 	}
 
 	url := GistAPIBase + "/gists/" + gistID
-	req, err := newRequest(http.MethodPatch, url, token, "application/vnd.github+json", "application/json", bytes.NewReader(data))
+	req, err := newRequest(http.MethodPatch, url, token, acceptGitHub, acceptJSON, bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("update gist %q: %w", gistID, err)
 	}
@@ -170,7 +170,7 @@ func GetGist(token, gistID string) ([]GistFile, error) {
 	}
 
 	url := GistAPIBase + "/gists/" + gistID
-	req, err := newRequest(http.MethodGet, url, token, "application/vnd.github+json", "", nil)
+	req, err := newRequest(http.MethodGet, url, token, acceptGitHub, "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("get gist %q: build request: %w", gistID, err)
 	}
@@ -210,7 +210,7 @@ func DeleteGist(token, gistID string) error {
 	}
 
 	url := GistAPIBase + "/gists/" + gistID
-	req, err := newRequest(http.MethodDelete, url, token, "application/vnd.github+json", "", nil)
+	req, err := newRequest(http.MethodDelete, url, token, acceptGitHub, "", nil)
 	if err != nil {
 		return fmt.Errorf("delete gist %q: build request: %w", gistID, err)
 	}

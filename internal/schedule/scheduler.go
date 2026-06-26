@@ -36,7 +36,7 @@ type ScheduleEntry struct {
 
 // ValidIntervals returns the list of supported scheduling intervals.
 func ValidIntervals() []string {
-	return []string{"daily", "weekly", "every-12h", "every-6h"}
+	return []string{scheduleDaily, scheduleWeekly, scheduleEvery12h, scheduleEvery6h}
 }
 
 // IsValidInterval reports whether the given string is a supported interval.
@@ -64,16 +64,16 @@ type SchtasksScheduler struct{}
 func formatCronLine(profile string, interval string) string {
 	var cronExpr string
 	switch interval {
-	case "daily":
-		cronExpr = "0 2 * * *"
-	case "weekly":
+	case scheduleDaily:
+		cronExpr = cronDailyAt2AM
+	case scheduleWeekly:
 		cronExpr = "0 3 * * 0"
-	case "every-12h":
+	case scheduleEvery12h:
 		cronExpr = "0 */12 * * *"
-	case "every-6h":
+	case scheduleEvery6h:
 		cronExpr = "0 */6 * * *"
 	default:
-		cronExpr = "0 2 * * *"
+		cronExpr = cronDailyAt2AM
 	}
 	cmd := "bak backup --profile " + profile + " && bak push --profile " + profile
 	return cronExpr + " " + cmd + " # bak-cli:" + profile
@@ -128,14 +128,14 @@ func parseCronLine(line string) (ScheduleEntry, bool) {
 // intervalFromCron maps a cron expression prefix to a named interval.
 func intervalFromCron(cronPrefix string) string {
 	switch cronPrefix {
-	case "0 2 * * *":
-		return "daily"
+	case cronDailyAt2AM:
+		return scheduleDaily
 	case "0 3 * * 0":
-		return "weekly"
+		return scheduleWeekly
 	case "0 */12 * * *":
-		return "every-12h"
+		return scheduleEvery12h
 	case "0 */6 * * *":
-		return "every-6h"
+		return scheduleEvery6h
 	default:
 		return ""
 	}
@@ -171,15 +171,15 @@ func buildSchtasksQueryArgs() []string {
 // intervalToSchtasksParams maps a named interval to schtasks /sc, /mo, /st values.
 func intervalToSchtasksParams(interval string) (sc, mo, st string) {
 	switch interval {
-	case "daily":
-		return "daily", "", "02:00"
-	case "weekly":
-		return "weekly", "", "03:00"
-	case "every-12h":
+	case scheduleDaily:
+		return scheduleDaily, "", "02:00"
+	case scheduleWeekly:
+		return scheduleWeekly, "", "03:00"
+	case scheduleEvery12h:
 		return "hourly", "12", "00:00"
-	case "every-6h":
+	case scheduleEvery6h:
 		return "hourly", "6", "00:00"
 	default:
-		return "daily", "", "02:00"
+		return scheduleDaily, "", "02:00"
 	}
 }

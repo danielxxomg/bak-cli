@@ -11,7 +11,7 @@ import (
 // TestNewSearch — RED (search.go does not exist yet)
 // =============================================================================
 
-func TestNewSearch(t *testing.T) {
+func TestNewSearch(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	s := NewSearch()
 
 	if s.active {
@@ -26,7 +26,7 @@ func TestNewSearch(t *testing.T) {
 // TestSearch_ActivateDeactivate — RED
 // =============================================================================
 
-func TestSearch_ActivateDeactivate(t *testing.T) {
+func TestSearch_ActivateDeactivate(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	s := NewSearch()
 
 	s.Activate()
@@ -47,7 +47,7 @@ func TestSearch_ActivateDeactivate(t *testing.T) {
 // TestSearch_Filter — RED
 // =============================================================================
 
-func TestSearch_Filter(t *testing.T) {
+func TestSearch_Filter(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name  string
 		items []string
@@ -92,8 +92,8 @@ func TestSearch_Filter(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			s := NewSearch()
 			s.SetQuery(tt.query)
 			result := s.Filter(tt.items)
@@ -115,7 +115,7 @@ func TestSearch_Filter(t *testing.T) {
 // TestSearch_View — RED
 // =============================================================================
 
-func TestSearch_View(t *testing.T) {
+func TestSearch_View(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	s := NewSearch()
 
 	// Hidden when not active.
@@ -140,7 +140,7 @@ func TestSearch_View(t *testing.T) {
 // TestSearch_Update — RED
 // =============================================================================
 
-func TestSearch_Update(t *testing.T) {
+func TestSearch_Update(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	s := NewSearch()
 	s.Activate()
 
@@ -161,7 +161,7 @@ func TestSearch_Update(t *testing.T) {
 // TestSearch_Update_Inactive — RED (triangulation)
 // =============================================================================
 
-func TestSearch_Update_Inactive(t *testing.T) {
+func TestSearch_Update_Inactive(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	s := NewSearch()
 
 	// When not active, Update should still work but not register input.
@@ -178,7 +178,7 @@ func TestSearch_Update_Inactive(t *testing.T) {
 // Phase 4: IsActive coverage
 // =============================================================================
 
-func TestSearch_IsActive(t *testing.T) {
+func TestSearch_IsActive(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	s := NewSearch()
 
 	// Initially inactive.

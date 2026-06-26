@@ -46,7 +46,7 @@ func setupConfigDir(t *testing.T, providers map[string]config.ProviderConfig) (s
 	return dir, loaded
 }
 
-func TestProfileCreate_HappyPath(t *testing.T) {
+func TestProfileCreate_HappyPath(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cfg := setupConfigDir(t, map[string]config.ProviderConfig{
 		"github-gist": {Token: "ghp_test123"},
 	})
@@ -82,7 +82,7 @@ func TestProfileCreate_HappyPath(t *testing.T) {
 	}
 }
 
-func TestProfileCreate_DuplicateName(t *testing.T) {
+func TestProfileCreate_DuplicateName(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cfg := setupConfigDir(t, map[string]config.ProviderConfig{
 		"github-gist": {Token: "ghp_test123"},
 	})
@@ -109,7 +109,7 @@ func TestProfileCreate_DuplicateName(t *testing.T) {
 	}
 }
 
-func TestProfileCreate_MissingProvider(t *testing.T) {
+func TestProfileCreate_MissingProvider(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cfg := setupConfigDir(t, map[string]config.ProviderConfig{
 		"github-gist": {Token: "ghp_test123"},
 	})
@@ -127,7 +127,7 @@ func TestProfileCreate_MissingProvider(t *testing.T) {
 	}
 }
 
-func TestProfileCreate_NoProviders(t *testing.T) {
+func TestProfileCreate_NoProviders(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cfg := setupConfigDir(t, nil)
 
 	var out bytes.Buffer
@@ -143,7 +143,7 @@ func TestProfileCreate_NoProviders(t *testing.T) {
 	}
 }
 
-func TestProfileCreate_NoToken(t *testing.T) {
+func TestProfileCreate_NoToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cfg := setupConfigDir(t, map[string]config.ProviderConfig{
 		"github-gist": {Token: ""},
 	})
@@ -161,7 +161,7 @@ func TestProfileCreate_NoToken(t *testing.T) {
 	}
 }
 
-func TestProfileCreate_WithAdapters(t *testing.T) {
+func TestProfileCreate_WithAdapters(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cfg := setupConfigDir(t, map[string]config.ProviderConfig{
 		"github-gist": {Token: "ghp_test123"},
 	})
@@ -188,7 +188,7 @@ func TestProfileCreate_WithAdapters(t *testing.T) {
 	}
 }
 
-func TestProfileList_Empty(t *testing.T) {
+func TestProfileList_Empty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cfg := setupConfigDir(t, nil)
 
 	var out bytes.Buffer
@@ -201,7 +201,7 @@ func TestProfileList_Empty(t *testing.T) {
 	}
 }
 
-func TestProfileList_Populated(t *testing.T) {
+func TestProfileList_Populated(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cfg := setupConfigDir(t, map[string]config.ProviderConfig{
 		"github-gist": {Token: "ghp_test"},
 	})
@@ -237,7 +237,7 @@ func TestProfileList_Populated(t *testing.T) {
 	}
 }
 
-func TestProfileShow_Exists(t *testing.T) {
+func TestProfileShow_Exists(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cfg := setupConfigDir(t, map[string]config.ProviderConfig{
 		"github-gist": {Token: "ghp_test"},
 	})
@@ -269,7 +269,7 @@ func TestProfileShow_Exists(t *testing.T) {
 	}
 }
 
-func TestProfileShow_Missing(t *testing.T) {
+func TestProfileShow_Missing(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cfg := setupConfigDir(t, nil)
 
 	var out bytes.Buffer
@@ -282,7 +282,7 @@ func TestProfileShow_Missing(t *testing.T) {
 	}
 }
 
-func TestProfileDelete_Exists(t *testing.T) {
+func TestProfileDelete_Exists(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cfg := setupConfigDir(t, map[string]config.ProviderConfig{
 		"github-gist": {Token: "ghp_test"},
 	})
@@ -309,7 +309,7 @@ func TestProfileDelete_Exists(t *testing.T) {
 	}
 }
 
-func TestProfileDelete_DryRun(t *testing.T) {
+func TestProfileDelete_DryRun(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cfg := setupConfigDir(t, map[string]config.ProviderConfig{
 		"github-gist": {Token: "ghp_test"},
 	})
@@ -337,7 +337,7 @@ func TestProfileDelete_DryRun(t *testing.T) {
 	}
 }
 
-func TestProfileValidateForCreation(t *testing.T) {
+func TestProfileValidateForCreation(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name          string
 		cfg           *config.Config
@@ -396,8 +396,8 @@ func TestProfileValidateForCreation(t *testing.T) {
 			wantProviders: 2,
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			providers, err := ProfileValidateForCreation(tt.cfg, tt.profileName)
 			if tt.wantErr {
 				if err == nil {
@@ -418,7 +418,7 @@ func TestProfileValidateForCreation(t *testing.T) {
 	}
 }
 
-func TestParseCSV(t *testing.T) {
+func TestParseCSV(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name  string
 		input string
@@ -432,8 +432,8 @@ func TestParseCSV(t *testing.T) {
 		{"trailing comma", "opencode,", []string{"opencode"}},
 		{"whitespace only", "  ,  ", nil},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := ParseCSV(tt.input)
 			if tt.want == nil {
 				if got != nil {
@@ -453,7 +453,7 @@ func TestParseCSV(t *testing.T) {
 	}
 }
 
-func TestProfileDelete_Missing(t *testing.T) {
+func TestProfileDelete_Missing(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cfg := setupConfigDir(t, nil)
 
 	var out bytes.Buffer

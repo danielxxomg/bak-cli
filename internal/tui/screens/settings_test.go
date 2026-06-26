@@ -17,7 +17,7 @@ func newTestSettings() SettingsModel {
 // TestNewSettingsModel — RED (settings.go does not exist yet)
 // =============================================================================
 
-func TestNewSettingsModel(t *testing.T) {
+func TestNewSettingsModel(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := newTestSettings()
 
 	if m.cursor != 0 {
@@ -45,7 +45,7 @@ func TestNewSettingsModel(t *testing.T) {
 // TestSettings_Update_Navigate — RED
 // =============================================================================
 
-func TestSettings_Update_Navigate(t *testing.T) {
+func TestSettings_Update_Navigate(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := newTestSettings()
 	maxIdx := len(m.options) - 1 // 3
 
@@ -106,8 +106,8 @@ func TestSettings_Update_Navigate(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			cur := m
 			for _, key := range tt.keys {
 				newM, _ := cur.Update(key)
@@ -125,7 +125,7 @@ func TestSettings_Update_Navigate(t *testing.T) {
 // TestSettings_Update_Toggle — RED
 // =============================================================================
 
-func TestSettings_Update_Toggle(t *testing.T) {
+func TestSettings_Update_Toggle(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name string
 		key  rune
@@ -134,8 +134,8 @@ func TestSettings_Update_Toggle(t *testing.T) {
 		{"space toggles", ' '},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := newTestSettings()
 
 			// Find a toggle option.
@@ -174,7 +174,7 @@ func TestSettings_Update_Toggle(t *testing.T) {
 // TestSettings_Update_Back — RED
 // =============================================================================
 
-func TestSettings_Update_Back(t *testing.T) {
+func TestSettings_Update_Back(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name string
 		key  rune
@@ -183,8 +183,8 @@ func TestSettings_Update_Back(t *testing.T) {
 		{"esc goes back", 27},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := newTestSettings()
 
 			_, cmd := m.Update(tea.KeyPressMsg{Code: tt.key})
@@ -204,7 +204,7 @@ func TestSettings_Update_Back(t *testing.T) {
 // TestSettings_View — RED
 // =============================================================================
 
-func TestSettings_View(t *testing.T) {
+func TestSettings_View(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := newTestSettings()
 	m.width = 80
 	m.height = 24
@@ -232,7 +232,7 @@ func TestSettings_View(t *testing.T) {
 // TestSettings_View_TooSmall — threshold guard at 40×12
 // =============================================================================
 
-func TestSettings_View_MinSizeGuard(t *testing.T) {
+func TestSettings_View_MinSizeGuard(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		width    int
@@ -246,8 +246,8 @@ func TestSettings_View_MinSizeGuard(t *testing.T) {
 		{"above min (80x24)", 80, 24, false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := newTestSettings()
 			m.width = tt.width
 			m.height = tt.height
@@ -271,7 +271,7 @@ func TestSettings_View_MinSizeGuard(t *testing.T) {
 
 // TestSettings_View_TooSmall verifies the too-small view shows
 // the dimensional message (legacy test, kept for coverage).
-func TestSettings_View_TooSmall(t *testing.T) {
+func TestSettings_View_TooSmall(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := newTestSettings()
 	m.width = 10
 	m.height = 5
@@ -287,7 +287,7 @@ func TestSettings_View_TooSmall(t *testing.T) {
 // TestSettings_View_HelpBar — RED (Phase 3: help bar persistence)
 // =============================================================================
 
-func TestSettings_View_HelpBar(t *testing.T) {
+func TestSettings_View_HelpBar(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := newTestSettings()
 	m.width = 80
 	m.height = 24
@@ -312,7 +312,7 @@ func TestSettings_View_HelpBar(t *testing.T) {
 
 // TestSettings_View_HelpBar_LiteralKeys verifies the literal key symbols
 // appear in the help bar output (triangulation for TestSettings_View_HelpBar).
-func TestSettings_View_HelpBar_LiteralKeys(t *testing.T) {
+func TestSettings_View_HelpBar_LiteralKeys(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := newTestSettings()
 	m.width = 80
 	m.height = 24
@@ -335,7 +335,7 @@ func TestSettings_View_HelpBar_LiteralKeys(t *testing.T) {
 
 // TestSettings_SaveSetting_CalledOnToggle verifies that toggling an option
 // calls the injected SaveSetting function with the correct key and value.
-func TestSettings_SaveSetting_CalledOnToggle(t *testing.T) {
+func TestSettings_SaveSetting_CalledOnToggle(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var savedKey string
 	var savedValue any
 
@@ -379,7 +379,7 @@ func TestSettings_SaveSetting_CalledOnToggle(t *testing.T) {
 
 // TestSettings_LoadInitialSettings verifies that NewSettingsModel uses
 // the provided initial Settings values to set the option toggles.
-func TestSettings_LoadInitialSettings(t *testing.T) {
+func TestSettings_LoadInitialSettings(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	saveFn := func(key string, value any) error { return nil }
 
 	s := Settings{
@@ -406,7 +406,7 @@ func TestSettings_LoadInitialSettings(t *testing.T) {
 
 // TestSettings_SaveSetting_ErrorsAreIgnored verifies that even when
 // SaveSetting returns an error, the toggle still updates locally.
-func TestSettings_SaveSetting_ErrorsAreIgnored(t *testing.T) {
+func TestSettings_SaveSetting_ErrorsAreIgnored(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	saveFn := func(key string, value any) error {
 		return fmt.Errorf("write failed")
 	}
@@ -432,7 +432,7 @@ func TestSettings_SaveSetting_ErrorsAreIgnored(t *testing.T) {
 // Phase 3: Init nil-return coverage
 // =============================================================================
 
-func TestSettingsModel_Init_ReturnsNil(t *testing.T) {
+func TestSettingsModel_Init_ReturnsNil(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := newTestSettings()
 	cmd := m.Init()
 	if cmd != nil {

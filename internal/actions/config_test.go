@@ -10,7 +10,7 @@ import (
 
 // TestLoadConfigOr_InjectedLoaderReturns verifies the injected loader's
 // config is returned verbatim on success.
-func TestLoadConfigOr_InjectedLoaderReturns(t *testing.T) {
+func TestLoadConfigOr_InjectedLoaderReturns(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	sentinel := &config.Config{}
 	got, err := loadConfigOr(func() (*config.Config, error) { return sentinel, nil })
 	if err != nil {
@@ -23,7 +23,7 @@ func TestLoadConfigOr_InjectedLoaderReturns(t *testing.T) {
 
 // TestLoadConfigOr_NilFallsBackToConfigLoad verifies a nil loader delegates
 // to config.Load (isolated config home so the real user config is not read).
-func TestLoadConfigOr_NilFallsBackToConfigLoad(t *testing.T) {
+func TestLoadConfigOr_NilFallsBackToConfigLoad(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	configtest.SetConfigHome(t, t.TempDir())
 	got, err := loadConfigOr(nil)
 	if err != nil {
@@ -35,7 +35,7 @@ func TestLoadConfigOr_NilFallsBackToConfigLoad(t *testing.T) {
 }
 
 // TestLoadConfigOr_ErrorPropagated verifies a loader error is propagated.
-func TestLoadConfigOr_ErrorPropagated(t *testing.T) {
+func TestLoadConfigOr_ErrorPropagated(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	sentinel := errors.New("config corrupted")
 	_, err := loadConfigOr(func() (*config.Config, error) { return nil, sentinel })
 	if !errors.Is(err, sentinel) {

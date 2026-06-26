@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-func TestTarGz_RoundTrip(t *testing.T) {
+func TestTarGz_RoundTrip(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srcDir := t.TempDir()
 	dstDir := t.TempDir()
 
@@ -46,14 +46,14 @@ func TestTarGz_RoundTrip(t *testing.T) {
 	verifyFile(t, dstDir, ".env.example", "SECRET=<YOUR_SECRET>")
 }
 
-func TestUntarGz_InvalidBase64(t *testing.T) {
+func TestUntarGz_InvalidBase64(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	err := UntarGz("!!!not-valid-base64!!!", t.TempDir())
 	if err == nil {
 		t.Fatal("expected error for invalid base64")
 	}
 }
 
-func TestUntarGz_EmptyArchive(t *testing.T) {
+func TestUntarGz_EmptyArchive(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Create an empty tar.gz manually.
 	encoded, err := TarGzDirectory(t.TempDir())
 	if err != nil {
@@ -66,7 +66,7 @@ func TestUntarGz_EmptyArchive(t *testing.T) {
 	}
 }
 
-func TestTarGz_DirectoryWithSubdirs(t *testing.T) {
+func TestTarGz_DirectoryWithSubdirs(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srcDir := t.TempDir()
 
 	// Create a nested directory structure with no files in one subdir.
@@ -92,7 +92,7 @@ func TestTarGz_DirectoryWithSubdirs(t *testing.T) {
 	verifyFile(t, dstDir, "root.txt", "root")
 }
 
-func TestTarGz_NonexistentDir(t *testing.T) {
+func TestTarGz_NonexistentDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, err := TarGzDirectory("/nonexistent/path/for/testing")
 	if err == nil {
 		t.Fatal("expected error for nonexistent directory")
@@ -141,7 +141,7 @@ func isBase64(s string) bool {
 	return len(s) > 0
 }
 
-func TestBase64_Detector(t *testing.T) {
+func TestBase64_Detector(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	if !isBase64("SGVsbG8gV29ybGQ=") {
 		t.Error("valid base64 should pass")
 	}
@@ -222,7 +222,7 @@ func buildTarGz(t *testing.T, entries []tarEntry) string {
 	return base64.StdEncoding.EncodeToString(buf.Bytes())
 }
 
-func TestUntarGzDir_Symlink(t *testing.T) {
+func TestUntarGzDir_Symlink(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink tests require Unix-like filesystem support")
 	}
@@ -264,7 +264,7 @@ func TestUntarGzDir_Symlink(t *testing.T) {
 	}
 }
 
-func TestUntarGzDir_PathTraversal(t *testing.T) {
+func TestUntarGzDir_PathTraversal(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// absEntry returns an OS-specific absolute path that triggers traversal.
 	absEntry := func() string {
 		if runtime.GOOS == "windows" {
@@ -293,8 +293,8 @@ func TestUntarGzDir_PathTraversal(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			encoded := buildTarGz(t, []tarEntry{
 				{
 					Name:     tt.entryName,
@@ -315,7 +315,7 @@ func TestUntarGzDir_PathTraversal(t *testing.T) {
 	}
 }
 
-func TestTarGzDir_WalkError(t *testing.T) {
+func TestTarGzDir_WalkError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod 0000 does not prevent reading on Windows")
 	}

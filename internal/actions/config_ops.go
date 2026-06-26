@@ -22,7 +22,7 @@ func SaveSetting(cfg *config.Config, key string, value any) {
 	case "default_provider":
 		if v, ok := value.(bool); ok {
 			if v {
-				cfg.Settings.DefaultProvider = "github"
+				cfg.Settings.DefaultProvider = providerGithub
 			} else {
 				cfg.Settings.DefaultProvider = ""
 			}
@@ -60,7 +60,7 @@ func SetActiveProfile(cfg *config.Config, name string) {
 func GetCloudProviderStatus(cfg *config.Config) (provider string, connected bool) {
 	provider = cfg.Settings.DefaultProvider
 	if provider == "" {
-		provider = "github"
+		provider = providerGithub
 	}
 	if p, ok := cfg.Providers[provider]; ok {
 		connected = p.Token != ""
@@ -79,7 +79,7 @@ type ProfileInfo struct {
 // ListProfileInfos returns all configured profiles as a slice of ProfileInfo
 // suitable for display in the TUI profiles screen.
 func ListProfileInfos(cfg *config.Config) []ProfileInfo {
-	var result []ProfileInfo
+	result := make([]ProfileInfo, 0, len(cfg.Profiles))
 	for name, p := range cfg.Profiles {
 		result = append(result, ProfileInfo{
 			Name:     name,

@@ -12,7 +12,7 @@ import (
 
 // --- ResolveBackupID tests ---
 
-func TestResolveBackupID_ExplicitArg(t *testing.T) {
+func TestResolveBackupID_ExplicitArg(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	backupsDir := t.TempDir()
 
 	id, err := ResolveBackupID(backupsDir, []string{"my-backup-id"})
@@ -24,7 +24,7 @@ func TestResolveBackupID_ExplicitArg(t *testing.T) {
 	}
 }
 
-func TestResolveBackupID_ExplicitArgEmptyString(t *testing.T) {
+func TestResolveBackupID_ExplicitArgEmptyString(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Empty string arg should fall back to finding most recent.
 	backupsDir := t.TempDir()
 
@@ -42,7 +42,7 @@ func TestResolveBackupID_ExplicitArgEmptyString(t *testing.T) {
 	}
 }
 
-func TestResolveBackupID_FallbackToMostRecent(t *testing.T) {
+func TestResolveBackupID_FallbackToMostRecent(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	backupsDir := t.TempDir()
 
 	// Create multiple backup dirs with different timestamps.
@@ -59,7 +59,7 @@ func TestResolveBackupID_FallbackToMostRecent(t *testing.T) {
 	}
 }
 
-func TestResolveBackupID_NoBackups(t *testing.T) {
+func TestResolveBackupID_NoBackups(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	backupsDir := t.TempDir()
 
 	_, err := ResolveBackupID(backupsDir, nil)
@@ -71,7 +71,7 @@ func TestResolveBackupID_NoBackups(t *testing.T) {
 	}
 }
 
-func TestResolveBackupID_NoArgs_FindsMostRecent(t *testing.T) {
+func TestResolveBackupID_NoArgs_FindsMostRecent(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	backupsDir := t.TempDir()
 
 	os.MkdirAll(filepath.Join(backupsDir, "20260101-120000"), 0755)
@@ -85,7 +85,7 @@ func TestResolveBackupID_NoArgs_FindsMostRecent(t *testing.T) {
 	}
 }
 
-func TestResolveBackupID_ReadDirError(t *testing.T) {
+func TestResolveBackupID_ReadDirError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Use a temp dir that we then remove to guarantee ReadDir fails.
 	backupsDir := filepath.Join(t.TempDir(), "removed")
 	// The dir does not exist — ReadDir should fail.
@@ -98,7 +98,7 @@ func TestResolveBackupID_ReadDirError(t *testing.T) {
 	}
 }
 
-func TestResolveBackupID_IgnoresFiles(t *testing.T) {
+func TestResolveBackupID_IgnoresFiles(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Only directories should be considered backup IDs.
 	backupsDir := t.TempDir()
 
@@ -118,7 +118,7 @@ func TestResolveBackupID_IgnoresFiles(t *testing.T) {
 
 // --- PickBackupAction tests ---
 
-func TestPickBackupAction_Cancel(t *testing.T) {
+func TestPickBackupAction_Cancel(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var out strings.Builder
 
 	action := &PickBackupAction{
@@ -139,7 +139,7 @@ func TestPickBackupAction_Cancel(t *testing.T) {
 	}
 }
 
-func TestPickBackupAction_NoCategoriesSelected(t *testing.T) {
+func TestPickBackupAction_NoCategoriesSelected(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var out strings.Builder
 
 	action := &PickBackupAction{
@@ -163,7 +163,7 @@ func TestPickBackupAction_NoCategoriesSelected(t *testing.T) {
 	}
 }
 
-func TestPickBackupAction_PickerError(t *testing.T) {
+func TestPickBackupAction_PickerError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var out strings.Builder
 
 	action := &PickBackupAction{
@@ -182,7 +182,7 @@ func TestPickBackupAction_PickerError(t *testing.T) {
 	}
 }
 
-func TestPickBackupAction_BakDirError(t *testing.T) {
+func TestPickBackupAction_BakDirError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var out strings.Builder
 
 	action := &PickBackupAction{
@@ -210,7 +210,7 @@ func TestPickBackupAction_BakDirError(t *testing.T) {
 	}
 }
 
-func TestPickBackupAction_HomeDirError(t *testing.T) {
+func TestPickBackupAction_HomeDirError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var out strings.Builder
 
 	action := &PickBackupAction{
@@ -238,7 +238,7 @@ func TestPickBackupAction_HomeDirError(t *testing.T) {
 	}
 }
 
-func TestPickBackupAction_NewRegistryError(t *testing.T) {
+func TestPickBackupAction_NewRegistryError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var out strings.Builder
 
 	action := &PickBackupAction{
@@ -269,7 +269,7 @@ func TestPickBackupAction_NewRegistryError(t *testing.T) {
 	}
 }
 
-func TestPickBackupAction_DefaultBakDir(t *testing.T) {
+func TestPickBackupAction_DefaultBakDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// When BakDir is nil, Run() defaults to backup.BakDir.
 	// We cancel before engine to avoid real FS work.
 	var out strings.Builder
@@ -293,7 +293,7 @@ func TestPickBackupAction_DefaultBakDir(t *testing.T) {
 	}
 }
 
-func TestPickBackupAction_DefaultHomeDir(t *testing.T) {
+func TestPickBackupAction_DefaultHomeDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// When HomeDir is nil, Run() defaults to os.UserHomeDir.
 	var out strings.Builder
 
@@ -315,7 +315,7 @@ func TestPickBackupAction_DefaultHomeDir(t *testing.T) {
 	}
 }
 
-func TestPickBackupAction_DefaultNewRegistry(t *testing.T) {
+func TestPickBackupAction_DefaultNewRegistry(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// When NewRegistry is nil, Run() defaults to real registry.
 	// Cancel before engine to avoid real FS work.
 	var out strings.Builder

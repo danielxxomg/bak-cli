@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestRealProviderFactory_NilConfig(t *testing.T) {
+func TestRealProviderFactory_NilConfig(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// With nil config, CreateProvider should try to load config
 	// and eventually fail because no real config exists in test env.
 	factory := &RealProviderFactory{}
@@ -21,7 +21,7 @@ func TestRealProviderFactory_NilConfig(t *testing.T) {
 	}
 }
 
-func TestRealProviderFactory_UnknownProvider(t *testing.T) {
+func TestRealProviderFactory_UnknownProvider(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Create a factory with a minimal config that has no providers.
 	configPath := t.TempDir()
 	t.Setenv("BAK_CONFIG_DIR", configPath)
@@ -40,7 +40,7 @@ func TestRealProviderFactory_UnknownProvider(t *testing.T) {
 	}
 }
 
-func TestRealProviderFactory_InterfaceCompliance(t *testing.T) {
+func TestRealProviderFactory_InterfaceCompliance(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Compile-time check already done, but runtime verification too.
 	var _ ProviderFactory = (*RealProviderFactory)(nil)
 }

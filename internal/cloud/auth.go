@@ -11,20 +11,20 @@ import (
 
 // providerEnvToken maps provider names to their environment variable for token resolution.
 var providerEnvToken = map[string]string{
-	"github-gist": "GITHUB_TOKEN",
-	"github-repo": "GITHUB_TOKEN",
-	"github":      "GITHUB_TOKEN",
-	"codeberg":    "CODEBERG_TOKEN",
-	"gitea":       "GITEA_TOKEN",
+	providerGithubGist: githubTokenEnv,
+	providerGithubRepo: githubTokenEnv,
+	"github":           githubTokenEnv,
+	codebergName:       "CODEBERG_TOKEN",
+	providerGitea:      "GITEA_TOKEN",
 }
 
 // providerConfigKey maps provider names to their config key for token resolution.
 var providerConfigKey = map[string]string{
-	"github-gist": "github.token",
-	"github-repo": "github.token",
-	"github":      "github.token",
-	"codeberg":    "providers.codeberg.token",
-	"gitea":       "providers.gitea.token",
+	providerGithubGist: githubTokenKey,
+	providerGithubRepo: githubTokenKey,
+	"github":           githubTokenKey,
+	codebergName:       "providers.codeberg.token",
+	providerGitea:      "providers.gitea.token",
 }
 
 // ResolveProviderToken resolves an authentication token for a named provider
@@ -62,13 +62,13 @@ func ResolveProviderToken(provider string, cfg *config.Config) (string, string) 
 // Returns an empty string when no token is found in any source.
 func ResolveToken(cfg *config.Config) (string, string) {
 	// 1. Environment variable.
-	if tok := os.Getenv("GITHUB_TOKEN"); tok != "" {
+	if tok := os.Getenv(githubTokenEnv); tok != "" {
 		return tok, "environment variable GITHUB_TOKEN"
 	}
 
 	// 2. Config file.
 	if cfg != nil {
-		tok, err := cfg.Get("github.token")
+		tok, err := cfg.Get(githubTokenKey)
 		if err == nil && tok != "" {
 			return tok, "config file (~/.config/bak/config.json)"
 		}
@@ -90,7 +90,7 @@ func ValidateToken(token string) error {
 	}
 
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Accept", acceptGitHub)
 	req.Header.Set("User-Agent", "bak-cli")
 
 	resp, err := httpClient.Do(req)

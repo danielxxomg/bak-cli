@@ -9,17 +9,17 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 )
 
-func TestAdapter_Name(t *testing.T) {
+func TestAdapter_Name(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 	if a.Name() != "codex" {
 		t.Errorf("Name() = %q, want %q", a.Name(), "codex")
 	}
 }
 
-func TestAdapter_Detect(t *testing.T) {
+func TestAdapter_Detect(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 
-	t.Run("installed", func(t *testing.T) {
+	t.Run("installed", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".codex")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -37,7 +37,7 @@ func TestAdapter_Detect(t *testing.T) {
 		}
 	})
 
-	t.Run("not installed", func(t *testing.T) {
+	t.Run("not installed", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		installed, _, err := a.Detect(home)
 		if err != nil {
@@ -48,7 +48,7 @@ func TestAdapter_Detect(t *testing.T) {
 		}
 	})
 
-	t.Run("exists but is file not dir", func(t *testing.T) {
+	t.Run("exists but is file not dir", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configPath := filepath.Join(home, ".codex")
 		if err := os.WriteFile(configPath, []byte("not a dir"), 0644); err != nil {
@@ -64,7 +64,7 @@ func TestAdapter_Detect(t *testing.T) {
 	})
 }
 
-func TestAdapter_ListItems(t *testing.T) {
+func TestAdapter_ListItems(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 
 	setupHome := func(t *testing.T) string {
@@ -84,7 +84,7 @@ func TestAdapter_ListItems(t *testing.T) {
 		return home
 	}
 
-	t.Run("config category", func(t *testing.T) {
+	t.Run("config category", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupHome(t)
 		items, err := a.ListItems(home, []string{"config"})
 		if err != nil {
@@ -100,7 +100,7 @@ func TestAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("agents category (root — known limitation: GenericAdapter scans root only for config)", func(t *testing.T) {
+	t.Run("agents category (root — known limitation: GenericAdapter scans root only for config)", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupHome(t)
 		// agents is declared as a root-file category but GenericAdapter currently
 		// only invokes scanRootFiles for the "config" category. Returns empty
@@ -113,7 +113,7 @@ func TestAdapter_ListItems(t *testing.T) {
 		_ = items
 	})
 
-	t.Run("all categories", func(t *testing.T) {
+	t.Run("all categories", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupHome(t)
 		items, err := a.ListItems(home, []string{"config", "agents"})
 		if err != nil {
@@ -126,7 +126,7 @@ func TestAdapter_ListItems(t *testing.T) {
 	})
 }
 
-func TestAdapter_Backup(t *testing.T) {
+func TestAdapter_Backup(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 	home := t.TempDir()
 	configDir := filepath.Join(home, ".codex")
@@ -153,7 +153,7 @@ func TestAdapter_Backup(t *testing.T) {
 	}
 }
 
-func TestAdapter_Restore(t *testing.T) {
+func TestAdapter_Restore(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 	backupDir := filepath.Join(t.TempDir(), "backup")
 	backupFile := filepath.Join(backupDir, "codex", "config.toml")
@@ -180,7 +180,7 @@ func TestAdapter_Restore(t *testing.T) {
 	}
 }
 
-func TestAdapter_InterfaceCompliance(t *testing.T) {
+func TestAdapter_InterfaceCompliance(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 	if a.Name() == "" {
 		t.Error("Name should not be empty")
@@ -198,7 +198,7 @@ func TestAdapter_InterfaceCompliance(t *testing.T) {
 	}
 }
 
-func TestAdapter_Backup_DirectoryItems(t *testing.T) {
+func TestAdapter_Backup_DirectoryItems(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 	home := t.TempDir()
 	configDir := filepath.Join(home, ".codex")
@@ -239,7 +239,7 @@ func TestAdapter_Backup_DirectoryItems(t *testing.T) {
 	}
 }
 
-func TestAdapter_Backup_CopyError(t *testing.T) {
+func TestAdapter_Backup_CopyError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod not applicable on Windows")
 	}
@@ -269,7 +269,7 @@ func TestAdapter_Backup_CopyError(t *testing.T) {
 	}
 }
 
-func TestAdapter_Restore_CopyError(t *testing.T) {
+func TestAdapter_Restore_CopyError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod not applicable on Windows")
 	}
@@ -302,7 +302,7 @@ func TestAdapter_Restore_CopyError(t *testing.T) {
 	}
 }
 
-func TestAdapter_fileHash_Error(t *testing.T) {
+func TestAdapter_fileHash_Error(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, _, err := adapters.FileHash(filepath.Join(t.TempDir(), "nonexistent.txt"))
 	if err == nil {
 		t.Error("expected error for missing file, got nil")
@@ -312,7 +312,7 @@ func TestAdapter_fileHash_Error(t *testing.T) {
 // TestAdapter_WhitelistOnlyConfigs verifies that the codex adapter's
 // RootConfigFiles whitelist returns only config files, not SQLite DBs
 // or cache files. This test is RED until RootConfigFiles is set.
-func TestAdapter_WhitelistOnlyConfigs(t *testing.T) {
+func TestAdapter_WhitelistOnlyConfigs(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 
 	home := t.TempDir()

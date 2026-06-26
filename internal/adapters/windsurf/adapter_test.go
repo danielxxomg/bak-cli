@@ -9,17 +9,17 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 )
 
-func TestAdapter_Name(t *testing.T) {
+func TestAdapter_Name(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 	if a.Name() != "windsurf" {
 		t.Errorf("Name() = %q, want %q", a.Name(), "windsurf")
 	}
 }
 
-func TestAdapter_Detect(t *testing.T) {
+func TestAdapter_Detect(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 
-	t.Run("installed", func(t *testing.T) {
+	t.Run("installed", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".codeium", "windsurf")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -37,7 +37,7 @@ func TestAdapter_Detect(t *testing.T) {
 		}
 	})
 
-	t.Run("not installed", func(t *testing.T) {
+	t.Run("not installed", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		installed, _, err := a.Detect(home)
 		if err != nil {
@@ -48,7 +48,7 @@ func TestAdapter_Detect(t *testing.T) {
 		}
 	})
 
-	t.Run("exists but is file not dir", func(t *testing.T) {
+	t.Run("exists but is file not dir", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		codeiumDir := filepath.Join(home, ".codeium")
 		if err := os.MkdirAll(codeiumDir, 0755); err != nil {
@@ -68,7 +68,7 @@ func TestAdapter_Detect(t *testing.T) {
 	})
 }
 
-func TestAdapter_ListItems(t *testing.T) {
+func TestAdapter_ListItems(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 
 	setupHome := func(t *testing.T) string {
@@ -92,7 +92,7 @@ func TestAdapter_ListItems(t *testing.T) {
 		return home
 	}
 
-	t.Run("config category", func(t *testing.T) {
+	t.Run("config category", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupHome(t)
 		items, err := a.ListItems(home, []string{"config"})
 		if err != nil {
@@ -103,7 +103,7 @@ func TestAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("rules category", func(t *testing.T) {
+	t.Run("rules category", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupHome(t)
 		items, err := a.ListItems(home, []string{"rules"})
 		if err != nil {
@@ -119,7 +119,7 @@ func TestAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("all categories", func(t *testing.T) {
+	t.Run("all categories", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupHome(t)
 		items, err := a.ListItems(home, []string{"config", "rules"})
 		if err != nil {
@@ -131,7 +131,7 @@ func TestAdapter_ListItems(t *testing.T) {
 	})
 }
 
-func TestAdapter_Backup(t *testing.T) {
+func TestAdapter_Backup(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 	home := t.TempDir()
 	configDir := filepath.Join(home, ".codeium", "windsurf")
@@ -158,7 +158,7 @@ func TestAdapter_Backup(t *testing.T) {
 	}
 }
 
-func TestAdapter_Restore(t *testing.T) {
+func TestAdapter_Restore(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 	backupDir := filepath.Join(t.TempDir(), "backup")
 	backupFile := filepath.Join(backupDir, "windsurf", "settings.json")
@@ -185,7 +185,7 @@ func TestAdapter_Restore(t *testing.T) {
 	}
 }
 
-func TestAdapter_InterfaceCompliance(t *testing.T) {
+func TestAdapter_InterfaceCompliance(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 	if a.Name() == "" {
 		t.Error("Name should not be empty")
@@ -203,7 +203,7 @@ func TestAdapter_InterfaceCompliance(t *testing.T) {
 	}
 }
 
-func TestAdapter_Backup_DirectoryItems(t *testing.T) {
+func TestAdapter_Backup_DirectoryItems(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 	home := t.TempDir()
 	configDir := filepath.Join(home, ".codeium", "windsurf")
@@ -244,7 +244,7 @@ func TestAdapter_Backup_DirectoryItems(t *testing.T) {
 	}
 }
 
-func TestAdapter_Backup_CopyError(t *testing.T) {
+func TestAdapter_Backup_CopyError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod not applicable on Windows")
 	}
@@ -274,7 +274,7 @@ func TestAdapter_Backup_CopyError(t *testing.T) {
 	}
 }
 
-func TestAdapter_Restore_CopyError(t *testing.T) {
+func TestAdapter_Restore_CopyError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod not applicable on Windows")
 	}
@@ -307,7 +307,7 @@ func TestAdapter_Restore_CopyError(t *testing.T) {
 	}
 }
 
-func TestAdapter_fileHash_Error(t *testing.T) {
+func TestAdapter_fileHash_Error(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, _, err := adapters.FileHash(filepath.Join(t.TempDir(), "nonexistent.txt"))
 	if err == nil {
 		t.Error("expected error for missing file, got nil")

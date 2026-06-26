@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestResolve(t *testing.T) {
+func TestResolve(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		preset   string
@@ -40,8 +40,8 @@ func TestResolve(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got, err := Resolve(tt.preset)
 			if tt.wantErr {
 				if err == nil {
@@ -59,7 +59,7 @@ func TestResolve(t *testing.T) {
 	}
 }
 
-func TestResolve_ReturnsCopy(t *testing.T) {
+func TestResolve_ReturnsCopy(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cats1, _ := Resolve(Quick)
 	cats2, _ := Resolve(Quick)
 
@@ -71,7 +71,7 @@ func TestResolve_ReturnsCopy(t *testing.T) {
 	}
 }
 
-func TestNames(t *testing.T) {
+func TestNames(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	names := Names()
 	if len(names) != 3 {
 		t.Errorf("Names() len = %d, want 3", len(names))
@@ -82,7 +82,7 @@ func TestNames(t *testing.T) {
 	}
 }
 
-func TestIsValid(t *testing.T) {
+func TestIsValid(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name string
 		want bool
@@ -94,8 +94,8 @@ func TestIsValid(t *testing.T) {
 		{"", false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := IsValid(tt.name)
 			if got != tt.want {
 				t.Errorf("IsValid(%q) = %v, want %v", tt.name, got, tt.want)
@@ -104,7 +104,7 @@ func TestIsValid(t *testing.T) {
 	}
 }
 
-func TestResolveAll_BuiltinFallback(t *testing.T) {
+func TestResolveAll_BuiltinFallback(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		preset   string
@@ -133,8 +133,8 @@ func TestResolveAll_BuiltinFallback(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got, err := ResolveAll(tt.preset, false)
 			if tt.wantErr {
 				if err == nil {
@@ -152,7 +152,7 @@ func TestResolveAll_BuiltinFallback(t *testing.T) {
 	}
 }
 
-func TestResolveAll_ReturnsCopy(t *testing.T) {
+func TestResolveAll_ReturnsCopy(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cats1, _ := ResolveAll(Quick, false)
 	cats2, _ := ResolveAll(Quick, false)
 
@@ -162,7 +162,7 @@ func TestResolveAll_ReturnsCopy(t *testing.T) {
 	}
 }
 
-func TestResolveAll_ConflictWarning(t *testing.T) {
+func TestResolveAll_ConflictWarning(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// When a YAML preset name conflicts with a built-in and override=false,
 	// ResolveAll should print a warning to stderr and fall back to the built-in.
 	home := t.TempDir()
@@ -215,7 +215,7 @@ categories:
 	}
 }
 
-func TestResolveAll_ConflictOverride(t *testing.T) {
+func TestResolveAll_ConflictOverride(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// When override=true, the YAML version wins.
 	home := t.TempDir()
 	t.Setenv("HOME", home)

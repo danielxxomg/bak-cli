@@ -98,11 +98,11 @@ func categoryKeys(m interface{}) []string {
 	return keys
 }
 
-func TestAdapterKnowledge_ConfigPaths(t *testing.T) {
+func TestAdapterKnowledge_ConfigPaths(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	actual := allAdapters()
 
-	for _, exp := range expectedKnowledge {
-		t.Run(exp.name+"/configPath", func(t *testing.T) {
+	for _, exp := range expectedKnowledge { //nolint:paralleltest // subtests share table/struct state
+		t.Run(exp.name+"/configPath", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			found := false
 			for _, act := range actual {
 				if act.name == exp.name {
@@ -120,11 +120,11 @@ func TestAdapterKnowledge_ConfigPaths(t *testing.T) {
 	}
 }
 
-func TestAdapterKnowledge_Categories(t *testing.T) {
+func TestAdapterKnowledge_Categories(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	actual := allAdapters()
 
-	for _, exp := range expectedKnowledge {
-		t.Run(exp.name+"/categories", func(t *testing.T) {
+	for _, exp := range expectedKnowledge { //nolint:paralleltest // subtests share table/struct state
+		t.Run(exp.name+"/categories", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			found := false
 			for _, act := range actual {
 				if act.name == exp.name {
@@ -144,7 +144,7 @@ func TestAdapterKnowledge_Categories(t *testing.T) {
 	}
 }
 
-func TestAdapterKnowledge_NoExtraAdapters(t *testing.T) {
+func TestAdapterKnowledge_NoExtraAdapters(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	actual := allAdapters()
 	for _, act := range actual {
 		found := false

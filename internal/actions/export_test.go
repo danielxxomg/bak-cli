@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestRunExport_HappyPath(t *testing.T) {
+func TestRunExport_HappyPath(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	backupID := "20260101-120000"
 
@@ -79,7 +79,7 @@ func TestRunExport_HappyPath(t *testing.T) {
 	}
 }
 
-func TestRunExport_BackupNotFound(t *testing.T) {
+func TestRunExport_BackupNotFound(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	outputPath := filepath.Join(t.TempDir(), "export.tar.gz")
 	var out strings.Builder
@@ -93,7 +93,7 @@ func TestRunExport_BackupNotFound(t *testing.T) {
 	}
 }
 
-func TestFormatBackupIDError(t *testing.T) {
+func TestFormatBackupIDError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name string
 		id   string
@@ -105,8 +105,8 @@ func TestFormatBackupIDError(t *testing.T) {
 		{"traversal_attempt", "../etc/passwd"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			msg := FormatBackupIDError(tt.id)
 			if !strings.Contains(msg, tt.id) {
 				t.Errorf("error message %q should contain ID %q", msg, tt.id)
@@ -121,7 +121,7 @@ func TestFormatBackupIDError(t *testing.T) {
 	}
 }
 
-func TestRunExport_EdgeCases(t *testing.T) {
+func TestRunExport_EdgeCases(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name  string
 		setup func(home string) (backupID string, expectErr bool, errContains string)
@@ -157,8 +157,8 @@ func TestRunExport_EdgeCases(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			homeDir := t.TempDir()
 			backupID, expectErr, errContains := tt.setup(homeDir)
 
@@ -213,7 +213,7 @@ func TestRunExport_EdgeCases(t *testing.T) {
 	}
 }
 
-func TestRunExport_NotADirectory(t *testing.T) {
+func TestRunExport_NotADirectory(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	backupID := "20260101-120000"
 
@@ -238,7 +238,7 @@ func TestRunExport_NotADirectory(t *testing.T) {
 	}
 }
 
-func TestRunExport_CreateError(t *testing.T) {
+func TestRunExport_CreateError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	backupID := "20260101-120000"
 
@@ -278,7 +278,7 @@ func (w *writeOnceThenFail) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func TestCreateTarGz_GzipCloseError(t *testing.T) {
+func TestCreateTarGz_GzipCloseError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srcDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(srcDir, "test.txt"), []byte("data"), 0644); err != nil {
 		t.Fatal(err)

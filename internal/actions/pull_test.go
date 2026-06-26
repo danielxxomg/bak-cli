@@ -19,7 +19,7 @@ import (
 
 // --- pull tests --------------------------------------------------------
 
-func TestPullAction_MkdirError(t *testing.T) {
+func TestPullAction_MkdirError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := "/home/test"
 	backupsDir := filepath.Join(home, ".bak", "backups")
 
@@ -47,7 +47,7 @@ func TestPullAction_MkdirError(t *testing.T) {
 	}
 }
 
-func TestPullAction_ConfigLoadError(t *testing.T) {
+func TestPullAction_ConfigLoadError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Use a home that doesn't exist to trigger config.Load() error.
 	mockFS := &MockFileSystem{
 		HomeDir:    "/nonexistent/homedir",
@@ -68,7 +68,7 @@ func TestPullAction_ConfigLoadError(t *testing.T) {
 	}
 }
 
-func TestPullAction_NoStoredBackupID(t *testing.T) {
+func TestPullAction_NoStoredBackupID(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := "/home/test"
 	mockFS := &MockFileSystem{
 		HomeDir:    home,
@@ -90,7 +90,7 @@ func TestPullAction_NoStoredBackupID(t *testing.T) {
 	}
 }
 
-func TestPullAction_ExplicitID(t *testing.T) {
+func TestPullAction_ExplicitID(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	mockFS := &MockFileSystem{
 		HomeDir:     "/home/test",
 		StatResult:  make(map[string]MockStatResult),
@@ -118,7 +118,7 @@ func TestPullAction_ExplicitID(t *testing.T) {
 	}
 }
 
-func TestPullAction_MkdirAllError(t *testing.T) {
+func TestPullAction_MkdirAllError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	// Set up a custom FS that fails MkdirAll.
@@ -140,7 +140,7 @@ func TestPullAction_MkdirAllError(t *testing.T) {
 	}
 }
 
-func TestPullAction_UserHomeDir(t *testing.T) {
+func TestPullAction_UserHomeDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	mockFS := &MockFileSystem{
 		HomeDir:    "/home/test",
 		StatResult: make(map[string]MockStatResult),
@@ -160,7 +160,7 @@ func TestPullAction_UserHomeDir(t *testing.T) {
 	}
 }
 
-func TestPullAction_InvalidProvider(t *testing.T) {
+func TestPullAction_InvalidProvider(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	mockFS := &MockFileSystem{
 		HomeDir:    "/home/test",
 		StatResult: make(map[string]MockStatResult),
@@ -183,7 +183,7 @@ func TestPullAction_InvalidProvider(t *testing.T) {
 	}
 }
 
-func TestPullAction_MockProvider_HappyPath(t *testing.T) {
+func TestPullAction_MockProvider_HappyPath(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	mockProvider := &MockProvider{
@@ -224,7 +224,7 @@ func TestPullAction_MockProvider_HappyPath(t *testing.T) {
 	}
 }
 
-func TestPullAction_MockProvider_FactoryError(t *testing.T) {
+func TestPullAction_MockProvider_FactoryError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	mockFS := &MockFileSystem{
 		HomeDir:    "/home/test",
 		StatResult: make(map[string]MockStatResult),
@@ -250,7 +250,7 @@ func TestPullAction_MockProvider_FactoryError(t *testing.T) {
 	}
 }
 
-func TestPullAction_MockProvider_PullError(t *testing.T) {
+func TestPullAction_MockProvider_PullError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	mockProvider := &MockProvider{
@@ -372,7 +372,7 @@ func verifyExtractedFiles(t *testing.T, home string, expected map[string]string)
 
 // --- encryption integration tests ----------------------------------------
 
-func TestPull_EncryptedRoundTrip(t *testing.T) {
+func TestPull_EncryptedRoundTrip(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name  string
 		files map[string]string
@@ -398,8 +398,8 @@ func TestPull_EncryptedRoundTrip(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			const password = "test-password-123"
 			t.Setenv("BAK_ENCRYPTION_PASSWORD", password)
 
@@ -438,7 +438,7 @@ func TestPull_EncryptedRoundTrip(t *testing.T) {
 	}
 }
 
-func TestPull_BackwardCompatPlaintext(t *testing.T) {
+func TestPull_BackwardCompatPlaintext(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name  string
 		files map[string]string
@@ -458,8 +458,8 @@ func TestPull_BackwardCompatPlaintext(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			// Intentionally do NOT set BAK_ENCRYPTION_PASSWORD.
 			archiveData := buildPlainArchive(t, tt.files)
 			home := t.TempDir()
@@ -496,7 +496,7 @@ func TestPull_BackwardCompatPlaintext(t *testing.T) {
 	}
 }
 
-func TestPull_WrongPassword(t *testing.T) {
+func TestPull_WrongPassword(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name         string
 		envPassword  string
@@ -514,8 +514,8 @@ func TestPull_WrongPassword(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			const encryptPassword = "correct-password"
 			t.Setenv("BAK_ENCRYPTION_PASSWORD", tt.envPassword)
 
@@ -558,7 +558,7 @@ func TestPull_WrongPassword(t *testing.T) {
 
 // TestPullAction_OutputRouting verifies that all output goes through
 // injectable Stdout/Stderr writers instead of fmt.Printf / os.Stderr.
-func TestPullAction_OutputRouting(t *testing.T) {
+func TestPullAction_OutputRouting(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	const password = "test-password-456"
 	t.Setenv("BAK_ENCRYPTION_PASSWORD", password)
 

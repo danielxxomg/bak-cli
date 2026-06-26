@@ -50,7 +50,7 @@ func (m restorePickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 
-		case "enter":
+		case keyEnter:
 			if len(m.backups) > 0 {
 				m.confirmed = true
 				return m, tea.Quit
@@ -90,7 +90,7 @@ func (m restorePickerModel) View() tea.View {
 	b.WriteString("\n")
 	b.WriteString(components.RenderHelp([]components.HelpKey{
 		{Key: "\u2191/\u2193", Desc: "navigate"},
-		{Key: "enter", Desc: "select"},
+		{Key: keyEnter, Desc: "select"},
 		{Key: "q/esc", Desc: "cancel"},
 	}))
 

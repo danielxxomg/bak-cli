@@ -10,8 +10,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
-func TestUndo(t *testing.T) {
-	t.Run("reverts last commit restoring previous state", func(t *testing.T) {
+func TestUndo(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("reverts last commit restoring previous state", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 		repo := mustInit(t, dir)
 
@@ -54,7 +54,7 @@ func TestUndo(t *testing.T) {
 		}
 	})
 
-	t.Run("undo with multiple files preserves all original content", func(t *testing.T) {
+	t.Run("undo with multiple files preserves all original content", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 		repo := mustInit(t, dir)
 
@@ -84,7 +84,7 @@ func TestUndo(t *testing.T) {
 		}
 	})
 
-	t.Run("undo revert commit message contains bak prefix", func(t *testing.T) {
+	t.Run("undo revert commit message contains bak prefix", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 		repo := mustInit(t, dir)
 
@@ -104,7 +104,7 @@ func TestUndo(t *testing.T) {
 		}
 	})
 
-	t.Run("undo on initial commit returns error", func(t *testing.T) {
+	t.Run("undo on initial commit returns error", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 		repo := mustInit(t, dir)
 

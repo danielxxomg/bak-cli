@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestFileHash(t *testing.T) {
+func TestFileHash(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	h := sha256.New()
 	h.Write([]byte("hello world"))
 	knownHash := fmt.Sprintf("sha256:%x", h.Sum(nil))
@@ -34,8 +34,8 @@ func TestFileHash(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			dir := t.TempDir()
 			fpath := filepath.Join(dir, "test.txt")
 			if err := os.WriteFile(fpath, tt.content, 0644); err != nil {
@@ -55,7 +55,7 @@ func TestFileHash(t *testing.T) {
 		})
 	}
 
-	t.Run("nonexistent file returns error", func(t *testing.T) {
+	t.Run("nonexistent file returns error", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		_, _, err := FileHash(filepath.Join(t.TempDir(), "missing.txt"))
 		if err == nil {
 			t.Error("expected error for nonexistent file")
@@ -63,7 +63,7 @@ func TestFileHash(t *testing.T) {
 	})
 }
 
-func TestCopyFile(t *testing.T) {
+func TestCopyFile(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name    string
 		content string
@@ -87,8 +87,8 @@ func TestCopyFile(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			dir := t.TempDir()
 			src := filepath.Join(dir, "src.txt")
 			dst := filepath.Join(dir, tt.dstDir, "dst.txt")
@@ -111,7 +111,7 @@ func TestCopyFile(t *testing.T) {
 		})
 	}
 
-	t.Run("nonexistent source returns error", func(t *testing.T) {
+	t.Run("nonexistent source returns error", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 		err := CopyFile(filepath.Join(dir, "missing.txt"), filepath.Join(dir, "dst.txt"))
 		if err == nil {

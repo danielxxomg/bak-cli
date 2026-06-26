@@ -10,7 +10,7 @@ import (
 // TestColors verifies all 11 Rose Pine semantic colors exist as package-level
 // variables and produce valid ANSI true-color sequences when rendered.
 // Lipgloss converts hex colors to RGB decimal ANSI sequences: e.g. #191724 → 38;2;25;23;36.
-func TestColors(t *testing.T) {
+func TestColors(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name string
 		// applyColor returns a style with the color as foreground.
@@ -31,8 +31,8 @@ func TestColors(t *testing.T) {
 		{"Lavender", func() lipgloss.Style { return lipgloss.NewStyle().Foreground(ColorLavender) }, "38;2;196;167;231"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			style := tt.applyColor()
 			rendered := style.Render("X")
 
@@ -50,7 +50,7 @@ func TestColors(t *testing.T) {
 
 // TestStylesExist verifies that all package-level styles exist
 // and produce non-empty rendered output containing the input text.
-func TestStylesExist(t *testing.T) {
+func TestStylesExist(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		style    lipgloss.Style
@@ -64,8 +64,8 @@ func TestStylesExist(t *testing.T) {
 		{name: "HelpStyle", style: HelpStyle, wantBold: false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			rendered := tt.style.Render("test")
 			if len(rendered) == 0 {
 				t.Error("rendered output is empty")
@@ -91,7 +91,7 @@ func TestStylesExist(t *testing.T) {
 // =============================================================================
 
 // TestToastStyle_HasBorder verifies that ToastStyle includes a visible border.
-func TestToastStyle_HasBorder(t *testing.T) {
+func TestToastStyle_HasBorder(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	rendered := ToastStyle.Render("test message")
 
 	if len(rendered) == 0 {
@@ -113,7 +113,7 @@ func TestToastStyle_HasBorder(t *testing.T) {
 
 // TestToastStyle_HasBackground verifies that ToastStyle includes a
 // background color (ANSI 48;2;R;G;Bm sequence).
-func TestToastStyle_HasBackground(t *testing.T) {
+func TestToastStyle_HasBackground(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	rendered := ToastStyle.Render("test message")
 
 	if !strings.Contains(rendered, "48;") {
@@ -122,7 +122,7 @@ func TestToastStyle_HasBackground(t *testing.T) {
 }
 
 // TestCursorIndicator verifies the cursor indicator constant.
-func TestCursorIndicator(t *testing.T) {
+func TestCursorIndicator(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	if CursorIndicator == "" {
 		t.Error("CursorIndicator is empty")
 	}
@@ -135,7 +135,7 @@ func TestCursorIndicator(t *testing.T) {
 // TestIsTooSmall — RED (IsTooSmall does not exist yet)
 // =============================================================================
 
-func TestIsTooSmall(t *testing.T) {
+func TestIsTooSmall(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		width    int
@@ -163,8 +163,8 @@ func TestIsTooSmall(t *testing.T) {
 		{"just above (31x16)", 31, 16, false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := IsTooSmall(tt.width, tt.height)
 			if got != tt.tooSmall {
 				t.Errorf("IsTooSmall(%d, %d) = %v, want %v",
@@ -178,7 +178,7 @@ func TestIsTooSmall(t *testing.T) {
 // small" warning showing the current dimensions and the required minimum.
 // Covers spec REQ-TD-003 §"RenderTooSmall produces correct message" (task 4.1,
 // RED): RenderTooSmall(15, 5) must contain "Terminal too small (15x5)".
-func TestRenderTooSmall(t *testing.T) {
+func TestRenderTooSmall(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name    string
 		width   int
@@ -205,8 +205,8 @@ func TestRenderTooSmall(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := RenderTooSmall(tt.width, tt.height)
 			if got == "" {
 				t.Fatal("RenderTooSmall returned empty string")
@@ -222,7 +222,7 @@ func TestRenderTooSmall(t *testing.T) {
 
 // TestFrame verifies that Frame() wraps content in a DoubleBorder
 // and produces the expected box-drawing characters.
-func TestFrame(t *testing.T) {
+func TestFrame(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name    string
 		content string
@@ -249,8 +249,8 @@ func TestFrame(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			result := Frame(tt.content, tt.width)
 
 			if len(result) == 0 {

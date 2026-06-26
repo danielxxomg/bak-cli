@@ -57,7 +57,7 @@ type DashboardModel struct {
 func NewDashboardModel(listBackups func() ([]BackupInfo, error)) DashboardModel {
 	backups, err := listBackups()
 
-	var rows []table.Row
+	rows := make([]table.Row, 0, len(backups))
 	for _, b := range backups {
 		rows = append(rows, table.Row{b.ID, b.Date, b.Size, b.Status, b.Cloud})
 	}
@@ -184,9 +184,9 @@ func (m DashboardModel) View() tea.View {
 // renderDashboardHelp returns the dashboard help bar with context-appropriate keys.
 func renderDashboardHelp() string {
 	helpKeys := []components.HelpKey{
-		{Key: "↑/↓", Desc: "navigate"},
+		{Key: keyArrowUpDown, Desc: keyNavigate},
 		{Key: "/", Desc: "search"},
-		{Key: "q", Desc: "back"},
+		{Key: "q", Desc: keyBack},
 	}
 	return components.RenderHelp(helpKeys)
 }

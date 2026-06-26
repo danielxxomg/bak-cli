@@ -66,7 +66,7 @@ func setupPushMockFS(home string) *MockFileSystem {
 
 // --- tests -------------------------------------------------------------
 
-func TestPushAction_ReadDirError(t *testing.T) {
+func TestPushAction_ReadDirError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	mockFS := &MockFileSystem{
 		HomeDir: "/home/test",
 		ReadDirErrors: map[string]error{
@@ -86,7 +86,7 @@ func TestPushAction_ReadDirError(t *testing.T) {
 	}
 }
 
-func TestPushAction_NoBackupsFound(t *testing.T) {
+func TestPushAction_NoBackupsFound(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := "/home/test"
 	mockFS := &MockFileSystem{
 		HomeDir:    home,
@@ -102,7 +102,7 @@ func TestPushAction_NoBackupsFound(t *testing.T) {
 	}
 }
 
-func TestPushAction_StatError(t *testing.T) {
+func TestPushAction_StatError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := "/home/test"
 	backupsDir := filepath.Join(home, ".bak", "backups")
 
@@ -127,7 +127,7 @@ func TestPushAction_StatError(t *testing.T) {
 	}
 }
 
-func TestPushAction_LatestBackup(t *testing.T) {
+func TestPushAction_LatestBackup(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	mockFS := setupPushMockFS("/home/test")
 
 	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist", Verbose: true}
@@ -141,7 +141,7 @@ func TestPushAction_LatestBackup(t *testing.T) {
 	}
 }
 
-func TestPushAction_ExplicitBackupID(t *testing.T) {
+func TestPushAction_ExplicitBackupID(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := "/home/test"
 	backupsDir := filepath.Join(home, ".bak", "backups")
 	backupDir := filepath.Join(backupsDir, "20260101-120000")
@@ -163,7 +163,7 @@ func TestPushAction_ExplicitBackupID(t *testing.T) {
 	}
 }
 
-func TestPushAction_InvalidBackupID(t *testing.T) {
+func TestPushAction_InvalidBackupID(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := "/home/test"
 	backupsDir := filepath.Join(home, ".bak", "backups")
 
@@ -181,7 +181,7 @@ func TestPushAction_InvalidBackupID(t *testing.T) {
 	}
 }
 
-func TestPushAction_VerboseLogging(t *testing.T) {
+func TestPushAction_VerboseLogging(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	mockFS := &MockFileSystem{
 		HomeDir:    home,
@@ -194,7 +194,7 @@ func TestPushAction_VerboseLogging(t *testing.T) {
 	// Just exercises the verbose code path. Error expected.
 }
 
-func TestPushAction_UnknownProvider(t *testing.T) {
+func TestPushAction_UnknownProvider(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	mockFS := &MockFileSystem{
 		HomeDir:    "/home/test",
 		StatResult: make(map[string]MockStatResult),
@@ -208,7 +208,7 @@ func TestPushAction_UnknownProvider(t *testing.T) {
 	}
 }
 
-func TestPushAction_PathTraversal_Latest(t *testing.T) {
+func TestPushAction_PathTraversal_Latest(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := "/home/test"
 	backupsDir := filepath.Join(home, ".bak", "backups")
 
@@ -230,7 +230,7 @@ func TestPushAction_PathTraversal_Latest(t *testing.T) {
 	}
 }
 
-func TestPushAction_ExplicitArgResolvesID(t *testing.T) {
+func TestPushAction_ExplicitArgResolvesID(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := "/home/test"
 	backupsDir := filepath.Join(home, ".bak", "backups")
 	backupDir := filepath.Join(backupsDir, "20260101-120000")
@@ -251,7 +251,7 @@ func TestPushAction_ExplicitArgResolvesID(t *testing.T) {
 	}
 }
 
-func TestPushAction_EmptyArgFallsback(t *testing.T) {
+func TestPushAction_EmptyArgFallsback(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := "/home/test"
 	backupsDir := filepath.Join(home, ".bak", "backups")
 
@@ -276,7 +276,7 @@ func TestPushAction_EmptyArgFallsback(t *testing.T) {
 	}
 }
 
-func TestPushAction_HomeDirError(t *testing.T) {
+func TestPushAction_HomeDirError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// A mock that fails UserHomeDir (though our mock always succeeds).
 	// Test the Stat error path instead.
 	mockFS := &MockFileSystem{
@@ -292,7 +292,7 @@ func TestPushAction_HomeDirError(t *testing.T) {
 	}
 }
 
-func TestPushAction_ReadDirErrorOnFallback(t *testing.T) {
+func TestPushAction_ReadDirErrorOnFallback(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	mockFS := &MockFileSystem{
 		HomeDir: "/home/test",
 		ReadDirErrors: map[string]error{
@@ -309,7 +309,7 @@ func TestPushAction_ReadDirErrorOnFallback(t *testing.T) {
 	}
 }
 
-func TestPushAction_MockProvider_HappyPath(t *testing.T) {
+func TestPushAction_MockProvider_HappyPath(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	// Create a real backup to package.
@@ -372,7 +372,7 @@ func TestPushAction_MockProvider_HappyPath(t *testing.T) {
 	}
 }
 
-func TestPushAction_MockProvider_ProviderError(t *testing.T) {
+func TestPushAction_MockProvider_ProviderError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	bakDir := filepath.Join(home, ".bak")
@@ -400,7 +400,7 @@ func TestPushAction_MockProvider_ProviderError(t *testing.T) {
 	}
 }
 
-func TestPushAction_MockProvider_PushError(t *testing.T) {
+func TestPushAction_MockProvider_PushError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	bakDir := filepath.Join(home, ".bak")
@@ -442,7 +442,7 @@ func TestPushAction_MockProvider_PushError(t *testing.T) {
 
 // --- encryption tests ---------------------------------------------------
 
-func TestPushAction_EncryptionEnabled(t *testing.T) {
+func TestPushAction_EncryptionEnabled(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	// Create a real backup to package.
@@ -498,7 +498,7 @@ func TestPushAction_EncryptionEnabled(t *testing.T) {
 	}
 }
 
-func TestPushAction_EncryptionDisabled(t *testing.T) {
+func TestPushAction_EncryptionDisabled(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	bakDir := filepath.Join(home, ".bak")
@@ -549,7 +549,7 @@ func TestPushAction_EncryptionDisabled(t *testing.T) {
 	}
 }
 
-func TestPushAction_NonexistentProfile(t *testing.T) {
+func TestPushAction_NonexistentProfile(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	bakDir := filepath.Join(home, ".bak")
@@ -603,7 +603,7 @@ func TestPushAction_NonexistentProfile(t *testing.T) {
 	}
 }
 
-func TestPushAction_ConfigLoadError(t *testing.T) {
+func TestPushAction_ConfigLoadError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	bakDir := filepath.Join(home, ".bak")
@@ -645,7 +645,7 @@ func TestPushAction_ConfigLoadError(t *testing.T) {
 	}
 }
 
-func TestPushAction_PasswordError(t *testing.T) {
+func TestPushAction_PasswordError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	bakDir := filepath.Join(home, ".bak")
@@ -700,7 +700,7 @@ func TestPushAction_PasswordError(t *testing.T) {
 	}
 }
 
-func TestPushAction_StdoutInjection(t *testing.T) {
+func TestPushAction_StdoutInjection(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	bakDir := filepath.Join(home, ".bak")
@@ -745,7 +745,7 @@ func TestPushAction_StdoutInjection(t *testing.T) {
 	}
 }
 
-func TestPushAction_StdoutNotLeaked(t *testing.T) {
+func TestPushAction_StdoutNotLeaked(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	bakDir := filepath.Join(home, ".bak")

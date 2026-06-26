@@ -8,8 +8,8 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
 
-func TestRestoreEngine_Run(t *testing.T) {
-	t.Run("successful restore — dry-run then apply", func(t *testing.T) {
+func TestRestoreEngine_Run(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("successful restore — dry-run then apply", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		backupDir := t.TempDir()
 
@@ -54,7 +54,7 @@ func TestRestoreEngine_Run(t *testing.T) {
 		}
 	})
 
-	t.Run("dry-run only — does not modify files", func(t *testing.T) {
+	t.Run("dry-run only — does not modify files", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		backupDir := t.TempDir()
 
@@ -91,7 +91,7 @@ func TestRestoreEngine_Run(t *testing.T) {
 		}
 	})
 
-	t.Run("missing backup file — graceful skip", func(t *testing.T) {
+	t.Run("missing backup file — graceful skip", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		backupDir := t.TempDir()
 
@@ -123,7 +123,7 @@ func TestRestoreEngine_Run(t *testing.T) {
 		}
 	})
 
-	t.Run("path outside home — rejected", func(t *testing.T) {
+	t.Run("path outside home — rejected", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		backupDir := t.TempDir()
 
 		mustWrite(t, filepath.Join(backupDir, "opencode", "passwd"), "root:x:0:0:root")
@@ -145,7 +145,7 @@ func TestRestoreEngine_Run(t *testing.T) {
 		}
 	})
 
-	t.Run("dry-run mandatory — force dryRun when not forcing", func(t *testing.T) {
+	t.Run("dry-run mandatory — force dryRun when not forcing", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		backupDir := t.TempDir()
 
@@ -180,7 +180,7 @@ func TestRestoreEngine_Run(t *testing.T) {
 	})
 }
 
-func TestEngine_Run_ChecksumMismatch(t *testing.T) {
+func TestEngine_Run_ChecksumMismatch(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	backupDir := t.TempDir()
 
@@ -221,7 +221,7 @@ func TestEngine_Run_ChecksumMismatch(t *testing.T) {
 	}
 }
 
-func TestEngine_Run_ChecksumMismatch_ForceOverride(t *testing.T) {
+func TestEngine_Run_ChecksumMismatch_ForceOverride(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	backupDir := t.TempDir()
 
@@ -275,7 +275,7 @@ func TestEngine_Run_ChecksumMismatch_ForceOverride(t *testing.T) {
 	}
 }
 
-func TestEngine_Run_WriteFailure(t *testing.T) {
+func TestEngine_Run_WriteFailure(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	backupDir := t.TempDir()
 

@@ -19,7 +19,7 @@ import (
 // TestNewModel — RED (model.go does not exist yet)
 // =============================================================================
 
-func TestNewModel(t *testing.T) {
+func TestNewModel(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	deps := Deps{
 		Version:      "1.0.0",
 		ConfigExists: func() bool { return true },
@@ -65,7 +65,7 @@ func TestNewModel(t *testing.T) {
 // TestModel_Init — RED
 // =============================================================================
 
-func TestModel_Init(t *testing.T) {
+func TestModel_Init(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 
 	cmd := m.Init()
@@ -85,7 +85,7 @@ func newTestModel() Model {
 	return NewModel(Deps{Version: "1.0.0"})
 }
 
-func TestModel_Update_Quit(t *testing.T) {
+func TestModel_Update_Quit(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := newTestModel()
 
 	newModel, cmd := m.Update(tea.KeyPressMsg{Code: 'q'})
@@ -112,7 +112,7 @@ func TestModel_Update_Quit(t *testing.T) {
 	}
 }
 
-func TestModel_Update_NavigateDown(t *testing.T) {
+func TestModel_Update_NavigateDown(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 
 	// Press 'j' once: cursor should go from 0 to 1.
@@ -139,7 +139,7 @@ func TestModel_Update_NavigateDown(t *testing.T) {
 	}
 }
 
-func TestModel_Update_NavigateUp(t *testing.T) {
+func TestModel_Update_NavigateUp(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	// Start with cursor at 3 (simulate via navigation).
 	m.cursor = 3
@@ -161,7 +161,7 @@ func TestModel_Update_NavigateUp(t *testing.T) {
 	}
 }
 
-func TestModel_Update_WindowSize(t *testing.T) {
+func TestModel_Update_WindowSize(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 
 	newModel, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
@@ -178,7 +178,7 @@ func TestModel_Update_WindowSize(t *testing.T) {
 	}
 }
 
-func TestModel_Update_MinSizeGuard(t *testing.T) {
+func TestModel_Update_MinSizeGuard(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		width    int
@@ -195,8 +195,8 @@ func TestModel_Update_MinSizeGuard(t *testing.T) {
 		{"tall but narrow (25x40)", 25, 40, true},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := NewModel(Deps{Version: "1.0.0"})
 
 			newModel, _ := m.Update(tea.WindowSizeMsg{Width: tt.width, Height: tt.height})
@@ -216,7 +216,7 @@ func TestModel_Update_MinSizeGuard(t *testing.T) {
 
 // TestModel_Update_ArrowKeys verifies that up/down arrow keys navigate
 // the main menu cursor, identical to j/k.
-func TestModel_Update_ArrowKeys(t *testing.T) {
+func TestModel_Update_ArrowKeys(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	lastIdx := len(m.menuItems) - 1 // 6
 
@@ -286,8 +286,8 @@ func TestModel_Update_ArrowKeys(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m.cursor = tt.startCur
 			cur := m
 			for _, key := range tt.keys {
@@ -305,7 +305,7 @@ func TestModel_Update_ArrowKeys(t *testing.T) {
 // TestModel_View — RED
 // =============================================================================
 
-func TestModel_View_Menu(t *testing.T) {
+func TestModel_View_Menu(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	deps := Deps{Version: "1.0.0"}
 	m := NewModel(deps)
 	m.width = 80
@@ -330,7 +330,7 @@ func TestModel_View_Menu(t *testing.T) {
 	}
 }
 
-func TestModel_View_TooSmall(t *testing.T) {
+func TestModel_View_TooSmall(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 10
 	m.height = 5
@@ -361,7 +361,7 @@ func TestModel_View_TooSmall(t *testing.T) {
 // TestModel_Selection — RED
 // =============================================================================
 
-func TestModel_Selection(t *testing.T) {
+func TestModel_Selection(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		cursor   int
@@ -372,8 +372,8 @@ func TestModel_Selection(t *testing.T) {
 		{"last item", 6, "Quit"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := NewModel(Deps{Version: "1.0.0"})
 			m.cursor = tt.cursor
 
@@ -394,7 +394,7 @@ func TestModel_Selection(t *testing.T) {
 // =============================================================================
 
 // TestModel_Init_PreservesDeps verifies the model deps survive Init.
-func TestModel_Init_PreservesDeps(t *testing.T) {
+func TestModel_Init_PreservesDeps(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "2.0.0-beta"})
 	_ = m.Init()
 	if m.deps.Version != "2.0.0-beta" {
@@ -403,7 +403,7 @@ func TestModel_Init_PreservesDeps(t *testing.T) {
 }
 
 // TestModel_Update_Quit_Esc verifies escape key also quits.
-func TestModel_Update_Quit_Esc(t *testing.T) {
+func TestModel_Update_Quit_Esc(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 
 	_, cmd := m.Update(tea.KeyPressMsg{Code: KeyEsc})
@@ -419,7 +419,7 @@ func TestModel_Update_Quit_Esc(t *testing.T) {
 }
 
 // TestModel_Update_SecondResize verifies a second WindowSizeMsg updates correctly.
-func TestModel_Update_SecondResize(t *testing.T) {
+func TestModel_Update_SecondResize(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 
 	// First resize: normal.
@@ -441,7 +441,7 @@ func TestModel_Update_SecondResize(t *testing.T) {
 }
 
 // TestModel_View_Menu_WithCursor verifies cursor position changes output.
-func TestModel_View_Menu_WithCursor(t *testing.T) {
+func TestModel_View_Menu_WithCursor(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	deps := Deps{Version: "1.0.0"}
 	m := NewModel(deps)
 	m.width = 80
@@ -464,7 +464,7 @@ func TestModel_View_Menu_WithCursor(t *testing.T) {
 // TestModel_View_TooSmall_ShowsWarningOnly verifies tooSmall view
 // does not render menu items. Also verifies the message format includes
 // actual dimensions and the required minimum.
-func TestModel_View_TooSmall_ShowsWarningOnly(t *testing.T) {
+func TestModel_View_TooSmall_ShowsWarningOnly(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 10
 	m.height = 5
@@ -492,7 +492,7 @@ func TestModel_View_TooSmall_ShowsWarningOnly(t *testing.T) {
 
 // TestModel_View_AltScreen verifies that View() always returns a tea.View
 // with AltScreen=true, regardless of whether the terminal is too small.
-func TestModel_View_AltScreen(t *testing.T) {
+func TestModel_View_AltScreen(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		width    int
@@ -504,8 +504,8 @@ func TestModel_View_AltScreen(t *testing.T) {
 		{"minimum viable", 30, 15, false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := NewModel(Deps{Version: "1.0.0"})
 			m.width = tt.width
 			m.height = tt.height
@@ -527,7 +527,7 @@ func TestModel_View_AltScreen(t *testing.T) {
 
 // TestModel_View_AltScreen_Triangulation verifies AltScreen is true
 // across multiple model states: different screens and after resizes.
-func TestModel_View_AltScreen_Triangulation(t *testing.T) {
+func TestModel_View_AltScreen_Triangulation(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -558,7 +558,7 @@ func TestModel_View_AltScreen_Triangulation(t *testing.T) {
 
 // TestModel_Selection_EmptyMenuItems verifies that Selection() handles
 // empty menuItems without panicking and returns a zero-value MenuSelection.
-func TestModel_Selection_EmptyMenuItems(t *testing.T) {
+func TestModel_Selection_EmptyMenuItems(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.menuItems = []string{}
 
@@ -574,7 +574,7 @@ func TestModel_Selection_EmptyMenuItems(t *testing.T) {
 
 // TestModel_Selection_NilMenuItems verifies that Selection() handles
 // nil menuItems without panicking (triangulation of empty case).
-func TestModel_Selection_NilMenuItems(t *testing.T) {
+func TestModel_Selection_NilMenuItems(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.menuItems = nil
 
@@ -590,7 +590,7 @@ func TestModel_Selection_NilMenuItems(t *testing.T) {
 }
 
 // TestModel_Selection_Clamp verifies out-of-bounds cursor is clamped.
-func TestModel_Selection_Clamp(t *testing.T) {
+func TestModel_Selection_Clamp(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		cursor   int
@@ -600,8 +600,8 @@ func TestModel_Selection_Clamp(t *testing.T) {
 		{"over bound cursor", 99, "Quit"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := newTestModel()
 			m.cursor = tt.cursor
 
@@ -621,7 +621,7 @@ func TestModel_Selection_Clamp(t *testing.T) {
 
 // TestModel_Update_ScreenDashboard verifies enter on "Browse backups"
 // (menu index 2) transitions to ScreenDashboard.
-func TestModel_Update_ScreenDashboard(t *testing.T) {
+func TestModel_Update_ScreenDashboard(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.cursor = 2 // "Browse backups"
 
@@ -644,7 +644,7 @@ func TestModel_Update_ScreenDashboard(t *testing.T) {
 
 // TestModel_Update_ScreenProgress verifies enter on "Create backup"
 // (menu index 0) transitions to ScreenProgress.
-func TestModel_Update_ScreenProgress(t *testing.T) {
+func TestModel_Update_ScreenProgress(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.cursor = 0 // "Create backup"
 
@@ -666,7 +666,7 @@ func TestModel_Update_ScreenProgress(t *testing.T) {
 }
 
 // TestModel_View_Dashboard verifies View delegates to dashboard when screen=ScreenDashboard.
-func TestModel_View_Dashboard(t *testing.T) {
+func TestModel_View_Dashboard(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version: "1.0.0",
 		ListBackups: func() ([]BackupInfo, error) {
@@ -689,7 +689,7 @@ func TestModel_View_Dashboard(t *testing.T) {
 }
 
 // TestModel_View_Progress verifies View delegates to progress when screen=ScreenProgress.
-func TestModel_View_Progress(t *testing.T) {
+func TestModel_View_Progress(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -706,7 +706,7 @@ func TestModel_View_Progress(t *testing.T) {
 }
 
 // TestModel_Update_BackFromDashboard verifies ScreenBackMsg returns to ScreenMenu.
-func TestModel_Update_BackFromDashboard(t *testing.T) {
+func TestModel_Update_BackFromDashboard(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version: "1.0.0",
 		ListBackups: func() ([]BackupInfo, error) {
@@ -729,7 +729,7 @@ func TestModel_Update_BackFromDashboard(t *testing.T) {
 
 // TestModel_Update_ScreenSettings verifies enter on "Settings"
 // (menu index 5) transitions to ScreenSettings.
-func TestModel_Update_ScreenSettings(t *testing.T) {
+func TestModel_Update_ScreenSettings(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.cursor = 5 // "Settings"
 
@@ -752,7 +752,7 @@ func TestModel_Update_ScreenSettings(t *testing.T) {
 // TestModel_Update_ScreenShortcuts verifies that pressing '?' on the
 // main menu toggles the help overlay on (showHelp=true) without changing
 // the active screen.
-func TestModel_Update_ScreenShortcuts(t *testing.T) {
+func TestModel_Update_ScreenShortcuts(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 
 	newModel, _ := m.Update(tea.KeyPressMsg{Code: '?'})
@@ -769,7 +769,7 @@ func TestModel_Update_ScreenShortcuts(t *testing.T) {
 
 // TestModel_Update_SearchActivate verifies that pressing / on the
 // dashboard activates the search component.
-func TestModel_Update_SearchActivate(t *testing.T) {
+func TestModel_Update_SearchActivate(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version: "1.0.0",
 		ListBackups: func() ([]BackupInfo, error) {
@@ -788,7 +788,7 @@ func TestModel_Update_SearchActivate(t *testing.T) {
 
 // TestModel_Update_Toast verifies that triggering a toast sets
 // the toast message and visibility.
-func TestModel_Update_Toast(t *testing.T) {
+func TestModel_Update_Toast(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 
 	m.toast.Show("Backup started", 3)
@@ -804,7 +804,7 @@ func TestModel_Update_Toast(t *testing.T) {
 
 // TestModel_View_Settings verifies View delegates to settings when
 // screen=ScreenSettings.
-func TestModel_View_Settings(t *testing.T) {
+func TestModel_View_Settings(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.screen = ScreenSettings
 	m.settings = newSettingsPtr()
@@ -821,7 +821,7 @@ func TestModel_View_Settings(t *testing.T) {
 }
 
 // TestModel_View_Shortcuts verifies View renders shortcuts overlay.
-func TestModel_View_Shortcuts(t *testing.T) {
+func TestModel_View_Shortcuts(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -835,7 +835,7 @@ func TestModel_View_Shortcuts(t *testing.T) {
 }
 
 // TestModel_View_ToastOverlay verifies toast is rendered when visible.
-func TestModel_View_ToastOverlay(t *testing.T) {
+func TestModel_View_ToastOverlay(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -850,7 +850,7 @@ func TestModel_View_ToastOverlay(t *testing.T) {
 
 // TestModel_BackFromShortcuts verifies that pressing q/esc from
 // shortcuts overlay returns to ScreenMenu.
-func TestModel_BackFromShortcuts(t *testing.T) {
+func TestModel_BackFromShortcuts(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.screen = ScreenShortcuts
 
@@ -864,7 +864,7 @@ func TestModel_BackFromShortcuts(t *testing.T) {
 
 // TestModel_ScreenRoute_Health tests enter on a new menu item
 // for health check (simulated via direct screen set).
-func TestModel_ScreenRoute_Health(t *testing.T) {
+func TestModel_ScreenRoute_Health(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.screen = ScreenHealth
 	m.health = newHealthPtr()
@@ -886,7 +886,7 @@ func TestModel_ScreenRoute_Health(t *testing.T) {
 
 // TestModel_Update_MenuEnter_Restore verifies pressing enter on cursor=1
 // ("Restore") navigates to the restore screen (ScreenRestore).
-func TestModel_Update_MenuEnter_Restore(t *testing.T) {
+func TestModel_Update_MenuEnter_Restore(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -917,7 +917,7 @@ func TestModel_Update_MenuEnter_Restore(t *testing.T) {
 
 // TestModel_Update_MenuEnter_Profiles verifies pressing enter on cursor=4
 // ("Profiles") navigates to the profiles screen (ScreenProfiles).
-func TestModel_Update_MenuEnter_Profiles(t *testing.T) {
+func TestModel_Update_MenuEnter_Profiles(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -945,7 +945,7 @@ func TestModel_Update_MenuEnter_Profiles(t *testing.T) {
 // TestModel_Update_MenuEnter_CreateBackup_Channels verifies that pressing
 // enter on cursor=0 ("Create backup") spawns backup channels and transitions
 // to the progress screen.
-func TestModel_Update_MenuEnter_CreateBackup_Channels(t *testing.T) {
+func TestModel_Update_MenuEnter_CreateBackup_Channels(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	backupCh := make(chan ProgressUpdate, 1)
 	backupDone := make(chan error, 1)
 
@@ -992,7 +992,7 @@ func TestModel_Update_MenuEnter_CreateBackup_Channels(t *testing.T) {
 
 // TestModel_Update_ScreenCloud_Back verifies that pressing q on the cloud
 // screen returns to ScreenMenu.
-func TestModel_Update_ScreenCloud_Back(t *testing.T) {
+func TestModel_Update_ScreenCloud_Back(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.screen = ScreenCloud
 
@@ -1006,7 +1006,7 @@ func TestModel_Update_ScreenCloud_Back(t *testing.T) {
 
 // TestModel_Update_ScreenCloud_Esc verifies that pressing esc on the cloud
 // screen returns to ScreenMenu.
-func TestModel_Update_ScreenCloud_Esc(t *testing.T) {
+func TestModel_Update_ScreenCloud_Esc(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.screen = ScreenCloud
 
@@ -1019,7 +1019,7 @@ func TestModel_Update_ScreenCloud_Esc(t *testing.T) {
 }
 
 // TestModel_View_Cloud verifies View renders the cloud sync screen.
-func TestModel_View_Cloud(t *testing.T) {
+func TestModel_View_Cloud(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -1035,7 +1035,7 @@ func TestModel_View_Cloud(t *testing.T) {
 
 // TestModel_View_UnknownScreen verifies View handles an out-of-range screen
 // value via the default branch without panicking.
-func TestModel_View_UnknownScreen(t *testing.T) {
+func TestModel_View_UnknownScreen(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -1055,7 +1055,7 @@ func TestModel_View_UnknownScreen(t *testing.T) {
 
 // TestModel_initDashboard_NilListBackups verifies initDashboard handles
 // nil ListBackups gracefully (returns an empty dashboard, no panic).
-func TestModel_initDashboard_NilListBackups(t *testing.T) {
+func TestModel_initDashboard_NilListBackups(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version:      "1.0.0",
 		ListBackups:  nil,
@@ -1074,7 +1074,7 @@ func TestModel_initDashboard_NilListBackups(t *testing.T) {
 
 // TestModel_initDashboard_Error verifies initDashboard propagates errors
 // from ListBackups to the dashboard model (error state visible in View).
-func TestModel_initDashboard_Error(t *testing.T) {
+func TestModel_initDashboard_Error(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version: "1.0.0",
 		ListBackups: func() ([]BackupInfo, error) {
@@ -1098,7 +1098,7 @@ func TestModel_initDashboard_Error(t *testing.T) {
 
 // TestModel_initProgress verifies initProgress returns a ProgressModel
 // that can render its View without panicking.
-func TestModel_initProgress(t *testing.T) {
+func TestModel_initProgress(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 
 	p := m.initProgress()
@@ -1119,7 +1119,7 @@ func TestModel_initProgress(t *testing.T) {
 
 // TestModel_Update_ScreenSettings_KeyForward verifies that key presses on
 // the Settings screen are forwarded to the settings sub-model.
-func TestModel_Update_ScreenSettings_KeyForward(t *testing.T) {
+func TestModel_Update_ScreenSettings_KeyForward(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.screen = ScreenSettings
 	m.settings = newSettingsPtr()
@@ -1139,7 +1139,7 @@ func TestModel_Update_ScreenSettings_KeyForward(t *testing.T) {
 
 // TestModel_Update_ScreenHealth_KeyForward verifies that key presses on the
 // Health screen are forwarded to the health sub-model.
-func TestModel_Update_ScreenHealth_KeyForward(t *testing.T) {
+func TestModel_Update_ScreenHealth_KeyForward(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.screen = ScreenHealth
 	m.health = newHealthPtr()
@@ -1159,7 +1159,7 @@ func TestModel_Update_ScreenHealth_KeyForward(t *testing.T) {
 
 // TestModel_Update_ScreenProgress_KeyForward verifies that key presses on
 // the Progress screen are forwarded to the progress sub-model.
-func TestModel_Update_ScreenProgress_KeyForward(t *testing.T) {
+func TestModel_Update_ScreenProgress_KeyForward(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.screen = ScreenProgress
 	m.progress = newProgressPtr()
@@ -1179,7 +1179,7 @@ func TestModel_Update_ScreenProgress_KeyForward(t *testing.T) {
 
 // TestModel_Update_ScreenCloud_UnhandledKey verifies that a non-q/esc key
 // press on the cloud screen is a no-op (screen stays on ScreenCloud).
-func TestModel_Update_ScreenCloud_UnhandledKey(t *testing.T) {
+func TestModel_Update_ScreenCloud_UnhandledKey(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.screen = ScreenCloud
 
@@ -1199,7 +1199,7 @@ func TestModel_Update_ScreenCloud_UnhandledKey(t *testing.T) {
 
 // TestModel_Update_ScreenChange_Cloud verifies screenChangeMsg for
 // ScreenCloud sets the screen and returns a cmd (cloud model Init).
-func TestModel_Update_ScreenChange_Cloud(t *testing.T) {
+func TestModel_Update_ScreenChange_Cloud(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -1218,7 +1218,7 @@ func TestModel_Update_ScreenChange_Cloud(t *testing.T) {
 
 // TestModel_Update_ScreenChange_Shortcuts verifies screenChangeMsg for
 // ScreenShortcuts sets the screen and returns nil cmd (no sub-model init).
-func TestModel_Update_ScreenChange_Shortcuts(t *testing.T) {
+func TestModel_Update_ScreenChange_Shortcuts(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -1241,7 +1241,7 @@ func TestModel_Update_ScreenChange_Shortcuts(t *testing.T) {
 
 // TestModel_Update_ForwardToDashboard verifies that unknown messages are
 // forwarded to the dashboard sub-model when screen=ScreenDashboard.
-func TestModel_Update_ForwardToDashboard(t *testing.T) {
+func TestModel_Update_ForwardToDashboard(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version: "1.0.0",
 		ListBackups: func() ([]BackupInfo, error) {
@@ -1267,7 +1267,7 @@ func TestModel_Update_ForwardToDashboard(t *testing.T) {
 
 // TestModel_Update_ForwardToProgress verifies that unknown messages are
 // forwarded to the progress sub-model when screen=ScreenProgress.
-func TestModel_Update_ForwardToProgress(t *testing.T) {
+func TestModel_Update_ForwardToProgress(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -1288,7 +1288,7 @@ func TestModel_Update_ForwardToProgress(t *testing.T) {
 
 // TestModel_Update_ForwardToSettings verifies that unknown messages are
 // forwarded to the settings sub-model when screen=ScreenSettings.
-func TestModel_Update_ForwardToSettings(t *testing.T) {
+func TestModel_Update_ForwardToSettings(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -1309,7 +1309,7 @@ func TestModel_Update_ForwardToSettings(t *testing.T) {
 
 // TestModel_Update_ForwardToHealth verifies that unknown messages are
 // forwarded to the health sub-model when screen=ScreenHealth.
-func TestModel_Update_ForwardToHealth(t *testing.T) {
+func TestModel_Update_ForwardToHealth(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -1331,7 +1331,7 @@ func TestModel_Update_ForwardToHealth(t *testing.T) {
 // TestModel_Update_UnknownMsg_NoSubmodel verifies that an unknown message
 // on a screen that has no sub-model (ScreenMenu) falls through to the
 // final return (m, nil) without panicking.
-func TestModel_Update_UnknownMsg_NoSubmodel(t *testing.T) {
+func TestModel_Update_UnknownMsg_NoSubmodel(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -1355,7 +1355,7 @@ func TestModel_Update_UnknownMsg_NoSubmodel(t *testing.T) {
 
 // TestModel_Update_WindowSize_ProgressNil verifies WindowSizeMsg on
 // ScreenProgress with nil progress sub-model does not panic.
-func TestModel_Update_WindowSize_ProgressNil(t *testing.T) {
+func TestModel_Update_WindowSize_ProgressNil(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.screen = ScreenProgress
 	m.progress = nil
@@ -1370,7 +1370,7 @@ func TestModel_Update_WindowSize_ProgressNil(t *testing.T) {
 
 // TestModel_Update_WindowSize_SettingsNil verifies WindowSizeMsg on
 // ScreenSettings with nil settings sub-model does not panic.
-func TestModel_Update_WindowSize_SettingsNil(t *testing.T) {
+func TestModel_Update_WindowSize_SettingsNil(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.screen = ScreenSettings
 	m.settings = nil
@@ -1385,7 +1385,7 @@ func TestModel_Update_WindowSize_SettingsNil(t *testing.T) {
 
 // TestModel_Update_WindowSize_HealthNil verifies WindowSizeMsg on
 // ScreenHealth with nil health sub-model does not panic.
-func TestModel_Update_WindowSize_HealthNil(t *testing.T) {
+func TestModel_Update_WindowSize_HealthNil(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.screen = ScreenHealth
 	m.health = nil
@@ -1403,7 +1403,7 @@ func TestModel_Update_WindowSize_HealthNil(t *testing.T) {
 // sequential values after ScreenWizard removal. The expected sequence
 // is: ScreenMenu(0), ScreenDashboard(1), ScreenProgress(2),
 // ScreenSettings(3), ScreenCloud(4), ScreenShortcuts(5), ScreenHealth(6).
-func TestScreenIotaValues(t *testing.T) {
+func TestScreenIotaValues(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name  string
 		value screen
@@ -1418,8 +1418,8 @@ func TestScreenIotaValues(t *testing.T) {
 		{"ScreenHealth", ScreenHealth, 6},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			if tt.value != tt.want {
 				t.Errorf("%s = %d, want %d", tt.name, tt.value, tt.want)
 			}
@@ -1434,7 +1434,7 @@ func TestScreenIotaValues(t *testing.T) {
 // TestModel_Update_ActionResult_Success verifies that sending
 // actionResultMsg{err: nil} to Update() calls toast.Show() with a success
 // message and makes the toast visible.
-func TestModel_Update_ActionResult_Success(t *testing.T) {
+func TestModel_Update_ActionResult_Success(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := newTestModel()
 	m.width = 80
 	m.height = 24
@@ -1454,7 +1454,7 @@ func TestModel_Update_ActionResult_Success(t *testing.T) {
 // TestModel_Update_ActionResult_Error verifies that sending
 // actionResultMsg{err: error} to Update() calls toast.Show() with the
 // error text and makes the toast visible.
-func TestModel_Update_ActionResult_Error(t *testing.T) {
+func TestModel_Update_ActionResult_Error(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := newTestModel()
 	m.width = 80
 	m.height = 24
@@ -1478,7 +1478,7 @@ func TestModel_Update_ActionResult_Error(t *testing.T) {
 // TestModel_Update_SearchForwardsToDashboard verifies that when search is
 // active on the dashboard screen, typing characters updates the search query
 // AND filters the dashboard table rows accordingly.
-func TestModel_Update_SearchForwardsToDashboard(t *testing.T) {
+func TestModel_Update_SearchForwardsToDashboard(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version: "1.0.0",
 		ListBackups: func() ([]BackupInfo, error) {
@@ -1531,7 +1531,7 @@ func TestModel_Update_SearchForwardsToDashboard(t *testing.T) {
 // TestModel_Update_SearchEscRestoresAllRows verifies that pressing Esc
 // while search is active on the dashboard deactivates search AND restores
 // all original table rows (triangulation of search forwarding test).
-func TestModel_Update_SearchEscRestoresAllRows(t *testing.T) {
+func TestModel_Update_SearchEscRestoresAllRows(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version: "1.0.0",
 		ListBackups: func() ([]BackupInfo, error) {
@@ -1608,7 +1608,7 @@ func newProgressPtr() *screens.ProgressModel {
 
 // TestModel_NewModel_ConfigNotExists_Welcome verifies that when ConfigExists
 // returns false, NewModel starts at ScreenWelcome (first-run detection).
-func TestModel_NewModel_ConfigNotExists_Welcome(t *testing.T) {
+func TestModel_NewModel_ConfigNotExists_Welcome(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	deps := Deps{
 		Version:      "1.0.0",
 		ConfigExists: func() bool { return false },
@@ -1622,7 +1622,7 @@ func TestModel_NewModel_ConfigNotExists_Welcome(t *testing.T) {
 
 // TestModel_NewModel_ConfigExists_Menu verifies that when ConfigExists
 // returns true, NewModel starts at ScreenMenu (normal launch).
-func TestModel_NewModel_ConfigExists_Menu(t *testing.T) {
+func TestModel_NewModel_ConfigExists_Menu(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	deps := Deps{
 		Version:      "1.0.0",
 		ConfigExists: func() bool { return true },
@@ -1636,7 +1636,7 @@ func TestModel_NewModel_ConfigExists_Menu(t *testing.T) {
 
 // TestModel_NewModel_ConfigExistsNil_Menu verifies that when ConfigExists
 // is nil (not injected), NewModel falls back to ScreenMenu.
-func TestModel_NewModel_ConfigExistsNil_Menu(t *testing.T) {
+func TestModel_NewModel_ConfigExistsNil_Menu(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	deps := Deps{
 		Version: "1.0.0",
 	}
@@ -1649,7 +1649,7 @@ func TestModel_NewModel_ConfigExistsNil_Menu(t *testing.T) {
 
 // TestModel_Welcome_EnterToMenu verifies that pressing Enter on the
 // Welcome screen transitions to ScreenMenu.
-func TestModel_Welcome_EnterToMenu(t *testing.T) {
+func TestModel_Welcome_EnterToMenu(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	deps := Deps{
 		Version:      "1.0.0",
 		ConfigExists: func() bool { return false },
@@ -1668,7 +1668,7 @@ func TestModel_Welcome_EnterToMenu(t *testing.T) {
 
 // TestModel_Welcome_Quit verifies that pressing 'q' on the
 // Welcome screen quits the TUI.
-func TestModel_Welcome_Quit(t *testing.T) {
+func TestModel_Welcome_Quit(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	deps := Deps{
 		Version:      "1.0.0",
 		ConfigExists: func() bool { return false },
@@ -1693,7 +1693,7 @@ func TestModel_Welcome_Quit(t *testing.T) {
 
 // TestModel_Welcome_View verifies that the Welcome screen view contains
 // welcome text (rendered by screens.RenderWelcome).
-func TestModel_Welcome_View(t *testing.T) {
+func TestModel_Welcome_View(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	deps := Deps{
 		Version:      "1.0.0",
 		ConfigExists: func() bool { return false },
@@ -1714,7 +1714,7 @@ func TestModel_Welcome_View(t *testing.T) {
 
 // TestModel_Welcome_EscQuit verifies that pressing Esc on the
 // Welcome screen also quits (triangulation of q quit).
-func TestModel_Welcome_EscQuit(t *testing.T) {
+func TestModel_Welcome_EscQuit(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	deps := Deps{
 		Version:      "1.0.0",
 		ConfigExists: func() bool { return false },
@@ -1741,7 +1741,7 @@ func TestModel_Welcome_EscQuit(t *testing.T) {
 // TestModel_Toast_PositionedWide verifies that on a wide terminal (>=50 cols),
 // the toast is positioned using lipgloss.Place (it should NOT appear inline
 // after content with a simple newline prefix).
-func TestModel_Toast_PositionedWide(t *testing.T) {
+func TestModel_Toast_PositionedWide(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version:      "1.0.0",
 		ConfigExists: func() bool { return true },
@@ -1767,7 +1767,7 @@ func TestModel_Toast_PositionedWide(t *testing.T) {
 
 // TestModel_Toast_InlineNarrow verifies that on a narrow terminal (<50 cols),
 // the toast falls back to inline rendering at the bottom of content.
-func TestModel_Toast_InlineNarrow(t *testing.T) {
+func TestModel_Toast_InlineNarrow(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version:      "1.0.0",
 		ConfigExists: func() bool { return true },
@@ -1790,7 +1790,7 @@ func TestModel_Toast_InlineNarrow(t *testing.T) {
 
 // TestModel_Help_ToggleOnMenu verifies that pressing '?' on the main menu
 // toggles the help overlay on without leaving the menu screen.
-func TestModel_Help_ToggleOnMenu(t *testing.T) {
+func TestModel_Help_ToggleOnMenu(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version:      "1.0.0",
 		ConfigExists: func() bool { return true },
@@ -1821,7 +1821,7 @@ func TestModel_Help_ToggleOnMenu(t *testing.T) {
 
 // TestModel_Help_DismissViaEsc verifies that pressing Esc while help is
 // visible dismisses the overlay and returns to the active screen.
-func TestModel_Help_DismissViaEsc(t *testing.T) {
+func TestModel_Help_DismissViaEsc(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version:      "1.0.0",
 		ConfigExists: func() bool { return true },
@@ -1845,7 +1845,7 @@ func TestModel_Help_DismissViaEsc(t *testing.T) {
 
 // TestModel_Help_ViewContainsShortcuts verifies that when showHelp is true,
 // the View output contains the shortcuts reference content.
-func TestModel_Help_ViewContainsShortcuts(t *testing.T) {
+func TestModel_Help_ViewContainsShortcuts(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version:      "1.0.0",
 		ConfigExists: func() bool { return true },
@@ -1873,7 +1873,7 @@ func TestModel_Help_ViewContainsShortcuts(t *testing.T) {
 
 // TestModel_Help_ToggleOnSubScreen verifies that pressing '?' on a
 // sub-screen (Settings) toggles the help overlay without leaving the screen.
-func TestModel_Help_ToggleOnSubScreen(t *testing.T) {
+func TestModel_Help_ToggleOnSubScreen(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version:      "1.0.0",
 		ConfigExists: func() bool { return true },
@@ -1903,7 +1903,7 @@ func TestModel_Help_ToggleOnSubScreen(t *testing.T) {
 // Progress bridge tests (Phase 3.4)
 // =============================================================================
 
-func TestBackupChannelBridge(t *testing.T) {
+func TestBackupChannelBridge(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Test 1: drainProgressCmd reads from channel and converts correctly.
 	ch := make(chan ProgressUpdate, 3)
 	ch <- ProgressUpdate{Step: "file1.txt", Current: 1, Total: 3}
@@ -1947,7 +1947,7 @@ func TestBackupChannelBridge(t *testing.T) {
 	}
 }
 
-func TestBackupChannelBridgeScreenProgress(t *testing.T) {
+func TestBackupChannelBridgeScreenProgress(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Test 2: When ProgressStepMsg arrives on ScreenProgress, it sets running.
 	m := Model{
 		screen:    ScreenProgress,
@@ -1971,7 +1971,7 @@ func TestBackupChannelBridgeScreenProgress(t *testing.T) {
 	}
 }
 
-func TestBackupChannelBridgeDoneMsg(t *testing.T) {
+func TestBackupChannelBridgeDoneMsg(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Test 3: ProgressDoneMsg stops running and returns actionResultMsg.
 	m := Model{
 		screen:    ScreenProgress,
@@ -1995,7 +1995,7 @@ func TestBackupChannelBridgeDoneMsg(t *testing.T) {
 	}
 }
 
-func TestDrainProgressCmdNilSafe(t *testing.T) {
+func TestDrainProgressCmdNilSafe(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// A nil channel should produce a nil drain command or no-op.
 	cmd := drainProgressCmd(nil)
 	if cmd != nil {
@@ -2003,7 +2003,7 @@ func TestDrainProgressCmdNilSafe(t *testing.T) {
 	}
 }
 
-func TestProgressDoneMsgTerminatesDrain(t *testing.T) {
+func TestProgressDoneMsgTerminatesDrain(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := Model{
 		screen:    ScreenProgress,
 		deps:      Deps{},
@@ -2037,7 +2037,7 @@ func newProgressPtrForTest() *screens.ProgressModel {
 // TestNewModel_LoadsSettings verifies that when LoadSettings is provided
 // in Deps, the settings screen uses persisted values instead of hardcoded
 // defaults on first entry to ScreenSettings.
-func TestNewModel_LoadsSettings(t *testing.T) {
+func TestNewModel_LoadsSettings(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	loadCalled := false
 	m := NewModel(Deps{
 		Version: "1.0.0",
@@ -2082,7 +2082,7 @@ func TestNewModel_LoadsSettings(t *testing.T) {
 
 // TestInitRestore verifies that initRestore wires Deps.ListBackups and
 // Deps.RunRestore into the RestoreModel via listFn/restoreFn closures.
-func TestInitRestore(t *testing.T) {
+func TestInitRestore(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	listCalled := false
 
 	m := NewModel(Deps{
@@ -2127,7 +2127,7 @@ func TestInitRestore(t *testing.T) {
 }
 
 // TestInitRestore_NilDeps verifies initRestore handles nil Deps gracefully.
-func TestInitRestore_NilDeps(t *testing.T) {
+func TestInitRestore_NilDeps(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 
 	r := m.initRestore()
@@ -2150,7 +2150,7 @@ func TestInitRestore_NilDeps(t *testing.T) {
 // TestInitProfiles verifies that initProfiles wires Deps.ListProfiles,
 // Deps.SetActiveProfile, Deps.DeleteProfile, Deps.RunWizard, and
 // Deps.SaveProfile into the ProfilesModel.
-func TestInitProfiles(t *testing.T) {
+func TestInitProfiles(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	listCalled := false
 
 	m := NewModel(Deps{
@@ -2196,7 +2196,7 @@ func TestInitProfiles(t *testing.T) {
 
 // TestInitCloud verifies that initCloud wires Deps.GetCloudStatus into
 // the CloudModel via a statusFn closure.
-func TestInitCloud(t *testing.T) {
+func TestInitCloud(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	statusCalled := false
 
 	m := NewModel(Deps{
@@ -2236,7 +2236,7 @@ func TestInitCloud(t *testing.T) {
 }
 
 // TestInitCloud_NilStatusFn verifies initCloud handles nil GetCloudStatus.
-func TestInitCloud_NilStatusFn(t *testing.T) {
+func TestInitCloud_NilStatusFn(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 
 	c := m.initCloud()
@@ -2259,7 +2259,7 @@ func TestInitCloud_NilStatusFn(t *testing.T) {
 }
 
 // TestInitCloud_StatusError verifies initCloud handles errors from GetCloudStatus.
-func TestInitCloud_StatusError(t *testing.T) {
+func TestInitCloud_StatusError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version: "1.0.0",
 		GetCloudStatus: func() (CloudStatus, error) {
@@ -2287,7 +2287,7 @@ func TestInitCloud_StatusError(t *testing.T) {
 
 // TestModel_Update_UnknownMsg verifies that an unknown message type
 // does not cause a panic and returns the model unchanged.
-func TestModel_Update_UnknownMsg(t *testing.T) {
+func TestModel_Update_UnknownMsg(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -2306,7 +2306,7 @@ func TestModel_Update_UnknownMsg(t *testing.T) {
 }
 
 // TestModel_HandleKey_ScreenProfiles verifies key dispatch for ScreenProfiles.
-func TestModel_HandleKey_ScreenProfiles(t *testing.T) {
+func TestModel_HandleKey_ScreenProfiles(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version: "1.0.0",
 		ListProfiles: func() ([]ProfileInfo, error) {
@@ -2332,7 +2332,7 @@ func TestModel_HandleKey_ScreenProfiles(t *testing.T) {
 }
 
 // TestModel_HandleKey_ScreenRestore verifies key dispatch for ScreenRestore.
-func TestModel_HandleKey_ScreenRestore(t *testing.T) {
+func TestModel_HandleKey_ScreenRestore(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version: "1.0.0",
 		ListBackups: func() ([]BackupInfo, error) {
@@ -2363,7 +2363,7 @@ func TestModel_HandleKey_ScreenRestore(t *testing.T) {
 }
 
 // TestModel_HandleKey_ScreenSettings verifies key dispatch for ScreenSettings.
-func TestModel_HandleKey_ScreenSettings(t *testing.T) {
+func TestModel_HandleKey_ScreenSettings(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -2388,7 +2388,7 @@ func TestModel_HandleKey_ScreenSettings(t *testing.T) {
 }
 
 // TestModel_HandleKey_ScreenHealth verifies key dispatch for ScreenHealth.
-func TestModel_HandleKey_ScreenHealth(t *testing.T) {
+func TestModel_HandleKey_ScreenHealth(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -2418,7 +2418,7 @@ func TestModel_HandleKey_ScreenHealth(t *testing.T) {
 
 // TestInitProfiles_NilDeps verifies initProfiles handles nil ListProfiles,
 // nil DeleteProfile, and nil RunWizard gracefully.
-func TestInitProfiles_NilDeps(t *testing.T) {
+func TestInitProfiles_NilDeps(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 
 	p := m.initProfiles()
@@ -2447,7 +2447,7 @@ func TestInitProfiles_NilDeps(t *testing.T) {
 }
 
 // TestInitRestore_NilRunRestore verifies initRestore handles nil RunRestore.
-func TestInitRestore_NilRunRestore(t *testing.T) {
+func TestInitRestore_NilRunRestore(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version: "1.0.0",
 		ListBackups: func() ([]BackupInfo, error) {
@@ -2475,7 +2475,7 @@ func TestInitRestore_NilRunRestore(t *testing.T) {
 
 // TestModel_View_ScreenRestoreNoSubmodel verifies View when ScreenRestore
 // has no sub-model initialized (falls back to "Restore" text).
-func TestModel_View_ScreenRestoreNoSubmodel(t *testing.T) {
+func TestModel_View_ScreenRestoreNoSubmodel(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -2491,7 +2491,7 @@ func TestModel_View_ScreenRestoreNoSubmodel(t *testing.T) {
 
 // TestModel_View_ScreenProfilesNoSubmodel verifies View when ScreenProfiles
 // has no sub-model initialized (falls back to "Profiles" text).
-func TestModel_View_ScreenProfilesNoSubmodel(t *testing.T) {
+func TestModel_View_ScreenProfilesNoSubmodel(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -2507,7 +2507,7 @@ func TestModel_View_ScreenProfilesNoSubmodel(t *testing.T) {
 
 // TestModel_View_ScreenCloudNoSubmodel verifies View when ScreenCloud
 // has no sub-model initialized (falls back to RenderCloudStatus).
-func TestModel_View_ScreenCloudNoSubmodel(t *testing.T) {
+func TestModel_View_ScreenCloudNoSubmodel(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -2523,7 +2523,7 @@ func TestModel_View_ScreenCloudNoSubmodel(t *testing.T) {
 
 // TestModel_HandleMenuEnter_Cloud verifies that Enter on cursor=3
 // ("Cloud sync") dispatches screenChangeMsg for ScreenCloud.
-func TestModel_HandleMenuEnter_Cloud(t *testing.T) {
+func TestModel_HandleMenuEnter_Cloud(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.cursor = 3 // "Cloud sync"
 
@@ -2545,7 +2545,7 @@ func TestModel_HandleMenuEnter_Cloud(t *testing.T) {
 
 // TestInitProfiles_NilClosures verifies that switchFn, deleteFn, and
 // wizardFn closures handle nil Deps gracefully (hit nil-return branches).
-func TestInitProfiles_NilClosures(t *testing.T) {
+func TestInitProfiles_NilClosures(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 
 	p := m.initProfiles()
@@ -2572,7 +2572,7 @@ func TestInitProfiles_NilClosures(t *testing.T) {
 }
 
 // TestInitProfiles_DeleteWithNilDeps verifies deleteFn nil path via modal confirm.
-func TestInitProfiles_DeleteWithNilDeps(t *testing.T) {
+func TestInitProfiles_DeleteWithNilDeps(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 
 	p := m.initProfiles()
@@ -2603,7 +2603,7 @@ func TestInitProfiles_DeleteWithNilDeps(t *testing.T) {
 
 // TestInitSettings_LoadError verifies that when LoadSettings returns an error,
 // defaults are used (NewSettingsModel fallback path).
-func TestInitSettings_LoadError(t *testing.T) {
+func TestInitSettings_LoadError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version: "1.0.0",
 		LoadSettings: func() (screens.Settings, error) {
@@ -2627,7 +2627,7 @@ func TestInitSettings_LoadError(t *testing.T) {
 
 // TestDrainProgressCmd_ClosedChannel verifies drainProgressCmd handles a
 // closed channel gracefully (returns ProgressDoneMsg).
-func TestDrainProgressCmd_ClosedChannel(t *testing.T) {
+func TestDrainProgressCmd_ClosedChannel(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	ch := make(chan ProgressUpdate, 1)
 	close(ch)
 
@@ -2645,7 +2645,7 @@ func TestDrainProgressCmd_ClosedChannel(t *testing.T) {
 
 // TestModel_Update_ToastTickForwarding verifies that tick messages not
 // handled by screen routing are forwarded to the toast component.
-func TestModel_Update_ToastTickForwarding(t *testing.T) {
+func TestModel_Update_ToastTickForwarding(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.width = 80
 	m.height = 24
@@ -2664,7 +2664,7 @@ func TestModel_Update_ToastTickForwarding(t *testing.T) {
 
 // TestMapBackupInfo verifies the pure mapBackupInfo converts tui.BackupInfo
 // records into screens.BackupInfo preserving every field, in order.
-func TestMapBackupInfo(t *testing.T) {
+func TestMapBackupInfo(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name string
 		in   []BackupInfo
@@ -2693,8 +2693,8 @@ func TestMapBackupInfo(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := mapBackupInfo(tt.in)
 			if len(got) != len(tt.want) {
 				t.Fatalf("mapBackupInfo() len = %d, want %d", len(got), len(tt.want))
@@ -2710,7 +2710,7 @@ func TestMapBackupInfo(t *testing.T) {
 
 // TestListBackupsForScreens verifies the shared listBackupsForScreens method
 // handles nil deps, propagates errors, and maps successful results.
-func TestListBackupsForScreens(t *testing.T) {
+func TestListBackupsForScreens(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	sentinel := errors.New("backend down")
 
 	tests := []struct {
@@ -2745,8 +2745,8 @@ func TestListBackupsForScreens(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := NewModel(Deps{Version: "1.0.0", ListBackups: tt.listBackups})
 
 			got, err := m.listBackupsForScreens()
@@ -2777,7 +2777,7 @@ func TestListBackupsForScreens(t *testing.T) {
 // TestModel_forwardTo_RoutesToSubModel verifies forwardTo dispatches a
 // message to the sub-model registered for the given screen, returns
 // (cmd, true) when a sub-model is present, and keeps the cached instance.
-func TestModel_forwardTo_RoutesToSubModel(t *testing.T) {
+func TestModel_forwardTo_RoutesToSubModel(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version: "1.0.0",
 		ListBackups: func() ([]BackupInfo, error) {
@@ -2809,7 +2809,7 @@ func TestModel_forwardTo_RoutesToSubModel(t *testing.T) {
 
 // TestModel_forwardTo_UnknownScreenReturnsFalse verifies forwardTo returns
 // (nil, false) for an unrecognized screen value without panicking.
-func TestModel_forwardTo_UnknownScreenReturnsFalse(t *testing.T) {
+func TestModel_forwardTo_UnknownScreenReturnsFalse(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 
 	_, ok := m.forwardTo(screen(99), tea.KeyPressMsg{Code: 'j'})
@@ -2821,7 +2821,7 @@ func TestModel_forwardTo_UnknownScreenReturnsFalse(t *testing.T) {
 // TestModel_forwardTo_NilSubModelReturnsFalse verifies forwardTo returns
 // (nil, false) when the screen is registered but its sub-model is nil,
 // without panicking (mirrors the `if m.x != nil` guards in the old code).
-func TestModel_forwardTo_NilSubModelReturnsFalse(t *testing.T) {
+func TestModel_forwardTo_NilSubModelReturnsFalse(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	// Dashboard never initialized → get returns nil.
 
@@ -2834,7 +2834,7 @@ func TestModel_forwardTo_NilSubModelReturnsFalse(t *testing.T) {
 // TestModel_Update_LazyInitPopulatesSubsMap verifies that processing a
 // screenChangeMsg lazily creates the sub-model and stores it in the subs map,
 // and that subsequent screen changes add entries without clearing prior ones.
-func TestModel_Update_LazyInitPopulatesSubsMap(t *testing.T) {
+func TestModel_Update_LazyInitPopulatesSubsMap(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{
 		Version:     "1.0.0",
 		ListBackups: func() ([]BackupInfo, error) { return nil, nil },
@@ -2866,7 +2866,7 @@ func TestModel_Update_LazyInitPopulatesSubsMap(t *testing.T) {
 // TestModel_Update_UnknownScreenNoPanic verifies that a model on an
 // unrecognized screen value handles a forwardable message without panicking
 // and returns (m, nil).
-func TestModel_Update_UnknownScreenNoPanic(t *testing.T) {
+func TestModel_Update_UnknownScreenNoPanic(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewModel(Deps{Version: "1.0.0"})
 	m.screen = screen(99)
 

@@ -92,37 +92,10 @@ func (m ProfilesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case wizardResultMsg:
-		if msg.err != nil {
-			m.Msg = msg.err.Error()
-			return m, nil
-		}
-		m.Profiles = append(m.Profiles, msg.profile)
-		if m.SaveProfile != nil {
-			if err := m.SaveProfile(msg.profile.Name, msg.profile); err != nil {
-				m.Msg = fmt.Sprintf("save profile: %s", err.Error())
-			}
-		}
-		return m, nil
+		return m.handleWizardResult(msg)
 
 	case components.ModalResultMsg:
-		if m.Modal != nil {
-			modal := m.Modal
-			m.Modal = nil
-			if msg.Confirmed && m.Cursor < len(m.Profiles) && m.deleteProfile != nil {
-				name := m.Profiles[m.Cursor].Name
-				if err := m.deleteProfile(name); err != nil {
-					m.Msg = fmt.Sprintf("delete profile: %s", err.Error())
-				}
-				// Remove from local list.
-				m.Profiles = append(m.Profiles[:m.Cursor], m.Profiles[m.Cursor+1:]...)
-				if m.Cursor >= len(m.Profiles) && len(m.Profiles) > 0 {
-					m.Cursor = len(m.Profiles) - 1
-				}
-			}
-			_ = modal // suppress unused
-			return m, nil
-		}
-		return m, nil
+		return m.handleModalResult(msg)
 
 	case tea.KeyPressMsg:
 		return m.handleKey(msg)
@@ -139,6 +112,46 @@ func (m ProfilesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleWizardResult applies a completed wizard result: appends the new
+// profile to the local list and persists it via SaveProfile when configured.
+func (m ProfilesModel) handleWizardResult(msg wizardResultMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.Msg = msg.err.Error()
+		return m, nil
+	}
+	m.Profiles = append(m.Profiles, msg.profile)
+	if m.SaveProfile != nil {
+		if err := m.SaveProfile(msg.profile.Name, msg.profile); err != nil {
+			m.Msg = fmt.Sprintf("save profile: %s", err.Error())
+		}
+	}
+	return m, nil
+}
+
+// handleModalResult processes a modal confirmation: when confirmed and a
+// profile is selected, it deletes the profile (via deleteProfile) and
+// removes it from the local list, adjusting the cursor.
+func (m ProfilesModel) handleModalResult(msg components.ModalResultMsg) (tea.Model, tea.Cmd) {
+	if m.Modal == nil {
+		return m, nil
+	}
+	modal := m.Modal
+	m.Modal = nil
+	if msg.Confirmed && m.Cursor < len(m.Profiles) && m.deleteProfile != nil {
+		name := m.Profiles[m.Cursor].Name
+		if err := m.deleteProfile(name); err != nil {
+			m.Msg = fmt.Sprintf("delete profile: %s", err.Error())
+		}
+		// Remove from local list.
+		m.Profiles = append(m.Profiles[:m.Cursor], m.Profiles[m.Cursor+1:]...)
+		if m.Cursor >= len(m.Profiles) && len(m.Profiles) > 0 {
+			m.Cursor = len(m.Profiles) - 1
+		}
+	}
+	_ = modal // suppress unused
+	return m, nil
+}
+
 func (m ProfilesModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.Code {
 	case 'q', 27:
@@ -152,30 +165,9 @@ func (m ProfilesModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.Cursor = (m.Cursor - 1 + len(m.Profiles)) % len(m.Profiles)
 		}
 	case '\r':
-		if len(m.Profiles) > 0 && m.Cursor < len(m.Profiles) {
-			name := m.Profiles[m.Cursor].Name
-			if m.setActive != nil {
-				if err := m.setActive(name); err != nil {
-					m.Msg = fmt.Sprintf("set active profile: %s", err.Error())
-				}
-			}
-			// Mark as active locally.
-			for i := range m.Profiles {
-				m.Profiles[i].Active = m.Profiles[i].Name == name
-			}
-		}
+		return m.handleEnterKey()
 	case 'd':
-		if len(m.Profiles) > 0 && m.Cursor < len(m.Profiles) {
-			if m.Profiles[m.Cursor].Active {
-				m.Msg = "Cannot delete the active profile"
-				return m, nil
-			}
-			// Show confirmation modal.
-			modal := components.NewModal("Delete Profile",
-				fmt.Sprintf("Delete profile %q?", m.Profiles[m.Cursor].Name),
-				[]string{"Delete", "Cancel"})
-			m.Modal = &modal
-		}
+		return m.handleDeleteKey()
 	case 'n':
 		if m.runWizard != nil {
 			return m, func() tea.Msg {
@@ -185,6 +177,43 @@ func (m ProfilesModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	return m, nil
+}
+
+// handleEnterKey activates the profile under the cursor via setActive and
+// marks it as active in the local list.
+func (m ProfilesModel) handleEnterKey() (tea.Model, tea.Cmd) {
+	if len(m.Profiles) == 0 || m.Cursor >= len(m.Profiles) {
+		return m, nil
+	}
+	name := m.Profiles[m.Cursor].Name
+	if m.setActive != nil {
+		if err := m.setActive(name); err != nil {
+			m.Msg = fmt.Sprintf("set active profile: %s", err.Error())
+		}
+	}
+	// Mark as active locally.
+	for i := range m.Profiles {
+		m.Profiles[i].Active = m.Profiles[i].Name == name
+	}
+	return m, nil
+}
+
+// handleDeleteKey shows a confirmation modal for deleting the profile under
+// the cursor, refusing to delete the currently active profile.
+func (m ProfilesModel) handleDeleteKey() (tea.Model, tea.Cmd) {
+	if len(m.Profiles) == 0 || m.Cursor >= len(m.Profiles) {
+		return m, nil
+	}
+	if m.Profiles[m.Cursor].Active {
+		m.Msg = "Cannot delete the active profile"
+		return m, nil
+	}
+	// Show confirmation modal.
+	modal := components.NewModal("Delete Profile",
+		fmt.Sprintf("Delete profile %q?", m.Profiles[m.Cursor].Name),
+		[]string{"Delete", "Cancel"})
+	m.Modal = &modal
 	return m, nil
 }
 

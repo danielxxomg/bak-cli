@@ -8,7 +8,7 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
 
-func TestResolvePath(t *testing.T) {
+func TestResolvePath(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name        string
 		canonical   string
@@ -87,8 +87,8 @@ func TestResolvePath(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			// Skip Windows-specific test cases on non-Windows platforms.
 			if strings.Contains(tt.name, "windows") && runtime.GOOS != "windows" {
 				t.Skip("skipping Windows-specific test on non-Windows platform")
@@ -113,12 +113,12 @@ func TestResolvePath(t *testing.T) {
 	}
 }
 
-func TestResolveManifestPaths(t *testing.T) {
+func TestResolveManifestPaths(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Use a Unix-style homeDir so the resolved paths use forward slashes.
 	// This keeps tests deterministic regardless of host OS.
 	homeDir := "/home/alice"
 
-	t.Run("all paths resolve within home", func(t *testing.T) {
+	t.Run("all paths resolve within home", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		m := &manifest.Manifest{
 			Adapters: map[string]manifest.AdapterManifest{
 				"opencode": {
@@ -151,7 +151,7 @@ func TestResolveManifestPaths(t *testing.T) {
 		}
 	})
 
-	t.Run("path outside home is rejected", func(t *testing.T) {
+	t.Run("path outside home is rejected", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		m := &manifest.Manifest{
 			Adapters: map[string]manifest.AdapterManifest{
 				"opencode": {
@@ -173,7 +173,7 @@ func TestResolveManifestPaths(t *testing.T) {
 		}
 	})
 
-	t.Run("empty manifest returns empty map", func(t *testing.T) {
+	t.Run("empty manifest returns empty map", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		m := &manifest.Manifest{
 			Adapters: map[string]manifest.AdapterManifest{},
 		}

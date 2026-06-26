@@ -11,7 +11,7 @@ import (
 // TestNewHealthModel — RED (health.go does not exist yet)
 // =============================================================================
 
-func TestNewHealthModel(t *testing.T) {
+func TestNewHealthModel(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewHealthModel()
 
 	if len(m.checks) != 0 {
@@ -26,7 +26,7 @@ func TestNewHealthModel(t *testing.T) {
 // Phase 3: Init nil-return coverage
 // =============================================================================
 
-func TestHealthModel_Init_ReturnsNil(t *testing.T) {
+func TestHealthModel_Init_ReturnsNil(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewHealthModel()
 	cmd := m.Init()
 	if cmd != nil {
@@ -38,7 +38,7 @@ func TestHealthModel_Init_ReturnsNil(t *testing.T) {
 // TestHealth_Update_Run — RED
 // =============================================================================
 
-func TestHealth_Update_Run(t *testing.T) {
+func TestHealth_Update_Run(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewHealthModel()
 
 	// Press enter to start the health check.
@@ -60,7 +60,7 @@ func TestHealth_Update_Run(t *testing.T) {
 // TestHealth_Update_Back — RED
 // =============================================================================
 
-func TestHealth_Update_Back(t *testing.T) {
+func TestHealth_Update_Back(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name string
 		key  rune
@@ -69,8 +69,8 @@ func TestHealth_Update_Back(t *testing.T) {
 		{"esc goes back", 27},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := NewHealthModel()
 
 			_, cmd := m.Update(tea.KeyPressMsg{Code: tt.key})
@@ -90,7 +90,7 @@ func TestHealth_Update_Back(t *testing.T) {
 // TestHealth_View_Running — RED
 // =============================================================================
 
-func TestHealth_View_Running(t *testing.T) {
+func TestHealth_View_Running(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewHealthModel()
 	m.width = 80
 	m.height = 24
@@ -121,7 +121,7 @@ func TestHealth_View_Running(t *testing.T) {
 // TestHealth_View_Done — RED
 // =============================================================================
 
-func TestHealth_View_Done(t *testing.T) {
+func TestHealth_View_Done(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewHealthModel()
 	m.width = 80
 	m.height = 24
@@ -149,7 +149,7 @@ func TestHealth_View_Done(t *testing.T) {
 // TestHealth_View_MinSizeGuard — threshold guard at 40×12
 // =============================================================================
 
-func TestHealth_View_MinSizeGuard(t *testing.T) {
+func TestHealth_View_MinSizeGuard(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		width    int
@@ -163,8 +163,8 @@ func TestHealth_View_MinSizeGuard(t *testing.T) {
 		{"above min (80x24)", 80, 24, false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := NewHealthModel()
 			m.width = tt.width
 			m.height = tt.height
@@ -188,7 +188,7 @@ func TestHealth_View_MinSizeGuard(t *testing.T) {
 
 // TestHealth_View_TooSmall verifies the too-small view shows
 // the warning message (legacy test, kept for coverage).
-func TestHealth_View_TooSmall(t *testing.T) {
+func TestHealth_View_TooSmall(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewHealthModel()
 	m.width = 10
 	m.height = 5
@@ -204,7 +204,7 @@ func TestHealth_View_TooSmall(t *testing.T) {
 // TestHealth_ResultMessage — RED (triangulation)
 // =============================================================================
 
-func TestHealth_ResultMessage(t *testing.T) {
+func TestHealth_ResultMessage(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewHealthModel()
 	m.running = true
 	m.checks = []HealthCheck{
@@ -227,7 +227,7 @@ func TestHealth_ResultMessage(t *testing.T) {
 // TestHealth_AllDone — RED (triangulation)
 // =============================================================================
 
-func TestHealth_AllDone(t *testing.T) {
+func TestHealth_AllDone(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewHealthModel()
 	m.running = true
 	m.checks = []HealthCheck{
@@ -249,7 +249,7 @@ func TestHealth_AllDone(t *testing.T) {
 // TestHealth_WindowSize — RED (triangulation)
 // =============================================================================
 
-func TestHealth_WindowSize(t *testing.T) {
+func TestHealth_WindowSize(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewHealthModel()
 
 	newM, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
@@ -267,7 +267,7 @@ func TestHealth_WindowSize(t *testing.T) {
 // TestHealth_View_Idle — RED (triangulation)
 // =============================================================================
 
-func TestHealth_View_Idle(t *testing.T) {
+func TestHealth_View_Idle(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewHealthModel()
 	m.width = 80
 	m.height = 24
@@ -283,7 +283,7 @@ func TestHealth_View_Idle(t *testing.T) {
 // TestHealth_View_RerunFooter — RED (triangulation)
 // =============================================================================
 
-func TestHealth_View_RerunFooter(t *testing.T) {
+func TestHealth_View_RerunFooter(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewHealthModel()
 	m.width = 80
 	m.height = 24
@@ -307,7 +307,7 @@ func TestHealth_View_RerunFooter(t *testing.T) {
 // TestHealth_View_HelpBar_Idle — RED (Phase 3: help bar persistence)
 // =============================================================================
 
-func TestHealth_View_HelpBar_Idle(t *testing.T) {
+func TestHealth_View_HelpBar_Idle(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewHealthModel()
 	m.width = 80
 	m.height = 24
@@ -329,7 +329,7 @@ func TestHealth_View_HelpBar_Idle(t *testing.T) {
 // TestHealth_ResultOutOfBounds — RED (triangulation)
 // =============================================================================
 
-func TestHealth_ResultOutOfBounds(t *testing.T) {
+func TestHealth_ResultOutOfBounds(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name  string
 		index int
@@ -338,8 +338,8 @@ func TestHealth_ResultOutOfBounds(t *testing.T) {
 		{"index beyond length", 99},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := NewHealthModel()
 			m.running = true
 			m.checks = []HealthCheck{

@@ -10,20 +10,20 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/config"
 )
 
-func TestGitHubGistProvider_Name(t *testing.T) {
+func TestGitHubGistProvider_Name(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := NewGitHubGistProvider(nil, "test-token")
 	if p.Name() != "github-gist" {
 		t.Errorf("Name() = %q, want github-gist", p.Name())
 	}
 }
 
-func TestGitHubGistProvider_Push_Create(t *testing.T) {
+func TestGitHubGistProvider_Push_Create(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cleanup := setupMockGistAPI(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/gists" {
+		if r.Method != http.MethodPost || r.URL.Path != gistsEndpoint {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(gistResponse{
 			ID:      "gist-create-1",
@@ -37,7 +37,7 @@ func TestGitHubGistProvider_Push_Create(t *testing.T) {
 
 	p := NewGitHubGistProvider(cfg, "valid-token")
 	id, err := p.Push([]byte("test-archive-data"), PushMeta{
-		BackupID:  "20260605-120000",
+		BackupID:  testBackupID,
 		CreatedAt: time.Now(),
 		Hostname:  "testbox",
 	})
@@ -49,10 +49,10 @@ func TestGitHubGistProvider_Push_Create(t *testing.T) {
 	}
 }
 
-func TestGitHubGistProvider_Push_Update(t *testing.T) {
+func TestGitHubGistProvider_Push_Update(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cleanup := setupMockGistAPI(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPatch && strings.HasPrefix(r.URL.Path, "/gists/") {
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Type", acceptJSON)
 			json.NewEncoder(w).Encode(gistResponse{ID: "existing-gist"})
 			return
 		}
@@ -75,7 +75,7 @@ func TestGitHubGistProvider_Push_Update(t *testing.T) {
 	}
 }
 
-func TestGitHubGistProvider_Push_NoToken(t *testing.T) {
+func TestGitHubGistProvider_Push_NoToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Clear GITHUB_TOKEN to ensure test isolation in CI
 	t.Setenv("GITHUB_TOKEN", "")
 	p := NewGitHubGistProvider(nil, "") // empty token
@@ -88,14 +88,14 @@ func TestGitHubGistProvider_Push_NoToken(t *testing.T) {
 	}
 }
 
-func TestGitHubGistProvider_Pull(t *testing.T) {
+func TestGitHubGistProvider_Pull(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cleanup := setupMockGistAPI(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/gists/") {
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Type", acceptJSON)
 			json.NewEncoder(w).Encode(gistResponse{
 				ID: "pull-gist",
 				Files: map[string]gistFileAPI{
-					"backup.tar.gz": {Content: "YmFja3VwLWRhdGE="},
+					gistBackupFile: {Content: "YmFja3VwLWRhdGE="},
 				},
 			})
 			return
@@ -114,10 +114,10 @@ func TestGitHubGistProvider_Pull(t *testing.T) {
 	}
 }
 
-func TestGitHubGistProvider_Pull_NoBackupFile(t *testing.T) {
+func TestGitHubGistProvider_Pull_NoBackupFile(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cleanup := setupMockGistAPI(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/gists/") {
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Type", acceptJSON)
 			json.NewEncoder(w).Encode(gistResponse{
 				ID:    "no-backup-gist",
 				Files: map[string]gistFileAPI{
@@ -135,12 +135,12 @@ func TestGitHubGistProvider_Pull_NoBackupFile(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when backup.tar.gz not found")
 	}
-	if !strings.Contains(err.Error(), "backup.tar.gz") {
+	if !strings.Contains(err.Error(), gistBackupFile) {
 		t.Errorf("error = %v, want mention of backup.tar.gz", err)
 	}
 }
 
-func TestGitHubGistProvider_Pull_NoToken(t *testing.T) {
+func TestGitHubGistProvider_Pull_NoToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := NewGitHubGistProvider(nil, "")
 	_, err := p.Pull("some-id")
 	if err == nil {
@@ -148,18 +148,18 @@ func TestGitHubGistProvider_Pull_NoToken(t *testing.T) {
 	}
 }
 
-func TestGitHubGistProvider_List(t *testing.T) {
+func TestGitHubGistProvider_List(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cleanup := setupMockGistAPI(t, func(w http.ResponseWriter, r *http.Request) {
 		// GitHub Gist API: GET /gists lists user gists.
-		if r.Method == http.MethodGet && r.URL.Path == "/gists" {
-			w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet && r.URL.Path == gistsEndpoint {
+			w.Header().Set("Content-Type", acceptJSON)
 			json.NewEncoder(w).Encode([]gistResponse{
 				{
 					ID:          "list-1",
 					Description: "bak backup 20260605-120000",
 					HTMLURL:     "https://gist.github.com/list-1",
 					Files: map[string]gistFileAPI{
-						"backup.tar.gz": {Content: "data1"},
+						gistBackupFile: {Content: "data1"},
 					},
 				},
 				{
@@ -167,7 +167,7 @@ func TestGitHubGistProvider_List(t *testing.T) {
 					Description: "bak backup 20260604-100000",
 					HTMLURL:     "https://gist.github.com/list-2",
 					Files: map[string]gistFileAPI{
-						"backup.tar.gz": {Content: "data2"},
+						gistBackupFile: {Content: "data2"},
 					},
 				},
 			})
@@ -196,7 +196,7 @@ func TestGitHubGistProvider_List(t *testing.T) {
 	}
 }
 
-func TestGitHubGistProvider_TokenResolution(t *testing.T) {
+func TestGitHubGistProvider_TokenResolution(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Token passed to constructor should be used directly.
 	p := NewGitHubGistProvider(nil, "direct-token")
 
@@ -207,11 +207,11 @@ func TestGitHubGistProvider_TokenResolution(t *testing.T) {
 			return
 		}
 		if r.Method == http.MethodGet && r.URL.Path == "/gists/test-id" {
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Type", acceptJSON)
 			json.NewEncoder(w).Encode(gistResponse{
 				ID: "test-id",
 				Files: map[string]gistFileAPI{
-					"backup.tar.gz": {Content: "token-test-data"},
+					gistBackupFile: {Content: "token-test-data"},
 				},
 			})
 			return
@@ -229,17 +229,17 @@ func TestGitHubGistProvider_TokenResolution(t *testing.T) {
 	}
 }
 
-func TestGitHubGistProvider_PushIntegration(t *testing.T) {
+func TestGitHubGistProvider_PushIntegration(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Full integration: create, then update via Push.
 	var storedFiles map[string]gistFileAPI
 	gistID := ""
 	created := false
 
 	_, cleanup := setupMockGistAPI(t, func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 
 		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/gists":
+		case r.Method == http.MethodPost && r.URL.Path == gistsEndpoint:
 			var req gistCreateRequest
 			json.NewDecoder(r.Body).Decode(&req)
 			storedFiles = req.Files
@@ -290,7 +290,7 @@ func TestGitHubGistProvider_PushIntegration(t *testing.T) {
 	}
 }
 
-func TestNewGitHubGistProvider_NilConfig(t *testing.T) {
+func TestNewGitHubGistProvider_NilConfig(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Should handle nil config gracefully.
 	p := NewGitHubGistProvider(nil, "token")
 	if p == nil {

@@ -8,7 +8,7 @@ import (
 
 // --- ValidIntervals ---
 
-func TestValidIntervals(t *testing.T) {
+func TestValidIntervals(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	intervals := ValidIntervals()
 
 	// Must contain the four supported intervals.
@@ -30,7 +30,7 @@ func TestValidIntervals(t *testing.T) {
 	}
 }
 
-func TestValidIntervals_NoDuplicates(t *testing.T) {
+func TestValidIntervals_NoDuplicates(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	intervals := ValidIntervals()
 	seen := make(map[string]bool)
 	for _, iv := range intervals {
@@ -43,7 +43,7 @@ func TestValidIntervals_NoDuplicates(t *testing.T) {
 
 // --- IsValidInterval ---
 
-func TestIsValidInterval_Valid(t *testing.T) {
+func TestIsValidInterval_Valid(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	for _, iv := range []string{"daily", "weekly", "every-12h", "every-6h"} {
 		if !IsValidInterval(iv) {
 			t.Errorf("IsValidInterval(%q) = false, want true", iv)
@@ -51,7 +51,7 @@ func TestIsValidInterval_Valid(t *testing.T) {
 	}
 }
 
-func TestIsValidInterval_Invalid(t *testing.T) {
+func TestIsValidInterval_Invalid(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	invalid := []string{"", "hourly", "monthly", "daily-t", "Every-12h", "DAILY", "12h"}
 	for _, iv := range invalid {
 		if IsValidInterval(iv) {
@@ -62,7 +62,7 @@ func TestIsValidInterval_Invalid(t *testing.T) {
 
 // --- ScheduleEntry ---
 
-func TestScheduleEntry_Fields(t *testing.T) {
+func TestScheduleEntry_Fields(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	entry := ScheduleEntry{
 		Profile:  "work",
 		Interval: "daily",
@@ -82,7 +82,7 @@ func TestScheduleEntry_Fields(t *testing.T) {
 
 // --- Scheduler interface check ---
 
-func TestSchedulerInterface(t *testing.T) {
+func TestSchedulerInterface(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// NewScheduler returns the platform-appropriate implementation.
 	s := NewScheduler()
 	if s == nil {
@@ -97,7 +97,7 @@ func TestSchedulerInterface(t *testing.T) {
 
 // --- Cron line format (cross-platform helpers) ---
 
-func TestFormatCronLine(t *testing.T) {
+func TestFormatCronLine(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		profile  string
@@ -110,8 +110,8 @@ func TestFormatCronLine(t *testing.T) {
 		{name: "every-6h", profile: "test", interval: "every-6h", wantCmd: "0 */6 * * *"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			line := formatCronLine(tt.profile, tt.interval)
 			if len(line) == 0 {
 				t.Fatal("formatCronLine returned empty string")
@@ -126,7 +126,7 @@ func TestFormatCronLine(t *testing.T) {
 	}
 }
 
-func TestFormatCronLine_CommandContent(t *testing.T) {
+func TestFormatCronLine_CommandContent(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	line := formatCronLine("work", "daily")
 	wantCmd := "bak backup --profile work && bak push --profile work"
 	if !containsSubstring(line, wantCmd) {
@@ -136,7 +136,7 @@ func TestFormatCronLine_CommandContent(t *testing.T) {
 
 // --- Cron line parsing (cross-platform helpers) ---
 
-func TestParseCronLine_Valid(t *testing.T) {
+func TestParseCronLine_Valid(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	line := "0 2 * * * bak backup --profile work && bak push --profile work # bak-cli:work"
 	entry, ok := parseCronLine(line)
 	if !ok {
@@ -153,7 +153,7 @@ func TestParseCronLine_Valid(t *testing.T) {
 	}
 }
 
-func TestParseCronLine_NotBakCli(t *testing.T) {
+func TestParseCronLine_NotBakCli(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	lines := []string{
 		"0 2 * * * /usr/bin/backup.sh",
 		"# just a comment",
@@ -168,7 +168,7 @@ func TestParseCronLine_NotBakCli(t *testing.T) {
 	}
 }
 
-func TestParseCronLine_Malformed(t *testing.T) {
+func TestParseCronLine_Malformed(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	line := "0 2 * * * # bak-cli:work"
 	_, ok := parseCronLine(line)
 	if ok {
@@ -176,7 +176,7 @@ func TestParseCronLine_Malformed(t *testing.T) {
 	}
 }
 
-func TestIntervalFromCron(t *testing.T) {
+func TestIntervalFromCron(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		cronPrefix string
 		want       string
@@ -188,8 +188,8 @@ func TestIntervalFromCron(t *testing.T) {
 		{"30 4 * * *", ""},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.cronPrefix, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.cronPrefix, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := intervalFromCron(tt.cronPrefix)
 			if got != tt.want {
 				t.Errorf("intervalFromCron(%q) = %q, want %q", tt.cronPrefix, got, tt.want)
@@ -285,7 +285,7 @@ func (m *mockCronScheduler) List() ([]ScheduleEntry, error) {
 	return entries, nil
 }
 
-func TestMockScheduler_CreateListRemove(t *testing.T) {
+func TestMockScheduler_CreateListRemove(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var content string
 	s := &mockCronScheduler{content: &content}
 
@@ -323,7 +323,7 @@ func TestMockScheduler_CreateListRemove(t *testing.T) {
 	}
 }
 
-func TestMockScheduler_DuplicateCreate(t *testing.T) {
+func TestMockScheduler_DuplicateCreate(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var content string
 	s := &mockCronScheduler{content: &content}
 
@@ -338,7 +338,7 @@ func TestMockScheduler_DuplicateCreate(t *testing.T) {
 
 // --- Schtasks argument building ---
 
-func TestBuildSchtasksArgs_Create(t *testing.T) {
+func TestBuildSchtasksArgs_Create(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		profile  string
@@ -372,8 +372,8 @@ func TestBuildSchtasksArgs_Create(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			args := buildSchtasksCreateArgs(tt.profile, tt.interval)
 			argStr := strings.Join(args, " ")
 
@@ -386,7 +386,7 @@ func TestBuildSchtasksArgs_Create(t *testing.T) {
 	}
 }
 
-func TestBuildSchtasksArgs_Create_Command(t *testing.T) {
+func TestBuildSchtasksArgs_Create_Command(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	args := buildSchtasksCreateArgs("work", "daily")
 	argStr := strings.Join(args, " ")
 	wantCmd := "bak backup --profile work && bak push --profile work"
@@ -395,7 +395,7 @@ func TestBuildSchtasksArgs_Create_Command(t *testing.T) {
 	}
 }
 
-func TestBuildSchtasksArgs_Remove(t *testing.T) {
+func TestBuildSchtasksArgs_Remove(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	args := buildSchtasksDeleteArgs("work")
 	if len(args) == 0 {
 		t.Fatal("buildSchtasksDeleteArgs returned empty")
@@ -409,7 +409,7 @@ func TestBuildSchtasksArgs_Remove(t *testing.T) {
 	}
 }
 
-func TestBuildSchtasksArgs_Query(t *testing.T) {
+func TestBuildSchtasksArgs_Query(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	args := buildSchtasksQueryArgs()
 	if len(args) == 0 {
 		t.Fatal("buildSchtasksQueryArgs returned empty")
@@ -425,7 +425,7 @@ func TestBuildSchtasksArgs_Query(t *testing.T) {
 
 // --- Schtasks interval mapping ---
 
-func TestIntervalToSchtasks(t *testing.T) {
+func TestIntervalToSchtasks(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		interval string
 		wantSC   string
@@ -438,8 +438,8 @@ func TestIntervalToSchtasks(t *testing.T) {
 		{"every-6h", "hourly", "6", "00:00"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.interval, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.interval, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			sc, mo, st := intervalToSchtasksParams(tt.interval)
 			if sc != tt.wantSC {
 				t.Errorf("sc = %q, want %q", sc, tt.wantSC)
@@ -454,7 +454,7 @@ func TestIntervalToSchtasks(t *testing.T) {
 	}
 }
 
-func TestIntervalToSchtasks_DefaultFallback(t *testing.T) {
+func TestIntervalToSchtasks_DefaultFallback(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	sc, mo, st := intervalToSchtasksParams("unknown")
 	if sc != "daily" {
 		t.Errorf("sc = %q, want 'daily' (default)", sc)
@@ -469,7 +469,7 @@ func TestIntervalToSchtasks_DefaultFallback(t *testing.T) {
 
 // --- formatCronLine default fallback ---
 
-func TestFormatCronLine_DefaultFallback(t *testing.T) {
+func TestFormatCronLine_DefaultFallback(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	line := formatCronLine("test", "unknown-interval")
 	if len(line) == 0 {
 		t.Fatal("formatCronLine should not return empty")
@@ -484,7 +484,7 @@ func TestFormatCronLine_DefaultFallback(t *testing.T) {
 
 // --- parseCronLine additional edge cases ---
 
-func TestParseCronLine_TagWithoutColon(t *testing.T) {
+func TestParseCronLine_TagWithoutColon(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Bare "# bak-cli" tag (no colon or profile) is parsed but profile is empty.
 	line := "0 2 * * * /bin/backup.sh # bak-cli"
 	entry, ok := parseCronLine(line)
@@ -496,14 +496,14 @@ func TestParseCronLine_TagWithoutColon(t *testing.T) {
 	}
 }
 
-func TestParseCronLine_WhitespaceOnly(t *testing.T) {
+func TestParseCronLine_WhitespaceOnly(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, ok := parseCronLine("   \t  ")
 	if ok {
 		t.Error("parseCronLine on whitespace = true, want false")
 	}
 }
 
-func TestParseCronLine_CommentedBakCLI(t *testing.T) {
+func TestParseCronLine_CommentedBakCLI(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	line := "# 0 2 * * * bak backup --profile work # bak-cli:work"
 	_, ok := parseCronLine(line)
 	if ok {
@@ -511,7 +511,7 @@ func TestParseCronLine_CommentedBakCLI(t *testing.T) {
 	}
 }
 
-func TestParseCronLine_FewerThan7Fields(t *testing.T) {
+func TestParseCronLine_FewerThan7Fields(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Needs at least 7 fields. With 6 fields (5 cron + 1 command that is '#'),
 	// the 6th field starts with '#' → rejected.
 	line := "0 2 * * * # bak-cli:work"
@@ -521,7 +521,7 @@ func TestParseCronLine_FewerThan7Fields(t *testing.T) {
 	}
 }
 
-func TestParseCronLine_Exactly6FieldsNoTag(t *testing.T) {
+func TestParseCronLine_Exactly6FieldsNoTag(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	line := "0 2 * * * cmd"
 	_, ok := parseCronLine(line)
 	if ok {

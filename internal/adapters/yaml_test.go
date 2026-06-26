@@ -8,8 +8,8 @@ import (
 
 // ---------- ConfigAdapter.Detect -----------------------------------------
 
-func TestConfigAdapter_Detect(t *testing.T) {
-	t.Run("installed", func(t *testing.T) {
+func TestConfigAdapter_Detect(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("installed", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".config", "myapp")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -29,7 +29,7 @@ func TestConfigAdapter_Detect(t *testing.T) {
 		}
 	})
 
-	t.Run("not installed", func(t *testing.T) {
+	t.Run("not installed", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		a := &ConfigAdapter{def: YAMLAdapter{Name: "myapp", ConfigPath: ".config/myapp"}}
 
@@ -42,7 +42,7 @@ func TestConfigAdapter_Detect(t *testing.T) {
 		}
 	})
 
-	t.Run("exists but is file not dir", func(t *testing.T) {
+	t.Run("exists but is file not dir", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configPath := filepath.Join(home, ".config", "myapp")
 		if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
@@ -65,7 +65,7 @@ func TestConfigAdapter_Detect(t *testing.T) {
 
 // ---------- ConfigAdapter.ListItems --------------------------------------
 
-func TestConfigAdapter_ListItems(t *testing.T) {
+func TestConfigAdapter_ListItems(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	setupHome := func(t *testing.T) (string, string) {
 		t.Helper()
 		home := t.TempDir()
@@ -97,7 +97,7 @@ func TestConfigAdapter_ListItems(t *testing.T) {
 		return home, configDir
 	}
 
-	t.Run("dir category returns items", func(t *testing.T) {
+	t.Run("dir category returns items", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home, _ := setupHome(t)
 		a := &ConfigAdapter{def: YAMLAdapter{
 			Name:       "myapp",
@@ -124,7 +124,7 @@ func TestConfigAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("root files category returns items", func(t *testing.T) {
+	t.Run("root files category returns items", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home, _ := setupHome(t)
 		a := &ConfigAdapter{def: YAMLAdapter{
 			Name:       "myapp",
@@ -148,7 +148,7 @@ func TestConfigAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("missing category returns empty", func(t *testing.T) {
+	t.Run("missing category returns empty", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home, _ := setupHome(t)
 		a := &ConfigAdapter{def: YAMLAdapter{
 			Name:       "myapp",
@@ -164,7 +164,7 @@ func TestConfigAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("missing dir category returns empty", func(t *testing.T) {
+	t.Run("missing dir category returns empty", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".config", "myapp")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -191,7 +191,7 @@ func TestConfigAdapter_ListItems(t *testing.T) {
 
 // ---------- ConfigAdapter.Backup -----------------------------------------
 
-func TestConfigAdapter_Backup(t *testing.T) {
+func TestConfigAdapter_Backup(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	configDir := filepath.Join(home, ".config", "myapp")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -256,7 +256,7 @@ func TestConfigAdapter_Backup(t *testing.T) {
 
 // ---------- ConfigAdapter.Restore ----------------------------------------
 
-func TestConfigAdapter_Restore(t *testing.T) {
+func TestConfigAdapter_Restore(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	backupDir := filepath.Join(t.TempDir(), "backup")
 	backupFile := filepath.Join(backupDir, "myapp", "config.json")
 	if err := os.MkdirAll(filepath.Dir(backupFile), 0755); err != nil {
@@ -310,8 +310,8 @@ func TestConfigAdapter_Restore(t *testing.T) {
 
 // ---------- scanCategoryDir ----------------------------------------------
 
-func Test_scanCategoryDir(t *testing.T) {
-	t.Run("scans files and dirs under category", func(t *testing.T) {
+func Test_scanCategoryDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("scans files and dirs under category", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".config", "myapp")
 		pluginsDir := filepath.Join(configDir, "plugins")
@@ -346,7 +346,7 @@ func Test_scanCategoryDir(t *testing.T) {
 		}
 	})
 
-	t.Run("empty dir returns no items", func(t *testing.T) {
+	t.Run("empty dir returns no items", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		pluginsDir := filepath.Join(home, ".config", "myapp", "plugins")
 		if err := os.MkdirAll(pluginsDir, 0755); err != nil {
@@ -362,7 +362,7 @@ func Test_scanCategoryDir(t *testing.T) {
 		}
 	})
 
-	t.Run("nonexistent dir returns error", func(t *testing.T) {
+	t.Run("nonexistent dir returns error", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 		missingPath := filepath.Join(dir, "nonexistent")
 		// Ensure the path does not exist.
@@ -377,8 +377,8 @@ func Test_scanCategoryDir(t *testing.T) {
 // RED phase: these tests reference LoadYAMLAdapters(dir, homeDir)
 // which does NOT exist yet on the current source.
 
-func TestLoadYAMLAdapters(t *testing.T) {
-	t.Run("valid yaml loads adapter", func(t *testing.T) {
+func TestLoadYAMLAdapters(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("valid yaml loads adapter", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		adaptersDir := filepath.Join(homeDir, ".config", "bak", "adapters")
 		if err := os.MkdirAll(adaptersDir, 0755); err != nil {
@@ -408,7 +408,7 @@ categories:
 		}
 	})
 
-	t.Run("missing directory returns empty", func(t *testing.T) {
+	t.Run("missing directory returns empty", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		adaptersDir := filepath.Join(homeDir, ".config", "bak", "adapters")
 
@@ -421,7 +421,7 @@ categories:
 		}
 	})
 
-	t.Run("invalid yaml returns error", func(t *testing.T) {
+	t.Run("invalid yaml returns error", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		adaptersDir := filepath.Join(homeDir, ".config", "bak", "adapters")
 		if err := os.MkdirAll(adaptersDir, 0755); err != nil {
@@ -438,7 +438,7 @@ categories:
 		}
 	})
 
-	t.Run("missing name field returns error", func(t *testing.T) {
+	t.Run("missing name field returns error", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		adaptersDir := filepath.Join(homeDir, ".config", "bak", "adapters")
 		if err := os.MkdirAll(adaptersDir, 0755); err != nil {
@@ -455,7 +455,7 @@ categories:
 		}
 	})
 
-	t.Run("traversal rejected: dir outside home", func(t *testing.T) {
+	t.Run("traversal rejected: dir outside home", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		outsideDir := t.TempDir()
 
@@ -469,7 +469,7 @@ categories:
 		}
 	})
 
-	t.Run("ignores non-yaml files", func(t *testing.T) {
+	t.Run("ignores non-yaml files", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		adaptersDir := filepath.Join(homeDir, ".config", "bak", "adapters")
 		if err := os.MkdirAll(adaptersDir, 0755); err != nil {

@@ -9,7 +9,7 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 )
 
-func TestScanOptions(t *testing.T) {
+func TestScanOptions(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name string
 		test func(t *testing.T)
@@ -21,7 +21,7 @@ func TestScanOptions(t *testing.T) {
 		{"zero value fall-through preserves items", testScanOptionsZeroValueFallThrough},
 	}
 
-	for _, tt := range tests {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
 		t.Run(tt.name, tt.test)
 	}
 }

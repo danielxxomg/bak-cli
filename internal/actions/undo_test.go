@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestUndoAction_Success(t *testing.T) {
+func TestUndoAction_Success(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var out strings.Builder
 	undoCalled := false
 
@@ -41,7 +41,7 @@ func TestUndoAction_Success(t *testing.T) {
 	}
 }
 
-func TestUndoAction_NotARepo(t *testing.T) {
+func TestUndoAction_NotARepo(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var out strings.Builder
 
 	action := &UndoAction{
@@ -66,7 +66,7 @@ func TestUndoAction_NotARepo(t *testing.T) {
 	}
 }
 
-func TestUndoAction_UndoFails(t *testing.T) {
+func TestUndoAction_UndoFails(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var out strings.Builder
 
 	action := &UndoAction{
@@ -94,7 +94,7 @@ func TestUndoAction_UndoFails(t *testing.T) {
 	}
 }
 
-func TestUndoAction_DefaultHomeDir(t *testing.T) {
+func TestUndoAction_DefaultHomeDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// When HomeDir is nil, Run() defaults to os.UserHomeDir.
 	// This exercises the default path without needing real git repo.
 	var out strings.Builder
@@ -116,7 +116,7 @@ func TestUndoAction_DefaultHomeDir(t *testing.T) {
 	}
 }
 
-func TestUndoAction_DefaultBakDir(t *testing.T) {
+func TestUndoAction_DefaultBakDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// When BakDir is nil, Run() defaults to filepath.Join(homeDir, ".bak").
 	var out strings.Builder
 
@@ -140,7 +140,7 @@ func TestUndoAction_DefaultBakDir(t *testing.T) {
 	}
 }
 
-func TestUndoAction_NilIsRepo_NilUndoFn(t *testing.T) {
+func TestUndoAction_NilIsRepo_NilUndoFn(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// When both IsRepo and UndoFn are nil, Run() skips the checks
 	// and prints the success message.
 	var out strings.Builder
@@ -163,7 +163,7 @@ func TestUndoAction_NilIsRepo_NilUndoFn(t *testing.T) {
 	}
 }
 
-func TestUndoAction_HomeDirError(t *testing.T) {
+func TestUndoAction_HomeDirError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var out strings.Builder
 
 	action := &UndoAction{

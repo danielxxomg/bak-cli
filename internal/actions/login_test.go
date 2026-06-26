@@ -41,7 +41,7 @@ func (f *MockConfigSaver) Set(key, value string) error {
 
 // --- Table-Driven PAT Flow Tests ---
 
-func TestLoginAction_PATFlow(t *testing.T) {
+func TestLoginAction_PATFlow(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name       string
 		setupCfg   map[string]config.ProviderConfig
@@ -89,8 +89,8 @@ func TestLoginAction_PATFlow(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			t.Setenv("GITHUB_TOKEN", "")
 			_, cfg := setupConfigDir(t, tt.setupCfg)
 
@@ -142,7 +142,7 @@ func TestLoginAction_PATFlow(t *testing.T) {
 	}
 }
 
-func TestLoginAction_NonGitHubProvider(t *testing.T) {
+func TestLoginAction_NonGitHubProvider(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, cfg := setupConfigDir(t, nil)
 	saver := &MockConfigSaver{cfg: cfg}
 	action := &LoginAction{
@@ -164,7 +164,7 @@ func TestLoginAction_NonGitHubProvider(t *testing.T) {
 
 // --- OAuth Dispatch Error Cases (table-driven) ---
 
-func TestLoginAction_OAuthDispatch_Errors(t *testing.T) {
+func TestLoginAction_OAuthDispatch_Errors(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name      string
 		stub      oauthStub
@@ -184,8 +184,8 @@ func TestLoginAction_OAuthDispatch_Errors(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			t.Setenv("GITHUB_TOKEN", "")
 			_, cfg := setupConfigDir(t, nil)
 
@@ -217,7 +217,7 @@ func TestLoginAction_OAuthDispatch_Errors(t *testing.T) {
 
 // --- Table-Driven OAuth Success Tests ---
 
-func TestLoginAction_OAuthDispatch_SuccessCases(t *testing.T) {
+func TestLoginAction_OAuthDispatch_SuccessCases(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name       string
 		setupCfg   map[string]config.ProviderConfig
@@ -250,8 +250,8 @@ func TestLoginAction_OAuthDispatch_SuccessCases(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			t.Setenv("GITHUB_TOKEN", "")
 			_, cfg := setupConfigDir(t, tt.setupCfg)
 

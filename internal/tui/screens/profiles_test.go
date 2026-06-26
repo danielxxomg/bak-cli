@@ -16,7 +16,7 @@ import (
 // TestProfiles_NewProfilesModel — RED
 // =============================================================================
 
-func TestProfiles_NewProfilesModel(t *testing.T) {
+func TestProfiles_NewProfilesModel(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	listFn := func() ([]ProfileInfo, error) { return nil, nil }
 	m := NewProfilesModel(listFn, nil, nil, nil)
 
@@ -32,7 +32,7 @@ func TestProfiles_NewProfilesModel(t *testing.T) {
 // TestProfiles_Init_LoadsProfiles — RED
 // =============================================================================
 
-func TestProfiles_Init_LoadsProfiles(t *testing.T) {
+func TestProfiles_Init_LoadsProfiles(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	listFn := func() ([]ProfileInfo, error) {
 		return []ProfileInfo{
 			{Name: "work", Provider: "github", Preset: "full", Active: true},
@@ -59,7 +59,7 @@ func TestProfiles_Init_LoadsProfiles(t *testing.T) {
 // TestProfiles_EmptyState — RED
 // =============================================================================
 
-func TestProfiles_EmptyState(t *testing.T) {
+func TestProfiles_EmptyState(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	listFn := func() ([]ProfileInfo, error) { return nil, nil }
 	m := NewProfilesModel(listFn, nil, nil, nil)
 	m.Width = 80
@@ -76,7 +76,7 @@ func TestProfiles_EmptyState(t *testing.T) {
 // TestProfiles_SwitchActiveProfile — RED
 // =============================================================================
 
-func TestProfiles_SwitchActiveProfile(t *testing.T) {
+func TestProfiles_SwitchActiveProfile(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var switchedTo string
 	switchFn := func(name string) error {
 		switchedTo = name
@@ -115,7 +115,7 @@ func TestProfiles_SwitchActiveProfile(t *testing.T) {
 // TestProfiles_DeleteNonActive — RED
 // =============================================================================
 
-func TestProfiles_DeleteNonActive(t *testing.T) {
+func TestProfiles_DeleteNonActive(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var deletedName string
 	deleteFn := func(name string) error {
 		deletedName = name
@@ -153,7 +153,7 @@ func TestProfiles_DeleteNonActive(t *testing.T) {
 // TestProfiles_CannotDeleteActive — RED
 // =============================================================================
 
-func TestProfiles_CannotDeleteActive(t *testing.T) {
+func TestProfiles_CannotDeleteActive(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var deleteCalled string
 	deleteFn := func(name string) error {
 		deleteCalled = name
@@ -185,7 +185,7 @@ func TestProfiles_CannotDeleteActive(t *testing.T) {
 // TestProfiles_CreateViaWizard — RED
 // =============================================================================
 
-func TestProfiles_CreateViaWizard(t *testing.T) {
+func TestProfiles_CreateViaWizard(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var wizardCalled bool
 	wizardFn := func() (ProfileInfo, error) {
 		wizardCalled = true
@@ -221,7 +221,7 @@ func TestProfiles_CreateViaWizard(t *testing.T) {
 // TestProfiles_ListError — RED
 // =============================================================================
 
-func TestProfiles_ListError(t *testing.T) {
+func TestProfiles_ListError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	listFn := func() ([]ProfileInfo, error) {
 		return nil, errors.New("connection refused")
 	}
@@ -243,7 +243,7 @@ func TestProfiles_ListError(t *testing.T) {
 // TestProfiles_View_List — RED
 // =============================================================================
 
-func TestProfiles_View_List(t *testing.T) {
+func TestProfiles_View_List(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewProfilesModel(nil, nil, nil, nil)
 	m.Width = 80
 	m.Height = 24
@@ -270,7 +270,7 @@ func TestProfiles_View_List(t *testing.T) {
 // Phase 3: Render error state coverage
 // =============================================================================
 
-func TestProfiles_RenderError(t *testing.T) {
+func TestProfiles_RenderError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewProfilesModel(nil, nil, nil, nil)
 	m.Width = 80
 	m.Height = 24

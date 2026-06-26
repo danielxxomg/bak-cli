@@ -35,7 +35,7 @@ func (m *mockProvider) List() ([]BackupMeta, error) {
 	return nil, nil
 }
 
-func TestProviderRegistry_RegisterAndGet(t *testing.T) {
+func TestProviderRegistry_RegisterAndGet(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	reg := NewProviderRegistry()
 	p := &mockProvider{name: "test-provider"}
 
@@ -52,7 +52,7 @@ func TestProviderRegistry_RegisterAndGet(t *testing.T) {
 	}
 }
 
-func TestProviderRegistry_GetUnknown(t *testing.T) {
+func TestProviderRegistry_GetUnknown(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	reg := NewProviderRegistry()
 	_, err := reg.Get("nonexistent")
 	if err == nil {
@@ -66,7 +66,7 @@ func TestProviderRegistry_GetUnknown(t *testing.T) {
 	}
 }
 
-func TestProviderRegistry_GetDefault(t *testing.T) {
+func TestProviderRegistry_GetDefault(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	reg := NewProviderRegistry()
 	p := &mockProvider{name: "default-test"}
 
@@ -84,7 +84,7 @@ func TestProviderRegistry_GetDefault(t *testing.T) {
 	}
 }
 
-func TestProviderRegistry_GetDefault_NotSet(t *testing.T) {
+func TestProviderRegistry_GetDefault_NotSet(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	reg := NewProviderRegistry()
 	_, err := reg.Get("")
 	if err == nil {
@@ -92,7 +92,7 @@ func TestProviderRegistry_GetDefault_NotSet(t *testing.T) {
 	}
 }
 
-func TestProviderRegistry_RegisterDuplicate(t *testing.T) {
+func TestProviderRegistry_RegisterDuplicate(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	reg := NewProviderRegistry()
 	p1 := &mockProvider{name: "dup"}
 	p2 := &mockProvider{name: "dup"}
@@ -106,7 +106,7 @@ func TestProviderRegistry_RegisterDuplicate(t *testing.T) {
 	}
 }
 
-func TestProviderRegistry_SetDefault_Unknown(t *testing.T) {
+func TestProviderRegistry_SetDefault_Unknown(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	reg := NewProviderRegistry()
 	// SetDefault should be a no-op for unregistered names.
 	reg.SetDefault("ghost")
@@ -117,17 +117,17 @@ func TestProviderRegistry_SetDefault_Unknown(t *testing.T) {
 	}
 }
 
-func TestPushMeta_Fields(t *testing.T) {
+func TestPushMeta_Fields(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	now := time.Date(2026, 6, 5, 12, 0, 0, 0, time.UTC)
 	meta := PushMeta{
-		BackupID:  "20260605-120000",
+		BackupID:  testBackupID,
 		CreatedAt: now,
 		Hostname:  "devbox",
 		OS:        "windows",
 		Agents:    []string{"opencode", "claude-code"},
 	}
 
-	if meta.BackupID != "20260605-120000" {
+	if meta.BackupID != testBackupID {
 		t.Errorf("BackupID = %q, want 20260605-120000", meta.BackupID)
 	}
 	if !meta.CreatedAt.Equal(now) {
@@ -144,7 +144,7 @@ func TestPushMeta_Fields(t *testing.T) {
 	}
 }
 
-func TestBackupMeta_Fields(t *testing.T) {
+func TestBackupMeta_Fields(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	now := time.Date(2026, 6, 4, 10, 30, 0, 0, time.UTC)
 	meta := BackupMeta{
 		ID:        "gist-abc123",
@@ -172,7 +172,7 @@ func TestBackupMeta_Fields(t *testing.T) {
 	}
 }
 
-func TestProviderRegistry_MultipleProviders(t *testing.T) {
+func TestProviderRegistry_MultipleProviders(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	reg := NewProviderRegistry()
 	reg.Register(&mockProvider{name: "first"})
 	reg.Register(&mockProvider{name: "second"})
@@ -190,7 +190,7 @@ func TestProviderRegistry_MultipleProviders(t *testing.T) {
 	}
 }
 
-func TestProviderRegistry_NilProvider(t *testing.T) {
+func TestProviderRegistry_NilProvider(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	reg := NewProviderRegistry()
 	err := reg.Register(nil)
 	if err == nil {
@@ -198,7 +198,7 @@ func TestProviderRegistry_NilProvider(t *testing.T) {
 	}
 }
 
-func TestProviderRegistry_PushPullList_Delegation(t *testing.T) {
+func TestProviderRegistry_PushPullList_Delegation(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	reg := NewProviderRegistry()
 
 	calledPush := false
@@ -209,11 +209,11 @@ func TestProviderRegistry_PushPullList_Delegation(t *testing.T) {
 		name: "delegator",
 		pushFn: func(_ []byte, _ PushMeta) (string, error) {
 			calledPush = true
-			return "delegated-id", nil
+			return testDelegatedID, nil
 		},
 		pullFn: func(id string) ([]byte, error) {
 			calledPull = true
-			if id != "delegated-id" {
+			if id != testDelegatedID {
 				return nil, errors.New("unexpected id")
 			}
 			return []byte("delegated-data"), nil
@@ -232,7 +232,7 @@ func TestProviderRegistry_PushPullList_Delegation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Push: %v", err)
 	}
-	if id != "delegated-id" {
+	if id != testDelegatedID {
 		t.Errorf("Push id = %q, want delegated-id", id)
 	}
 	if !calledPush {
@@ -240,7 +240,7 @@ func TestProviderRegistry_PushPullList_Delegation(t *testing.T) {
 	}
 
 	// Pull.
-	data, err := mp.Pull("delegated-id")
+	data, err := mp.Pull(testDelegatedID)
 	if err != nil {
 		t.Fatalf("Pull: %v", err)
 	}

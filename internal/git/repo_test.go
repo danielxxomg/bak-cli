@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-func TestInitRepo(t *testing.T) {
-	t.Run("creates new git repository in empty directory", func(t *testing.T) {
+func TestInitRepo(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("creates new git repository in empty directory", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 
 		repo, err := InitRepo(dir)
@@ -25,7 +25,7 @@ func TestInitRepo(t *testing.T) {
 		}
 	})
 
-	t.Run("returns error when path is a file not a directory", func(t *testing.T) {
+	t.Run("returns error when path is a file not a directory", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 		filePath := filepath.Join(dir, "notadir")
 		if err := os.WriteFile(filePath, []byte("content"), 0644); err != nil {
@@ -39,8 +39,8 @@ func TestInitRepo(t *testing.T) {
 	})
 }
 
-func TestOpenRepo(t *testing.T) {
-	t.Run("opens existing repository", func(t *testing.T) {
+func TestOpenRepo(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("opens existing repository", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 
 		// Create a repo first.
@@ -57,7 +57,7 @@ func TestOpenRepo(t *testing.T) {
 		}
 	})
 
-	t.Run("returns error for non-repository directory", func(t *testing.T) {
+	t.Run("returns error for non-repository directory", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 
 		_, err := OpenRepo(dir)
@@ -67,8 +67,8 @@ func TestOpenRepo(t *testing.T) {
 	})
 }
 
-func TestInitRepo_ExistingRepo(t *testing.T) {
-	t.Run("re-initializing already initialized repo returns error", func(t *testing.T) {
+func TestInitRepo_ExistingRepo(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("re-initializing already initialized repo returns error", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 
 		if _, err := InitRepo(dir); err != nil {
@@ -83,8 +83,8 @@ func TestInitRepo_ExistingRepo(t *testing.T) {
 	})
 }
 
-func TestOpenRepo_RemovedRepo(t *testing.T) {
-	t.Run("returns error after .git is deleted", func(t *testing.T) {
+func TestOpenRepo_RemovedRepo(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("returns error after .git is deleted", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 		if _, err := InitRepo(dir); err != nil {
 			t.Fatalf("setup: %v", err)
@@ -102,8 +102,8 @@ func TestOpenRepo_RemovedRepo(t *testing.T) {
 	})
 }
 
-func TestIsRepo(t *testing.T) {
-	t.Run("returns true for initialized repository", func(t *testing.T) {
+func TestIsRepo(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("returns true for initialized repository", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 
 		if _, err := InitRepo(dir); err != nil {
@@ -115,7 +115,7 @@ func TestIsRepo(t *testing.T) {
 		}
 	})
 
-	t.Run("returns false for non-repository directory", func(t *testing.T) {
+	t.Run("returns false for non-repository directory", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 
 		if IsRepo(dir) {
@@ -123,7 +123,7 @@ func TestIsRepo(t *testing.T) {
 		}
 	})
 
-	t.Run("returns false for nonexistent path", func(t *testing.T) {
+	t.Run("returns false for nonexistent path", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		if IsRepo("/nonexistent/path") {
 			t.Fatal("IsRepo returned true for nonexistent path")
 		}

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestParseIgnore(t *testing.T) {
+func TestParseIgnore(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		input    string
@@ -99,8 +99,8 @@ func TestParseIgnore(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			patterns, err := ParseIgnore(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("ParseIgnore() error = %v, wantErr %v", err, tt.wantErr)
@@ -118,7 +118,7 @@ func TestParseIgnore(t *testing.T) {
 	}
 }
 
-func TestPatternMatch(t *testing.T) {
+func TestPatternMatch(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name    string
 		pattern string
@@ -164,8 +164,8 @@ func TestPatternMatch(t *testing.T) {
 		{name: "redundant slashes cleaned", pattern: "*.lock", relPath: `sub//yarn.lock`, isDir: false, want: true},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			// Build a single pattern from the pattern string.
 			dirOnly := false
 			negate := false
@@ -188,7 +188,7 @@ func TestPatternMatch(t *testing.T) {
 	}
 }
 
-func TestLoadExcludes(t *testing.T) {
+func TestLoadExcludes(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name          string
 		ignoreContent string // content of ~/.config/bak/ignore
@@ -249,8 +249,8 @@ func TestLoadExcludes(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			cfgDir := t.TempDir()
 			if !tt.ignoreMissing {
 				ignorePath := filepath.Join(cfgDir, "ignore")
@@ -317,7 +317,7 @@ func TestLoadExcludes(t *testing.T) {
 	}
 }
 
-func TestLoadExcludesIgnoreReload(t *testing.T) {
+func TestLoadExcludesIgnoreReload(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfgDir := t.TempDir()
 	settings := Settings{ExcludePatterns: []string{}}
 
@@ -344,7 +344,7 @@ func TestLoadExcludesIgnoreReload(t *testing.T) {
 	}
 }
 
-func TestLoadExcludes_InvalidIgnoreFile(t *testing.T) {
+func TestLoadExcludes_InvalidIgnoreFile(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// When the ignore file contains invalid syntax (double negation), it should error.
 	cfgDir := t.TempDir()
 	ignorePath := filepath.Join(cfgDir, "ignore")
@@ -361,7 +361,7 @@ func TestLoadExcludes_InvalidIgnoreFile(t *testing.T) {
 // TestDefaultExcludes_IncludesRuntimeDBs verifies the expanded DefaultExcludes
 // cover SQLite runtime databases, cache files, and JSONL history files.
 // This test is RED until DefaultExcludes is expanded.
-func TestDefaultExcludes_IncludesRuntimeDBs(t *testing.T) {
+func TestDefaultExcludes_IncludesRuntimeDBs(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// All runtime patterns that MUST be in the default exclusion list.
 	requiredPatterns := []string{
 		"*.sqlite",
@@ -401,7 +401,7 @@ func TestDefaultExcludes_IncludesRuntimeDBs(t *testing.T) {
 // TestSplitWildcard locks splitWildcard's behavior: it splits a pattern at
 // the FIRST '*' into [prefix, suffix] (the '*' itself is dropped); a pattern
 // with no '*' returns a single-element slice.
-func TestSplitWildcard(t *testing.T) {
+func TestSplitWildcard(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name    string
 		pattern string
@@ -415,8 +415,8 @@ func TestSplitWildcard(t *testing.T) {
 		{name: "only wildcard", pattern: "*", want: []string{"", ""}},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := splitWildcard(tt.pattern)
 			if len(got) != len(tt.want) {
 				t.Fatalf("splitWildcard(%q) = %v (len %d), want %v (len %d)",
@@ -434,7 +434,7 @@ func TestSplitWildcard(t *testing.T) {
 // TestMatchSegment covers matchSegment's branches: exact match, leading-*
 // suffix match, trailing-* prefix match, embedded-* prefix+suffix match,
 // mismatch, and empty inputs.
-func TestMatchSegment(t *testing.T) {
+func TestMatchSegment(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name    string
 		pattern string
@@ -454,8 +454,8 @@ func TestMatchSegment(t *testing.T) {
 		{name: "leading wildcard matches any (bare *)", pattern: "*", segment: "anything", want: true},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			if got := matchSegment(tt.pattern, tt.segment); got != tt.want {
 				t.Errorf("matchSegment(%q, %q) = %v, want %v", tt.pattern, tt.segment, got, tt.want)
 			}
@@ -463,7 +463,7 @@ func TestMatchSegment(t *testing.T) {
 	}
 }
 
-func TestLoadExcludes_UnreadableIgnoreFile(t *testing.T) {
+func TestLoadExcludes_UnreadableIgnoreFile(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// When the ignore file exists but is a directory (cannot read as file),
 	// it should error. On Windows, os.ReadFile on a directory may return
 	// a different error code; this test verifies the non-IsNotExist path.

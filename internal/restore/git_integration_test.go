@@ -9,8 +9,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
-func TestRestoreWithGitSafety(t *testing.T) {
-	t.Run("git-backed restore creates pre and post commits", func(t *testing.T) {
+func TestRestoreWithGitSafety(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("git-backed restore creates pre and post commits", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		backupDir := t.TempDir()
 
@@ -69,7 +69,7 @@ func TestRestoreWithGitSafety(t *testing.T) {
 		}
 	})
 
-	t.Run("git safety gracefully skipped when not a git repo", func(t *testing.T) {
+	t.Run("git safety gracefully skipped when not a git repo", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		backupDir := t.TempDir()
 
@@ -99,7 +99,7 @@ func TestRestoreWithGitSafety(t *testing.T) {
 		}
 	})
 
-	t.Run("git safety skipped when GitDir is empty", func(t *testing.T) {
+	t.Run("git safety skipped when GitDir is empty", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		backupDir := t.TempDir()
 

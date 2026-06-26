@@ -11,7 +11,7 @@ import (
 // RenderMenu — table-driven tests
 // =============================================================================
 
-func TestRenderMenu(t *testing.T) {
+func TestRenderMenu(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name       string
 		items      []string
@@ -71,8 +71,8 @@ func TestRenderMenu(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			result := RenderMenu(tt.items, tt.cursor)
 
 			if tt.wantEmpty {
@@ -103,7 +103,7 @@ func TestRenderMenu(t *testing.T) {
 // RenderCheckbox — table-driven tests
 // =============================================================================
 
-func TestRenderCheckbox(t *testing.T) {
+func TestRenderCheckbox(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name    string
 		label   string
@@ -151,8 +151,8 @@ func TestRenderCheckbox(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			result := RenderCheckbox(tt.label, tt.checked, tt.focused)
 
 			if !strings.Contains(result, tt.want) {
@@ -174,7 +174,7 @@ func TestRenderCheckbox(t *testing.T) {
 
 // TestRenderCheckbox_FocusedDiffers verifies focused and unfocused
 // renderings produce different output (style change is applied).
-func TestRenderCheckbox_FocusedDiffers(t *testing.T) {
+func TestRenderCheckbox_FocusedDiffers(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := RenderCheckbox("Enable backups", true, true)
 	b := RenderCheckbox("Enable backups", true, false)
 	if a == b {
@@ -186,7 +186,7 @@ func TestRenderCheckbox_FocusedDiffers(t *testing.T) {
 // RenderRadio — table-driven tests
 // =============================================================================
 
-func TestRenderRadio(t *testing.T) {
+func TestRenderRadio(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		label    string
@@ -234,8 +234,8 @@ func TestRenderRadio(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			result := RenderRadio(tt.label, tt.selected, tt.focused)
 
 			if !strings.Contains(result, tt.want) {
@@ -257,7 +257,7 @@ func TestRenderRadio(t *testing.T) {
 
 // TestRenderRadio_FocusedDiffers verifies focused and unfocused
 // renderings produce different output.
-func TestRenderRadio_FocusedDiffers(t *testing.T) {
+func TestRenderRadio_FocusedDiffers(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := RenderRadio("Light theme", true, true)
 	b := RenderRadio("Light theme", true, false)
 	if a == b {
@@ -269,7 +269,7 @@ func TestRenderRadio_FocusedDiffers(t *testing.T) {
 // RenderHelp — table-driven tests
 // =============================================================================
 
-func TestRenderHelp(t *testing.T) {
+func TestRenderHelp(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name      string
 		keys      []HelpKey
@@ -307,8 +307,8 @@ func TestRenderHelp(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			result := RenderHelp(tt.keys)
 
 			if tt.wantEmpty {
