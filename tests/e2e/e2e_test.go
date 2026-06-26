@@ -14,7 +14,7 @@ import (
 	"github.com/rogpeppe/go-internal/testscript"
 )
 
-func TestE2E(t *testing.T) {
+func TestE2E(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	testscript.Run(t, testscript.Params{
 		Dir:           "testdata",
 		Setup:         setupEnv,

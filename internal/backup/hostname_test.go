@@ -10,7 +10,7 @@ import (
 
 // TestResolveHostname_InjectedFnReturns verifies the injected hostname
 // function's value is returned verbatim on success.
-func TestResolveHostname_InjectedFnReturns(t *testing.T) {
+func TestResolveHostname_InjectedFnReturns(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	got := ResolveHostname(func() (string, error) { return "myhost", nil }, false, nil)
 	if got != "myhost" {
 		t.Errorf("ResolveHostname = %q, want %q", got, "myhost")
@@ -19,7 +19,7 @@ func TestResolveHostname_InjectedFnReturns(t *testing.T) {
 
 // TestResolveHostname_InjectedFnTriangulation forces real logic with a
 // different value (guards against a hardcoded Fake It).
-func TestResolveHostname_InjectedFnTriangulation(t *testing.T) {
+func TestResolveHostname_InjectedFnTriangulation(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	got := ResolveHostname(func() (string, error) { return "build-server-02", nil }, false, nil)
 	if got != "build-server-02" {
 		t.Errorf("ResolveHostname = %q, want %q", got, "build-server-02")
@@ -28,7 +28,7 @@ func TestResolveHostname_InjectedFnTriangulation(t *testing.T) {
 
 // TestResolveHostname_NilFallsBackToOsHostname verifies a nil fn delegates
 // to os.Hostname and returns the same value os.Hostname reports.
-func TestResolveHostname_NilFallsBackToOsHostname(t *testing.T) {
+func TestResolveHostname_NilFallsBackToOsHostname(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	got := ResolveHostname(nil, false, nil)
 	want, err := os.Hostname()
 	if err != nil {
@@ -42,7 +42,7 @@ func TestResolveHostname_NilFallsBackToOsHostname(t *testing.T) {
 // TestResolveHostname_FnErrorDefaultsToUnknown_VerboseWarns verifies that
 // when the injected fn returns an error, the result is "unknown" and a
 // warning is written to errOut when verbose is true.
-func TestResolveHostname_FnErrorDefaultsToUnknown_VerboseWarns(t *testing.T) {
+func TestResolveHostname_FnErrorDefaultsToUnknown_VerboseWarns(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var buf bytes.Buffer
 	got := ResolveHostname(func() (string, error) { return "", errors.New("lookup failed") }, true, &buf)
 	if got != "unknown" {
@@ -55,7 +55,7 @@ func TestResolveHostname_FnErrorDefaultsToUnknown_VerboseWarns(t *testing.T) {
 
 // TestResolveHostname_FnErrorDefaultsToUnknown_QuietNoWarn verifies no
 // warning is emitted when verbose is false.
-func TestResolveHostname_FnErrorDefaultsToUnknown_QuietNoWarn(t *testing.T) {
+func TestResolveHostname_FnErrorDefaultsToUnknown_QuietNoWarn(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var buf bytes.Buffer
 	got := ResolveHostname(func() (string, error) { return "", errors.New("lookup failed") }, false, &buf)
 	if got != "unknown" {
@@ -68,7 +68,7 @@ func TestResolveHostname_FnErrorDefaultsToUnknown_QuietNoWarn(t *testing.T) {
 
 // TestResolveHostname_NilAndOsHostnameFails_DefaultsUnknown verifies the
 // spec scenario: fn is nil AND os.Hostname fails → "unknown" + verbose warn.
-func TestResolveHostname_NilAndOsHostnameFails_DefaultsUnknown(t *testing.T) {
+func TestResolveHostname_NilAndOsHostnameFails_DefaultsUnknown(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	orig := osHostname
 	osHostname = func() (string, error) { return "", errors.New("unavailable") }
 	defer func() { osHostname = orig }()

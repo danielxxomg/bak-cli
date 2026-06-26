@@ -8,12 +8,12 @@ import (
 	pathsutil "github.com/danielxxomg/bak-cli/internal/paths"
 )
 
-func TestIntegration_RestoreRoundTrip(t *testing.T) {
+func TestIntegration_RestoreRoundTrip(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Simulates: backup on one machine → restore on another.
 	// The backup directory has files with a manifest referencing them.
 	// The restore engine copies them to the target home.
 
-	t.Run("backup then restore files match", func(t *testing.T) {
+	t.Run("backup then restore files match", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		backupDir := t.TempDir()
 
@@ -73,7 +73,7 @@ func TestIntegration_RestoreRoundTrip(t *testing.T) {
 		}
 	})
 
-	t.Run("restore with path translation cross-platform", func(t *testing.T) {
+	t.Run("restore with path translation cross-platform", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		// Simulate: backup created on Linux (paths in canonical form)
 		// being restored on Windows (paths with backslashes).
 		homeDir := t.TempDir()
@@ -117,7 +117,7 @@ func TestIntegration_RestoreRoundTrip(t *testing.T) {
 		}
 	})
 
-	t.Run("restore with nested directories preserves structure", func(t *testing.T) {
+	t.Run("restore with nested directories preserves structure", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		backupDir := t.TempDir()
 
@@ -158,7 +158,7 @@ func TestIntegration_RestoreRoundTrip(t *testing.T) {
 		}
 	})
 
-	t.Run("restore with overwrite of existing target", func(t *testing.T) {
+	t.Run("restore with overwrite of existing target", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		backupDir := t.TempDir()
 

@@ -9,17 +9,17 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 )
 
-func TestAdapter_Name(t *testing.T) {
+func TestAdapter_Name(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 	if a.Name() != "opencode" {
 		t.Errorf("Name() = %q, want %q", a.Name(), "opencode")
 	}
 }
 
-func TestAdapter_Detect(t *testing.T) {
+func TestAdapter_Detect(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 
-	t.Run("installed", func(t *testing.T) {
+	t.Run("installed", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configDir := filepath.Join(home, ".config", "opencode")
 		if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -38,7 +38,7 @@ func TestAdapter_Detect(t *testing.T) {
 		}
 	})
 
-	t.Run("not installed", func(t *testing.T) {
+	t.Run("not installed", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 
 		installed, _, err := a.Detect(home)
@@ -50,7 +50,7 @@ func TestAdapter_Detect(t *testing.T) {
 		}
 	})
 
-	t.Run("exists but is file not dir", func(t *testing.T) {
+	t.Run("exists but is file not dir", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		configPath := filepath.Join(home, ".config", "opencode")
 		if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
@@ -70,14 +70,14 @@ func TestAdapter_Detect(t *testing.T) {
 	})
 }
 
-func TestAdapter_ListItems(t *testing.T) {
+func TestAdapter_ListItems(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 
 	// setupFullTree (package-level) builds the complete opencode config tree
 	// used by these subtests; the extra plugins/plug.js entry is tolerated by
 	// the lower-bound length checks below.
 
-	t.Run("skills category", func(t *testing.T) {
+	t.Run("skills category", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupFullTree(t)
 		items, err := a.ListItems(home, []string{"skills"})
 		if err != nil {
@@ -96,7 +96,7 @@ func TestAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("commands category", func(t *testing.T) {
+	t.Run("commands category", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupFullTree(t)
 		items, err := a.ListItems(home, []string{"commands"})
 		if err != nil {
@@ -107,7 +107,7 @@ func TestAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("config category", func(t *testing.T) {
+	t.Run("config category", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupFullTree(t)
 		items, err := a.ListItems(home, []string{"config"})
 		if err != nil {
@@ -124,7 +124,7 @@ func TestAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("mcp category", func(t *testing.T) {
+	t.Run("mcp category", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupFullTree(t)
 		items, err := a.ListItems(home, []string{"mcp"})
 		if err != nil {
@@ -138,7 +138,7 @@ func TestAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("agents category", func(t *testing.T) {
+	t.Run("agents category", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupFullTree(t)
 		items, err := a.ListItems(home, []string{"agents"})
 		if err != nil {
@@ -149,7 +149,7 @@ func TestAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("all categories", func(t *testing.T) {
+	t.Run("all categories", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := setupFullTree(t)
 		items, err := a.ListItems(home, []string{"skills", "commands", "config", "mcp", "agents"})
 		if err != nil {
@@ -160,7 +160,7 @@ func TestAdapter_ListItems(t *testing.T) {
 		}
 	})
 
-	t.Run("empty result for missing dirs", func(t *testing.T) {
+	t.Run("empty result for missing dirs", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		home := t.TempDir()
 		// Create only the config dir, but no subdirs or files.
 		configDir := filepath.Join(home, ".config", "opencode")
@@ -177,7 +177,7 @@ func TestAdapter_ListItems(t *testing.T) {
 	})
 }
 
-func TestAdapter_Backup(t *testing.T) {
+func TestAdapter_Backup(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 
 	home := t.TempDir()
@@ -219,7 +219,7 @@ func TestAdapter_Backup(t *testing.T) {
 	}
 }
 
-func TestAdapter_Restore(t *testing.T) {
+func TestAdapter_Restore(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 
 	// Set up backup data.
@@ -259,7 +259,7 @@ func TestAdapter_Restore(t *testing.T) {
 	}
 }
 
-func TestAdapter_InterfaceCompliance(t *testing.T) {
+func TestAdapter_InterfaceCompliance(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Compile-time check: var _ adapters.Adapter = (*Adapter)(nil) is in adapter.go.
 	// This test confirms runtime behavior matches expectations.
 	a := &Adapter{}
@@ -281,7 +281,7 @@ func TestAdapter_InterfaceCompliance(t *testing.T) {
 	}
 }
 
-func TestAdapter_Backup_DirectoryItems(t *testing.T) {
+func TestAdapter_Backup_DirectoryItems(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 	home := t.TempDir()
 	configDir := filepath.Join(home, ".config", "opencode")
@@ -322,7 +322,7 @@ func TestAdapter_Backup_DirectoryItems(t *testing.T) {
 	}
 }
 
-func TestAdapter_Backup_CopyError(t *testing.T) {
+func TestAdapter_Backup_CopyError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod not applicable on Windows")
 	}
@@ -360,7 +360,7 @@ func TestAdapter_Backup_CopyError(t *testing.T) {
 	}
 }
 
-func TestAdapter_Restore_CopyError(t *testing.T) {
+func TestAdapter_Restore_CopyError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod not applicable on Windows")
 	}
@@ -401,7 +401,7 @@ func TestAdapter_Restore_CopyError(t *testing.T) {
 	}
 }
 
-func TestAdapter_fileHash_Error(t *testing.T) {
+func TestAdapter_fileHash_Error(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, _, err := adapters.FileHash(filepath.Join(t.TempDir(), "nonexistent.txt"))
 	if err == nil {
 		t.Error("expected error for missing file, got nil")
@@ -411,7 +411,7 @@ func TestAdapter_fileHash_Error(t *testing.T) {
 // TestAdapter_SetScanOptions verifies that scan options set via the wrapper
 // are forwarded to the underlying GenericAdapter and actually applied during
 // ListItems (an excluded root file is filtered out).
-func TestAdapter_SetScanOptions(t *testing.T) {
+func TestAdapter_SetScanOptions(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 	// SetScanOptions mutates the package-level GenericAdapter behind the
 	// wrapper, so reset to the zero value afterward to keep other tests
@@ -497,7 +497,7 @@ func setupFullTree(t *testing.T) string {
 // TestAdapter_McpPreservation is a hard regression guard: mcp.json at the
 // config root MUST always be reported with Category="mcp", never merged
 // into "config". This locks the behavior before the wrapper refactor.
-func TestAdapter_McpPreservation(t *testing.T) {
+func TestAdapter_McpPreservation(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 	home := setupFullTree(t)
 
@@ -537,7 +537,7 @@ func TestAdapter_McpPreservation(t *testing.T) {
 // ListItems output (RelPath → Category, IsDir, hashed-file invariants) for
 // the complete category set so the wrapper refactor is proven to preserve
 // identical output. Compared as a set (order-independent).
-func TestAdapter_ListItemsSnapshot(t *testing.T) {
+func TestAdapter_ListItemsSnapshot(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	a := &Adapter{}
 	home := setupFullTree(t)
 

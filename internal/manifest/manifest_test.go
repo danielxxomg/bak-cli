@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestNew(t *testing.T) {
+func TestNew(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := New("20260604-test", "linux", "testbox", "0.1.0", "full", []string{"skills", "config"})
 
 	if m.Version != ManifestVersion {
@@ -33,7 +33,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestSaveLoadRoundTrip(t *testing.T) {
+func TestSaveLoadRoundTrip(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 
 	m := New("20260604-roundtrip", "darwin", "macbook", "0.1.0", "quick", []string{"config"})
@@ -78,7 +78,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 }
 
-func TestValidate_HappyPath(t *testing.T) {
+func TestValidate_HappyPath(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 
 	// Create a real file with known content.
@@ -101,7 +101,7 @@ func TestValidate_HappyPath(t *testing.T) {
 	}
 }
 
-func TestValidate_HashMismatch(t *testing.T) {
+func TestValidate_HashMismatch(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 
 	backupFile := filepath.Join(dir, "opencode", "config.json")
@@ -123,21 +123,21 @@ func TestValidate_HashMismatch(t *testing.T) {
 	}
 }
 
-func TestValidate_EmptyVersion(t *testing.T) {
+func TestValidate_EmptyVersion(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := &Manifest{Adapters: map[string]AdapterManifest{"x": {}}}
 	if err := m.Validate(".", nil); err == nil {
 		t.Error("expected error for empty version")
 	}
 }
 
-func TestValidate_NoAdapters(t *testing.T) {
+func TestValidate_NoAdapters(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := &Manifest{Version: "0.1.0"}
 	if err := m.Validate(".", nil); err == nil {
 		t.Error("expected error for no adapters")
 	}
 }
 
-func TestLoad_NonExistent(t *testing.T) {
+func TestLoad_NonExistent(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, err := Load(t.TempDir())
 	if err == nil {
 		t.Error("expected error for missing manifest.json")
@@ -146,7 +146,7 @@ func TestLoad_NonExistent(t *testing.T) {
 
 // ---- Encryption struct tests ----
 
-func TestSetEncryption(t *testing.T) {
+func TestSetEncryption(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := New("enc-test", "linux", "box", "0.1.0", "full", []string{"config"})
 	salt := []byte{0x01, 0x02, 0x03}
 	nonce := []byte{0xAA, 0xBB, 0xCC}
@@ -180,7 +180,7 @@ func TestSetEncryption(t *testing.T) {
 	}
 }
 
-func TestManifest_JSON_EncryptionRoundTrip(t *testing.T) {
+func TestManifest_JSON_EncryptionRoundTrip(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 
 	m := New("enc-json-test", "darwin", "mac", "0.3.0", "full", []string{"config"})
@@ -237,7 +237,7 @@ func TestManifest_JSON_EncryptionRoundTrip(t *testing.T) {
 	}
 }
 
-func TestManifest_JSON_PlaintextOmitsEncryption(t *testing.T) {
+func TestManifest_JSON_PlaintextOmitsEncryption(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 
 	m := New("plain-json-test", "linux", "srv", "0.3.0", "quick", []string{"config"})
@@ -278,7 +278,7 @@ func bytesContains(data []byte, substr string) bool {
 	return false
 }
 
-func TestSetEncryption_NilSaltNonce(t *testing.T) {
+func TestSetEncryption_NilSaltNonce(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := New("nil-test", "linux", "box", "0.1.0", "full", []string{"config"})
 
 	// nil salt and nonce should produce empty hex strings.

@@ -80,7 +80,7 @@ func setupDiffFixture(t *testing.T, homeDir string, backupID string, files map[s
 	}
 }
 
-func TestDiffBackupsAction_Added(t *testing.T) {
+func TestDiffBackupsAction_Added(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 
 	// Backup 1: has config.yaml only.
@@ -112,7 +112,7 @@ func TestDiffBackupsAction_Added(t *testing.T) {
 	}
 }
 
-func TestDiffBackupsAction_Removed(t *testing.T) {
+func TestDiffBackupsAction_Removed(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 
 	// Backup 1: has old-file.txt and config.yaml.
@@ -144,7 +144,7 @@ func TestDiffBackupsAction_Removed(t *testing.T) {
 	}
 }
 
-func TestDiffBackupsAction_Modified(t *testing.T) {
+func TestDiffBackupsAction_Modified(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 
 	// Both backups have config.yaml but with different content (different hashes).
@@ -174,7 +174,7 @@ func TestDiffBackupsAction_Modified(t *testing.T) {
 	}
 }
 
-func TestDiffBackupsAction_Unchanged(t *testing.T) {
+func TestDiffBackupsAction_Unchanged(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 
 	// Both backups have config.yaml with identical content.
@@ -204,7 +204,7 @@ func TestDiffBackupsAction_Unchanged(t *testing.T) {
 	}
 }
 
-func TestDiffBackupsAction_Identical(t *testing.T) {
+func TestDiffBackupsAction_Identical(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 
 	// Two backups with exactly the same files AND content.
@@ -237,7 +237,7 @@ func TestDiffBackupsAction_Identical(t *testing.T) {
 	}
 }
 
-func TestDiffBackupsAction_MissingBackup1(t *testing.T) {
+func TestDiffBackupsAction_MissingBackup1(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	configtest.SetConfigHome(t, homeDir)
 
@@ -259,7 +259,7 @@ func TestDiffBackupsAction_MissingBackup1(t *testing.T) {
 	}
 }
 
-func TestDiffBackupsAction_MissingBackup2(t *testing.T) {
+func TestDiffBackupsAction_MissingBackup2(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	configtest.SetConfigHome(t, homeDir)
 
@@ -281,7 +281,7 @@ func TestDiffBackupsAction_MissingBackup2(t *testing.T) {
 	}
 }
 
-func TestDiffBackupsAction_Summary(t *testing.T) {
+func TestDiffBackupsAction_Summary(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 
 	// Create two backups with all categories represented.
@@ -330,7 +330,7 @@ func TestDiffBackupsAction_Summary(t *testing.T) {
 // --- extracted helper tests (Phase 9) ---
 
 // TestGroupDiffEntries verifies the pure grouping/counting helper.
-func TestGroupDiffEntries(t *testing.T) {
+func TestGroupDiffEntries(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	entries := []diff.DiffEntry{
 		{SourcePath: "a.go", Category: diff.CategoryAdded, Adapter: "opencode"},
 		{SourcePath: "b.go", Category: diff.CategoryAdded, Adapter: "cursor"},
@@ -370,7 +370,7 @@ func TestGroupDiffEntries(t *testing.T) {
 
 // TestPrintDiffGroups verifies grouped output is emitted in stable order
 // with empty groups skipped and a trailing blank line per group.
-func TestPrintDiffGroups(t *testing.T) {
+func TestPrintDiffGroups(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	groups := map[diff.Category][]diff.DiffEntry{
 		diff.CategoryAdded: {
 			{SourcePath: "new.go", Adapter: "opencode"},
@@ -410,7 +410,7 @@ func TestPrintDiffGroups(t *testing.T) {
 }
 
 // TestPrintDiffSummary verifies the summary line counts and total.
-func TestPrintDiffSummary(t *testing.T) {
+func TestPrintDiffSummary(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	counts := map[diff.Category]int{
 		diff.CategoryAdded:     2,
 		diff.CategoryRemoved:   1,

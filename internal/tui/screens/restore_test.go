@@ -22,7 +22,7 @@ type restoreTestDeps struct {
 // TestRestore_NewRestoreModel — RED (restore.go does not exist yet)
 // =============================================================================
 
-func TestRestore_NewRestoreModel(t *testing.T) {
+func TestRestore_NewRestoreModel(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	deps := restoreTestDeps{
 		listBackupsFn: func() ([]BackupInfo, error) {
 			return []BackupInfo{
@@ -45,7 +45,7 @@ func TestRestore_NewRestoreModel(t *testing.T) {
 // TestRestore_Init_PopulatesBackups — RED
 // =============================================================================
 
-func TestRestore_Init_PopulatesBackups(t *testing.T) {
+func TestRestore_Init_PopulatesBackups(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	deps := restoreTestDeps{
 		listBackupsFn: func() ([]BackupInfo, error) {
 			return []BackupInfo{
@@ -84,7 +84,7 @@ func TestRestore_Init_PopulatesBackups(t *testing.T) {
 // TestRestore_EmptyState — RED
 // =============================================================================
 
-func TestRestore_EmptyState(t *testing.T) {
+func TestRestore_EmptyState(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	deps := restoreTestDeps{
 		listBackupsFn: func() ([]BackupInfo, error) {
 			return nil, nil // no backups
@@ -107,7 +107,7 @@ func TestRestore_EmptyState(t *testing.T) {
 // TestRestore_StateTransition_ListToDryRun — RED
 // =============================================================================
 
-func TestRestore_StateTransition_ListToDryRun(t *testing.T) {
+func TestRestore_StateTransition_ListToDryRun(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var dryRunCalled string
 	deps := restoreTestDeps{
 		listBackupsFn: func() ([]BackupInfo, error) {
@@ -161,7 +161,7 @@ func TestRestore_StateTransition_ListToDryRun(t *testing.T) {
 // TestRestore_StateTransition_DryRunToConfirm — RED
 // =============================================================================
 
-func TestRestore_StateTransition_DryRunToConfirm(t *testing.T) {
+func TestRestore_StateTransition_DryRunToConfirm(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	deps := restoreTestDeps{
 		runRestoreFn: func(backupID string, dryRun bool) (string, error) {
 			return "no changes", nil
@@ -188,7 +188,7 @@ func TestRestore_StateTransition_DryRunToConfirm(t *testing.T) {
 // TestRestore_ConfirmExecute — RED
 // =============================================================================
 
-func TestRestore_ConfirmExecute(t *testing.T) {
+func TestRestore_ConfirmExecute(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var actualExecuted string
 	deps := restoreTestDeps{
 		runRestoreFn: func(backupID string, dryRun bool) (string, error) {
@@ -231,7 +231,7 @@ func TestRestore_ConfirmExecute(t *testing.T) {
 // TestRestore_ConfirmCancel — RED
 // =============================================================================
 
-func TestRestore_ConfirmCancel(t *testing.T) {
+func TestRestore_ConfirmCancel(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var restoreCalled bool
 	deps := restoreTestDeps{
 		runRestoreFn: func(backupID string, dryRun bool) (string, error) {
@@ -266,7 +266,7 @@ func TestRestore_ConfirmCancel(t *testing.T) {
 // TestRestore_ErrorHandling — RED
 // =============================================================================
 
-func TestRestore_ErrorHandling(t *testing.T) {
+func TestRestore_ErrorHandling(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	deps := restoreTestDeps{
 		listBackupsFn: func() ([]BackupInfo, error) {
 			return nil, errors.New("disk read error")
@@ -291,7 +291,7 @@ func TestRestore_ErrorHandling(t *testing.T) {
 // TestRestore_View_DryRun — RED
 // =============================================================================
 
-func TestRestore_View_DryRun(t *testing.T) {
+func TestRestore_View_DryRun(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewRestoreModel(nil, nil)
 	m.Width = 80
 	m.Height = 24
@@ -313,7 +313,7 @@ func TestRestore_View_DryRun(t *testing.T) {
 // TestRestore_View_Confirm — RED
 // =============================================================================
 
-func TestRestore_View_Confirm(t *testing.T) {
+func TestRestore_View_Confirm(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewRestoreModel(nil, nil)
 	m.Width = 80
 	m.Height = 24
@@ -336,7 +336,7 @@ func makeTestModal() *components.ModalModel {
 // Phase 3: Render helper coverage for restore.go (0% before backfill)
 // =============================================================================
 
-func TestRestore_RenderErrorState(t *testing.T) {
+func TestRestore_RenderErrorState(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewRestoreModel(nil, nil)
 	m.Err = errors.New("connection refused")
 
@@ -354,7 +354,7 @@ func TestRestore_RenderErrorState(t *testing.T) {
 	}
 }
 
-func TestRestore_RenderBackupList(t *testing.T) {
+func TestRestore_RenderBackupList(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewRestoreModel(nil, nil)
 	m.Width = 80
 	m.Height = 24
@@ -378,7 +378,7 @@ func TestRestore_RenderBackupList(t *testing.T) {
 	}
 }
 
-func TestRestore_RenderBackupList_Empty(t *testing.T) {
+func TestRestore_RenderBackupList_Empty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewRestoreModel(nil, nil)
 	m.Width = 80
 	m.Height = 24
@@ -393,7 +393,7 @@ func TestRestore_RenderBackupList_Empty(t *testing.T) {
 	}
 }
 
-func TestRestore_RenderRunning(t *testing.T) {
+func TestRestore_RenderRunning(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewRestoreModel(nil, nil)
 	m.Width = 80
 	m.Height = 24
@@ -410,7 +410,7 @@ func TestRestore_RenderRunning(t *testing.T) {
 	}
 }
 
-func TestRestore_RenderDone(t *testing.T) {
+func TestRestore_RenderDone(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewRestoreModel(nil, nil)
 	m.Width = 80
 	m.Height = 24
@@ -429,7 +429,7 @@ func TestRestore_RenderDone(t *testing.T) {
 	}
 }
 
-func TestRestore_RenderDone_Error(t *testing.T) {
+func TestRestore_RenderDone_Error(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewRestoreModel(nil, nil)
 	m.Width = 80
 	m.Height = 24

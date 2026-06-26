@@ -12,28 +12,28 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/config"
 )
 
-func TestGiteaProvider_Name(t *testing.T) {
+func TestGiteaProvider_Name(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := NewGiteaProvider(nil, "test-token", "https://git.example.com", "user/repo")
 	if p.Name() != "gitea" {
 		t.Errorf("Name() = %q, want gitea", p.Name())
 	}
 }
 
-func TestCodebergProvider_Name(t *testing.T) {
+func TestCodebergProvider_Name(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := NewCodebergProvider(nil, "test-token", "user/repo")
 	if p.Name() != codebergName {
 		t.Errorf("Name() = %q, want codeberg", p.Name())
 	}
 }
 
-func TestCodebergProvider_DefaultBaseURL(t *testing.T) {
+func TestCodebergProvider_DefaultBaseURL(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := NewCodebergProvider(nil, "test-token", "user/repo")
 	if p.baseURL != "https://codeberg.org" {
 		t.Errorf("baseURL = %q, want https://codeberg.org", p.baseURL)
 	}
 }
 
-func TestGiteaProvider_Push_Create(t *testing.T) {
+func TestGiteaProvider_Push_Create(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// GET to check existence → 404 (doesn't exist yet)
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") {
@@ -79,7 +79,7 @@ func TestGiteaProvider_Push_Create(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_Push_Update(t *testing.T) {
+func TestGiteaProvider_Push_Update(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	getCalled := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// GET returns existing file with SHA
@@ -141,7 +141,7 @@ func TestGiteaProvider_Push_Update(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_Push_NoToken(t *testing.T) {
+func TestGiteaProvider_Push_NoToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &GiteaProvider{
 		token:   "",
 		baseURL: "https://git.example.com",
@@ -157,7 +157,7 @@ func TestGiteaProvider_Push_NoToken(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_Push_NoRepo(t *testing.T) {
+func TestGiteaProvider_Push_NoRepo(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &GiteaProvider{
 		token:   "token",
 		baseURL: "https://git.example.com",
@@ -170,7 +170,7 @@ func TestGiteaProvider_Push_NoRepo(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_Pull(t *testing.T) {
+func TestGiteaProvider_Pull(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	encoded := base64.StdEncoding.EncodeToString([]byte("backup-data-here"))
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") {
@@ -207,7 +207,7 @@ func TestGiteaProvider_Pull(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_Pull_NotFound(t *testing.T) {
+func TestGiteaProvider_Pull_NotFound(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
@@ -227,7 +227,7 @@ func TestGiteaProvider_Pull_NotFound(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_Pull_NoToken(t *testing.T) {
+func TestGiteaProvider_Pull_NoToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &GiteaProvider{
 		token:   "",
 		baseURL: "https://git.example.com",
@@ -240,7 +240,7 @@ func TestGiteaProvider_Pull_NoToken(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_Pull_EmptyID(t *testing.T) {
+func TestGiteaProvider_Pull_EmptyID(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &GiteaProvider{
 		token:   "token",
 		baseURL: "https://git.example.com",
@@ -253,7 +253,7 @@ func TestGiteaProvider_Pull_EmptyID(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_List(t *testing.T) {
+func TestGiteaProvider_List(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", acceptJSON)
 		json.NewEncoder(w).Encode([]contentResponse{
@@ -299,7 +299,7 @@ func TestGiteaProvider_List(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_List_Empty(t *testing.T) {
+func TestGiteaProvider_List_Empty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", acceptJSON)
 		json.NewEncoder(w).Encode([]contentResponse{})
@@ -323,7 +323,7 @@ func TestGiteaProvider_List_Empty(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_List_NoToken(t *testing.T) {
+func TestGiteaProvider_List_NoToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &GiteaProvider{
 		token:   "",
 		baseURL: "https://git.example.com",
@@ -336,7 +336,7 @@ func TestGiteaProvider_List_NoToken(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_TokenResolution(t *testing.T) {
+func TestGiteaProvider_TokenResolution(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Token passed directly should be used.
 	p := NewGiteaProvider(nil, "direct-token", "https://git.example.com", "user/repo")
 	if p.token != "direct-token" {
@@ -344,14 +344,14 @@ func TestGiteaProvider_TokenResolution(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_BaseURLDefault(t *testing.T) {
+func TestGiteaProvider_BaseURLDefault(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := NewGiteaProvider(nil, "token", "", "user/repo")
 	if p.baseURL != "https://codeberg.org" {
 		t.Errorf("baseURL = %q, want https://codeberg.org", p.baseURL)
 	}
 }
 
-func TestGiteaProvider_PushIntegration(t *testing.T) {
+func TestGiteaProvider_PushIntegration(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Full integration: push then pull round-trip.
 	var storedContent string
 	var storedSHA string
@@ -454,7 +454,7 @@ func TestGiteaProvider_PushIntegration(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_ConfigTokenResolution(t *testing.T) {
+func TestGiteaProvider_ConfigTokenResolution(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Token from config when none passed directly.
 	cfg := &config.Config{}
 	_ = cfg.Set("providers.gitea.token", "config-token")
@@ -464,7 +464,7 @@ func TestGiteaProvider_ConfigTokenResolution(t *testing.T) {
 	}
 }
 
-func TestCodebergProvider_ConfigTokenResolution(t *testing.T) {
+func TestCodebergProvider_ConfigTokenResolution(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &config.Config{}
 	_ = cfg.Set("providers.codeberg.token", "codeberg-config-token")
 	p := NewCodebergProvider(cfg, "", "user/repo")
@@ -473,7 +473,7 @@ func TestCodebergProvider_ConfigTokenResolution(t *testing.T) {
 	}
 }
 
-func TestNewGiteaProvider_NilConfig(t *testing.T) {
+func TestNewGiteaProvider_NilConfig(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := NewGiteaProvider(nil, "token", "https://git.example.com", "user/repo")
 	if p == nil {
 		t.Fatal("expected non-nil provider")

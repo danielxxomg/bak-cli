@@ -12,14 +12,14 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/config"
 )
 
-func TestGitHubRepoProvider_Name(t *testing.T) {
+func TestGitHubRepoProvider_Name(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := NewGitHubRepoProvider(nil, "test-token", "user/repo")
 	if p.Name() != "github-repo" {
 		t.Errorf("Name() = %q, want github-repo", p.Name())
 	}
 }
 
-func TestGitHubRepoProvider_Push_Create(t *testing.T) {
+func TestGitHubRepoProvider_Push_Create(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// GET to check existence → 404 (doesn't exist yet)
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") {
@@ -65,7 +65,7 @@ func TestGitHubRepoProvider_Push_Create(t *testing.T) {
 	}
 }
 
-func TestGitHubRepoProvider_Push_Update(t *testing.T) {
+func TestGitHubRepoProvider_Push_Update(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	getCalled := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// GET returns existing file with SHA
@@ -127,7 +127,7 @@ func TestGitHubRepoProvider_Push_Update(t *testing.T) {
 	}
 }
 
-func TestGitHubRepoProvider_Push_NoToken(t *testing.T) {
+func TestGitHubRepoProvider_Push_NoToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &GitHubRepoProvider{
 		token:   "",
 		repo:    "user/repo",
@@ -143,7 +143,7 @@ func TestGitHubRepoProvider_Push_NoToken(t *testing.T) {
 	}
 }
 
-func TestGitHubRepoProvider_Push_NoRepo(t *testing.T) {
+func TestGitHubRepoProvider_Push_NoRepo(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &GitHubRepoProvider{
 		token:   "token",
 		repo:    "",
@@ -156,7 +156,7 @@ func TestGitHubRepoProvider_Push_NoRepo(t *testing.T) {
 	}
 }
 
-func TestGitHubRepoProvider_Pull(t *testing.T) {
+func TestGitHubRepoProvider_Pull(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	encoded := base64.StdEncoding.EncodeToString([]byte("backup-data-here"))
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") {
@@ -193,7 +193,7 @@ func TestGitHubRepoProvider_Pull(t *testing.T) {
 	}
 }
 
-func TestGitHubRepoProvider_Pull_NotFound(t *testing.T) {
+func TestGitHubRepoProvider_Pull_NotFound(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
@@ -213,7 +213,7 @@ func TestGitHubRepoProvider_Pull_NotFound(t *testing.T) {
 	}
 }
 
-func TestGitHubRepoProvider_Pull_NoToken(t *testing.T) {
+func TestGitHubRepoProvider_Pull_NoToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &GitHubRepoProvider{
 		token:   "",
 		repo:    "user/repo",
@@ -226,7 +226,7 @@ func TestGitHubRepoProvider_Pull_NoToken(t *testing.T) {
 	}
 }
 
-func TestGitHubRepoProvider_Pull_EmptyID(t *testing.T) {
+func TestGitHubRepoProvider_Pull_EmptyID(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &GitHubRepoProvider{
 		token:   "token",
 		repo:    "user/repo",
@@ -239,7 +239,7 @@ func TestGitHubRepoProvider_Pull_EmptyID(t *testing.T) {
 	}
 }
 
-func TestGitHubRepoProvider_List(t *testing.T) {
+func TestGitHubRepoProvider_List(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", acceptJSON)
 		json.NewEncoder(w).Encode([]contentResponse{
@@ -282,7 +282,7 @@ func TestGitHubRepoProvider_List(t *testing.T) {
 	}
 }
 
-func TestGitHubRepoProvider_List_Empty(t *testing.T) {
+func TestGitHubRepoProvider_List_Empty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", acceptJSON)
 		json.NewEncoder(w).Encode([]contentResponse{})
@@ -306,7 +306,7 @@ func TestGitHubRepoProvider_List_Empty(t *testing.T) {
 	}
 }
 
-func TestGitHubRepoProvider_List_NoToken(t *testing.T) {
+func TestGitHubRepoProvider_List_NoToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &GitHubRepoProvider{
 		token:   "",
 		repo:    "user/repo",
@@ -319,7 +319,7 @@ func TestGitHubRepoProvider_List_NoToken(t *testing.T) {
 	}
 }
 
-func TestGitHubRepoProvider_TokenResolution(t *testing.T) {
+func TestGitHubRepoProvider_TokenResolution(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Token passed directly should be used.
 	p := NewGitHubRepoProvider(nil, "direct-token", "user/repo")
 	if p.token != "direct-token" {
@@ -327,7 +327,7 @@ func TestGitHubRepoProvider_TokenResolution(t *testing.T) {
 	}
 }
 
-func TestGitHubRepoProvider_PushIntegration(t *testing.T) {
+func TestGitHubRepoProvider_PushIntegration(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Full integration: push then pull round-trip.
 	var storedContent string
 	var storedSHA string
@@ -421,7 +421,7 @@ func TestGitHubRepoProvider_PushIntegration(t *testing.T) {
 	}
 }
 
-func TestGitHubRepoProvider_ConfigTokenResolution(t *testing.T) {
+func TestGitHubRepoProvider_ConfigTokenResolution(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Clear GITHUB_TOKEN to ensure test isolation in CI
 	t.Setenv("GITHUB_TOKEN", "")
 	cfg := &config.Config{}
@@ -432,7 +432,7 @@ func TestGitHubRepoProvider_ConfigTokenResolution(t *testing.T) {
 	}
 }
 
-func TestNewGitHubRepoProvider_NilConfig(t *testing.T) {
+func TestNewGitHubRepoProvider_NilConfig(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := NewGitHubRepoProvider(nil, "token", "user/repo")
 	if p == nil {
 		t.Fatal("expected non-nil provider")
@@ -442,7 +442,7 @@ func TestNewGitHubRepoProvider_NilConfig(t *testing.T) {
 	}
 }
 
-func TestGitHubRepoProvider_DefaultAPIBase(t *testing.T) {
+func TestGitHubRepoProvider_DefaultAPIBase(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := NewGitHubRepoProvider(nil, "token", "user/repo")
 	if p.apiBase != "https://api.github.com" {
 		t.Errorf("apiBase = %q, want https://api.github.com", p.apiBase)

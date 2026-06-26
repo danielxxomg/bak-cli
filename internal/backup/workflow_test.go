@@ -38,7 +38,7 @@ var _ adapters.ScanConfigurable = (*scanTrackingAdapter)(nil)
 // engine preserves exclusion pipeline": when ExcludesLoader is set, it MUST
 // be called and SetScanOptions MUST be invoked on every ScanConfigurable
 // adapter before ListItems runs.
-func TestRun_PreservesExclusionPipeline(t *testing.T) {
+func TestRun_PreservesExclusionPipeline(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	configDir := filepath.Join(home, ".config", "opencode")
 	if err := os.MkdirAll(configDir, 0755); err != nil {

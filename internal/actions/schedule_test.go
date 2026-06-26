@@ -47,7 +47,7 @@ func (m *mockScheduler) List() ([]schedule.ScheduleEntry, error) {
 
 // --- ScheduleAction.Create tests ---
 
-func TestScheduleCreate_Success(t *testing.T) {
+func TestScheduleCreate_Success(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	sched := &mockScheduler{}
 	var out, errOut strings.Builder
 
@@ -93,7 +93,7 @@ func TestScheduleCreate_Success(t *testing.T) {
 	}
 }
 
-func TestScheduleCreate_InvalidInterval(t *testing.T) {
+func TestScheduleCreate_InvalidInterval(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	sched := &mockScheduler{}
 	var out, errOut strings.Builder
 
@@ -127,7 +127,7 @@ func TestScheduleCreate_InvalidInterval(t *testing.T) {
 	}
 }
 
-func TestScheduleCreate_ProfileNotFound(t *testing.T) {
+func TestScheduleCreate_ProfileNotFound(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	sched := &mockScheduler{}
 	var out, errOut strings.Builder
 
@@ -158,7 +158,7 @@ func TestScheduleCreate_ProfileNotFound(t *testing.T) {
 	}
 }
 
-func TestScheduleCreate_ConfigLoadError(t *testing.T) {
+func TestScheduleCreate_ConfigLoadError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	sched := &mockScheduler{}
 	var out, errOut strings.Builder
 
@@ -182,7 +182,7 @@ func TestScheduleCreate_ConfigLoadError(t *testing.T) {
 	}
 }
 
-func TestScheduleCreate_SchedulerError(t *testing.T) {
+func TestScheduleCreate_SchedulerError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	sched := &mockScheduler{
 		createErr: errors.New("crontab permission denied"),
 	}
@@ -217,7 +217,7 @@ func TestScheduleCreate_SchedulerError(t *testing.T) {
 
 // --- ScheduleAction.List tests ---
 
-func TestScheduleList_Success(t *testing.T) {
+func TestScheduleList_Success(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	sched := &mockScheduler{
 		entries: []schedule.ScheduleEntry{
 			{Profile: "work", Interval: "daily"},
@@ -254,7 +254,7 @@ func TestScheduleList_Success(t *testing.T) {
 	}
 }
 
-func TestScheduleList_Empty(t *testing.T) {
+func TestScheduleList_Empty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	sched := &mockScheduler{
 		entries: nil,
 	}
@@ -282,7 +282,7 @@ func TestScheduleList_Empty(t *testing.T) {
 	}
 }
 
-func TestScheduleList_SchedulerError(t *testing.T) {
+func TestScheduleList_SchedulerError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	sched := &mockScheduler{
 		listErr: errors.New("crontab read error"),
 	}
@@ -310,7 +310,7 @@ func TestScheduleList_SchedulerError(t *testing.T) {
 
 // --- ScheduleAction.Remove tests ---
 
-func TestScheduleRemove_Success(t *testing.T) {
+func TestScheduleRemove_Success(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	sched := &mockScheduler{}
 	var out, errOut strings.Builder
 
@@ -350,7 +350,7 @@ func TestScheduleRemove_Success(t *testing.T) {
 	}
 }
 
-func TestScheduleRemove_SchedulerError(t *testing.T) {
+func TestScheduleRemove_SchedulerError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	sched := &mockScheduler{
 		removeErr: errors.New("crontab write error"),
 	}
@@ -376,7 +376,7 @@ func TestScheduleRemove_SchedulerError(t *testing.T) {
 	}
 }
 
-func TestScheduleRemove_ConfigLoadWarning(t *testing.T) {
+func TestScheduleRemove_ConfigLoadWarning(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Remove should still succeed even if config reload fails.
 	// The warning goes to stderr, not the return error.
 	sched := &mockScheduler{}
@@ -408,7 +408,7 @@ func TestScheduleRemove_ConfigLoadWarning(t *testing.T) {
 	}
 }
 
-func TestScheduleCreate_DefaultScheduler(t *testing.T) {
+func TestScheduleCreate_DefaultScheduler(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// When NewScheduler is nil, Run() should use the default scheduler.
 	// We test with an invalid interval to short-circuit before scheduler use.
 	var out, errOut strings.Builder

@@ -8,7 +8,7 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/config"
 )
 
-func TestLoginInteractiveAction_Success(t *testing.T) {
+func TestLoginInteractiveAction_Success(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var out strings.Builder
 
 	action := &LoginInteractiveAction{
@@ -35,7 +35,7 @@ func TestLoginInteractiveAction_Success(t *testing.T) {
 	}
 }
 
-func TestLoginInteractiveAction_Cancel(t *testing.T) {
+func TestLoginInteractiveAction_Cancel(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var out strings.Builder
 
 	action := &LoginInteractiveAction{
@@ -57,7 +57,7 @@ func TestLoginInteractiveAction_Cancel(t *testing.T) {
 	}
 }
 
-func TestLoginInteractiveAction_ConfigLoadError(t *testing.T) {
+func TestLoginInteractiveAction_ConfigLoadError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var out strings.Builder
 
 	action := &LoginInteractiveAction{
@@ -79,7 +79,7 @@ func TestLoginInteractiveAction_ConfigLoadError(t *testing.T) {
 	}
 }
 
-func TestLoginInteractiveAction_WizardError(t *testing.T) {
+func TestLoginInteractiveAction_WizardError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var out strings.Builder
 
 	action := &LoginInteractiveAction{
@@ -101,7 +101,7 @@ func TestLoginInteractiveAction_WizardError(t *testing.T) {
 	}
 }
 
-func TestLoginInteractiveAction_AllProvidersIncluded(t *testing.T) {
+func TestLoginInteractiveAction_AllProvidersIncluded(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Verify that the default five providers are always included.
 	var out strings.Builder
 	var receivedProviders []string
@@ -140,7 +140,7 @@ func TestLoginInteractiveAction_AllProvidersIncluded(t *testing.T) {
 	}
 }
 
-func TestLoginInteractiveAction_CustomProviderAdded(t *testing.T) {
+func TestLoginInteractiveAction_CustomProviderAdded(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// A provider configured in config but not in the default list
 	// should be appended.
 	var out strings.Builder

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestRenderLogo_NonEmpty(t *testing.T) {
+func TestRenderLogo_NonEmpty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	result := RenderLogo(80)
 
 	if len(result) == 0 {
@@ -21,7 +21,7 @@ func TestRenderLogo_NonEmpty(t *testing.T) {
 
 // TestRenderLogo_ContainsBakWordmark verifies the logo contains a recognizable
 // ASCII art representation of the project name.
-func TestRenderLogo_ContainsBakWordmark(t *testing.T) {
+func TestRenderLogo_ContainsBakWordmark(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	result := RenderLogo(80)
 
 	// The logo contains ASCII art for "bak" — check for recognizable
@@ -39,7 +39,7 @@ func TestRenderLogo_ContainsBakWordmark(t *testing.T) {
 	}
 }
 
-func TestRenderLogo_NarrowTerminal(t *testing.T) {
+func TestRenderLogo_NarrowTerminal(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name  string
 		width int
@@ -50,8 +50,8 @@ func TestRenderLogo_NarrowTerminal(t *testing.T) {
 		{"negative", -1},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			result := RenderLogo(tt.width)
 			if len(result) != 0 {
 				t.Errorf("RenderLogo(%d) = %q, want empty string for narrow terminal", tt.width, result)
@@ -62,7 +62,7 @@ func TestRenderLogo_NarrowTerminal(t *testing.T) {
 
 // TestRenderLogo_Gradient verifies the logo uses the Rose Pine gradient colors.
 // The 5-band gradient: Love → Gold → Rose → Pine → Lavender.
-func TestRenderLogo_Gradient(t *testing.T) {
+func TestRenderLogo_Gradient(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	result := RenderLogo(80)
 
 	gradientColors := []string{

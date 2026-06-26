@@ -10,7 +10,7 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/config"
 )
 
-func TestListCloudAction_Success(t *testing.T) {
+func TestListCloudAction_Success(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	backups := []cloud.BackupMeta{
 		{
 			ID:        "cloud-id-1",
@@ -71,7 +71,7 @@ func TestListCloudAction_Success(t *testing.T) {
 	}
 }
 
-func TestListCloudAction_EmptyList(t *testing.T) {
+func TestListCloudAction_EmptyList(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	mockProvider := &MockProvider{
 		MockName: "github-gist",
 		ListFn: func() ([]cloud.BackupMeta, error) {
@@ -104,7 +104,7 @@ func TestListCloudAction_EmptyList(t *testing.T) {
 	}
 }
 
-func TestListCloudAction_ProviderNotFound(t *testing.T) {
+func TestListCloudAction_ProviderNotFound(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	reg := cloud.NewProviderRegistry()
 
 	var out, errOut strings.Builder
@@ -126,7 +126,7 @@ func TestListCloudAction_ProviderNotFound(t *testing.T) {
 	}
 }
 
-func TestListCloudAction_ListError(t *testing.T) {
+func TestListCloudAction_ListError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	mockProvider := &MockProvider{
 		MockName: "github-gist",
 		ListFn: func() ([]cloud.BackupMeta, error) {
@@ -157,7 +157,7 @@ func TestListCloudAction_ListError(t *testing.T) {
 	}
 }
 
-func TestListCloudAction_DefaultFactory_NoProviders(t *testing.T) {
+func TestListCloudAction_DefaultFactory_NoProviders(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// When RegistryFactory is nil, Run() should use default behavior
 	// which registers providers. Without a real config, this will
 	// fail at provider construction (expected — no config available).
@@ -183,7 +183,7 @@ func TestListCloudAction_DefaultFactory_NoProviders(t *testing.T) {
 	_ = errOut.String()
 }
 
-func TestListCloudAction_VerboseOutput(t *testing.T) {
+func TestListCloudAction_VerboseOutput(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	mockProvider := &MockProvider{
 		MockName: "github-gist",
 		ListFn: func() ([]cloud.BackupMeta, error) {

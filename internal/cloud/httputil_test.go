@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestPullContentFromAPI(t *testing.T) {
+func TestPullContentFromAPI(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	validEncoded := base64.StdEncoding.EncodeToString([]byte("archive-bytes"))
 
 	tests := []struct {
@@ -108,8 +108,8 @@ func TestPullContentFromAPI(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			srv := httptest.NewServer(tt.handler)
 			defer srv.Close()
 
@@ -144,7 +144,7 @@ func TestPullContentFromAPI(t *testing.T) {
 // URL, accept header, error prefix, and per-item URL builder. Covers the spec
 // scenarios: shared logic parameterized by URL/headers/prefix, 404 returns
 // empty, and HTTP error propagated with correct prefix (task 2.1, RED).
-func TestListContentsDir(t *testing.T) {
+func TestListContentsDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dirItems := []contentResponse{
 		{Name: "20260101-000000.tar.gz", Size: 100},
 		{Name: "20260102-000000.tar.gz", Size: 200},
@@ -240,8 +240,8 @@ func TestListContentsDir(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			var gotPath string
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				gotPath = r.URL.Path

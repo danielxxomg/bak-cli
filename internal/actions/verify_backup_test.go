@@ -84,7 +84,7 @@ func sumSizes(items []manifest.Item) int64 {
 	return total
 }
 
-func TestVerifyBackupAction_Success(t *testing.T) {
+func TestVerifyBackupAction_Success(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	files := map[string]string{
 		"skills/skill-one.md":   "# Skill One\n\nContent here.",
@@ -116,7 +116,7 @@ func TestVerifyBackupAction_Success(t *testing.T) {
 	}
 }
 
-func TestVerifyBackupAction_ChecksumMismatch(t *testing.T) {
+func TestVerifyBackupAction_ChecksumMismatch(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	files := map[string]string{
 		"config.yaml": "original: content",
@@ -145,7 +145,7 @@ func TestVerifyBackupAction_ChecksumMismatch(t *testing.T) {
 	}
 }
 
-func TestVerifyBackupAction_MissingManifest(t *testing.T) {
+func TestVerifyBackupAction_MissingManifest(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	configtest.SetConfigHome(t, homeDir)
 
@@ -173,7 +173,7 @@ func TestVerifyBackupAction_MissingManifest(t *testing.T) {
 	}
 }
 
-func TestVerifyBackupAction_MissingBackup(t *testing.T) {
+func TestVerifyBackupAction_MissingBackup(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	configtest.SetConfigHome(t, homeDir)
 
@@ -195,7 +195,7 @@ func TestVerifyBackupAction_MissingBackup(t *testing.T) {
 	}
 }
 
-func TestVerifyBackupAction_MissingFileOnDisk(t *testing.T) {
+func TestVerifyBackupAction_MissingFileOnDisk(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	files := map[string]string{
 		"will-be-deleted.md": "# I will be deleted",
@@ -224,7 +224,7 @@ func TestVerifyBackupAction_MissingFileOnDisk(t *testing.T) {
 	}
 }
 
-func TestVerifyBackupAction_VerboseOutput(t *testing.T) {
+func TestVerifyBackupAction_VerboseOutput(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	files := map[string]string{
 		"skills/skill-one.md": "# Skill One",

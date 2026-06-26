@@ -54,7 +54,7 @@ linters:
       min-occurrences: 3
       ignore-tests: true  # test data legitimately repeats string literals
     gocyclo:
-      min-complexity: 30  # ratcheted; aligns with existing gocognit threshold
+      min-complexity: 15  # spec threshold; refactors + nolint keep functions at or below this
     exhaustive:
       default-signifies-exhaustive: true  # switches with default: cover all cases
     wrapcheck:
@@ -102,16 +102,18 @@ linters:
           - gocognit    # test setup is inherently branchy; complexity not actionable
           - funlen      # table-driven tests legitimately exceed line/statements limits
           - nestif      # test arrange/act/assert nesting is structural, not a smell
-          - paralleltest  # tests use shared state (cobra, env, fs); parallelization is future work
           - wrapcheck    # test helpers don't need error context wrapping
           - exhaustive   # test switches intentionally omit cases
           - unparam      # test helper signatures follow table-driven patterns
           - gocyclo      # integration tests have inherent setup complexity
+      # cmd/ test exemptions — shared cobra global state prevents parallel execution
+      - path: 'cmd/.*_test\.go'
+        linters:
+          - paralleltest  # cobra rootCmd is package-global; parallel cmd tests race on it
       # cmd/ exemptions — cobra framework constraints
       - path: 'cmd/.*\.go'
         linters:
           - unparam       # cobra RunE requires (cmd, args) even when unused
-          - paralleltest  # shared global cobra state prevents parallel execution
 
 run:
   timeout: 5m

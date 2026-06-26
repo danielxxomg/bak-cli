@@ -22,8 +22,8 @@ import (
 // runs `bak backup` and `bak restore --force`, then verifies every restored
 // file's SHA-256 checksum matches its manifest entry. This test serves as a
 // guardrail for the coverage DI refactor.
-func TestBackupRestoreRoundtrip(t *testing.T) {
-	t.Run("quick_preset_config_files", func(t *testing.T) {
+func TestBackupRestoreRoundtrip(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("quick_preset_config_files", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		testRoundtrip(t, "quick", func(home string) {
 			// Create config-level fixture files (backed up by "config" category).
 			cfgDir := filepath.Join(home, ".config", "opencode")
@@ -33,7 +33,7 @@ func TestBackupRestoreRoundtrip(t *testing.T) {
 		})
 	})
 
-	t.Run("skills_preset_skill_dir", func(t *testing.T) {
+	t.Run("skills_preset_skill_dir", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		testRoundtrip(t, "skills", func(home string) {
 			// Create skills directory with a SKILL.md file.
 			cfgDir := filepath.Join(home, ".config", "opencode")

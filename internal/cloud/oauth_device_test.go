@@ -100,7 +100,7 @@ func tokenError(code string) map[string]string {
 
 // --- Table-Driven Polling Tests ---
 
-func TestDeviceClient_PollingStates(t *testing.T) {
+func TestDeviceClient_PollingStates(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name       string
 		tokenResps []any
@@ -139,8 +139,8 @@ func TestDeviceClient_PollingStates(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			srv, client := withOAuthServer(deviceBaseResp(), tt.tokenResps)
 			defer srv.Close()
 
@@ -170,7 +170,7 @@ func TestDeviceClient_PollingStates(t *testing.T) {
 
 // --- Table-Driven Device Code Request Tests ---
 
-func TestDeviceClient_DeviceCodeErrors(t *testing.T) {
+func TestDeviceClient_DeviceCodeErrors(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		clientID string
@@ -184,8 +184,8 @@ func TestDeviceClient_DeviceCodeErrors(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			srv, client := withOAuthServer(deviceBaseResp(), []any{tokenSuccess("x")})
 			defer srv.Close()
 
@@ -204,7 +204,7 @@ func TestDeviceClient_DeviceCodeErrors(t *testing.T) {
 	}
 }
 
-func TestDeviceClient_HttpError(t *testing.T) {
+func TestDeviceClient_HttpError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	client := &DeviceClient{
 		ClientID:   "test-id",
 		HTTPClient: &http.Client{Timeout: 1 * time.Millisecond},
@@ -218,7 +218,7 @@ func TestDeviceClient_HttpError(t *testing.T) {
 	}
 }
 
-func TestDeviceClient_HTTP500(t *testing.T) {
+func TestDeviceClient_HTTP500(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/login/device/code") {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -242,7 +242,7 @@ func TestDeviceClient_HTTP500(t *testing.T) {
 
 // --- Browser & Clipboard Tests ---
 
-func TestDeviceClient_OpenBrowserCalled(t *testing.T) {
+func TestDeviceClient_OpenBrowserCalled(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var openedURL string
 	browserCalled := make(chan struct{}, 1)
 
@@ -285,7 +285,7 @@ func TestDeviceClient_OpenBrowserCalled(t *testing.T) {
 	}
 }
 
-func TestDeviceClient_ClipboardCalled(t *testing.T) {
+func TestDeviceClient_ClipboardCalled(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var copiedText string
 	clipCalled := make(chan struct{}, 1)
 
@@ -331,7 +331,7 @@ func TestDeviceClient_ClipboardCalled(t *testing.T) {
 	}
 }
 
-func TestDeviceClient_ClipboardErrorNonFatal(t *testing.T) {
+func TestDeviceClient_ClipboardErrorNonFatal(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", acceptJSON)
 		switch {
@@ -365,7 +365,7 @@ func TestDeviceClient_ClipboardErrorNonFatal(t *testing.T) {
 
 // --- Edge Cases ---
 
-func TestDeviceClient_UserFriendlyOutput(t *testing.T) {
+func TestDeviceClient_UserFriendlyOutput(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var buf strings.Builder
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -401,7 +401,7 @@ func TestDeviceClient_UserFriendlyOutput(t *testing.T) {
 	}
 }
 
-func TestDeviceClient_DefaultsApplied(t *testing.T) {
+func TestDeviceClient_DefaultsApplied(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", acceptJSON)
 		switch {
@@ -437,7 +437,7 @@ func TestDeviceClient_DefaultsApplied(t *testing.T) {
 // guard (RED); once RequestToken wraps deviceLoginTimeout via
 // context.WithTimeout the in-flight request is cancelled and returns
 // context.DeadlineExceeded well under a second (GREEN). See REQ-CI-009.
-func TestRequestToken_DeviceLoginTimeout(t *testing.T) {
+func TestRequestToken_DeviceLoginTimeout(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/login/device/code"):

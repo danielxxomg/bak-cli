@@ -8,7 +8,7 @@ import (
 
 // TestSensitiveKeyMatcher verifies the isSensitiveKey helper catches
 // all required patterns.
-func TestSensitiveKeyMatcher(t *testing.T) {
+func TestSensitiveKeyMatcher(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name string
 		key  string
@@ -25,8 +25,8 @@ func TestSensitiveKeyMatcher(t *testing.T) {
 		{"empty key", "", false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := isSensitiveKey(tt.key)
 			if got != tt.want {
 				t.Errorf("isSensitiveKey(%q) = %v, want %v", tt.key, got, tt.want)
@@ -37,7 +37,7 @@ func TestSensitiveKeyMatcher(t *testing.T) {
 
 // TestRedactJSON_NestedProviderTokens verifies nested provider tokens
 // are redacted while non-sensitive values are preserved.
-func TestRedactJSON_NestedProviderTokens(t *testing.T) {
+func TestRedactJSON_NestedProviderTokens(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	input := map[string]any{
 		"providers": map[string]any{
 			"github": map[string]any{
