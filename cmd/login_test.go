@@ -1,14 +1,18 @@
 package cmd
 
 import (
-	"bytes"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/danielxxomg/bak-cli/internal/cloud"
 	"github.com/danielxxomg/bak-cli/internal/config"
 )
 
@@ -57,26 +61,46 @@ func TestRunLoginWithDeps_NonTTYGuard(t *testing.T) {
 	}
 }
 
+// TestRunLogin_EmptyToken proves the device-flow login path is deterministic and
+// does NOT touch the real network. The Device Flow is redirected to a local
+// httptest server that never authorizes, so it returns "timed out" within the
+// server-advertised expires_in (1s). Calling runLoginWithDeps directly (rather
+// than rootCmd.Execute) exercises the exact seam production uses. See REQ-CI-009.
 func TestRunLogin_EmptyToken(t *testing.T) {
 	if os.Getenv("GITHUB_TOKEN") != "" {
-		t.Skip("GITHUB_TOKEN is set, login may succeed with env token")
+		t.Skip("GITHUB_TOKEN is set, env token would short-circuit the device flow")
 	}
 
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/login/device/code"):
+			fmt.Fprint(w, `{"device_code":"dc","user_code":"UC","verification_uri":"http://x","interval":1,"expires_in":1}`)
+		default:
+			fmt.Fprint(w, `{"error":"authorization_pending"}`)
+		}
+	}))
+	t.Cleanup(srv.Close)
 
-	rootCmd.SetArgs([]string{"login"})
-	err := rootCmd.Execute()
+	origBase := cloud.DeviceLoginBase
+	cloud.DeviceLoginBase = srv.URL
+	t.Cleanup(func() { cloud.DeviceLoginBase = origBase })
+
+	deps, _, _ := setupTestDeps(t)
+
+	start := time.Now()
+	err := runLoginWithDeps(&cobra.Command{}, nil, deps)
+	elapsed := time.Since(start)
 
 	if err == nil {
-		t.Skip("login succeeded (token possibly already configured)")
+		t.Fatal("expected error from un-authorized device login, got nil")
 	}
-
-	errStr := err.Error()
-	if !strings.Contains(errStr, "token") && !strings.Contains(errStr, "config") && !strings.Contains(errStr, "read") {
-		t.Errorf("unexpected error from login: %v", err)
+	// Must resolve in seconds, not the server-advertised 10 minutes — proves no
+	// real network call and the test cannot hang CI.
+	if elapsed > 2*time.Second {
+		t.Errorf("login exceeded 2s (elapsed=%v); test is not isolated from the network", elapsed)
+	}
+	if !strings.Contains(err.Error(), "timed out") && !strings.Contains(err.Error(), "token") {
+		t.Errorf("expected a token/timeout error, got: %v", err)
 	}
 }
 
