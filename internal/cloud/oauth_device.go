@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,12 @@ import (
 // DeviceLoginBase is the base URL for GitHub's OAuth Device Flow endpoints.
 // Overridable for tests (e.g., set to httptest.Server.URL).
 var DeviceLoginBase = "https://github.com"
+
+// deviceLoginTimeout bounds the entire device-login poll loop, independent of
+// the expires_in the server reports. This prevents a hostile or stalled
+// authorization endpoint from hanging the client for the full server-declared
+// lifetime (GitHub reports 10 minutes). Overridable for tests.
+var deviceLoginTimeout = 60 * time.Second
 
 // DeviceClient performs GitHub OAuth Device Flow (RFC 8628) to obtain an
 // access token without requiring a web server on the client side.
@@ -87,8 +94,14 @@ func (c *DeviceClient) RequestToken() (string, error) {
 		out = io.Discard
 	}
 
+	// Bound the entire Device Flow independently of the server-reported
+	// expires_in: a stalled or hostile authorization endpoint must not hold the
+	// client for the full server-declared lifetime (GitHub advertises 10 min).
+	ctx, cancel := context.WithTimeout(context.Background(), deviceLoginTimeout)
+	defer cancel()
+
 	// 1. Request device code.
-	deviceResp, err := requestDeviceCode(httpClient, baseURL, c.ClientID)
+	deviceResp, err := requestDeviceCode(ctx, httpClient, baseURL, c.ClientID)
 	if err != nil {
 		return "", fmt.Errorf("device code: %w", err)
 	}
@@ -112,6 +125,17 @@ func (c *DeviceClient) RequestToken() (string, error) {
 	}
 
 	// 3. Poll for access token.
+	return c.pollForAccessToken(ctx, httpClient, baseURL, deviceResp, out)
+}
+
+// pollForAccessToken drives the Device Flow poll loop until a token is issued,
+// the server-declared expires_in passes, or deviceLoginTimeout (via ctx) fires.
+// The server deadline bounds against a mismatched expires_in; the ctx bounds
+// against a stalled/hostile endpoint and is the guarantee relied on by tests.
+func (c *DeviceClient) pollForAccessToken(
+	ctx context.Context, httpClient *http.Client, baseURL string,
+	deviceResp *deviceCodeResponse, out io.Writer,
+) (string, error) {
 	interval := deviceResp.Interval
 	if interval < 1 {
 		interval = 5 // default per RFC 8628
@@ -122,8 +146,11 @@ func (c *DeviceClient) RequestToken() (string, error) {
 		if time.Now().After(deadline) {
 			return "", fmt.Errorf("login: timed out waiting for authorization")
 		}
+		if err := ctx.Err(); err != nil {
+			return "", fmt.Errorf("login: timed out waiting for authorization: %w", err)
+		}
 
-		resp, err := pollAccessToken(httpClient, baseURL, c.ClientID, deviceResp.DeviceCode)
+		resp, err := pollAccessToken(ctx, httpClient, baseURL, c.ClientID, deviceResp.DeviceCode)
 		if err != nil {
 			return "", err
 		}
@@ -166,7 +193,7 @@ func (c *DeviceClient) RequestToken() (string, error) {
 }
 
 // requestDeviceCode POSTs to /login/device/code to start the flow.
-func requestDeviceCode(httpClient *http.Client, baseURL, clientID string) (*deviceCodeResponse, error) {
+func requestDeviceCode(ctx context.Context, httpClient *http.Client, baseURL, clientID string) (*deviceCodeResponse, error) {
 	if clientID == "" {
 		return nil, fmt.Errorf("request device code: client_id is required")
 	}
@@ -176,7 +203,7 @@ func requestDeviceCode(httpClient *http.Client, baseURL, clientID string) (*devi
 	form.Set("scope", "gist")
 
 	var dr deviceCodeResponse
-	if err := postOAuthForm(httpClient, baseURL, "/login/device/code", form, &dr); err != nil {
+	if err := postOAuthForm(ctx, httpClient, baseURL, "/login/device/code", form, &dr); err != nil {
 		return nil, fmt.Errorf("device code: %w", err)
 	}
 
@@ -191,14 +218,14 @@ func requestDeviceCode(httpClient *http.Client, baseURL, clientID string) (*devi
 }
 
 // pollAccessToken POSTs to /login/oauth/access_token to check for completion.
-func pollAccessToken(httpClient *http.Client, baseURL, clientID, deviceCode string) (*tokenPollResponse, error) {
+func pollAccessToken(ctx context.Context, httpClient *http.Client, baseURL, clientID, deviceCode string) (*tokenPollResponse, error) {
 	form := url.Values{}
 	form.Set("client_id", clientID)
 	form.Set("device_code", deviceCode)
 	form.Set("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
 
 	var tr tokenPollResponse
-	if err := postOAuthForm(httpClient, baseURL, "/login/oauth/access_token", form, &tr); err != nil {
+	if err := postOAuthForm(ctx, httpClient, baseURL, "/login/oauth/access_token", form, &tr); err != nil {
 		return nil, fmt.Errorf("poll token: %w", err)
 	}
 
@@ -207,15 +234,18 @@ func pollAccessToken(httpClient *http.Client, baseURL, clientID, deviceCode stri
 
 // postOAuthForm POSTs form-encoded data to an OAuth endpoint and unmarshals
 // the JSON response into target. Returns an error on transport, status, or
-// unmarshal failure.
-func postOAuthForm(httpClient *http.Client, baseURL, path string, form url.Values, target any) error {
+// unmarshal failure. The provided ctx bounds in-flight requests so a stalled
+// authorization endpoint cannot hang the caller.
+func postOAuthForm(ctx context.Context, httpClient *http.Client, baseURL, path string, form url.Values, target any) error {
 	urlStr := strings.TrimRight(baseURL, "/") + path
-	req, err := newRequest(http.MethodPost, urlStr, "",
-		"application/json", "application/x-www-form-urlencoded",
-		strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, urlStr, strings.NewReader(form.Encode()))
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)
 	}
+	// Device Flow endpoints are unauthenticated: no Authorization header.
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", "bak-cli")
 
 	body, status, err := doRequest(httpClient, req)
 	if err != nil {

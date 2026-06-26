@@ -30,6 +30,14 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Verify GGA
         run: gga --version
+      - name: Install OpenCode CLI
+        run: |
+          curl -fsSL https://opencode.ai/install | bash
+          # The install script places the binary in ~/.opencode/bin. Add it to
+          # PATH for this and subsequent steps so `gga run` can shell out to it.
+          echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
+      - name: Verify OpenCode CLI
+        run: opencode --version
       - name: Run GGA
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}

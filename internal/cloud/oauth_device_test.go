@@ -1,7 +1,9 @@
 package cloud
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -425,5 +427,55 @@ func TestDeviceClient_DefaultsApplied(t *testing.T) {
 	}
 	if token != "gho_defaults" {
 		t.Errorf("expected gho_defaults, got %q", token)
+	}
+}
+
+// TestRequestToken_DeviceLoginTimeout proves the Device Flow poll loop honors a
+// bounded client-side timeout independent of the server-reported expires_in.
+// The /access_token endpoint below blocks longer than the test guard: without a
+// ctx-aware request the call cannot be cancelled and the test fails on the 2s
+// guard (RED); once RequestToken wraps deviceLoginTimeout via
+// context.WithTimeout the in-flight request is cancelled and returns
+// context.DeadlineExceeded well under a second (GREEN). See REQ-CI-009.
+func TestRequestToken_DeviceLoginTimeout(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/login/device/code"):
+			fmt.Fprint(w, `{"device_code":"dc","user_code":"UC","verification_uri":"http://x","interval":5,"expires_in":2}`)
+		default:
+			// Slow poll: only a ctx-aware request can be cancelled before the guard.
+			time.Sleep(3 * time.Second)
+			fmt.Fprint(w, `{"error":"authorization_pending"}`)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	origBase := DeviceLoginBase
+	DeviceLoginBase = srv.URL
+	t.Cleanup(func() { DeviceLoginBase = origBase })
+
+	origTimeout := deviceLoginTimeout
+	deviceLoginTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { deviceLoginTimeout = origTimeout })
+
+	client := &DeviceClient{ClientID: "cid", sleepFn: func(time.Duration) {}}
+
+	done := make(chan error, 1)
+	go func() { _, err := client.RequestToken(); done <- err }()
+
+	start := time.Now()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("expected timeout error, got nil")
+		}
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("expected context.DeadlineExceeded, got: %v", err)
+		}
+		if elapsed := time.Since(start); elapsed > time.Second {
+			t.Errorf("RequestToken honored server expires_in, not deviceLoginTimeout: elapsed=%v", elapsed)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("RequestToken hung >2s — deviceLoginTimeout not honored")
 	}
 }
