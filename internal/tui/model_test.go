@@ -2906,7 +2906,12 @@ func modelAtScreen(s screen) Model {
 		return m
 	}
 	newM, _ := m.Update(screenChangeMsg{screen: s})
-	return newM.(Model)
+	m = newM.(Model)
+	// Propagate dimensions to the sub-model so it renders real content
+	// (not the "Terminal too small" guard) — screenChangeMsg only sets Width
+	// for some screens, so a WindowSizeMsg guarantees Height too.
+	m2, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	return m2.(Model)
 }
 
 func TestModel_View_WindowTitle(t *testing.T) { //nolint:paralleltest // shared styles/colorprofile global state
@@ -2962,8 +2967,8 @@ func TestModel_View_WindowTitle(t *testing.T) { //nolint:paralleltest // shared 
 			wantTitle: "bak — Shortcuts",
 		},
 		{
-			name: "progress idle shows Backup",
-			setup: func() Model { return modelAtScreen(ScreenProgress) },
+			name:      "progress idle shows Backup",
+			setup:     func() Model { return modelAtScreen(ScreenProgress) },
 			wantTitle: "bak — Backup",
 		},
 		{
@@ -2976,8 +2981,8 @@ func TestModel_View_WindowTitle(t *testing.T) { //nolint:paralleltest // shared 
 			wantTitle: "bak — Backup 3/7",
 		},
 		{
-			name: "restore without id shows Restore",
-			setup: func() Model { return modelAtScreen(ScreenRestore) },
+			name:      "restore without id shows Restore",
+			setup:     func() Model { return modelAtScreen(ScreenRestore) },
 			wantTitle: "bak — Restore",
 		},
 		{
@@ -3009,5 +3014,25 @@ func TestModel_View_WindowTitle(t *testing.T) { //nolint:paralleltest // shared 
 				}
 			}
 		})
+	}
+}
+
+// TestModel_View_StatusBar verifies the persistent status bar (REQ-TP-003) is
+// appended at the bottom of every screen on wide terminals and hidden below 40
+// columns. Uses ScreenProgress, whose own content has no "bak v" string, so the
+// presence of "bak v1.0.0" proves the status bar rendered.
+func TestModel_View_StatusBar(t *testing.T) { //nolint:paralleltest // shared styles/colorprofile global state
+	// Wide terminal: status bar present.
+	m := modelAtScreen(ScreenProgress)
+	out := m.View().Content
+	if !strings.Contains(out, "bak v1.0.0") {
+		t.Errorf("wide View() missing status bar 'bak v1.0.0':\n%s", out)
+	}
+
+	// Narrow terminal (<40 cols): status bar hidden.
+	m.width = 39
+	narrow := m.View().Content
+	if strings.Contains(narrow, "bak v1.0.0") {
+		t.Errorf("narrow View() should hide status bar, but contains 'bak v1.0.0':\n%s", narrow)
 	}
 }

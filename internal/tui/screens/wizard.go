@@ -237,19 +237,24 @@ func (m *WizardModel) handleNavigation(msg tea.KeyPressMsg) (tea.Model, tea.Cmd)
 	return m, nil
 }
 
+// wizardView wraps rendered content in a tea.View tagged with the wizard
+// window title. Extracted so every View branch sets the title without
+// inflating View's statement count (AGENTS.md funlen budget).
+func wizardView(content string) tea.View {
+	v := tea.NewView(content)
+	v.WindowTitle = wizardWindowTitle
+	return v
+}
+
 // View implements bubbletea.Model.
 func (m *WizardModel) View() tea.View {
 	if m.Quitting {
-		v := tea.NewView("")
-		v.WindowTitle = wizardWindowTitle
-		return v
+		return wizardView("")
 	}
 
 	// Guard against terminals below the minimum usable size.
 	if m.Width > 0 && m.Height > 0 && styles.IsTooSmall(m.Width, m.Height) {
-		v := tea.NewView(styles.HelpStyle.Render(styles.RenderTooSmall(m.Width, m.Height)))
-		v.WindowTitle = wizardWindowTitle
-		return v
+		return wizardView(styles.HelpStyle.Render(styles.RenderTooSmall(m.Width, m.Height)))
 	}
 
 	var b strings.Builder
@@ -306,9 +311,7 @@ func (m *WizardModel) View() tea.View {
 		{Key: "q/esc", Desc: keyQuit},
 	}))
 
-	v := tea.NewView(b.String())
-	v.WindowTitle = wizardWindowTitle
-	return v
+	return wizardView(b.String())
 }
 
 // renderCheckboxList renders a list of toggleable items using the shared

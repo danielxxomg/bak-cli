@@ -35,12 +35,12 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Status Bar & Gradient Logo (PR 1 — Tier 1b)
 
-- [ ] 2.1 [RED] `internal/tui/components/statusbar_test.go`: table-driven — wide terminal shows version/preset/path, narrow (<40) returns empty, long path truncated with ellipsis
-- [ ] 2.2 [GREEN] `internal/tui/components/statusbar.go`: stateless `RenderStatusBar(width int, version, preset, path string) string`; hidden when width < 40
-- [ ] 2.3 [GREEN] `internal/tui/styles/screens.go`: add package-level `StatusBarStyle` var (Rose Pine semantic colors)
-- [ ] 2.4 [REFACTOR] `internal/tui/model.go`: `renderContent()` appends `components.RenderStatusBar(m.width, m.deps.Version, preset, backupPath)` at bottom; add `Deps` accessors for preset/path if missing
-- [ ] 2.5 [RED] `internal/tui/styles/logo_test.go`: assert `RenderLogo` returns `len(lines)` gradient-colored lines on color profile; assert empty on width < 40; assert uncolored on Ascii profile
-- [ ] 2.6 [GREEN] `internal/tui/styles/logo.go`: replace 5 fixed `Foreground()` styles with `lipgloss.Blend1D` gradient (Love→Gold→Rose→Pine→Lavender); Ascii profile fallback to plain text. **Verify `Blend1D` signature before implementing** (open question from design)
+- [x] 2.1 [RED] `internal/tui/components/statusbar_test.go`: table-driven — wide terminal shows version/preset/path, narrow (<40) returns empty, long path truncated with ellipsis
+- [x] 2.2 [GREEN] `internal/tui/components/statusbar.go`: stateless `RenderStatusBar(width int, version, preset, path string) string`; hidden when width < 40
+- [x] 2.3 [GREEN] `internal/tui/styles/screens.go`: add package-level `StatusBarStyle` var (Rose Pine semantic colors)
+- [x] 2.4 [REFACTOR] `internal/tui/model.go`: `renderContent()` appends `components.RenderStatusBar(m.width, m.deps.Version, preset, backupPath)` at bottom; add `Deps` accessors for preset/path if missing
+- [x] 2.5 [RED] `internal/tui/styles/logo_test.go`: assert `RenderLogo` returns `len(lines)` gradient-colored lines on color profile; assert empty on width < 40; assert uncolored on Ascii profile
+- [x] 2.6 [GREEN] `internal/tui/styles/logo.go`: replace 5 fixed `Foreground()` styles with `lipgloss.Blend1D` gradient (Love→Gold→Rose→Pine→Lavender); Ascii profile fallback to plain text. **Verify `Blend1D` signature before implementing** (open question from design)
 
 ## Phase 3: Viewport Dry-Run (PR 2 — Tier 2a)
 

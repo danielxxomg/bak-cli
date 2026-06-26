@@ -38,8 +38,11 @@ Run 'bak restore --dry-run <id>' to preview before applying.`,
 		// and stdout is a terminal. Cobra handles --help before RunE, so
 		// `bak --help` still shows cobra help regardless of TTY.
 		if len(args) == 0 && isTTY() {
+			preset, backupPath := tuiStatusBarInfo()
 			deps := tui.Deps{
 				Version:          Version,
+				Preset:           preset,
+				BackupPath:       backupPath,
 				ConfigExists:     configExists,
 				ListBackups:      listBackups,
 				RunBackup:        tuiRunBackup,
@@ -69,6 +72,20 @@ func configExists() bool {
 	}
 	_, err = os.Stat(cfgPath)
 	return err == nil
+}
+
+// tuiStatusBarInfo returns the active preset and backup directory for the
+// persistent TUI status bar (tui-personality REQ-TP-003). Both are best-effort:
+// on any error the empty string is returned and the status bar omits that
+// segment rather than failing the launch.
+func tuiStatusBarInfo() (preset, backupPath string) {
+	if cfg, err := config.Load(); err == nil && cfg.Settings.DefaultPreset != "" {
+		preset = cfg.Settings.DefaultPreset
+	}
+	if dir, err := backup.BakDir(); err == nil {
+		backupPath = dir
+	}
+	return preset, backupPath
 }
 
 // Execute runs the root command.

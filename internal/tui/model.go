@@ -649,18 +649,30 @@ func titleForScreen(m Model) string {
 	case ScreenProfiles:
 		return "bak — Profiles"
 	case ScreenProgress:
-		if m.progress != nil && m.progress.Running() && m.progress.Total > 0 {
-			return fmt.Sprintf("bak — Backup %d/%d", m.progress.Current, m.progress.Total)
-		}
-		return "bak — Backup"
+		return progressTitle(m)
 	case ScreenRestore:
-		if m.restore != nil && m.restore.SelectedID != "" {
-			return "bak — Restore:" + m.restore.SelectedID
-		}
-		return "bak — Restore"
+		return restoreTitle(m)
 	default:
 		return "bak"
 	}
+}
+
+// progressTitle renders the progress screen title, appending the live step
+// counter ("bak — Backup 3/7") when an operation is running with a known total.
+func progressTitle(m Model) string {
+	if m.progress != nil && m.progress.Running() && m.progress.Total > 0 {
+		return fmt.Sprintf("bak — Backup %d/%d", m.progress.Current, m.progress.Total)
+	}
+	return "bak — Backup"
+}
+
+// restoreTitle renders the restore screen title, appending the selected backup
+// id ("bak — Restore:abc1234") when one has been chosen.
+func restoreTitle(m Model) string {
+	if m.restore != nil && m.restore.SelectedID != "" {
+		return "bak — Restore:" + m.restore.SelectedID
+	}
+	return "bak — Restore"
 }
 
 // renderContent renders the active screen with optional help and toast
@@ -671,6 +683,11 @@ func (m Model) renderContent() string {
 	// Overlay help when toggled via '?'.
 	if m.showHelp {
 		content = screens.RenderShortcuts(m.width)
+	}
+	// Persistent status bar at the bottom of every screen (REQ-TP-003).
+	// Hidden on narrow terminals (<40 cols) by RenderStatusBar itself.
+	if bar := components.RenderStatusBar(m.width, m.deps.Version, m.deps.Preset, m.deps.BackupPath); bar != "" {
+		content += "\n" + bar
 	}
 	// Render toast overlay. On wide terminals (>= 50 cols), position
 	// the toast at bottom-right using lipgloss.Place. On narrow terminals,
