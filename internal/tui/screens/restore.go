@@ -1,9 +1,11 @@
 package screens
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/danielxxomg/bak-cli/internal/tui/components"
@@ -57,6 +59,12 @@ type RestoreModel struct {
 	SelectedID string
 	// DryRunOutput holds the diff preview text.
 	DryRunOutput string
+	// viewport renders the dry-run diff in a bounded, scrollable region
+	// (REQ-TP-005). It is the sole presentation surface for dry-run content on
+	// restoreStateDryRun — the raw diff is never dumped to the screen body.
+	viewport viewport.Model
+	// vpReady reports whether the viewport has been sized via WindowSizeMsg.
+	vpReady bool
 	// Err holds the last error.
 	Err error
 
@@ -78,6 +86,7 @@ func NewRestoreModel(
 		Cursor:      0,
 		listBackups: listBackups,
 		runRestore:  runRestore,
+		viewport:    viewport.New(),
 	}
 }
 
@@ -98,6 +107,11 @@ func (m RestoreModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
 		m.Height = msg.Height
+		// Size the embedded viewport so the dry-run diff is bounded to the
+		// available terminal height (header + footer excluded).
+		m.viewport.SetWidth(msg.Width)
+		m.viewport.SetHeight(dryRunViewportHeight(msg.Height))
+		m.vpReady = true
 		return m, nil
 
 	case restoreBackupsLoadedMsg:
@@ -114,6 +128,9 @@ func (m RestoreModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.DryRunOutput = msg.output
+		// The viewport is the sole presentation surface for dry-run content
+		// (REQ-TP-005 / restore-flow delta): SetContent replaces the raw dump.
+		m.viewport.SetContent(msg.output)
 		m.State = restoreStateDryRun
 		return m, nil
 
@@ -154,6 +171,16 @@ func (m RestoreModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m RestoreModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	// When the confirm modal is active, forward key events to it so the user
+	// can confirm/cancel via the keyboard (the modal owns Enter/Esc/Tab);
+	// otherwise the modal renders but is non-interactive.
+	if m.Modal != nil {
+		newModal, cmd := m.Modal.Update(msg)
+		m2 := newModal.(components.ModalModel)
+		m.Modal = &m2
+		return m, cmd
+	}
+
 	switch m.State {
 	case restoreStateList:
 		switch msg.Code {
@@ -177,8 +204,16 @@ func (m RestoreModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	case restoreStateDryRun:
 		switch msg.Code {
-		case 'q', 27:
+		case 'q', 27: // esc
 			m.State = restoreStateList
+			return m, nil
+		case 'g':
+			// vim-style: jump to top (not in the viewport default keymap).
+			m.viewport.GotoTop()
+			return m, nil
+		case 'G':
+			// vim-style: jump to bottom (not in the viewport default keymap).
+			m.viewport.GotoBottom()
 			return m, nil
 		case '\r':
 			m.State = restoreStateConfirm
@@ -186,6 +221,12 @@ func (m RestoreModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				fmt.Sprintf("Restore backup %s? This will overwrite current config.", m.SelectedID),
 				[]string{"Confirm", "Cancel"})
 			m.Modal = &modal
+			return m, nil
+		default:
+			// Forward scroll keys (j/k, arrows, PgUp/PgDn, space, f/b, u/d)
+			// to the viewport, whose default keymap handles them.
+			newVp, _ := m.viewport.Update(msg)
+			m.viewport = newVp
 			return m, nil
 		}
 
@@ -214,7 +255,7 @@ func (m RestoreModel) dryRunCmd(backupID string) tea.Cmd {
 func (m RestoreModel) runRestoreCmd(backupID string) tea.Cmd {
 	return func() tea.Msg {
 		if m.runRestore == nil {
-			return restoreExecResultMsg{err: fmt.Errorf("restore not available")}
+			return restoreExecResultMsg{err: errors.New("restore not available")}
 		}
 		_, err := m.runRestore(backupID, false)
 		return restoreExecResultMsg{err: err}
@@ -223,6 +264,10 @@ func (m RestoreModel) runRestoreCmd(backupID string) tea.Cmd {
 
 // View renders the current restore state.
 func (m RestoreModel) View() tea.View {
+	if styles.IsTooSmall(m.Width, m.Height) {
+		return tea.NewView(styles.RenderTooSmall(m.Width, m.Height))
+	}
+
 	var content string
 
 	switch {
@@ -302,12 +347,42 @@ func (m RestoreModel) renderBackupList() string {
 	return b.String()
 }
 
+// dryRunHeaderLines is the number of rendered lines above the viewport in the
+// dry-run screen (title, blank, "Backup: <id>", blank).
+const dryRunHeaderLines = 4
+
+// dryRunFooterLines is the number of rendered lines below the viewport
+// (blank, confirm/cancel help bar).
+const dryRunFooterLines = 2
+
+// dryRunViewportHeight returns the viewport height for the dry-run screen,
+// reserving space for the header and footer and clamping to a minimum of 1 so
+// the viewport always has a non-zero visible region.
+func dryRunViewportHeight(termHeight int) int {
+	h := termHeight - dryRunHeaderLines - dryRunFooterLines
+	if h < 1 {
+		return 1
+	}
+	return h
+}
+
 func (m RestoreModel) renderDryRun() string {
 	var b strings.Builder
 	b.WriteString(styles.ScreenTitleStyle.Render("Restore — Dry Run Preview"))
 	b.WriteString("\n\n")
 	fmt.Fprintf(&b, "Backup: %s\n\n", m.SelectedID)
-	b.WriteString(m.DryRunOutput)
+
+	// Render the diff inside the bounded viewport (REQ-TP-005). When the
+	// viewport was never sized (e.g. a test that sets DryRunOutput directly),
+	// size it on a copy so the content is still visible rather than blank.
+	vp := m.viewport
+	if !m.vpReady {
+		vp.SetWidth(m.Width)
+		vp.SetHeight(dryRunViewportHeight(m.Height))
+		vp.SetContent(m.DryRunOutput)
+	}
+	b.WriteString(vp.View())
+
 	b.WriteString("\n\n")
 	b.WriteString("[enter] Confirm restore  [q] Cancel")
 	return b.String()

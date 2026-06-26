@@ -44,10 +44,10 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: Viewport Dry-Run (PR 2 — Tier 2a)
 
-- [ ] 3.1 [RED] `internal/tui/screens/restore_test.go`: send `restoreDryRunResultMsg{output: "diff..."}`, assert `viewport.SetContent` called and `View()` renders viewport output
-- [ ] 3.2 [GREEN] `internal/tui/screens/restore.go`: add `viewport viewport.Model` + `vpReady bool` fields; `WindowSizeMsg` sets viewport dimensions; `restoreDryRunResultMsg` calls `SetContent`; `renderDryRun` writes `m.viewport.View()`
-- [ ] 3.3 [RED] `restore_test.go`: press `PgDn`/`PgUp`/`j`/`k`/`g`/`G` in `restoreStateDryRun`, assert viewport scroll position changes; press `q`, assert transition to `restoreStateList`
-- [ ] 3.4 [GREEN] `restore.go` Update: forward scroll keys (`j/k/↑/↓/PgUp/PgDn/g/G`) to `m.viewport.Update`; `q` transitions to list state
+- [x] 3.1 [RED] `internal/tui/screens/restore_test.go`: send `restoreDryRunResultMsg{output: "diff..."}`, assert `viewport.SetContent` called and `View()` renders viewport output
+- [x] 3.2 [GREEN] `internal/tui/screens/restore.go`: add `viewport viewport.Model` + `vpReady bool` fields; `WindowSizeMsg` sets viewport dimensions; `restoreDryRunResultMsg` calls `SetContent`; `renderDryRun` writes `m.viewport.View()`
+- [x] 3.3 [RED] `restore_test.go`: press `PgDn`/`PgUp`/`j`/`k`/`g`/`G` in `restoreStateDryRun`, assert viewport scroll position changes; press `q`, assert transition to `restoreStateList`
+- [x] 3.4 [GREEN] `restore.go` Update: forward scroll keys (`j/k/↑/↓/PgUp/PgDn/g/G`) to `m.viewport.Update`; `q` transitions to list state
 
 ## Phase 4: Mouse Navigation & Empty States (PR 2 — Tier 2b)
 
