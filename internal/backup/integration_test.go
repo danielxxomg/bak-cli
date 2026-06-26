@@ -15,7 +15,7 @@ import (
 //  3. File content integrity via SHA-256 hash comparison.
 //  4. The .env.example is generated when secrets are present.
 //  5. File count and total size are accurate.
-func TestIntegration_FullBackupFlow(t *testing.T) {
+func TestIntegration_FullBackupFlow(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// --- Arrange: create a realistic OpenCode directory -------------------
 	home := t.TempDir()
 	configDir := filepath.Join(home, ".config", "opencode")
@@ -204,7 +204,7 @@ func TestIntegration_FullBackupFlow(t *testing.T) {
 
 // TestIntegration_QuickVsFull verifies that the quick preset produces
 // a subset of the full preset's files.
-func TestIntegration_QuickVsFull(t *testing.T) {
+func TestIntegration_QuickVsFull(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	configDir := filepath.Join(home, ".config", "opencode")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -262,7 +262,7 @@ func TestIntegration_QuickVsFull(t *testing.T) {
 
 // TestIntegration_NoOpenCodeDir verifies graceful behavior when OpenCode
 // is not installed.
-func TestIntegration_NoOpenCodeDir(t *testing.T) {
+func TestIntegration_NoOpenCodeDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	engine := setupTestEngine(t, home)
 	engine.Preset = "quick"

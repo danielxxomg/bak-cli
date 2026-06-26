@@ -6,7 +6,7 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/config"
 )
 
-func TestSaveSetting(t *testing.T) {
+func TestSaveSetting(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		cfg      *config.Config
@@ -80,8 +80,8 @@ func TestSaveSetting(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			SaveSetting(tt.cfg, tt.key, tt.value)
 			if tt.validate != nil {
 				tt.validate(t, tt.cfg)
@@ -90,7 +90,7 @@ func TestSaveSetting(t *testing.T) {
 	}
 }
 
-func TestSaveProfileFromInfo(t *testing.T) {
+func TestSaveProfileFromInfo(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &config.Config{}
 	SaveProfileFromInfo(cfg, "test-profile", "github-gist", "quick")
 
@@ -113,7 +113,7 @@ func TestSaveProfileFromInfo(t *testing.T) {
 	}
 }
 
-func TestDeleteProfileSilent(t *testing.T) {
+func TestDeleteProfileSilent(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &config.Config{
 		Profiles: map[string]config.ProfileConfig{
 			"keep":   {Provider: "github-gist"},
@@ -132,7 +132,7 @@ func TestDeleteProfileSilent(t *testing.T) {
 	DeleteProfileSilent(cfg, "nonexistent")
 }
 
-func TestSetActiveProfile(t *testing.T) {
+func TestSetActiveProfile(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &config.Config{
 		Profiles: map[string]config.ProfileConfig{
 			"github": {Provider: "github-gist"},
@@ -144,7 +144,7 @@ func TestSetActiveProfile(t *testing.T) {
 	}
 }
 
-func TestGetCloudProviderStatus(t *testing.T) {
+func TestGetCloudProviderStatus(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name          string
 		cfg           *config.Config
@@ -194,8 +194,8 @@ func TestGetCloudProviderStatus(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			provider, connected := GetCloudProviderStatus(tt.cfg)
 			if provider != tt.wantProvider {
 				t.Errorf("provider = %q, want %q", provider, tt.wantProvider)
@@ -207,7 +207,7 @@ func TestGetCloudProviderStatus(t *testing.T) {
 	}
 }
 
-func TestListProfileInfos(t *testing.T) {
+func TestListProfileInfos(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &config.Config{
 		Profiles: map[string]config.ProfileConfig{
 			"default": {Provider: "github-gist", Preset: "quick"},

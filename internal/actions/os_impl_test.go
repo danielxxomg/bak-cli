@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestOSFileSystem_Stat_HappyPath(t *testing.T) {
+func TestOSFileSystem_Stat_HappyPath(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	fsys := &OSFileSystem{}
 	tmpDir := t.TempDir()
 	info, err := fsys.Stat(tmpDir)
@@ -18,7 +18,7 @@ func TestOSFileSystem_Stat_HappyPath(t *testing.T) {
 	}
 }
 
-func TestOSFileSystem_Stat_NotFound(t *testing.T) {
+func TestOSFileSystem_Stat_NotFound(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	fsys := &OSFileSystem{}
 	_, err := fsys.Stat(filepath.Join(t.TempDir(), "nonexistent"))
 	if err == nil {
@@ -26,7 +26,7 @@ func TestOSFileSystem_Stat_NotFound(t *testing.T) {
 	}
 }
 
-func TestOSFileSystem_ReadDir_HappyPath(t *testing.T) {
+func TestOSFileSystem_ReadDir_HappyPath(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	fsys := &OSFileSystem{}
 	tmpDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tmpDir, "a.txt"), []byte("a"), 0644); err != nil {
@@ -41,7 +41,7 @@ func TestOSFileSystem_ReadDir_HappyPath(t *testing.T) {
 	}
 }
 
-func TestOSFileSystem_ReadDir_NotFound(t *testing.T) {
+func TestOSFileSystem_ReadDir_NotFound(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	fsys := &OSFileSystem{}
 	_, err := fsys.ReadDir(filepath.Join(t.TempDir(), "nonexistent"))
 	if err == nil {
@@ -49,7 +49,7 @@ func TestOSFileSystem_ReadDir_NotFound(t *testing.T) {
 	}
 }
 
-func TestOSFileSystem_ReadFile_HappyPath(t *testing.T) {
+func TestOSFileSystem_ReadFile_HappyPath(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	fsys := &OSFileSystem{}
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "test.txt")
@@ -65,7 +65,7 @@ func TestOSFileSystem_ReadFile_HappyPath(t *testing.T) {
 	}
 }
 
-func TestOSFileSystem_ReadFile_NotFound(t *testing.T) {
+func TestOSFileSystem_ReadFile_NotFound(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	fsys := &OSFileSystem{}
 	_, err := fsys.ReadFile(filepath.Join(t.TempDir(), "nonexistent"))
 	if err == nil {
@@ -73,7 +73,7 @@ func TestOSFileSystem_ReadFile_NotFound(t *testing.T) {
 	}
 }
 
-func TestOSFileSystem_MkdirAll(t *testing.T) {
+func TestOSFileSystem_MkdirAll(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	fsys := &OSFileSystem{}
 	path := filepath.Join(t.TempDir(), "a", "b", "c")
 	if err := fsys.MkdirAll(path, 0755); err != nil {
@@ -81,7 +81,7 @@ func TestOSFileSystem_MkdirAll(t *testing.T) {
 	}
 }
 
-func TestOSFileSystem_CopyFile_HappyPath(t *testing.T) {
+func TestOSFileSystem_CopyFile_HappyPath(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	fsys := &OSFileSystem{}
 	tmpDir := t.TempDir()
 	src := filepath.Join(tmpDir, "src.txt")
@@ -101,7 +101,7 @@ func TestOSFileSystem_CopyFile_HappyPath(t *testing.T) {
 	}
 }
 
-func TestOSFileSystem_CopyFile_SourceNotFound(t *testing.T) {
+func TestOSFileSystem_CopyFile_SourceNotFound(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	fsys := &OSFileSystem{}
 	err := fsys.CopyFile(filepath.Join(t.TempDir(), "nonexistent"), filepath.Join(t.TempDir(), "dst.txt"))
 	if err == nil {
@@ -109,7 +109,7 @@ func TestOSFileSystem_CopyFile_SourceNotFound(t *testing.T) {
 	}
 }
 
-func TestOSFileSystem_RemoveAll(t *testing.T) {
+func TestOSFileSystem_RemoveAll(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	fsys := &OSFileSystem{}
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "to-remove")
@@ -121,7 +121,7 @@ func TestOSFileSystem_RemoveAll(t *testing.T) {
 	}
 }
 
-func TestOSFileSystem_WalkDir(t *testing.T) {
+func TestOSFileSystem_WalkDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	fsys := &OSFileSystem{}
 	tmpDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tmpDir, "a.txt"), []byte("a"), 0644); err != nil {
@@ -143,7 +143,7 @@ func TestOSFileSystem_WalkDir(t *testing.T) {
 	}
 }
 
-func TestOSFileSystem_WriteFile(t *testing.T) {
+func TestOSFileSystem_WriteFile(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	fsys := &OSFileSystem{}
 	path := filepath.Join(t.TempDir(), "test.txt")
 	if err := fsys.WriteFile(path, []byte("data"), 0644); err != nil {

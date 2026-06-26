@@ -10,7 +10,7 @@ import (
 )
 
 // TestCleanupAction_KeepsNewest verifies keep=N logic.
-func TestCleanupAction_KeepsNewest(t *testing.T) {
+func TestCleanupAction_KeepsNewest(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	createBackupDirs(t, dir, 10)
 	mockFS := &MockFileSystem{
@@ -41,7 +41,7 @@ func TestCleanupAction_KeepsNewest(t *testing.T) {
 }
 
 // TestCleanupAction_DryRun verifies 0 deletions in dry-run mode.
-func TestCleanupAction_DryRun(t *testing.T) {
+func TestCleanupAction_DryRun(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	createBackupDirs(t, dir, 5)
 	mockFS := &MockFileSystem{
@@ -74,7 +74,7 @@ func TestCleanupAction_DryRun(t *testing.T) {
 }
 
 // TestCleanupAction_KeepAboveCount deletes nothing.
-func TestCleanupAction_KeepAboveCount(t *testing.T) {
+func TestCleanupAction_KeepAboveCount(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	createBackupDirs(t, dir, 3)
 	mockFS := &MockFileSystem{
@@ -104,7 +104,7 @@ func TestCleanupAction_KeepAboveCount(t *testing.T) {
 }
 
 // TestCleanupAction_ConfirmFalse cancels.
-func TestCleanupAction_ConfirmFalse(t *testing.T) {
+func TestCleanupAction_ConfirmFalse(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	createBackupDirs(t, dir, 5)
 	mockFS := &MockFileSystem{
@@ -134,7 +134,7 @@ func TestCleanupAction_ConfirmFalse(t *testing.T) {
 }
 
 // TestCleanupAction_ConfirmNilNoForce errors.
-func TestCleanupAction_ConfirmNilNoForce(t *testing.T) {
+func TestCleanupAction_ConfirmNilNoForce(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	createBackupDirs(t, dir, 5)
 	mockFS := &MockFileSystem{
@@ -158,7 +158,7 @@ func TestCleanupAction_ConfirmNilNoForce(t *testing.T) {
 }
 
 // TestCleanupAction_EmptyDir is a no-op.
-func TestCleanupAction_EmptyDir(t *testing.T) {
+func TestCleanupAction_EmptyDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	mockFS := &MockFileSystem{
 		DirEntries: map[string][]os.DirEntry{
@@ -212,7 +212,7 @@ func readDirEntries(t *testing.T, dir string) []os.DirEntry {
 
 // TestPrintDryRunPlan verifies the extracted dry-run plan printer emits a
 // header with counts followed by each backup ID to delete.
-func TestPrintDryRunPlan(t *testing.T) {
+func TestPrintDryRunPlan(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		toDelete []string
@@ -238,8 +238,8 @@ func TestPrintDryRunPlan(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			var out bytes.Buffer
 			printDryRunPlan(&out, tt.toDelete, tt.keep)
 			got := out.String()

@@ -26,13 +26,13 @@ func RenderShortcuts(width int) string { //nolint:funlen // static key-bindings 
 			entries: []shortcutsEntry{
 				{key: "j / \u2193", desc: "move down"},
 				{key: "k / \u2191", desc: "move up"},
-				{key: "enter", desc: "select"},
+				{key: keyEnter, desc: keySelect},
 			},
 		},
 		{
 			heading: "Actions",
 			entries: []shortcutsEntry{
-				{key: "space", desc: "toggle"},
+				{key: keySpace, desc: keyToggle},
 				{key: "/", desc: "search"},
 			},
 		},
@@ -52,8 +52,8 @@ func RenderShortcuts(width int) string { //nolint:funlen // static key-bindings 
 			heading: "Meta",
 			entries: []shortcutsEntry{
 				{key: "?", desc: "shortcuts"},
-				{key: "q", desc: "quit"},
-				{key: "esc", desc: "back"},
+				{key: "q", desc: keyQuit},
+				{key: "esc", desc: keyBack},
 			},
 		},
 	}

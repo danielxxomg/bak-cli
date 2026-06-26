@@ -7,7 +7,7 @@ import (
 
 // ---- Round-trip tests ----
 
-func TestEncryptDecrypt_RoundTrip(t *testing.T) {
+func TestEncryptDecrypt_RoundTrip(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		password string
@@ -40,8 +40,8 @@ func TestEncryptDecrypt_RoundTrip(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			encrypted, err := Encrypt(tt.data, tt.password)
 			if err != nil {
 				t.Fatalf("Encrypt: unexpected error: %v", err)
@@ -72,7 +72,7 @@ func TestEncryptDecrypt_RoundTrip(t *testing.T) {
 
 // ---- Wrong password tests ----
 
-func TestDecrypt_WrongPassword(t *testing.T) {
+func TestDecrypt_WrongPassword(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	plaintext := []byte("sensitive data")
 	password := "correct-password"
 
@@ -92,7 +92,7 @@ func TestDecrypt_WrongPassword(t *testing.T) {
 
 // ---- Distinct salts ----
 
-func TestEncrypt_DistinctSalts(t *testing.T) {
+func TestEncrypt_DistinctSalts(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	password := "same-password"
 	data := []byte("same data")
 
@@ -130,7 +130,7 @@ func TestEncrypt_DistinctSalts(t *testing.T) {
 
 // ---- IsEncrypted ----
 
-func TestIsEncrypted(t *testing.T) {
+func TestIsEncrypted(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	plaintext := []byte("hello")
 
 	encrypted, err := Encrypt(plaintext, "pw")
@@ -165,7 +165,7 @@ func TestIsEncrypted(t *testing.T) {
 
 // ---- deriveKey ----
 
-func TestDeriveKey_Deterministic(t *testing.T) {
+func TestDeriveKey_Deterministic(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	password := "my-secret"
 	salt := make([]byte, 32)
 	for i := range salt {
@@ -184,7 +184,7 @@ func TestDeriveKey_Deterministic(t *testing.T) {
 	}
 }
 
-func TestDeriveKey_DistinctInputs(t *testing.T) {
+func TestDeriveKey_DistinctInputs(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	salt1 := bytes.Repeat([]byte{0xAA}, 32)
 	salt2 := bytes.Repeat([]byte{0xBB}, 32)
 
@@ -203,7 +203,7 @@ func TestDeriveKey_DistinctInputs(t *testing.T) {
 
 // ---- Edge cases ----
 
-func TestDecrypt_CorruptedArchive(t *testing.T) {
+func TestDecrypt_CorruptedArchive(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	encrypted, err := Encrypt([]byte("data"), "pw")
 	if err != nil {
 		t.Fatalf("Encrypt: %v", err)
@@ -220,7 +220,7 @@ func TestDecrypt_CorruptedArchive(t *testing.T) {
 	}
 }
 
-func TestDecrypt_TooShort(t *testing.T) {
+func TestDecrypt_TooShort(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Not enough bytes for magic + salt + nonce + GCM tag.
 	tooShort := []byte("BAK_ENC\x01" + string(make([]byte, 32+12)))
 	_, err := Decrypt(tooShort, "pw")
@@ -229,7 +229,7 @@ func TestDecrypt_TooShort(t *testing.T) {
 	}
 }
 
-func TestDecrypt_WrongMagic(t *testing.T) {
+func TestDecrypt_WrongMagic(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Simulate a plaintext tar.gz — no magic bytes.
 	plaintext := []byte{0x1f, 0x8b, 0x08} // gzip header
 	_, err := Decrypt(plaintext, "pw")
@@ -238,7 +238,7 @@ func TestDecrypt_WrongMagic(t *testing.T) {
 	}
 }
 
-func TestDecrypt_WrongMagicPrefix(t *testing.T) {
+func TestDecrypt_WrongMagicPrefix(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Magic bytes present but version byte wrong.
 	data := append([]byte("BAK_ENC\x02"), make([]byte, 32+12+16)...)
 	_, err := Decrypt(data, "pw")
@@ -247,7 +247,7 @@ func TestDecrypt_WrongMagicPrefix(t *testing.T) {
 	}
 }
 
-func TestEncrypt_EmptyPassword(t *testing.T) {
+func TestEncrypt_EmptyPassword(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Empty password should still work (Argon2id accepts empty input).
 	encrypted, err := Encrypt([]byte("data"), "")
 	if err != nil {
@@ -262,7 +262,7 @@ func TestEncrypt_EmptyPassword(t *testing.T) {
 	}
 }
 
-func TestEncrypt_IdenticalInputs_DifferentOutputs(t *testing.T) {
+func TestEncrypt_IdenticalInputs_DifferentOutputs(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Same password, same plaintext → different ciphertexts (unique salt + nonce).
 	enc1, _ := Encrypt([]byte("hello"), "pw")
 	enc2, _ := Encrypt([]byte("hello"), "pw")

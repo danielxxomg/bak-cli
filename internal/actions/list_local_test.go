@@ -35,7 +35,7 @@ func setupBackupDir(t *testing.T, bakDir string, backupID string, m *manifest.Ma
 	return backupDir
 }
 
-func TestRunListLocal_EmptyBackupsDir(t *testing.T) {
+func TestRunListLocal_EmptyBackupsDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	bakDir := t.TempDir()
 	// No backups/ directory at all.
 	var out strings.Builder
@@ -48,7 +48,7 @@ func TestRunListLocal_EmptyBackupsDir(t *testing.T) {
 	}
 }
 
-func TestRunListLocal_NoBackups(t *testing.T) {
+func TestRunListLocal_NoBackups(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	bakDir := t.TempDir()
 	backupsDir := filepath.Join(bakDir, "backups")
 	if err := os.MkdirAll(backupsDir, 0755); err != nil {
@@ -65,7 +65,7 @@ func TestRunListLocal_NoBackups(t *testing.T) {
 	}
 }
 
-func TestRunListLocal_SingleBackup(t *testing.T) {
+func TestRunListLocal_SingleBackup(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	bakDir := t.TempDir()
 	m := &manifest.Manifest{
 		ID:        "20260101-120000",
@@ -96,7 +96,7 @@ func TestRunListLocal_SingleBackup(t *testing.T) {
 	}
 }
 
-func TestRunListLocal_MultipleBackups(t *testing.T) {
+func TestRunListLocal_MultipleBackups(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	bakDir := t.TempDir()
 	m1 := &manifest.Manifest{
 		ID:        "20260101-120000",
@@ -141,7 +141,7 @@ func TestRunListLocal_MultipleBackups(t *testing.T) {
 	}
 }
 
-func TestRunListLocal_SkipsInvalidManifest(t *testing.T) {
+func TestRunListLocal_SkipsInvalidManifest(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	bakDir := t.TempDir()
 	// Backup directory without a valid manifest.
 	backupsDir := filepath.Join(bakDir, "backups", "corrupt-backup")
@@ -163,7 +163,7 @@ func TestRunListLocal_SkipsInvalidManifest(t *testing.T) {
 	}
 }
 
-func TestRunListLocal_VerboseWarns(t *testing.T) {
+func TestRunListLocal_VerboseWarns(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	bakDir := t.TempDir()
 	// Create a corrupt backup directory (no manifest) to trigger verbose warning.
 	backupsDir := filepath.Join(bakDir, "backups", "corrupt-backup")
@@ -201,7 +201,7 @@ func TestRunListLocal_VerboseWarns(t *testing.T) {
 	}
 }
 
-func TestFormatSizeBytes(t *testing.T) {
+func TestFormatSizeBytes(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name  string
 		bytes int64
@@ -240,8 +240,8 @@ func TestFormatSizeBytes(t *testing.T) {
 		{name: "max int64", bytes: math.MaxInt64, want: "8.0 EB"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := FormatSizeBytes(tt.bytes)
 			if got != tt.want {
 				t.Errorf("FormatSizeBytes(%d) = %q, want %q", tt.bytes, got, tt.want)
@@ -253,7 +253,7 @@ func TestFormatSizeBytes(t *testing.T) {
 // --- extracted helper tests (Phase 9) ---
 
 // TestFormatBackupDate verifies the backup-ID-to-date parser.
-func TestFormatBackupDate(t *testing.T) {
+func TestFormatBackupDate(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		backupID string
@@ -276,8 +276,8 @@ func TestFormatBackupDate(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			if got := formatBackupDate(tt.backupID); got != tt.want {
 				t.Errorf("formatBackupDate(%q) = %q, want %q", tt.backupID, got, tt.want)
 			}
@@ -287,7 +287,7 @@ func TestFormatBackupDate(t *testing.T) {
 
 // TestFormatBackupRow verifies the row formatter produces a tab-separated
 // line with sorted adapters and the parsed date.
-func TestFormatBackupRow(t *testing.T) {
+func TestFormatBackupRow(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := &manifest.Manifest{
 		Preset:    "full",
 		FileCount: 7,

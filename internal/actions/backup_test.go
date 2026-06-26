@@ -77,7 +77,7 @@ func createOpenCodeFixture(t *testing.T, home string) {
 
 // --- tests -------------------------------------------------------------
 
-func TestBackupAction_UnknownPreset(t *testing.T) {
+func TestBackupAction_UnknownPreset(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	action := &BackupAction{
 		FS:         setupMockFS(),
 		Registry:   setupBackupRegistry(),
@@ -96,7 +96,7 @@ func TestBackupAction_UnknownPreset(t *testing.T) {
 	}
 }
 
-func TestBackupAction_NoAdaptersDetected(t *testing.T) {
+func TestBackupAction_NoAdaptersDetected(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	reg := adapters.NewRegistry()
 
 	action := &BackupAction{
@@ -114,7 +114,7 @@ func TestBackupAction_NoAdaptersDetected(t *testing.T) {
 	}
 }
 
-func TestBackupAction_MkdirError(t *testing.T) {
+func TestBackupAction_MkdirError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Use a MockFileSystem that fails on EVERY MkdirAll call.
 	mockFS := &MockFileSystem{
 		HomeDir:    "/home/test",
@@ -145,7 +145,7 @@ func TestBackupAction_MkdirError(t *testing.T) {
 	}
 }
 
-func TestBackupAction_MkdirError_Integration(t *testing.T) {
+func TestBackupAction_MkdirError_Integration(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -188,7 +188,7 @@ var (
 	_ FileSystem = (*writeFailingFS)(nil)
 )
 
-func TestBackupAction_HappyPath_QuickPreset(t *testing.T) {
+func TestBackupAction_HappyPath_QuickPreset(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -231,7 +231,7 @@ func TestBackupAction_HappyPath_QuickPreset(t *testing.T) {
 	}
 }
 
-func TestBackupAction_HappyPath_FullPreset(t *testing.T) {
+func TestBackupAction_HappyPath_FullPreset(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -282,7 +282,7 @@ func TestBackupAction_HappyPath_FullPreset(t *testing.T) {
 	}
 }
 
-func TestBackupAction_InvalidAdapterFilter(t *testing.T) {
+func TestBackupAction_InvalidAdapterFilter(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -302,7 +302,7 @@ func TestBackupAction_InvalidAdapterFilter(t *testing.T) {
 	}
 }
 
-func TestBackupAction_WithSecrets(t *testing.T) {
+func TestBackupAction_WithSecrets(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -343,7 +343,7 @@ func TestBackupAction_WithSecrets(t *testing.T) {
 	}
 }
 
-func TestBackupAction_AdapterFilter(t *testing.T) {
+func TestBackupAction_AdapterFilter(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -372,7 +372,7 @@ func TestBackupAction_AdapterFilter(t *testing.T) {
 	}
 }
 
-func TestBackupAction_ManifestWriteError(t *testing.T) {
+func TestBackupAction_ManifestWriteError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	mockFS := setupMockFS()
 	mockFS.WriteErrors = map[string]error{}
 
@@ -391,7 +391,7 @@ func TestBackupAction_ManifestWriteError(t *testing.T) {
 	}
 }
 
-func TestBackupAction_MultiAdapterFilter(t *testing.T) {
+func TestBackupAction_MultiAdapterFilter(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -411,7 +411,7 @@ func TestBackupAction_MultiAdapterFilter(t *testing.T) {
 	}
 }
 
-func TestBackupAction_HomeDirError(t *testing.T) {
+func TestBackupAction_HomeDirError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	mockFS := &MockFileSystem{
 		HomeDir:    "",
 		StatResult: make(map[string]MockStatResult),
@@ -433,7 +433,7 @@ func TestBackupAction_HomeDirError(t *testing.T) {
 	}
 }
 
-func TestBackupAction_CustomCategories(t *testing.T) {
+func TestBackupAction_CustomCategories(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -453,7 +453,7 @@ func TestBackupAction_CustomCategories(t *testing.T) {
 	}
 }
 
-func TestBackupAction_SaveManifestError(t *testing.T) {
+func TestBackupAction_SaveManifestError(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -489,7 +489,7 @@ func (w *writeFailingFS) WriteFile(filename string, data []byte, perm os.FileMod
 	return errors.New("disk full")
 }
 
-func TestBackupAction_HostnameFunc_Injected(t *testing.T) {
+func TestBackupAction_HostnameFunc_Injected(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -533,7 +533,7 @@ func TestBackupAction_HostnameFunc_Injected(t *testing.T) {
 	}
 }
 
-func TestBackupAction_HostnameFunc_NilFallback(t *testing.T) {
+func TestBackupAction_HostnameFunc_NilFallback(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -579,7 +579,7 @@ func TestBackupAction_HostnameFunc_NilFallback(t *testing.T) {
 	}
 }
 
-func TestBackupAction_SkillsPreset(t *testing.T) {
+func TestBackupAction_SkillsPreset(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -598,7 +598,7 @@ func TestBackupAction_SkillsPreset(t *testing.T) {
 	}
 }
 
-func TestFormatSize(t *testing.T) {
+func TestFormatSize(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name  string
 		bytes int64
@@ -612,8 +612,8 @@ func TestFormatSize(t *testing.T) {
 		{"1 GB", 1073741824, "1.0 GB"},
 		{"large", 5 * 1024 * 1024 * 1024, "5.0 GB"},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := formatSize(tt.bytes)
 			if got != tt.want {
 				t.Errorf("formatSize(%d) = %q, want %q", tt.bytes, got, tt.want)
@@ -622,7 +622,7 @@ func TestFormatSize(t *testing.T) {
 	}
 }
 
-func TestBackupAction_StdoutInjection(t *testing.T) {
+func TestBackupAction_StdoutInjection(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Safety Net: Run must NOT accept *cobra.Command — it uses
 	// injected io.Writer fields for stdout/stderr output.
 	home := t.TempDir()
@@ -653,7 +653,7 @@ func TestBackupAction_StdoutInjection(t *testing.T) {
 	}
 }
 
-func TestBackupAction_StderrInjection(t *testing.T) {
+func TestBackupAction_StderrInjection(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -679,7 +679,7 @@ func TestBackupAction_StderrInjection(t *testing.T) {
 	_ = stderr.Bytes() // Access the injected writer — no panic from nil.
 }
 
-func TestBackupAction_NilWritersFallback(t *testing.T) {
+func TestBackupAction_NilWritersFallback(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Nil writers should not crash — they fall back to os.Stdout/os.Stderr.
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
@@ -698,7 +698,7 @@ func TestBackupAction_NilWritersFallback(t *testing.T) {
 	}
 }
 
-func TestBackupAction_StdoutNotLeaked(t *testing.T) {
+func TestBackupAction_StdoutNotLeaked(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Verify output is NOT written when io.Discard is injected.
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
@@ -729,7 +729,7 @@ func TestBackupAction_StdoutNotLeaked(t *testing.T) {
 // TestBackupAction_Run_AppliesExcludes verifies that when ExcludesLoader is
 // set, BackupAction.Run calls it and applies ScanOptions to adapters that
 // implement ScanConfigurable.
-func TestBackupAction_Run_AppliesExcludes(t *testing.T) {
+func TestBackupAction_Run_AppliesExcludes(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -883,7 +883,7 @@ func loadManifestItems(t *testing.T, home string) []manifest.Item {
 // table exercises two cases: a partial-secret fixture (10 files, 2 secrets)
 // and an all-secrets fixture (2 files, 2 secrets) so the secretRelPaths skip
 // logic is both present and general.
-func TestBackupAction_ManifestExcludesSecretFiles(t *testing.T) {
+func TestBackupAction_ManifestExcludesSecretFiles(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name       string
 		itemCount  int
@@ -906,8 +906,8 @@ func TestBackupAction_ManifestExcludesSecretFiles(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			home := t.TempDir()
 			writeStubSources(t, home, tt.itemCount, tt.secretAt)
 

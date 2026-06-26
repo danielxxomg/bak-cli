@@ -11,7 +11,7 @@ import (
 	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 )
 
-func TestLoadPath_NonExistent(t *testing.T) {
+func TestLoadPath_NonExistent(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Loading a non-existent config should return defaults (empty config).
 	cfgPath := filepath.Join(t.TempDir(), "nonexistent", "config.json")
 	cfg, err := LoadPath(cfgPath)
@@ -26,7 +26,7 @@ func TestLoadPath_NonExistent(t *testing.T) {
 	}
 }
 
-func TestLoadPath_ValidFile(t *testing.T) {
+func TestLoadPath_ValidFile(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -55,7 +55,7 @@ func TestLoadPath_ValidFile(t *testing.T) {
 	}
 }
 
-func TestLoadPath_InvalidJSON(t *testing.T) {
+func TestLoadPath_InvalidJSON(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -70,7 +70,7 @@ func TestLoadPath_InvalidJSON(t *testing.T) {
 	}
 }
 
-func TestSave_RoundTrip(t *testing.T) {
+func TestSave_RoundTrip(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -106,7 +106,7 @@ func TestSave_RoundTrip(t *testing.T) {
 	}
 }
 
-func TestSave_CreatesDirectories(t *testing.T) {
+func TestSave_CreatesDirectories(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "nested", "deep", "config.json")
 
@@ -121,7 +121,7 @@ func TestSave_CreatesDirectories(t *testing.T) {
 	}
 }
 
-func TestGet_KnownKeys(t *testing.T) {
+func TestGet_KnownKeys(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &Config{
 		GitHubToken: "ghp_test",
 		GistID:      "gist_test",
@@ -135,8 +135,8 @@ func TestGet_KnownKeys(t *testing.T) {
 		{"github.gist_id", "gist_test"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.key, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.key, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got, err := cfg.Get(tt.key)
 			if err != nil {
 				t.Errorf("Get(%q) error: %v", tt.key, err)
@@ -148,7 +148,7 @@ func TestGet_KnownKeys(t *testing.T) {
 	}
 }
 
-func TestGet_UnknownKey(t *testing.T) {
+func TestGet_UnknownKey(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &Config{}
 	_, err := cfg.Get("unknown.key")
 	if err == nil {
@@ -156,7 +156,7 @@ func TestGet_UnknownKey(t *testing.T) {
 	}
 }
 
-func TestSet_KnownKeys(t *testing.T) {
+func TestSet_KnownKeys(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -194,7 +194,7 @@ func TestSet_KnownKeys(t *testing.T) {
 	}
 }
 
-func TestSet_UnknownKey(t *testing.T) {
+func TestSet_UnknownKey(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &Config{}
 	err := cfg.Set("unknown.key", "value")
 	if err == nil {
@@ -202,7 +202,7 @@ func TestSet_UnknownKey(t *testing.T) {
 	}
 }
 
-func TestDefaultPath(t *testing.T) {
+func TestDefaultPath(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	path, err := DefaultPath()
 	if err != nil {
 		t.Fatalf("DefaultPath() error: %v", err)
@@ -215,7 +215,7 @@ func TestDefaultPath(t *testing.T) {
 	}
 }
 
-func TestMarshalIndent(t *testing.T) {
+func TestMarshalIndent(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &Config{
 		GitHubToken: "ghp_test",
 		GistID:      "gist_test",
@@ -247,7 +247,7 @@ func TestMarshalIndent(t *testing.T) {
 	}
 }
 
-func TestLoadPath_EmptyFile(t *testing.T) {
+func TestLoadPath_EmptyFile(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -262,7 +262,7 @@ func TestLoadPath_EmptyFile(t *testing.T) {
 	}
 }
 
-func TestLoadPath_WhitespaceOnly(t *testing.T) {
+func TestLoadPath_WhitespaceOnly(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -277,7 +277,7 @@ func TestLoadPath_WhitespaceOnly(t *testing.T) {
 	}
 }
 
-func TestLoadPath_EmptyObject(t *testing.T) {
+func TestLoadPath_EmptyObject(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -298,7 +298,7 @@ func TestLoadPath_EmptyObject(t *testing.T) {
 	}
 }
 
-func TestLoadPath_PartialJSON(t *testing.T) {
+func TestLoadPath_PartialJSON(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -320,7 +320,7 @@ func TestLoadPath_PartialJSON(t *testing.T) {
 	}
 }
 
-func TestLoadPath_ExtraFields(t *testing.T) {
+func TestLoadPath_ExtraFields(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -343,7 +343,7 @@ func TestLoadPath_ExtraFields(t *testing.T) {
 	}
 }
 
-func TestSave_PreservesIndentation(t *testing.T) {
+func TestSave_PreservesIndentation(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -376,7 +376,7 @@ func TestSave_PreservesIndentation(t *testing.T) {
 	}
 }
 
-func TestSave_ExcludesOmitempty(t *testing.T) {
+func TestSave_ExcludesOmitempty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -407,7 +407,7 @@ func TestSave_ExcludesOmitempty(t *testing.T) {
 	}
 }
 
-func TestConfig_ImmutabilityAfterLoad(t *testing.T) {
+func TestConfig_ImmutabilityAfterLoad(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -438,7 +438,7 @@ func TestConfig_ImmutabilityAfterLoad(t *testing.T) {
 	}
 }
 
-func TestSave_ValidOutputFile(t *testing.T) {
+func TestSave_ValidOutputFile(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -467,7 +467,7 @@ func TestSave_ValidOutputFile(t *testing.T) {
 
 // --- ScheduleConfig round-trip ---
 
-func TestSave_ScheduleConfig_RoundTrip(t *testing.T) {
+func TestSave_ScheduleConfig_RoundTrip(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -510,7 +510,7 @@ func TestSave_ScheduleConfig_RoundTrip(t *testing.T) {
 	}
 }
 
-func TestSave_ScheduleConfig_DisabledOmitted(t *testing.T) {
+func TestSave_ScheduleConfig_DisabledOmitted(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -552,11 +552,11 @@ func TestSave_ScheduleConfig_DisabledOmitted(t *testing.T) {
 	}
 }
 
-func TestSave_ScheduleConfig_MultipleIntervals(t *testing.T) {
+func TestSave_ScheduleConfig_MultipleIntervals(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	intervals := []string{"daily", "weekly", "every-12h", "every-6h"}
 
-	for _, iv := range intervals {
-		t.Run(iv, func(t *testing.T) {
+	for _, iv := range intervals { //nolint:paralleltest // subtests share table/struct state
+		t.Run(iv, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			dir := t.TempDir()
 			cfgPath := filepath.Join(dir, "config.json")
 
@@ -593,7 +593,7 @@ func TestSave_ScheduleConfig_MultipleIntervals(t *testing.T) {
 	}
 }
 
-func TestLoad_ViaEnvVar(t *testing.T) {
+func TestLoad_ViaEnvVar(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Use configtest.SetConfigHome so Load() finds our config on every OS.
 	dir := t.TempDir()
 	configtest.SetConfigHome(t, dir)
@@ -631,7 +631,7 @@ func TestLoad_ViaEnvVar(t *testing.T) {
 	}
 }
 
-func TestLoad_NonExistentConfig(t *testing.T) {
+func TestLoad_NonExistentConfig(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Load with a config dir that has no config.json should return defaults.
 	dir := t.TempDir()
 	configtest.SetConfigHome(t, dir)
@@ -645,7 +645,7 @@ func TestLoad_NonExistentConfig(t *testing.T) {
 	}
 }
 
-func TestSave_EmptyPath(t *testing.T) {
+func TestSave_EmptyPath(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Save with empty path should use DefaultPath().
 	// We override env vars so DefaultPath() goes to our temp dir.
 	dir := t.TempDir()
@@ -670,7 +670,7 @@ func TestSave_EmptyPath(t *testing.T) {
 // Settings tests — RED (Settings struct does not exist yet)
 // =============================================================================
 
-func TestSettings_Defaults(t *testing.T) {
+func TestSettings_Defaults(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	s := DefaultSettings()
 
 	if s.DefaultPreset != "quick" {
@@ -696,7 +696,7 @@ func TestSettings_Defaults(t *testing.T) {
 	}
 }
 
-func TestSettings_SaveLoadRoundTrip(t *testing.T) {
+func TestSettings_SaveLoadRoundTrip(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -753,7 +753,7 @@ func TestSettings_SaveLoadRoundTrip(t *testing.T) {
 	}
 }
 
-func TestLoad_AppliesDefaultsWhenMissing(t *testing.T) {
+func TestLoad_AppliesDefaultsWhenMissing(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -788,7 +788,7 @@ func TestLoad_AppliesDefaultsWhenMissing(t *testing.T) {
 	}
 }
 
-func TestSettings_LoadDefaultsWhenMissing(t *testing.T) {
+func TestSettings_LoadDefaultsWhenMissing(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -813,7 +813,7 @@ func TestSettings_LoadDefaultsWhenMissing(t *testing.T) {
 }
 
 // triangulate: existing non-zero settings are NOT overwritten.
-func TestLoad_DefaultsRespectExistingSettings(t *testing.T) {
+func TestLoad_DefaultsRespectExistingSettings(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 
@@ -853,7 +853,7 @@ func boolPtr(b bool) *bool {
 
 // TestGetSettingsField covers every documented settings alias resolving to
 // its canonical value through the Get("settings.*") path.
-func TestGetSettingsField(t *testing.T) {
+func TestGetSettingsField(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	confirm := false
 	cfg := &Config{
 		Settings: Settings{
@@ -879,8 +879,8 @@ func TestGetSettingsField(t *testing.T) {
 		{name: "confirm_destructive set false", key: "settings.confirm_destructive", want: "false"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got, err := cfg.Get(tt.key)
 			if err != nil {
 				t.Fatalf("Get(%q) error: %v", tt.key, err)
@@ -894,7 +894,7 @@ func TestGetSettingsField(t *testing.T) {
 
 // TestGetSettingsField_ConfirmDestructiveNilDefault covers the nil branch:
 // when ConfirmDestructive is unset, the getter returns the "true" default.
-func TestGetSettingsField_ConfirmDestructiveNilDefault(t *testing.T) {
+func TestGetSettingsField_ConfirmDestructiveNilDefault(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &Config{Settings: Settings{ConfirmDestructive: nil}}
 	got, err := cfg.Get("settings.confirm_destructive")
 	if err != nil {
@@ -905,7 +905,7 @@ func TestGetSettingsField_ConfirmDestructiveNilDefault(t *testing.T) {
 	}
 }
 
-func TestGetSettingsField_UnknownKey(t *testing.T) {
+func TestGetSettingsField_UnknownKey(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &Config{}
 	_, err := cfg.Get("settings.nonexistent")
 	if err == nil {
@@ -915,7 +915,7 @@ func TestGetSettingsField_UnknownKey(t *testing.T) {
 
 // TestSetSettingsField covers writing each settings field through the
 // Set("settings.*") path and verifying the in-memory Config is updated.
-func TestSetSettingsField(t *testing.T) {
+func TestSetSettingsField(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name   string
 		key    string
@@ -984,8 +984,8 @@ func TestSetSettingsField(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			dir := t.TempDir()
 			cfg := &Config{path: filepath.Join(dir, "config.json")}
 			if err := cfg.Set(tt.key, tt.value); err != nil {
@@ -1013,13 +1013,13 @@ func TestSetSettingsField(t *testing.T) {
 	}
 }
 
-func TestSetSettingsField_InvalidBool(t *testing.T) {
+func TestSetSettingsField_InvalidBool(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfg := &Config{path: filepath.Join(dir, "config.json")}
 
 	boolKeys := []string{"settings.auto_sync", "settings.verbose_default", "settings.confirm_destructive"}
-	for _, key := range boolKeys {
-		t.Run(key, func(t *testing.T) {
+	for _, key := range boolKeys { //nolint:paralleltest // subtests share table/struct state
+		t.Run(key, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			if err := cfg.Set(key, "notabool"); err == nil {
 				t.Errorf("Set(%q, %q) expected error for invalid bool, got nil", key, "notabool")
 			}
@@ -1027,7 +1027,7 @@ func TestSetSettingsField_InvalidBool(t *testing.T) {
 	}
 }
 
-func TestSetSettingsField_InvalidMaxFileSize(t *testing.T) {
+func TestSetSettingsField_InvalidMaxFileSize(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfg := &Config{path: filepath.Join(dir, "config.json")}
 	if err := cfg.Set("settings.max_file_size", "notanumber"); err == nil {
@@ -1035,7 +1035,7 @@ func TestSetSettingsField_InvalidMaxFileSize(t *testing.T) {
 	}
 }
 
-func TestSetSettingsField_UnknownKey(t *testing.T) {
+func TestSetSettingsField_UnknownKey(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &Config{}
 	if err := cfg.Set("settings.nonexistent", "x"); err == nil {
 		t.Error("expected error for unknown settings key, got nil")
@@ -1044,7 +1044,7 @@ func TestSetSettingsField_UnknownKey(t *testing.T) {
 
 // TestParseBool locks the accepted boolean token set: true/false, 1/0,
 // yes/no (all case-insensitive). Any other token returns an error.
-func TestParseBool(t *testing.T) {
+func TestParseBool(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name    string
 		input   string
@@ -1063,8 +1063,8 @@ func TestParseBool(t *testing.T) {
 		{name: "arbitrary string rejected", input: "maybe", wantErr: true},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got, err := parseBool(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("parseBool(%q) err = %v, wantErr %v", tt.input, err, tt.wantErr)
@@ -1083,7 +1083,7 @@ func TestParseBool(t *testing.T) {
 // Load / Save / Get / Set error paths
 // =============================================================================
 
-func TestLoadPath_UnreadableFile(t *testing.T) {
+func TestLoadPath_UnreadableFile(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod 000 does not block reads on Windows")
 	}
@@ -1110,7 +1110,7 @@ func TestLoadPath_UnreadableFile(t *testing.T) {
 	}
 }
 
-func TestSave_UnwritableDirectory(t *testing.T) {
+func TestSave_UnwritableDirectory(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod 0500 does not block writes on Windows")
 	}
@@ -1138,7 +1138,7 @@ func TestSave_UnwritableDirectory(t *testing.T) {
 	}
 }
 
-func TestGet_NestedProviderKeys(t *testing.T) {
+func TestGet_NestedProviderKeys(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &Config{
 		Providers: map[string]ProviderConfig{
 			"github": {Token: "tok-gh", GistID: "gist-gh"},
@@ -1156,8 +1156,8 @@ func TestGet_NestedProviderKeys(t *testing.T) {
 		{"providers.gitea.base_url", "https://gitea.example"},
 		{"providers.gitea.remote", "origin"},
 	}
-	for _, tt := range tests {
-		t.Run(tt.key, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.key, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got, err := cfg.Get(tt.key)
 			if err != nil {
 				t.Fatalf("Get(%q) error: %v", tt.key, err)
@@ -1169,22 +1169,22 @@ func TestGet_NestedProviderKeys(t *testing.T) {
 	}
 }
 
-func TestGet_NestedProvider_Errors(t *testing.T) {
+func TestGet_NestedProvider_Errors(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &Config{Providers: map[string]ProviderConfig{"github": {Token: "t"}}}
 
-	t.Run("unconfigured provider", func(t *testing.T) {
+	t.Run("unconfigured provider", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		if _, err := cfg.Get("providers.codeberg.token"); err == nil {
 			t.Error("expected error for unconfigured provider, got nil")
 		}
 	})
-	t.Run("unsupported field", func(t *testing.T) {
+	t.Run("unsupported field", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		if _, err := cfg.Get("providers.github.bogus"); err == nil {
 			t.Error("expected error for unsupported provider field, got nil")
 		}
 	})
 }
 
-func TestSet_NestedProviderKeys(t *testing.T) {
+func TestSet_NestedProviderKeys(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfg := &Config{path: filepath.Join(dir, "config.json")}
 
@@ -1215,7 +1215,7 @@ func TestSet_NestedProviderKeys(t *testing.T) {
 	}
 }
 
-func TestSet_NestedProvider_UnsupportedField(t *testing.T) {
+func TestSet_NestedProvider_UnsupportedField(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfg := &Config{path: filepath.Join(dir, "config.json")}
 	if err := cfg.Set("providers.github.bogus", "x"); err == nil {
@@ -1223,7 +1223,7 @@ func TestSet_NestedProvider_UnsupportedField(t *testing.T) {
 	}
 }
 
-func TestSettings_ActiveProfileRoundTrip(t *testing.T) {
+func TestSettings_ActiveProfileRoundTrip(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 

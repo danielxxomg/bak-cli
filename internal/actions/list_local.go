@@ -16,37 +16,12 @@ import (
 // all backups to out. Verbose warnings (e.g., skipped corrupt backups)
 // are written to errOut when verbose is true.
 func RunListLocal(bakDir string, verbose bool, out, errOut io.Writer) error {
-	backupsDir := filepath.Join(bakDir, "backups")
-
-	// Check if backups directory exists.
-	if _, err := os.Stat(backupsDir); err != nil {
-		if os.IsNotExist(err) {
-			if err := writeNoBackupsFound(out); err != nil {
-				return fmt.Errorf("write output: %w", err)
-			}
-			return nil
-		}
-		return fmt.Errorf("stat backups dir: %w", err)
-	}
-
-	entries, err := os.ReadDir(backupsDir)
+	backupDirs, err := readBackupDirs(bakDir, out)
 	if err != nil {
-		return fmt.Errorf("read backups dir: %w", err)
+		return err
 	}
-
-	// Filter to directories only (backup IDs are directory names).
-	var backupDirs []os.DirEntry
-	for _, e := range entries {
-		if e.IsDir() {
-			backupDirs = append(backupDirs, e)
-		}
-	}
-
-	if len(backupDirs) == 0 {
-		if err := writeNoBackupsFound(out); err != nil {
-			return fmt.Errorf("write output: %w", err)
-		}
-		return nil
+	if backupDirs == nil {
+		return nil // "No backups found" already written by readBackupDirs
 	}
 
 	// Create tabwriter for formatted output.
@@ -60,7 +35,7 @@ func RunListLocal(bakDir string, verbose bool, out, errOut io.Writer) error {
 
 	for _, entry := range backupDirs {
 		backupID := entry.Name()
-		backupPath := filepath.Join(backupsDir, backupID)
+		backupPath := filepath.Join(filepath.Join(bakDir, "backups"), backupID)
 
 		// Try to load manifest.
 		m, err := manifest.Load(backupPath)
@@ -82,6 +57,47 @@ func RunListLocal(bakDir string, verbose bool, out, errOut io.Writer) error {
 	}
 
 	return nil
+}
+
+// readBackupDirs returns the backup subdirectories under bakDir/backups.
+// When the directory is missing or contains no backups it writes the
+// "No backups found" guidance to out and returns (nil, nil) so the caller
+// can return cleanly. A non-nil error is returned only for unexpected
+// filesystem failures.
+func readBackupDirs(bakDir string, out io.Writer) ([]os.DirEntry, error) {
+	backupsDir := filepath.Join(bakDir, "backups")
+
+	if _, err := os.Stat(backupsDir); err != nil {
+		if os.IsNotExist(err) {
+			if err := writeNoBackupsFound(out); err != nil {
+				return nil, fmt.Errorf("write output: %w", err)
+			}
+			return nil, nil
+		}
+		return nil, fmt.Errorf("stat backups dir: %w", err)
+	}
+
+	entries, err := os.ReadDir(backupsDir)
+	if err != nil {
+		return nil, fmt.Errorf("read backups dir: %w", err)
+	}
+
+	// Filter to directories only (backup IDs are directory names).
+	var backupDirs []os.DirEntry
+	for _, e := range entries {
+		if e.IsDir() {
+			backupDirs = append(backupDirs, e)
+		}
+	}
+
+	if len(backupDirs) == 0 {
+		if err := writeNoBackupsFound(out); err != nil {
+			return nil, fmt.Errorf("write output: %w", err)
+		}
+		return nil, nil
+	}
+
+	return backupDirs, nil
 }
 
 // FormatSizeBytes formats bytes into a human-readable string.

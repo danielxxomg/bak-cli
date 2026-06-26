@@ -15,7 +15,7 @@ import (
 // TestNewDashboardModel — RED (dashboard.go does not exist yet)
 // =============================================================================
 
-func TestNewDashboardModel(t *testing.T) {
+func TestNewDashboardModel(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name       string
 		listFn     func() ([]BackupInfo, error)
@@ -56,8 +56,8 @@ func TestNewDashboardModel(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := NewDashboardModel(tt.listFn)
 
 			if tt.wantErrNil && m.err != nil {
@@ -83,7 +83,7 @@ func TestNewDashboardModel(t *testing.T) {
 // TestDashboard_Update_NavigateDown — RED
 // =============================================================================
 
-func TestDashboard_Update_NavigateDown(t *testing.T) {
+func TestDashboard_Update_NavigateDown(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewDashboardModel(func() ([]BackupInfo, error) {
 		return []BackupInfo{
 			{ID: "1"}, {ID: "2"}, {ID: "3"},
@@ -118,7 +118,7 @@ func TestDashboard_Update_NavigateDown(t *testing.T) {
 // TestDashboard_Update_NavigateUp — RED
 // =============================================================================
 
-func TestDashboard_Update_NavigateUp(t *testing.T) {
+func TestDashboard_Update_NavigateUp(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewDashboardModel(func() ([]BackupInfo, error) {
 		return []BackupInfo{
 			{ID: "1"}, {ID: "2"}, {ID: "3"},
@@ -155,7 +155,7 @@ func TestDashboard_Update_NavigateUp(t *testing.T) {
 // TestDashboard_Update_Back — RED
 // =============================================================================
 
-func TestDashboard_Update_Back(t *testing.T) {
+func TestDashboard_Update_Back(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name string
 		code rune
@@ -164,8 +164,8 @@ func TestDashboard_Update_Back(t *testing.T) {
 		{"quit with esc", 27},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := NewDashboardModel(func() ([]BackupInfo, error) {
 				return []BackupInfo{{ID: "1"}}, nil
 			})
@@ -188,7 +188,7 @@ func TestDashboard_Update_Back(t *testing.T) {
 // TestDashboard_View_Populated — RED
 // =============================================================================
 
-func TestDashboard_View_Populated(t *testing.T) {
+func TestDashboard_View_Populated(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewDashboardModel(func() ([]BackupInfo, error) {
 		return []BackupInfo{
 			{ID: "abc123", Date: "2024-01-15", Size: "1.2MB", Status: "ok", Cloud: "none"},
@@ -231,7 +231,7 @@ func TestDashboard_View_Populated(t *testing.T) {
 // TestDashboard_View_EmptyState — RED
 // =============================================================================
 
-func TestDashboard_View_EmptyState(t *testing.T) {
+func TestDashboard_View_EmptyState(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewDashboardModel(func() ([]BackupInfo, error) {
 		return []BackupInfo{}, nil
 	})
@@ -253,7 +253,7 @@ func TestDashboard_View_EmptyState(t *testing.T) {
 // TestDashboard_View_ErrorState — RED
 // =============================================================================
 
-func TestDashboard_View_ErrorState(t *testing.T) {
+func TestDashboard_View_ErrorState(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewDashboardModel(func() ([]BackupInfo, error) {
 		return nil, assertAnError("connection refused")
 	})
@@ -280,7 +280,7 @@ func TestDashboard_View_ErrorState(t *testing.T) {
 // =============================================================================
 
 // TestDashboard_Init_ReturnsNil verifies Init() has no initial side effects.
-func TestDashboard_Init_ReturnsNil(t *testing.T) {
+func TestDashboard_Init_ReturnsNil(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewDashboardModel(func() ([]BackupInfo, error) {
 		return []BackupInfo{{ID: "1"}}, nil
 	})
@@ -293,7 +293,7 @@ func TestDashboard_Init_ReturnsNil(t *testing.T) {
 
 // TestDashboard_NavigateDown_EmptyList verifies that navigation on empty
 // list is a no-op (cursor stays at -1, the bubbles table default for no rows).
-func TestDashboard_NavigateDown_EmptyList(t *testing.T) {
+func TestDashboard_NavigateDown_EmptyList(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewDashboardModel(func() ([]BackupInfo, error) {
 		return []BackupInfo{}, nil
 	})
@@ -308,7 +308,7 @@ func TestDashboard_NavigateDown_EmptyList(t *testing.T) {
 }
 
 // TestDashboard_Update_WindowSize verifies WindowSizeMsg updates dimensions.
-func TestDashboard_Update_WindowSize(t *testing.T) {
+func TestDashboard_Update_WindowSize(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewDashboardModel(func() ([]BackupInfo, error) {
 		return []BackupInfo{{ID: "1"}}, nil
 	})
@@ -325,7 +325,7 @@ func TestDashboard_Update_WindowSize(t *testing.T) {
 }
 
 // TestDashboard_View_NarrowTerminal verifies output is non-empty on narrow terminals.
-func TestDashboard_View_NarrowTerminal(t *testing.T) {
+func TestDashboard_View_NarrowTerminal(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewDashboardModel(func() ([]BackupInfo, error) {
 		return []BackupInfo{{ID: "abc123", Date: "2024-01-15", Size: "1.2MB", Status: "ok", Cloud: "none"}}, nil
 	})
@@ -340,7 +340,7 @@ func TestDashboard_View_NarrowTerminal(t *testing.T) {
 }
 
 // TestDashboard_View_SingleRow verifies a single backup row renders correctly.
-func TestDashboard_View_SingleRow(t *testing.T) {
+func TestDashboard_View_SingleRow(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewDashboardModel(func() ([]BackupInfo, error) {
 		return []BackupInfo{
 			{ID: "single01", Date: "2024-06-01", Size: "0.5MB", Status: "ok", Cloud: "dropbox"},
@@ -373,7 +373,7 @@ func TestDashboard_View_SingleRow(t *testing.T) {
 
 // TestDashboard_SetFilter_MatchingRows verifies that SetFilter with a
 // matching query returns only rows containing that substring (case-insensitive).
-func TestDashboard_SetFilter_MatchingRows(t *testing.T) {
+func TestDashboard_SetFilter_MatchingRows(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewDashboardModel(func() ([]BackupInfo, error) {
 		return []BackupInfo{
 			{ID: "conf-1", Date: "2024-01-01", Size: "1MB", Status: "ok", Cloud: "none"},
@@ -404,7 +404,7 @@ func TestDashboard_SetFilter_MatchingRows(t *testing.T) {
 
 // TestDashboard_SetFilter_EmptyRestoresAll verifies that SetFilter("")
 // restores all original rows after a previous filter was applied.
-func TestDashboard_SetFilter_EmptyRestoresAll(t *testing.T) {
+func TestDashboard_SetFilter_EmptyRestoresAll(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewDashboardModel(func() ([]BackupInfo, error) {
 		return []BackupInfo{
 			{ID: "a-1", Date: "2024-01-01", Size: "1MB", Status: "ok", Cloud: "none"},
@@ -435,7 +435,7 @@ func TestDashboard_SetFilter_EmptyRestoresAll(t *testing.T) {
 
 // TestDashboard_SetFilter_NoMatch verifies that SetFilter with a query
 // that matches nothing produces an empty row set.
-func TestDashboard_SetFilter_NoMatch(t *testing.T) {
+func TestDashboard_SetFilter_NoMatch(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewDashboardModel(func() ([]BackupInfo, error) {
 		return []BackupInfo{
 			{ID: "alpha", Date: "2024-01-01", Size: "1MB", Status: "ok", Cloud: "none"},
@@ -476,7 +476,7 @@ func contains(ss []string, s string) bool {
 // TestDashboard_View_HelpBar_Populated — RED (Phase 3: help bar persistence)
 // =============================================================================
 
-func TestDashboard_View_HelpBar_Populated(t *testing.T) {
+func TestDashboard_View_HelpBar_Populated(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewDashboardModel(func() ([]BackupInfo, error) {
 		return []BackupInfo{
 			{ID: "abc123", Date: "2024-01-15", Size: "1.2MB", Status: "ok", Cloud: "none"},
@@ -503,7 +503,7 @@ func TestDashboard_View_HelpBar_Populated(t *testing.T) {
 // TestDashboard_View_HelpBar_Empty — RED (Phase 3: help bar persistence)
 // =============================================================================
 
-func TestDashboard_View_HelpBar_Empty(t *testing.T) {
+func TestDashboard_View_HelpBar_Empty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewDashboardModel(func() ([]BackupInfo, error) {
 		return []BackupInfo{}, nil
 	})
@@ -528,7 +528,7 @@ func TestDashboard_View_HelpBar_Empty(t *testing.T) {
 // TestDashboard_View_HelpBar_Error — RED (Phase 3: help bar persistence)
 // =============================================================================
 
-func TestDashboard_View_HelpBar_Error(t *testing.T) {
+func TestDashboard_View_HelpBar_Error(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewDashboardModel(func() ([]BackupInfo, error) {
 		return nil, assertAnError("connection refused")
 	})
@@ -563,7 +563,7 @@ func (e assertAnError) Error() string { return string(e) }
 // TestDashboard_View_MinSizeGuard — threshold guard at 40×12 (Phase 4)
 // =============================================================================
 
-func TestDashboard_View_MinSizeGuard(t *testing.T) {
+func TestDashboard_View_MinSizeGuard(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		width    int
@@ -577,8 +577,8 @@ func TestDashboard_View_MinSizeGuard(t *testing.T) {
 		{"above min (80x24)", 80, 24, false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := NewDashboardModel(func() ([]BackupInfo, error) {
 				return []BackupInfo{}, nil
 			})

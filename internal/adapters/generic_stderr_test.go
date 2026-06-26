@@ -56,7 +56,7 @@ func captureStderrInternal(t *testing.T, fn func()) string {
 //
 // This lives in package adapters (internal test) so it can swap the
 // unexported stderrWriter seam.
-func TestEmitOversizeWarning_StderrWriteFailureContinuesScan(t *testing.T) {
+func TestEmitOversizeWarning_StderrWriteFailureContinuesScan(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name       string
 		adapter    GenericAdapter
@@ -99,8 +99,8 @@ func TestEmitOversizeWarning_StderrWriteFailureContinuesScan(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			home := t.TempDir()
 			configDir := filepath.Join(home, ".test")
 			if err := os.MkdirAll(configDir, 0o755); err != nil {

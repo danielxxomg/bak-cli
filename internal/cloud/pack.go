@@ -40,7 +40,7 @@ func UntarGz(encoded string, targetDir string) error {
 
 // tarGzDir writes a gzipped tar of dir to w.
 //
-//nolint:gocognit // inherent: tar/gzip walk is a fixed algorithm with per-entry-type branching that cannot be decomposed without obscuring the walk
+//nolint:gocognit,gocyclo // inherent: tar/gzip walk is a fixed algorithm with per-entry-type branching that cannot be decomposed without obscuring the walk
 func tarGzDir(dir string, w io.Writer) (retErr error) { //nolint:funlen // inherent: tar/gzip walk is a fixed algorithm with mandatory close/flush steps
 	gw := gzip.NewWriter(w)
 	defer func() {
@@ -140,7 +140,7 @@ func tarGzDir(dir string, w io.Writer) (retErr error) { //nolint:funlen // inher
 
 // untarGzDir extracts a tar.gz from reader into targetDir.
 //
-//nolint:gocognit // inherent: tar/gzip extraction is a fixed algorithm with per-entry-type branching and security checks that cannot be decomposed without obscuring the walk
+//nolint:gocognit,gocyclo // inherent: tar/gzip extraction is a fixed algorithm with per-entry-type branching and security checks that cannot be decomposed without obscuring the walk
 func untarGzDir(r io.Reader, targetDir string) (retErr error) {
 	gr, err := gzip.NewReader(r)
 	if err != nil {

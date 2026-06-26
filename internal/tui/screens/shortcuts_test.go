@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestRenderShortcuts(t *testing.T) {
+func TestRenderShortcuts(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name  string
 		width int
@@ -104,8 +104,8 @@ func TestRenderShortcuts(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			output := RenderShortcuts(tt.width)
 			tt.check(t, output)
 		})

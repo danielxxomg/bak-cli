@@ -15,7 +15,7 @@ import (
 // TestNewToast — RED (toast.go does not exist yet)
 // =============================================================================
 
-func TestNewToast(t *testing.T) {
+func TestNewToast(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tst := NewToast()
 
 	if tst.message != "" {
@@ -36,7 +36,7 @@ func TestNewToast(t *testing.T) {
 // TestToast_Show — RED
 // =============================================================================
 
-func TestToast_Show(t *testing.T) {
+func TestToast_Show(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tst := NewToast()
 	tst.Show("Backup complete", 3)
 
@@ -59,7 +59,7 @@ func TestToast_Show(t *testing.T) {
 // TestToast_Update_Tick — RED
 // =============================================================================
 
-func TestToast_Update_Tick(t *testing.T) {
+func TestToast_Update_Tick(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name        string
 		ttl         int
@@ -92,8 +92,8 @@ func TestToast_Update_Tick(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			tst := NewToast()
 			tst.Show("test", tt.ttl)
 
@@ -113,7 +113,7 @@ func TestToast_Update_Tick(t *testing.T) {
 // TestToast_Update_ReturnsTick — RED
 // =============================================================================
 
-func TestToast_Update_ReturnsTick(t *testing.T) {
+func TestToast_Update_ReturnsTick(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tst := NewToast()
 	tst.Show("test", 3)
 
@@ -137,7 +137,7 @@ func TestToast_Update_ReturnsTick(t *testing.T) {
 // TestToast_Update_TickReturnsTick — RED
 // =============================================================================
 
-func TestToast_Update_TickReturnsTick(t *testing.T) {
+func TestToast_Update_TickReturnsTick(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tst := NewToast()
 	tst.Show("test", 3)
 
@@ -155,7 +155,7 @@ func TestToast_Update_TickReturnsTick(t *testing.T) {
 // TestToast_View_Visible — RED
 // =============================================================================
 
-func TestToast_View_Visible(t *testing.T) {
+func TestToast_View_Visible(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tst := NewToast()
 	tst.Show("Backup complete!", 3)
 
@@ -173,7 +173,7 @@ func TestToast_View_Visible(t *testing.T) {
 // TestToast_View_Hidden — RED
 // =============================================================================
 
-func TestToast_View_Hidden(t *testing.T) {
+func TestToast_View_Hidden(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tst := NewToast()
 
 	output := tst.View()
@@ -187,7 +187,7 @@ func TestToast_View_Hidden(t *testing.T) {
 // TestToast_TickIsPeriodic — RED (triangulation)
 // =============================================================================
 
-func TestToast_TickIsPeriodic(t *testing.T) {
+func TestToast_TickIsPeriodic(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tst := NewToast()
 	tst.Show("test", 5)
 
@@ -208,7 +208,7 @@ func TestToast_TickIsPeriodic(t *testing.T) {
 // TestToast_ShowResets — RED (triangulation)
 // =============================================================================
 
-func TestToast_ShowResets(t *testing.T) {
+func TestToast_ShowResets(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tst := NewToast()
 	tst.Show("first", 2)
 	// Tick once.
@@ -232,7 +232,7 @@ func TestToast_ShowResets(t *testing.T) {
 // TestToast_NoDoubleTickWhenHidden — RED (triangulation)
 // =============================================================================
 
-func TestToast_NoDoubleTickWhenHidden(t *testing.T) {
+func TestToast_NoDoubleTickWhenHidden(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tst := NewToast()
 
 	// Hidden toast should not return tick cmd.
@@ -253,7 +253,7 @@ var _ = time.Second
 // Phase 4: Tick-expired dismiss coverage
 // =============================================================================
 
-func TestToast_Update_TickExpired(t *testing.T) {
+func TestToast_Update_TickExpired(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tst := NewToast()
 
 	// Show a toast with TTL of 1 tick.
@@ -273,7 +273,7 @@ func TestToast_Update_TickExpired(t *testing.T) {
 
 // TestToast_Update_TickMidCountdown verifies the toast stays visible
 // after a tick that does not yet reach the TTL.
-func TestToast_Update_TickMidCountdown(t *testing.T) {
+func TestToast_Update_TickMidCountdown(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tst := NewToast()
 
 	// Show a toast with TTL of 3.

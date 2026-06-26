@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestSchtasksScheduler_Create_NoAdmin(t *testing.T) {
+func TestSchtasksScheduler_Create_NoAdmin(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	origIsAdmin := isAdminFn
 	defer func() { isAdminFn = origIsAdmin }()
 
@@ -25,7 +25,7 @@ func TestSchtasksScheduler_Create_NoAdmin(t *testing.T) {
 	}
 }
 
-func TestSchtasksScheduler_Create_Admin_ProceedsToSchtasks(t *testing.T) {
+func TestSchtasksScheduler_Create_Admin_ProceedsToSchtasks(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	origIsAdmin := isAdminFn
 	origExec := execCommand
 	defer func() {
@@ -57,13 +57,13 @@ func TestSchtasksScheduler_Create_Admin_ProceedsToSchtasks(t *testing.T) {
 	}
 }
 
-func TestIsAdmin_ReturnsBool(t *testing.T) {
+func TestIsAdmin_ReturnsBool(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	result := isAdmin()
 	// Just verify it doesn't panic and returns a boolean.
 	_ = result
 }
 
-func TestSchtasksScheduler_Remove_NoAdminRequired(t *testing.T) {
+func TestSchtasksScheduler_Remove_NoAdminRequired(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Remove does not check admin; verify it proceeds.
 	origExec := execCommand
 	defer func() { execCommand = origExec }()

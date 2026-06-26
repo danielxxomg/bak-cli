@@ -30,7 +30,7 @@ func item(sourcePath, hash, adapter string) manifest.Item {
 	}
 }
 
-func TestCompare(t *testing.T) {
+func TestCompare(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name string
 		a    *manifest.Manifest
@@ -163,8 +163,8 @@ func TestCompare(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			// Skip Windows-specific test cases on non-Windows platforms.
 			if strings.Contains(tt.name, "windows") && runtime.GOOS != "windows" {
 				t.Skip("skipping Windows-specific test on non-Windows platform")
@@ -190,7 +190,7 @@ func TestCompare(t *testing.T) {
 	}
 }
 
-func TestCategoryConstants(t *testing.T) {
+func TestCategoryConstants(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Verify all 4 categories are distinct non-empty strings.
 	cats := []Category{CategoryAdded, CategoryRemoved, CategoryModified, CategoryUnchanged}
 	seen := make(map[Category]bool)
@@ -208,7 +208,7 @@ func TestCategoryConstants(t *testing.T) {
 	}
 }
 
-func TestCompareSortsIndependently(t *testing.T) {
+func TestCompareSortsIndependently(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Verify that Compare sorts its result, not the input manifests.
 	a := makeManifest("adapter", []manifest.Item{
 		item("z.md", "sha256:z", "adapter"),

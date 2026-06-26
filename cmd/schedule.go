@@ -68,7 +68,7 @@ func runScheduleCreateWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) 
 // --- list ---
 
 var scheduleListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   listAction,
 	Short: "List all bak-cli scheduled backups",
 	Long:  "Display a table of all active bak-cli backup schedules.",
 	Args:  cobra.NoArgs,

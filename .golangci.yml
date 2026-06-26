@@ -3,6 +3,7 @@ version: "2"
 
 linters:
   enable:
+    # --- existing linters ---
     - bodyclose
     - dupl
     - errcheck
@@ -18,6 +19,18 @@ linters:
     - nilerr
     - staticcheck
     - unused
+    # --- new strict linters ---
+    - exhaustive     # ensure switch statements cover all enum cases
+    - goconst        # flag repeated string literals as constant candidates
+    - gocyclo        # flag functions with high cyclomatic complexity
+    - misspell       # catch common spelling mistakes in comments/strings
+    - paralleltest   # encourage t.Parallel() in tests
+    - prealloc       # suggest slice preallocation for known lengths
+    - tparallel      # ensure t.Parallel() is called in subtests using t.Run
+    - unconvert      # flag unnecessary type conversions
+    - unparam        # flag unused function parameters and return values
+    - usestdlibvars  # flag string literals that have stdlib constant equivalents
+    - wrapcheck      # flag errors from external packages that aren't wrapped
 
   settings:
     gosec:
@@ -25,6 +38,7 @@ linters:
         - G301  # directory permissions (false positive for backup tool)
         - G306  # WriteFile permissions (false positive for backup tool)
         - G304  # file inclusion via variable (backup tool MUST read dynamic paths)
+        - G101  # hardcoded credentials (false positive: env var NAMES, not secrets)
     maintidx:
       under: 20  # flag functions with maintainability index below 20
     dupl:
@@ -36,18 +50,70 @@ linters:
       statements: 50  # ratcheted: functions must be <50 statements
     nestif:
       min-complexity: 6  # ratcheted: nesting depth must be <6
+    goconst:
+      min-occurrences: 3
+      ignore-tests: true  # test data legitimately repeats string literals
+    gocyclo:
+      min-complexity: 15  # spec threshold; refactors + nolint keep functions at or below this
+    exhaustive:
+      default-signifies-exhaustive: true  # switches with default: cover all cases
+    wrapcheck:
+      ignore-sigs:
+        - .Errorf(
+        - errors.New(
+        - errors.Unwrap(
+        - errors.Join(
+        - .Wrap(
+        - .Wrapf(
+        - .WithMessage(
+        - .WithMessagef(
+        - .WithStack(
+      ignore-package-globs:
+        # stdlib packages whose errors are self-descriptive — wrapping adds noise
+        - os
+        - io
+        - path/filepath
+        - path
+        - net
+        - net/http
+        - encoding/*
+        - strconv
+        - fmt
+        - strings
+        - sort
+        - errors
+        - time
+        - sync
+        - runtime
+        # internal packages — the action layer already provides error context
+        - github.com/danielxxomg/bak-cli/internal/*
+        # bubbletea — Program.Run() errors are framework-level (TTY I/O)
+        - charm.land/bubbletea/v2
 
   exclusions:
     rules:
+      # test file exemptions — tests have different constraints than production code
       - path: '(.+_test\.go)'
         linters:
           - errcheck
-          - gosec  # tests don't need security scanning
-          - maintidx  # tests may have long table-driven setups
-          - dupl  # tests legitimately repeat setup patterns
-          - gocognit  # test setup is inherently branchy; complexity not actionable
-          - funlen  # table-driven tests legitimately exceed line/statements limits
-          - nestif  # test arrange/act/assert nesting is structural, not a smell
+          - gosec       # tests don't need security scanning
+          - maintidx    # tests may have long table-driven setups
+          - dupl        # tests legitimately repeat setup patterns
+          - gocognit    # test setup is inherently branchy; complexity not actionable
+          - funlen      # table-driven tests legitimately exceed line/statements limits
+          - nestif      # test arrange/act/assert nesting is structural, not a smell
+          - wrapcheck    # test helpers don't need error context wrapping
+          - exhaustive   # test switches intentionally omit cases
+          - unparam      # test helper signatures follow table-driven patterns
+          - gocyclo      # integration tests have inherent setup complexity
+      # cmd/ test exemptions — shared cobra global state prevents parallel execution
+      - path: 'cmd/.*_test\.go'
+        linters:
+          - paralleltest  # cobra rootCmd is package-global; parallel cmd tests race on it
+      # cmd/ exemptions — cobra framework constraints
+      - path: 'cmd/.*\.go'
+        linters:
+          - unparam       # cobra RunE requires (cmd, args) even when unused
 
 run:
   timeout: 5m

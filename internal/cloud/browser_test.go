@@ -7,13 +7,13 @@ import (
 	"testing"
 )
 
-func TestOpenBrowserOS_Exported(t *testing.T) {
+func TestOpenBrowserOS_Exported(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	if openBrowserOS == nil {
 		t.Fatal("openBrowserOS must be initialized (non-nil)")
 	}
 }
 
-func TestOpenBrowserOS_DISPLAYGuard_Linux(t *testing.T) {
+func TestOpenBrowserOS_DISPLAYGuard_Linux(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	if runtime.GOOS != "linux" {
 		t.Skip("DISPLAY guard only applies on Linux")
 	}
@@ -28,8 +28,8 @@ func TestOpenBrowserOS_DISPLAYGuard_Linux(t *testing.T) {
 		{"display_set", ":0", false, ""},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			t.Setenv("DISPLAY", tt.display)
 
 			// Prevent actual browser launch by mocking execCommand.
@@ -54,7 +54,7 @@ func TestOpenBrowserOS_DISPLAYGuard_Linux(t *testing.T) {
 	}
 }
 
-func TestOpenBrowserOS_ExecCommandCapture(t *testing.T) {
+func TestOpenBrowserOS_ExecCommandCapture(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	if runtime.GOOS != "linux" {
 		t.Skip("execCommand capture test only on Linux")
 	}
@@ -85,7 +85,7 @@ func TestOpenBrowserOS_ExecCommandCapture(t *testing.T) {
 	}
 }
 
-func TestOpenBrowserOS_OSSkipGuards(t *testing.T) {
+func TestOpenBrowserOS_OSSkipGuards(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name string
 		goos string
@@ -94,8 +94,8 @@ func TestOpenBrowserOS_OSSkipGuards(t *testing.T) {
 		{"windows", "windows"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			if runtime.GOOS != tt.goos {
 				t.Skipf("%s test only runs on %s", tt.name, tt.goos)
 			}

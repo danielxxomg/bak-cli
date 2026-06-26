@@ -13,7 +13,7 @@ import (
 // TestRenderMainMenu — table-driven RED (menu.go does not exist yet)
 // =============================================================================
 
-func TestRenderMainMenu(t *testing.T) {
+func TestRenderMainMenu(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	defaultItems := []string{
 		"Create backup", "Restore", "Browse backups",
 		"Cloud sync", "Profiles", "Settings", "Quit",
@@ -77,8 +77,8 @@ func TestRenderMainMenu(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			output := RenderMainMenu(tt.version, "", tt.items, tt.cursor, tt.width)
 
 			if len(output) == 0 {
@@ -108,7 +108,7 @@ func TestRenderMainMenu(t *testing.T) {
 
 // TestRenderMainMenu_CursorPositions verifies the cursor indicator is at
 // the correct position for different cursor values.
-func TestRenderMainMenu_CursorPositions(t *testing.T) {
+func TestRenderMainMenu_CursorPositions(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	menuItems := []string{
 		"Create backup", "Restore", "Browse backups",
 		"Cloud sync", "Profiles", "Settings", "Quit",
@@ -123,8 +123,8 @@ func TestRenderMainMenu_CursorPositions(t *testing.T) {
 		{"cursor at last", 6, "Quit"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			output := RenderMainMenu("1.0.0", "", menuItems, tt.cursor, 80)
 
 			// The cursor indicator should appear before the selected item.
@@ -147,7 +147,7 @@ func TestRenderMainMenu_CursorPositions(t *testing.T) {
 // output (logo, version, help bar) — it should never panic. The key
 // validation is that menu item labels do NOT appear when the slice is
 // nil/empty, proving the menu renderer was called but returned nothing.
-func TestRenderMainMenu_EdgeCases(t *testing.T) {
+func TestRenderMainMenu_EdgeCases(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name       string
 		items      []string
@@ -157,8 +157,8 @@ func TestRenderMainMenu_EdgeCases(t *testing.T) {
 		{"empty items", []string{}, false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			output := RenderMainMenu("1.0.0", "", tt.items, 0, 80)
 
 			// Output must be non-empty even with no items:
@@ -194,7 +194,7 @@ func TestRenderMainMenu_EdgeCases(t *testing.T) {
 // TestRenderMainMenu_EdgeCases_Rendered verifies that out-of-bounds cursors
 // are clamped to valid range and produce deterministic, non-empty output
 // with the cursor indicator on the correct item.
-func TestRenderMainMenu_EdgeCases_Rendered(t *testing.T) {
+func TestRenderMainMenu_EdgeCases_Rendered(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name         string
 		items        []string
@@ -232,8 +232,8 @@ func TestRenderMainMenu_EdgeCases_Rendered(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			output := RenderMainMenu("1.0.0", "", tt.items, tt.cursor, 80)
 
 			if len(output) == 0 {

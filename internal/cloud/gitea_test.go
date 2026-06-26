@@ -12,28 +12,28 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/config"
 )
 
-func TestGiteaProvider_Name(t *testing.T) {
+func TestGiteaProvider_Name(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := NewGiteaProvider(nil, "test-token", "https://git.example.com", "user/repo")
 	if p.Name() != "gitea" {
 		t.Errorf("Name() = %q, want gitea", p.Name())
 	}
 }
 
-func TestCodebergProvider_Name(t *testing.T) {
+func TestCodebergProvider_Name(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := NewCodebergProvider(nil, "test-token", "user/repo")
-	if p.Name() != "codeberg" {
+	if p.Name() != codebergName {
 		t.Errorf("Name() = %q, want codeberg", p.Name())
 	}
 }
 
-func TestCodebergProvider_DefaultBaseURL(t *testing.T) {
+func TestCodebergProvider_DefaultBaseURL(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := NewCodebergProvider(nil, "test-token", "user/repo")
 	if p.baseURL != "https://codeberg.org" {
 		t.Errorf("baseURL = %q, want https://codeberg.org", p.baseURL)
 	}
 }
 
-func TestGiteaProvider_Push_Create(t *testing.T) {
+func TestGiteaProvider_Push_Create(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// GET to check existence → 404 (doesn't exist yet)
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") {
@@ -42,12 +42,12 @@ func TestGiteaProvider_Push_Create(t *testing.T) {
 		}
 		// POST to create new file
 		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/contents/") {
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Type", acceptJSON)
 			w.WriteHeader(http.StatusCreated)
 			json.NewEncoder(w).Encode(contentResponse{
 				Content: contentFile{
-					Name: "20260605-120000.tar.gz",
-					Path: "bak-backups/20260605-120000.tar.gz",
+					Name: testBackupName,
+					Path: testBackupPath,
 					SHA:  "sha-new-001",
 				},
 			})
@@ -67,29 +67,29 @@ func TestGiteaProvider_Push_Create(t *testing.T) {
 	}
 
 	id, err := p.Push([]byte("test-archive-data"), PushMeta{
-		BackupID:  "20260605-120000",
+		BackupID:  testBackupID,
 		CreatedAt: time.Now(),
 		Hostname:  "testbox",
 	})
 	if err != nil {
 		t.Fatalf("Push: %v", err)
 	}
-	if id != "20260605-120000" {
+	if id != testBackupID {
 		t.Errorf("Push id = %q, want 20260605-120000", id)
 	}
 }
 
-func TestGiteaProvider_Push_Update(t *testing.T) {
+func TestGiteaProvider_Push_Update(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	getCalled := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// GET returns existing file with SHA
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") {
 			getCalled = true
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Type", acceptJSON)
 			json.NewEncoder(w).Encode(contentResponse{
 				Content: contentFile{
-					Name: "20260605-120000.tar.gz",
-					Path: "bak-backups/20260605-120000.tar.gz",
+					Name: testBackupName,
+					Path: testBackupPath,
 					SHA:  "sha-existing-001",
 				},
 			})
@@ -103,12 +103,12 @@ func TestGiteaProvider_Push_Update(t *testing.T) {
 				w.WriteHeader(http.StatusConflict)
 				return
 			}
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Type", acceptJSON)
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(contentResponse{
 				Content: contentFile{
-					Name: "20260605-120000.tar.gz",
-					Path: "bak-backups/20260605-120000.tar.gz",
+					Name: testBackupName,
+					Path: testBackupPath,
 					SHA:  "sha-new-002",
 				},
 			})
@@ -128,12 +128,12 @@ func TestGiteaProvider_Push_Update(t *testing.T) {
 	}
 
 	id, err := p.Push([]byte("updated-archive"), PushMeta{
-		BackupID: "20260605-120000",
+		BackupID: testBackupID,
 	})
 	if err != nil {
 		t.Fatalf("Push: %v", err)
 	}
-	if id != "20260605-120000" {
+	if id != testBackupID {
 		t.Errorf("Push id = %q, want 20260605-120000", id)
 	}
 	if !getCalled {
@@ -141,7 +141,7 @@ func TestGiteaProvider_Push_Update(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_Push_NoToken(t *testing.T) {
+func TestGiteaProvider_Push_NoToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &GiteaProvider{
 		token:   "",
 		baseURL: "https://git.example.com",
@@ -157,7 +157,7 @@ func TestGiteaProvider_Push_NoToken(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_Push_NoRepo(t *testing.T) {
+func TestGiteaProvider_Push_NoRepo(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &GiteaProvider{
 		token:   "token",
 		baseURL: "https://git.example.com",
@@ -170,17 +170,17 @@ func TestGiteaProvider_Push_NoRepo(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_Pull(t *testing.T) {
+func TestGiteaProvider_Pull(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	encoded := base64.StdEncoding.EncodeToString([]byte("backup-data-here"))
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") {
-			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Content-Type", acceptJSON)
 			json.NewEncoder(w).Encode(contentResponse{
 				Content: contentFile{
-					Name:     "20260605-120000.tar.gz",
-					Path:     "bak-backups/20260605-120000.tar.gz",
+					Name:     testBackupName,
+					Path:     testBackupPath,
 					SHA:      "sha-pull-001",
-					Encoding: "base64",
+					Encoding: testEncoding,
 					Content:  encoded,
 				},
 			})
@@ -198,7 +198,7 @@ func TestGiteaProvider_Pull(t *testing.T) {
 		client:  srv.Client(),
 	}
 
-	data, err := p.Pull("20260605-120000")
+	data, err := p.Pull(testBackupID)
 	if err != nil {
 		t.Fatalf("Pull: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestGiteaProvider_Pull(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_Pull_NotFound(t *testing.T) {
+func TestGiteaProvider_Pull_NotFound(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
@@ -227,7 +227,7 @@ func TestGiteaProvider_Pull_NotFound(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_Pull_NoToken(t *testing.T) {
+func TestGiteaProvider_Pull_NoToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &GiteaProvider{
 		token:   "",
 		baseURL: "https://git.example.com",
@@ -240,7 +240,7 @@ func TestGiteaProvider_Pull_NoToken(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_Pull_EmptyID(t *testing.T) {
+func TestGiteaProvider_Pull_EmptyID(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &GiteaProvider{
 		token:   "token",
 		baseURL: "https://git.example.com",
@@ -253,13 +253,13 @@ func TestGiteaProvider_Pull_EmptyID(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_List(t *testing.T) {
+func TestGiteaProvider_List(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 		json.NewEncoder(w).Encode([]contentResponse{
 			{
-				Name: "20260605-120000.tar.gz",
-				Path: "bak-backups/20260605-120000.tar.gz",
+				Name: testBackupName,
+				Path: testBackupPath,
 				SHA:  "sha-list-1",
 				Size: 102400,
 			},
@@ -288,7 +288,7 @@ func TestGiteaProvider_List(t *testing.T) {
 	if len(metas) != 2 {
 		t.Fatalf("List length = %d, want 2", len(metas))
 	}
-	if metas[0].ID != "20260605-120000" {
+	if metas[0].ID != testBackupID {
 		t.Errorf("metas[0].ID = %q, want 20260605-120000", metas[0].ID)
 	}
 	if metas[0].Size != 102400 {
@@ -299,9 +299,9 @@ func TestGiteaProvider_List(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_List_Empty(t *testing.T) {
+func TestGiteaProvider_List_Empty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 		json.NewEncoder(w).Encode([]contentResponse{})
 	}))
 	defer srv.Close()
@@ -323,7 +323,7 @@ func TestGiteaProvider_List_Empty(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_List_NoToken(t *testing.T) {
+func TestGiteaProvider_List_NoToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := &GiteaProvider{
 		token:   "",
 		baseURL: "https://git.example.com",
@@ -336,7 +336,7 @@ func TestGiteaProvider_List_NoToken(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_TokenResolution(t *testing.T) {
+func TestGiteaProvider_TokenResolution(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Token passed directly should be used.
 	p := NewGiteaProvider(nil, "direct-token", "https://git.example.com", "user/repo")
 	if p.token != "direct-token" {
@@ -344,22 +344,22 @@ func TestGiteaProvider_TokenResolution(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_BaseURLDefault(t *testing.T) {
+func TestGiteaProvider_BaseURLDefault(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := NewGiteaProvider(nil, "token", "", "user/repo")
 	if p.baseURL != "https://codeberg.org" {
 		t.Errorf("baseURL = %q, want https://codeberg.org", p.baseURL)
 	}
 }
 
-func TestGiteaProvider_PushIntegration(t *testing.T) {
+func TestGiteaProvider_PushIntegration(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Full integration: push then pull round-trip.
 	var storedContent string
 	var storedSHA string
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 		auth := r.Header.Get("Authorization")
-		if auth != "Bearer valid-token" {
+		if auth != testBearerToken {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -372,10 +372,10 @@ func TestGiteaProvider_PushIntegration(t *testing.T) {
 			}
 			json.NewEncoder(w).Encode(contentResponse{
 				Content: contentFile{
-					Name:     "20260605-120000.tar.gz",
-					Path:     "bak-backups/20260605-120000.tar.gz",
+					Name:     testBackupName,
+					Path:     testBackupPath,
 					SHA:      storedSHA,
-					Encoding: "base64",
+					Encoding: testEncoding,
 					Content:  storedContent,
 				},
 			})
@@ -388,7 +388,7 @@ func TestGiteaProvider_PushIntegration(t *testing.T) {
 			w.WriteHeader(http.StatusCreated)
 			json.NewEncoder(w).Encode(contentResponse{
 				Content: contentFile{
-					Path: "bak-backups/20260605-120000.tar.gz",
+					Path: testBackupPath,
 					SHA:  storedSHA,
 				},
 			})
@@ -401,7 +401,7 @@ func TestGiteaProvider_PushIntegration(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(contentResponse{
 				Content: contentFile{
-					Path: "bak-backups/20260605-120000.tar.gz",
+					Path: testBackupPath,
 					SHA:  storedSHA,
 				},
 			})
@@ -421,11 +421,11 @@ func TestGiteaProvider_PushIntegration(t *testing.T) {
 	}
 
 	// First push: creates new file.
-	id, err := p.Push([]byte("first-push"), PushMeta{BackupID: "20260605-120000"})
+	id, err := p.Push([]byte("first-push"), PushMeta{BackupID: testBackupID})
 	if err != nil {
 		t.Fatalf("first Push: %v", err)
 	}
-	if id != "20260605-120000" {
+	if id != testBackupID {
 		t.Errorf("id = %q, want 20260605-120000", id)
 	}
 
@@ -440,12 +440,12 @@ func TestGiteaProvider_PushIntegration(t *testing.T) {
 	}
 
 	// Second push: updates existing file.
-	_, err = p.Push([]byte("second-push"), PushMeta{BackupID: "20260605-120000"})
+	_, err = p.Push([]byte("second-push"), PushMeta{BackupID: testBackupID})
 	if err != nil {
 		t.Fatalf("second Push: %v", err)
 	}
 
-	data, err = p.Pull("20260605-120000")
+	data, err = p.Pull(testBackupID)
 	if err != nil {
 		t.Fatalf("Pull after update: %v", err)
 	}
@@ -454,7 +454,7 @@ func TestGiteaProvider_PushIntegration(t *testing.T) {
 	}
 }
 
-func TestGiteaProvider_ConfigTokenResolution(t *testing.T) {
+func TestGiteaProvider_ConfigTokenResolution(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// Token from config when none passed directly.
 	cfg := &config.Config{}
 	_ = cfg.Set("providers.gitea.token", "config-token")
@@ -464,7 +464,7 @@ func TestGiteaProvider_ConfigTokenResolution(t *testing.T) {
 	}
 }
 
-func TestCodebergProvider_ConfigTokenResolution(t *testing.T) {
+func TestCodebergProvider_ConfigTokenResolution(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	cfg := &config.Config{}
 	_ = cfg.Set("providers.codeberg.token", "codeberg-config-token")
 	p := NewCodebergProvider(cfg, "", "user/repo")
@@ -473,7 +473,7 @@ func TestCodebergProvider_ConfigTokenResolution(t *testing.T) {
 	}
 }
 
-func TestNewGiteaProvider_NilConfig(t *testing.T) {
+func TestNewGiteaProvider_NilConfig(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	p := NewGiteaProvider(nil, "token", "https://git.example.com", "user/repo")
 	if p == nil {
 		t.Fatal("expected non-nil provider")

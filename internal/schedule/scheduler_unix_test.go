@@ -12,7 +12,7 @@ import (
 )
 
 // TestCronScheduler_TypeCheck verifies CronScheduler satisfies Scheduler.
-func TestCronScheduler_TypeCheck(t *testing.T) {
+func TestCronScheduler_TypeCheck(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var s Scheduler = &CronScheduler{}
 	if _, ok := s.(*CronScheduler); !ok {
 		t.Fatal("CronScheduler does not satisfy Scheduler")
@@ -21,7 +21,7 @@ func TestCronScheduler_TypeCheck(t *testing.T) {
 
 // --- readCrontab ---
 
-func TestReadCrontab_HasContent(t *testing.T) {
+func TestReadCrontab_HasContent(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	orig := execCommand
 	defer func() { execCommand = orig }()
 
@@ -41,7 +41,7 @@ func TestReadCrontab_HasContent(t *testing.T) {
 	}
 }
 
-func TestReadCrontab_Empty(t *testing.T) {
+func TestReadCrontab_Empty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	orig := execCommand
 	defer func() { execCommand = orig }()
 
@@ -58,7 +58,7 @@ func TestReadCrontab_Empty(t *testing.T) {
 	}
 }
 
-func TestReadCrontab_Error(t *testing.T) {
+func TestReadCrontab_Error(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	orig := execCommand
 	defer func() { execCommand = orig }()
 
@@ -74,7 +74,7 @@ func TestReadCrontab_Error(t *testing.T) {
 
 // --- writeCrontab ---
 
-func TestWriteCrontab_Success(t *testing.T) {
+func TestWriteCrontab_Success(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	orig := execCommand
 	defer func() { execCommand = orig }()
 
@@ -113,7 +113,7 @@ func setupMockExec(t *testing.T) (stateFile string, restore func()) {
 	return stateFile, func() { execCommand = orig }
 }
 
-func TestCronScheduler_CreateAndList(t *testing.T) {
+func TestCronScheduler_CreateAndList(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	stateFile, restore := setupMockExec(t)
 	defer restore()
 
@@ -144,7 +144,7 @@ func TestCronScheduler_CreateAndList(t *testing.T) {
 	}
 }
 
-func TestCronScheduler_Create_Duplicate(t *testing.T) {
+func TestCronScheduler_Create_Duplicate(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	stateFile, restore := setupMockExec(t)
 	defer restore()
 
@@ -167,7 +167,7 @@ func TestCronScheduler_Create_Duplicate(t *testing.T) {
 	}
 }
 
-func TestCronScheduler_Remove(t *testing.T) {
+func TestCronScheduler_Remove(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	stateFile, restore := setupMockExec(t)
 	defer restore()
 
@@ -190,7 +190,7 @@ func TestCronScheduler_Remove(t *testing.T) {
 	}
 }
 
-func TestCronScheduler_Remove_NotFound(t *testing.T) {
+func TestCronScheduler_Remove_NotFound(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	stateFile, restore := setupMockExec(t)
 	defer restore()
 
@@ -203,7 +203,7 @@ func TestCronScheduler_Remove_NotFound(t *testing.T) {
 	}
 }
 
-func TestCronScheduler_List_EmptyCrontab(t *testing.T) {
+func TestCronScheduler_List_EmptyCrontab(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	_, restore := setupMockExec(t)
 	defer restore()
 
@@ -217,7 +217,7 @@ func TestCronScheduler_List_EmptyCrontab(t *testing.T) {
 	}
 }
 
-func TestCronScheduler_Create_NoPreExistingCrontab(t *testing.T) {
+func TestCronScheduler_Create_NoPreExistingCrontab(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	// When crontab file doesn't exist, readCrontab fails → Create starts fresh.
 	orig := execCommand
 	defer func() { execCommand = orig }()

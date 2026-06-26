@@ -12,7 +12,7 @@ import (
 
 // --- wizardModel step transitions ---
 
-func TestWizardModel_Init(t *testing.T) {
+func TestWizardModel_Init(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewWizardModel("profile-create", nil)
 	cmd := m.Init()
 	if cmd != nil {
@@ -23,7 +23,7 @@ func TestWizardModel_Init(t *testing.T) {
 	}
 }
 
-func TestWizardModel_StepTransitions(t *testing.T) {
+func TestWizardModel_StepTransitions(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewWizardModel("profile-create", []string{"github-gist", "codeberg"})
 
 	steps := []WizardStep{StepName, StepProvider, StepPreset, StepAdapters, StepCategories, StepConfirm}
@@ -41,7 +41,7 @@ func TestWizardModel_StepTransitions(t *testing.T) {
 	}
 }
 
-func TestWizardModel_ExitKeys(t *testing.T) {
+func TestWizardModel_ExitKeys(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name         string
 		msg          tea.KeyPressMsg
@@ -52,8 +52,8 @@ func TestWizardModel_ExitKeys(t *testing.T) {
 		{"esc", tea.KeyPressMsg{Code: tea.KeyEsc}, true, true},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := NewWizardModel("profile-create", []string{"github-gist"})
 			model, cmd := m.Update(tt.msg)
 
@@ -69,7 +69,7 @@ func TestWizardModel_ExitKeys(t *testing.T) {
 
 // --- wizardModel name step ---
 
-func TestWizardModel_NameStep_FirstStep(t *testing.T) {
+func TestWizardModel_NameStep_FirstStep(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewWizardModel("profile-create", []string{"github-gist", "codeberg"})
 
 	// First step should be name input.
@@ -78,7 +78,7 @@ func TestWizardModel_NameStep_FirstStep(t *testing.T) {
 	}
 }
 
-func TestWizardModel_NameStep_EnterAdvances(t *testing.T) {
+func TestWizardModel_NameStep_EnterAdvances(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewWizardModel("profile-create", []string{"github-gist", "codeberg"})
 
 	// Press Enter on name step → advances to provider.
@@ -90,7 +90,7 @@ func TestWizardModel_NameStep_EnterAdvances(t *testing.T) {
 	}
 }
 
-func TestWizardModel_NameStep_Typing(t *testing.T) {
+func TestWizardModel_NameStep_Typing(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewWizardModel("profile-create", []string{"github-gist"})
 
 	// Type a name character by character.
@@ -104,7 +104,7 @@ func TestWizardModel_NameStep_Typing(t *testing.T) {
 	}
 }
 
-func TestWizardModel_NameStep_Backspace(t *testing.T) {
+func TestWizardModel_NameStep_Backspace(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewWizardModel("profile-create", []string{"github-gist"})
 	m.NameInput = "hello"
 
@@ -117,7 +117,7 @@ func TestWizardModel_NameStep_Backspace(t *testing.T) {
 	}
 }
 
-func TestWizardModel_NameStep_BackspaceOnEmpty(t *testing.T) {
+func TestWizardModel_NameStep_BackspaceOnEmpty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewWizardModel("profile-create", []string{"github-gist"})
 
 	// Backspace on empty string should not panic.
@@ -129,7 +129,7 @@ func TestWizardModel_NameStep_BackspaceOnEmpty(t *testing.T) {
 	}
 }
 
-func TestWizardModel_NameStep_NamePersistsAcrossSteps(t *testing.T) {
+func TestWizardModel_NameStep_NamePersistsAcrossSteps(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewWizardModel("profile-create", []string{"github-gist"})
 
 	// Type a name.
@@ -149,7 +149,7 @@ func TestWizardModel_NameStep_NamePersistsAcrossSteps(t *testing.T) {
 	}
 }
 
-func TestWizardModel_ProfileName(t *testing.T) {
+func TestWizardModel_ProfileName(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name             string
 		providers        []string
@@ -162,8 +162,8 @@ func TestWizardModel_ProfileName(t *testing.T) {
 		{"falls back to untitled", nil, "", "", "untitled"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := NewWizardModel("profile-create", tt.providers)
 			m.NameInput = tt.nameInput
 			m.SelectedProvider = tt.selectedProvider
@@ -178,7 +178,7 @@ func TestWizardModel_ProfileName(t *testing.T) {
 
 // --- wizardModel view ---
 
-func TestWizardModel_View_ContainsTitle(t *testing.T) {
+func TestWizardModel_View_ContainsTitle(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewWizardModel("profile-create", []string{"github-gist"})
 	view := m.View().Content
 
@@ -187,7 +187,7 @@ func TestWizardModel_View_ContainsTitle(t *testing.T) {
 	}
 }
 
-func TestWizardModel_View_QuittingEmpty(t *testing.T) {
+func TestWizardModel_View_QuittingEmpty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewWizardModel("profile-create", nil)
 	m.Quitting = true
 
@@ -199,7 +199,7 @@ func TestWizardModel_View_QuittingEmpty(t *testing.T) {
 
 // --- wizardModel selected values ---
 
-func TestWizardModel_ProviderSelection(t *testing.T) {
+func TestWizardModel_ProviderSelection(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	providers := []string{"github-gist", "codeberg", "gitea"}
 	m := NewWizardModel("profile-create", providers)
 
@@ -229,7 +229,7 @@ func TestWizardModel_ProviderSelection(t *testing.T) {
 
 // --- WindowSizeMsg handling ---
 
-func TestWizardModel_Update_WindowSize(t *testing.T) {
+func TestWizardModel_Update_WindowSize(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewWizardModel("profile-create", []string{"github-gist"})
 
 	msg := tea.WindowSizeMsg{Width: 100, Height: 30}
@@ -244,7 +244,7 @@ func TestWizardModel_Update_WindowSize(t *testing.T) {
 	}
 }
 
-func TestWizardModel_Update_WindowSize_SecondResize(t *testing.T) {
+func TestWizardModel_Update_WindowSize_SecondResize(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewWizardModel("profile-create", []string{"github-gist"})
 
 	// First resize.
@@ -264,7 +264,7 @@ func TestWizardModel_Update_WindowSize_SecondResize(t *testing.T) {
 	}
 }
 
-func TestMoveCursor(t *testing.T) {
+func TestMoveCursor(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name  string
 		start int
@@ -290,8 +290,8 @@ func TestMoveCursor(t *testing.T) {
 		{"empty key ignored", 2, 4, "", 2},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			cursor := tt.start
 			MoveCursor(&cursor, tt.max, tt.key)
 			if cursor != tt.want {
@@ -307,7 +307,7 @@ func TestMoveCursor(t *testing.T) {
 // TestWizardModel_renderCheckboxList verifies the checkbox list renderer
 // produces one rendered line per item, includes each item's label, and
 // reflects the checked state via the shared checkbox component ([x] vs [ ]).
-func TestWizardModel_renderCheckboxList(t *testing.T) {
+func TestWizardModel_renderCheckboxList(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name        string
 		items       []ToggleItem
@@ -352,8 +352,8 @@ func TestWizardModel_renderCheckboxList(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			m := NewWizardModel("profile-create", nil)
 			got := m.renderCheckboxList(tt.items, tt.cursor)
 
@@ -377,7 +377,7 @@ func TestWizardModel_renderCheckboxList(t *testing.T) {
 // TestWizardModel_renderCheckboxList_CheckedState verifies that checked and
 // unchecked items render their respective indicators from the checkbox
 // component, proving the Checked field flows through to the output.
-func TestWizardModel_renderCheckboxList_CheckedState(t *testing.T) {
+func TestWizardModel_renderCheckboxList_CheckedState(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewWizardModel("profile-create", nil)
 	items := []ToggleItem{
 		{Name: "checked-item", Checked: true},
@@ -399,7 +399,7 @@ func TestWizardModel_renderCheckboxList_CheckedState(t *testing.T) {
 // TestWizardModel_renderConfirmSummary verifies the confirm summary includes
 // the selected provider, preset, only the checked adapters/categories, and
 // the closing call-to-action line.
-func TestWizardModel_renderConfirmSummary(t *testing.T) {
+func TestWizardModel_renderConfirmSummary(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewWizardModel("profile-create", []string{"github"})
 	m.SelectedProvider = "github"
 	m.SelectedPreset = "full"
@@ -440,7 +440,7 @@ func TestWizardModel_renderConfirmSummary(t *testing.T) {
 // TestWizardModel_renderConfirmSummary_NoSelections verifies the summary
 // renders cleanly when nothing is selected: empty provider/preset and empty
 // adapter/category lists produce trailing empty values, not a panic.
-func TestWizardModel_renderConfirmSummary_NoSelections(t *testing.T) {
+func TestWizardModel_renderConfirmSummary_NoSelections(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewWizardModel("profile-create", nil)
 	m.AdapterItems = nil
 	m.CategoryItems = nil

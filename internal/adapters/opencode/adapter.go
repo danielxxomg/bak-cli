@@ -23,23 +23,23 @@ const configRelPath = ".config/opencode"
 // the OpenCode config root. The "config" and "mcp" categories are root-level
 // (no subdirectory); their files are resolved via rootConfigFiles.
 var categoryMap = map[string]adapters.CategoryDir{
-	"skills":   {SubPath: "skills", IsDir: true},
-	"commands": {SubPath: "commands", IsDir: true},
-	"config":   {SubPath: "", IsDir: false}, // root-level config files
-	"mcp":      {SubPath: "", IsDir: false}, // root-level mcp.json
-	"plugins":  {SubPath: "plugins", IsDir: true},
-	"agents":   {SubPath: "agent", IsDir: true},
+	"skills":       {SubPath: "skills", IsDir: true},
+	"commands":     {SubPath: "commands", IsDir: true},
+	configCategory: {SubPath: "", IsDir: false}, // root-level config files
+	"mcp":          {SubPath: "", IsDir: false}, // root-level mcp.json
+	"plugins":      {SubPath: "plugins", IsDir: true},
+	"agents":       {SubPath: "agent", IsDir: true},
 }
 
 // rootConfigFiles lists the file names under the config root that belong
 // to the "config" and "mcp" categories, mapping each to its category.
 var rootConfigFiles = map[string]string{
 	// config category
-	"opencode.jsonc": "config",
-	"opencode.json":  "config",
-	"config.json":    "config",
-	"AGENTS.md":      "config",
-	"tui.json":       "config",
+	"opencode.jsonc": configCategory,
+	"opencode.json":  configCategory,
+	"config.json":    configCategory,
+	"AGENTS.md":      configCategory,
+	"tui.json":       configCategory,
 	// mcp category
 	"mcp.json": "mcp",
 }

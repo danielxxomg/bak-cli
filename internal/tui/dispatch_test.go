@@ -10,7 +10,7 @@ import (
 // TestRouteSelection verifies the RouteSelection pure function routes
 // menu cursor positions to the appropriate action calls in Deps.
 // Table-driven per AGENTS.md and go-testing skill.
-func TestRouteSelection(t *testing.T) {
+func TestRouteSelection(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name string
 		sel  MenuSelection
@@ -60,8 +60,8 @@ func TestRouteSelection(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			var called bool
 			deps := Deps{}
 

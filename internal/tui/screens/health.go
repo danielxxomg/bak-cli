@@ -109,7 +109,7 @@ func (m HealthModel) startChecks() (tea.Model, tea.Cmd) {
 	}
 
 	// Fire all checks concurrently with staggered delays.
-	var cmds []tea.Cmd
+	cmds := make([]tea.Cmd, 0, len(healthCheckNames))
 	for i := range healthCheckNames {
 		idx := i
 		cmds = append(cmds, tea.Tick(time.Duration(i+1)*150*time.Millisecond, func(_ time.Time) tea.Msg {
@@ -135,8 +135,8 @@ func (m HealthModel) View() tea.View {
 		b.WriteString(styles.HelpStyle.Render("Press enter to run health check"))
 		b.WriteString("\n\n")
 		helpKeys := []components.HelpKey{
-			{Key: "enter", Desc: "run"},
-			{Key: "q", Desc: "back"},
+			{Key: keyEnter, Desc: "run"},
+			{Key: "q", Desc: keyBack},
 		}
 		b.WriteString(components.RenderHelp(helpKeys))
 		return tea.NewView(b.String())
@@ -156,8 +156,8 @@ func (m HealthModel) View() tea.View {
 	if !m.running && len(m.checks) > 0 {
 		b.WriteString("\n\n")
 		helpKeys := []components.HelpKey{
-			{Key: "q", Desc: "back"},
-			{Key: "enter", Desc: "rerun"},
+			{Key: "q", Desc: keyBack},
+			{Key: keyEnter, Desc: "rerun"},
 		}
 		b.WriteString(components.RenderHelp(helpKeys))
 	}

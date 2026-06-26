@@ -8,8 +8,8 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
 
-func TestComputeDryRun(t *testing.T) {
-	t.Run("new file — backup exists, target does not", func(t *testing.T) {
+func TestComputeDryRun(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("new file — backup exists, target does not", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		backupDir := t.TempDir()
 
@@ -49,7 +49,7 @@ func TestComputeDryRun(t *testing.T) {
 		}
 	})
 
-	t.Run("modified file — backup and target differ", func(t *testing.T) {
+	t.Run("modified file — backup and target differ", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		backupDir := t.TempDir()
 
@@ -93,7 +93,7 @@ func TestComputeDryRun(t *testing.T) {
 		}
 	})
 
-	t.Run("unchanged file — identical content", func(t *testing.T) {
+	t.Run("unchanged file — identical content", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		backupDir := t.TempDir()
 
@@ -134,7 +134,7 @@ func TestComputeDryRun(t *testing.T) {
 		}
 	})
 
-	t.Run("missing backup file — manifest references file not on disk", func(t *testing.T) {
+	t.Run("missing backup file — manifest references file not on disk", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		backupDir := t.TempDir()
 
@@ -167,7 +167,7 @@ func TestComputeDryRun(t *testing.T) {
 		}
 	})
 
-	t.Run("mixed batch — new, modified, unchanged, missing", func(t *testing.T) {
+	t.Run("mixed batch — new, modified, unchanged, missing", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		homeDir := t.TempDir()
 		backupDir := t.TempDir()
 
@@ -241,7 +241,7 @@ func mustWrite(t *testing.T, path, content string) {
 	}
 }
 
-func TestCountByStatus(t *testing.T) {
+func TestCountByStatus(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name     string
 		diffs    []FileDiff
@@ -306,8 +306,8 @@ func TestCountByStatus(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			got := CountByStatus(tt.diffs, tt.status)
 			if got != tt.expected {
 				t.Fatalf("CountByStatus = %d, want %d", got, tt.expected)
@@ -316,8 +316,8 @@ func TestCountByStatus(t *testing.T) {
 	}
 }
 
-func TestWriteRestoreLog_ErrorPaths(t *testing.T) {
-	t.Run("valid write — creates log entry", func(t *testing.T) {
+func TestWriteRestoreLog_ErrorPaths(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("valid write — creates log entry", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		backupDir := t.TempDir()
 		engine := &Engine{
 			GitDir:    "/some/git/dir",
@@ -342,7 +342,7 @@ func TestWriteRestoreLog_ErrorPaths(t *testing.T) {
 		}
 	})
 
-	t.Run("empty GitDir — no-op, no file created", func(t *testing.T) {
+	t.Run("empty GitDir — no-op, no file created", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		backupDir := t.TempDir()
 		engine := &Engine{
 			GitDir:    "",
@@ -362,7 +362,7 @@ func TestWriteRestoreLog_ErrorPaths(t *testing.T) {
 		}
 	})
 
-	t.Run("mkdir blocked — BackupDir is a file, not a directory", func(t *testing.T) {
+	t.Run("mkdir blocked — BackupDir is a file, not a directory", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		dir := t.TempDir()
 		// Create backupDir path as a FILE, so MkdirAll on its parent fails.
 		blockFile := filepath.Join(dir, "backup-file")
@@ -390,7 +390,7 @@ func TestWriteRestoreLog_ErrorPaths(t *testing.T) {
 		}
 	})
 
-	t.Run("write failure — restore-log.jsonl is a directory", func(t *testing.T) {
+	t.Run("write failure — restore-log.jsonl is a directory", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		backupDir := t.TempDir()
 		// Create restore-log.jsonl as a DIRECTORY, so WriteFile fails.
 		logDir := filepath.Join(backupDir, "restore-log.jsonl")

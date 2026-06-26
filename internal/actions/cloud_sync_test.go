@@ -16,7 +16,7 @@ import (
 // through a MockProvider: create a backup directory with known files,
 // push it through the mock, pull to a new home, and verify the extracted
 // files match the originals.
-func TestCloudSync_PushPullRoundTrip(t *testing.T) {
+func TestCloudSync_PushPullRoundTrip(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name  string
 		files map[string]string
@@ -42,8 +42,8 @@ func TestCloudSync_PushPullRoundTrip(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			// --- Setup: create source backup directory ---
 			home1 := t.TempDir()
 			backupID := "20260101-120000"
@@ -135,7 +135,7 @@ func TestCloudSync_PushPullRoundTrip(t *testing.T) {
 // TestCloudSync_PushInvalidToken verifies that a PushAction with a
 // mock provider that returns a 401-style error produces an error
 // containing "401" or "unauthorized".
-func TestCloudSync_PushInvalidToken(t *testing.T) {
+func TestCloudSync_PushInvalidToken(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	// Create a minimal backup directory so PushAction can stat it.
@@ -184,7 +184,7 @@ func TestCloudSync_PushInvalidToken(t *testing.T) {
 // TestCloudSync_Pull_NotFound verifies that a PullAction with a
 // mock provider that returns a not-found error produces an error
 // containing "not found" or "404".
-func TestCloudSync_Pull_NotFound(t *testing.T) {
+func TestCloudSync_Pull_NotFound(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 
 	mockProvider := &MockProvider{

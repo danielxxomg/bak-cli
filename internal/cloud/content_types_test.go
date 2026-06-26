@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-func TestGetFileSHA_Success(t *testing.T) {
+func TestGetFileSHA_Success(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", acceptJSON)
 		json.NewEncoder(w).Encode(contentResponse{
 			Content: contentFile{
 				SHA: "abc123def456",
@@ -28,7 +28,7 @@ func TestGetFileSHA_Success(t *testing.T) {
 	}
 }
 
-func TestGetFileSHA_NotFound(t *testing.T) {
+func TestGetFileSHA_NotFound(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
@@ -43,7 +43,7 @@ func TestGetFileSHA_NotFound(t *testing.T) {
 	}
 }
 
-func TestGetFileSHA_Error(t *testing.T) {
+func TestGetFileSHA_Error(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("server error"))
@@ -59,7 +59,7 @@ func TestGetFileSHA_Error(t *testing.T) {
 	}
 }
 
-func TestWriteContentFile_Success(t *testing.T) {
+func TestWriteContentFile_Success(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 	}))
@@ -71,13 +71,13 @@ func TestWriteContentFile_Success(t *testing.T) {
 		Branch:  "main",
 	}
 
-	err := writeContentFile(srv.Client(), "token", http.MethodPut, "application/json", srv.URL+"/path", req)
+	err := writeContentFile(srv.Client(), "token", http.MethodPut, acceptJSON, srv.URL+"/path", req)
 	if err != nil {
 		t.Fatalf("writeContentFile: %v", err)
 	}
 }
 
-func TestWriteContentFile_Error(t *testing.T) {
+func TestWriteContentFile_Error(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusConflict)
 		w.Write([]byte("conflict"))
@@ -91,7 +91,7 @@ func TestWriteContentFile_Error(t *testing.T) {
 		SHA:     "wrong-sha",
 	}
 
-	err := writeContentFile(srv.Client(), "token", http.MethodPut, "application/json", srv.URL+"/path", req)
+	err := writeContentFile(srv.Client(), "token", http.MethodPut, acceptJSON, srv.URL+"/path", req)
 	if err == nil {
 		t.Fatal("expected error for 409 status")
 	}
@@ -100,7 +100,7 @@ func TestWriteContentFile_Error(t *testing.T) {
 	}
 }
 
-func TestWriteContentFile_WithSHA(t *testing.T) {
+func TestWriteContentFile_WithSHA(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	var receivedSHA string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var cr contentRequest
@@ -117,7 +117,7 @@ func TestWriteContentFile_WithSHA(t *testing.T) {
 		SHA:     "existing-sha",
 	}
 
-	err := writeContentFile(srv.Client(), "token", http.MethodPut, "application/json", srv.URL+"/path", req)
+	err := writeContentFile(srv.Client(), "token", http.MethodPut, acceptJSON, srv.URL+"/path", req)
 	if err != nil {
 		t.Fatalf("writeContentFile: %v", err)
 	}

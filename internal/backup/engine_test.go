@@ -12,7 +12,7 @@ import (
 
 // --- utility tests -------------------------------------------------------
 
-func TestBakDir(t *testing.T) {
+func TestBakDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	dir, err := BakDir()
 	if err != nil {
 		t.Fatalf("BakDir: %v", err)
@@ -78,7 +78,7 @@ func createOpenCodeFixture(t *testing.T, home string) {
 
 // --- table-driven: presets -----------------------------------------------
 
-func TestEngine_Run_Presets(t *testing.T) {
+func TestEngine_Run_Presets(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name        string
 		preset      string
@@ -153,8 +153,8 @@ func TestEngine_Run_Presets(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			home := t.TempDir()
 			if tt.withFixture {
 				createOpenCodeFixture(t, home)
@@ -182,7 +182,7 @@ func TestEngine_Run_Presets(t *testing.T) {
 
 // --- table-driven: adapter filters ---------------------------------------
 
-func TestEngine_Run_AdapterFilters(t *testing.T) {
+func TestEngine_Run_AdapterFilters(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name    string
 		filters []string
@@ -205,8 +205,8 @@ func TestEngine_Run_AdapterFilters(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			home := t.TempDir()
 			createOpenCodeFixture(t, home)
 
@@ -232,7 +232,7 @@ func TestEngine_Run_AdapterFilters(t *testing.T) {
 
 // --- table-driven: progress function -------------------------------------
 
-func TestEngine_Run_ProgressFn(t *testing.T) {
+func TestEngine_Run_ProgressFn(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	type call struct {
 		file  string
 		done  int
@@ -285,8 +285,8 @@ func TestEngine_Run_ProgressFn(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 			home := t.TempDir()
 			createOpenCodeFixture(t, home)
 
@@ -320,7 +320,7 @@ func TestEngine_Run_ProgressFn(t *testing.T) {
 
 // --- standalone: with secret ---------------------------------------------
 
-func TestEngine_Run_WithSecret(t *testing.T) {
+func TestEngine_Run_WithSecret(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -353,7 +353,7 @@ func TestEngine_Run_WithSecret(t *testing.T) {
 
 // --- standalone: backup files exist --------------------------------------
 
-func TestEngine_Run_BackupFilesExist(t *testing.T) {
+func TestEngine_Run_BackupFilesExist(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -401,7 +401,7 @@ func TestEngine_Run_BackupFilesExist(t *testing.T) {
 
 // TestEngine_Run_AppliesExcludes verifies that when ExcludesLoader is set,
 // the engine calls it and applies ScanOptions to ScanConfigurable adapters.
-func TestEngine_Run_AppliesExcludes(t *testing.T) {
+func TestEngine_Run_AppliesExcludes(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 

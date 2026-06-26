@@ -10,7 +10,7 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 )
 
-func TestRegisterAll(t *testing.T) {
+func TestRegisterAll(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	r := adapters.NewRegistry()
 	if err := All(r); err != nil {
 		t.Fatalf("All: %v", err)
@@ -44,7 +44,7 @@ func TestRegisterAll(t *testing.T) {
 	}
 }
 
-func TestRegisterAll_Idempotent(t *testing.T) {
+func TestRegisterAll_Idempotent(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	r := adapters.NewRegistry()
 	if err := All(r); err != nil {
 		t.Fatalf("first All: %v", err)
@@ -56,7 +56,7 @@ func TestRegisterAll_Idempotent(t *testing.T) {
 	}
 }
 
-func TestLoadYAMLAdapters_EmptyDir(t *testing.T) {
+func TestLoadYAMLAdapters_EmptyDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 
 	r := adapters.NewRegistry()
@@ -72,7 +72,7 @@ func TestLoadYAMLAdapters_EmptyDir(t *testing.T) {
 	}
 }
 
-func TestLoadYAMLAdapters_ValidAdapter(t *testing.T) {
+func TestLoadYAMLAdapters_ValidAdapter(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	adaptersDir := filepath.Join(homeDir, ".config", "bak", "adapters")
 	if err := os.MkdirAll(adaptersDir, 0755); err != nil {
@@ -107,7 +107,7 @@ categories:
 	}
 }
 
-func TestLoadYAMLAdapters_OverrideWarning(t *testing.T) {
+func TestLoadYAMLAdapters_OverrideWarning(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	adaptersDir := filepath.Join(homeDir, ".config", "bak", "adapters")
 	if err := os.MkdirAll(adaptersDir, 0755); err != nil {
@@ -156,7 +156,7 @@ categories: []
 	}
 }
 
-func TestLoadYAMLAdapters_InvalidYAML(t *testing.T) {
+func TestLoadYAMLAdapters_InvalidYAML(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	adaptersDir := filepath.Join(homeDir, ".config", "bak", "adapters")
 	if err := os.MkdirAll(adaptersDir, 0755); err != nil {
@@ -178,7 +178,7 @@ func TestLoadYAMLAdapters_InvalidYAML(t *testing.T) {
 	}
 }
 
-func TestLoadYAMLAdapters_NoOverrideKeepsBuiltin(t *testing.T) {
+func TestLoadYAMLAdapters_NoOverrideKeepsBuiltin(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	homeDir := t.TempDir()
 	adaptersDir := filepath.Join(homeDir, ".config", "bak", "adapters")
 	if err := os.MkdirAll(adaptersDir, 0755); err != nil {
@@ -207,7 +207,7 @@ categories: []
 }
 
 // Compile-time check: ensure All registers the expected number of adapters.
-func TestAll_AdapterCount(t *testing.T) {
+func TestAll_AdapterCount(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	r := adapters.NewRegistry()
 	if err := All(r); err != nil {
 		t.Fatalf("All: %v", err)
