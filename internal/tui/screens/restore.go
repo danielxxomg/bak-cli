@@ -203,32 +203,7 @@ func (m RestoreModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case restoreStateDryRun:
-		switch msg.Code {
-		case 'q', 27: // esc
-			m.State = restoreStateList
-			return m, nil
-		case 'g':
-			// vim-style: jump to top (not in the viewport default keymap).
-			m.viewport.GotoTop()
-			return m, nil
-		case 'G':
-			// vim-style: jump to bottom (not in the viewport default keymap).
-			m.viewport.GotoBottom()
-			return m, nil
-		case '\r':
-			m.State = restoreStateConfirm
-			modal := components.NewModal("Confirm Restore",
-				fmt.Sprintf("Restore backup %s? This will overwrite current config.", m.SelectedID),
-				[]string{"Confirm", "Cancel"})
-			m.Modal = &modal
-			return m, nil
-		default:
-			// Forward scroll keys (j/k, arrows, PgUp/PgDn, space, f/b, u/d)
-			// to the viewport, whose default keymap handles them.
-			newVp, _ := m.viewport.Update(msg)
-			m.viewport = newVp
-			return m, nil
-		}
+		return m.handleDryRunKey(msg)
 
 	case restoreStateDone:
 		switch msg.Code {
@@ -240,6 +215,38 @@ func (m RestoreModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// handleDryRunKey routes keystrokes in the dry-run preview state: q/Esc
+// returns to the backup list, g/G jump the viewport to top/bottom (vim-style,
+// not in the viewport default keymap), enter opens the confirm modal, and all
+// other keys are forwarded to the viewport's default scroll keymap (j/k,
+// arrows, PgUp/PgDn, space, f/b, u/d). Extracted from handleKey to keep its
+// cyclomatic complexity within the gocyclo budget.
+func (m RestoreModel) handleDryRunKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch msg.Code {
+	case 'q', 27: // esc
+		m.State = restoreStateList
+		return m, nil
+	case 'g':
+		m.viewport.GotoTop()
+		return m, nil
+	case 'G':
+		m.viewport.GotoBottom()
+		return m, nil
+	case '\r':
+		m.State = restoreStateConfirm
+		modal := components.NewModal("Confirm Restore",
+			fmt.Sprintf("Restore backup %s? This will overwrite current config.", m.SelectedID),
+			[]string{"Confirm", "Cancel"})
+		m.Modal = &modal
+		return m, nil
+	default:
+		// Forward scroll keys to the viewport, whose default keymap handles them.
+		newVp, _ := m.viewport.Update(msg)
+		m.viewport = newVp
+		return m, nil
+	}
 }
 
 func (m RestoreModel) dryRunCmd(backupID string) tea.Cmd {
@@ -306,7 +313,8 @@ func (m RestoreModel) renderEmptyState() string {
 	var b strings.Builder
 	b.WriteString(styles.ScreenTitleStyle.Render("Restore"))
 	b.WriteString("\n\n")
-	b.WriteString("No backups found. Create one first.")
+	// Styled empty-state block (icon + message + hint, REQ-TP-007).
+	b.WriteString(components.RenderEmptyState("∅", "No backups found", "Run 'bak backup' to create one first"))
 	b.WriteString("\n\n")
 	b.WriteString("[q] back")
 	return b.String()

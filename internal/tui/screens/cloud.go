@@ -105,9 +105,9 @@ func RenderCloudStatus(info CloudInfo, width int) string {
 	b.WriteString(styles.CloudTitleStyle.Render("Cloud Sync"))
 	b.WriteString("\n\n")
 
-	// No provider configured.
+	// No provider configured (styled icon + message + hint, REQ-TP-007).
 	if info.Provider == "" {
-		b.WriteString(styles.CloudEmptyStyle.Render("No cloud provider configured"))
+		b.WriteString(components.RenderEmptyState("\u2601", "No cloud provider configured", "Run 'bak cloud login' to connect"))
 		b.WriteString("\n\n")
 		b.WriteString(renderCloudHelp())
 		content := b.String()

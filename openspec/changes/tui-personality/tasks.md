@@ -51,12 +51,12 @@ Chain strategy: stacked-to-main
 
 ## Phase 4: Mouse Navigation & Empty States (PR 2 — Tier 2b)
 
-- [ ] 4.1 [RED] `internal/tui/screens/dashboard_test.go`: `MouseWheelMsg{Button: MouseWheelDown}` advances table cursor; `MouseClickMsg{Y: 2}` sets cursor; mouse suppressed when `search.IsActive()`
-- [ ] 4.2 [GREEN] `internal/tui/screens/dashboard.go`: set `v.MouseMode = tea.MouseModeCellMotion` in `View()`; add `MouseWheelMsg`/`MouseClickMsg` cases in `Update`; guard `m.search.IsActive()` return early
-- [ ] 4.3 [RED] `internal/tui/components/empty_state_test.go`: table-driven — output contains icon, italic message, hint text
-- [ ] 4.4 [GREEN] `internal/tui/components/empty_state.go`: stateless `RenderEmptyState(icon, message, hint string) string`
-- [ ] 4.5 [GREEN] `internal/tui/styles/screens.go`: add `EmptyStateIconStyle`, `EmptyStateMsgStyle`, `EmptyStateHintStyle` package-level vars
-- [ ] 4.6 [REFACTOR] `dashboard.go`, `restore.go`, `cloud.go`: replace bare empty strings with `components.RenderEmptyState(...)` calls
+- [x] 4.1 [RED] `internal/tui/screens/dashboard_test.go`: `MouseWheelMsg{Button: MouseWheelDown}` advances table cursor; `MouseClickMsg{Y: 2}` sets cursor; mouse suppressed when `search.IsActive()`
+- [x] 4.2 [GREEN] `internal/tui/screens/dashboard.go`: set `v.MouseMode = tea.MouseModeCellMotion` in `View()`; add `MouseWheelMsg`/`MouseClickMsg` cases in `Update`; guard `m.search.IsActive()` return early
+- [x] 4.3 [RED] `internal/tui/components/empty_state_test.go`: table-driven — output contains icon, italic message, hint text
+- [x] 4.4 [GREEN] `internal/tui/components/empty_state.go`: stateless `RenderEmptyState(icon, message, hint string) string`
+- [x] 4.5 [GREEN] `internal/tui/styles/screens.go`: add `EmptyStateIconStyle`, `EmptyStateMsgStyle`, `EmptyStateHintStyle` package-level vars
+- [x] 4.6 [REFACTOR] `dashboard.go`, `restore.go`, `cloud.go`: replace bare empty strings with `components.RenderEmptyState(...)` calls
 
 ## Phase 5: Paste Support (PR 3 — Tier 3)
 

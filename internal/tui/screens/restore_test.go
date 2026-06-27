@@ -104,6 +104,31 @@ func TestRestore_EmptyState(t *testing.T) { //nolint:paralleltest // not yet par
 	}
 }
 
+// TestRestore_EmptyState_Styled verifies the empty restore list renders the
+// shared styled empty-state block (icon + message + hint) via
+// components.RenderEmptyState, not a bare string (tui-personality REQ-TP-007).
+func TestRestore_EmptyState_Styled(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	deps := restoreTestDeps{
+		listBackupsFn: func() ([]BackupInfo, error) {
+			return nil, nil // no backups
+		},
+	}
+
+	m := NewRestoreModel(deps.listBackupsFn, deps.runRestoreFn)
+	m.Width = 80
+	m.Height = 24
+	m.State = restoreStateList
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "No backups found") {
+		t.Errorf("styled empty state missing message 'No backups found': %q", output)
+	}
+	if !strings.Contains(output, "bak backup") {
+		t.Errorf("styled empty state missing hint 'bak backup': %q", output)
+	}
+}
+
 // =============================================================================
 // TestRestore_StateTransition_ListToDryRun — RED
 // =============================================================================
@@ -349,7 +374,7 @@ func TestRestore_ConfirmModal_KeyForwarding(t *testing.T) { //nolint:paralleltes
 		return m
 	}
 
-	t.Run("enter confirms", func(t *testing.T) {
+	t.Run("enter confirms", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		m := makeConfirmModel()
 		_, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 		if cmd == nil {
@@ -365,7 +390,7 @@ func TestRestore_ConfirmModal_KeyForwarding(t *testing.T) { //nolint:paralleltes
 		}
 	})
 
-	t.Run("escape cancels", func(t *testing.T) {
+	t.Run("escape cancels", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
 		m := makeConfirmModel()
 		_, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 		if cmd == nil {
