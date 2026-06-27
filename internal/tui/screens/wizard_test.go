@@ -457,3 +457,18 @@ func TestWizardModel_renderConfirmSummary_NoSelections(t *testing.T) { //nolint:
 		t.Errorf("renderConfirmSummary missing call-to-action\ngot:\n%s", got)
 	}
 }
+
+// --- Window title (tui-personality REQ-TP-001) ---
+
+// TestWizardModel_View_WindowTitle verifies the wizard sets the terminal
+// window title to "bak — Wizard" on its primary view (spec scenario: "wizard
+// shows Wizard title"). The title is a declarative tea.View field.
+func TestWizardModel_View_WindowTitle(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	m := NewWizardModel("profile-create", []string{"github-gist"})
+	m.Width = 80
+	m.Height = 24
+
+	if got := m.View().WindowTitle; got != "bak — Wizard" {
+		t.Errorf("View().WindowTitle = %q, want %q", got, "bak — Wizard")
+	}
+}

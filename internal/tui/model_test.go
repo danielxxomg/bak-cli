@@ -2880,3 +2880,159 @@ func TestModel_Update_UnknownScreenNoPanic(t *testing.T) { //nolint:paralleltest
 		t.Errorf("unknown screen: cmd = %v, want nil", cmd)
 	}
 }
+
+// =============================================================================
+// tui-personality Phase 1 — Window title (REQ-TP-001)
+// Table-driven RED: View().WindowTitle MUST reflect the active screen. The
+// title is set declaratively via the tea.View.WindowTitle field (v2 API), not
+// via a tea.SetWindowTitle command.
+// =============================================================================
+
+// modelAtScreen returns a Model on the given screen with dimensions and a
+// lazily-initialized sub-model (via screenChangeMsg) so View() renders without
+// panicking. Screens without a sub-model (Menu/Welcome/Shortcuts) keep nil
+// sub-models and rely on the stateless renderers.
+func modelAtScreen(s screen) Model {
+	m := NewModel(Deps{
+		Version:      "1.0.0",
+		ConfigExists: func() bool { return true },
+		ListBackups:  func() ([]BackupInfo, error) { return nil, nil },
+	})
+	m.width = 80
+	m.height = 24
+	// Welcome is set at construction via ConfigExists=false; handle separately.
+	if s == ScreenMenu || s == ScreenShortcuts {
+		m.screen = s
+		return m
+	}
+	newM, _ := m.Update(screenChangeMsg{screen: s})
+	m = newM.(Model)
+	// Propagate dimensions to the sub-model so it renders real content
+	// (not the "Terminal too small" guard) — screenChangeMsg only sets Width
+	// for some screens, so a WindowSizeMsg guarantees Height too.
+	m2, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	return m2.(Model)
+}
+
+func TestModel_View_WindowTitle(t *testing.T) { //nolint:paralleltest // shared styles/colorprofile global state
+	tests := []struct {
+		name      string
+		setup     func() Model
+		wantTitle string // exact match when contains is empty
+		contains  string // partial match (restore id) when non-empty
+	}{
+		{
+			name:      "menu shows Main Menu",
+			setup:     func() Model { m := modelAtScreen(ScreenMenu); return m },
+			wantTitle: "bak — Main Menu",
+		},
+		{
+			name: "welcome shows Welcome",
+			setup: func() Model {
+				m := NewModel(Deps{Version: "1.0.0", ConfigExists: func() bool { return false }})
+				m.width = 80
+				m.height = 24
+				return m
+			},
+			wantTitle: "bak — Welcome",
+		},
+		{
+			name:      "dashboard shows Backups",
+			setup:     func() Model { return modelAtScreen(ScreenDashboard) },
+			wantTitle: "bak — Backups",
+		},
+		{
+			name:      "settings shows Settings",
+			setup:     func() Model { return modelAtScreen(ScreenSettings) },
+			wantTitle: "bak — Settings",
+		},
+		{
+			name:      "cloud shows Cloud",
+			setup:     func() Model { return modelAtScreen(ScreenCloud) },
+			wantTitle: "bak — Cloud",
+		},
+		{
+			name:      "health shows Health",
+			setup:     func() Model { return modelAtScreen(ScreenHealth) },
+			wantTitle: "bak — Health",
+		},
+		{
+			name:      "profiles shows Profiles",
+			setup:     func() Model { return modelAtScreen(ScreenProfiles) },
+			wantTitle: "bak — Profiles",
+		},
+		{
+			name:      "shortcuts shows Shortcuts",
+			setup:     func() Model { return modelAtScreen(ScreenShortcuts) },
+			wantTitle: "bak — Shortcuts",
+		},
+		{
+			name:      "progress idle shows Backup",
+			setup:     func() Model { return modelAtScreen(ScreenProgress) },
+			wantTitle: "bak — Backup",
+		},
+		{
+			name: "progress running shows step counter",
+			setup: func() Model {
+				m := modelAtScreen(ScreenProgress)
+				m2, _ := m.Update(screens.ProgressStepMsg{Step: "copying", Current: 3, Total: 7})
+				return m2.(Model)
+			},
+			wantTitle: "bak — Backup 3/7",
+		},
+		{
+			name:      "restore without id shows Restore",
+			setup:     func() Model { return modelAtScreen(ScreenRestore) },
+			wantTitle: "bak — Restore",
+		},
+		{
+			name: "restore with id contains id",
+			setup: func() Model {
+				m := modelAtScreen(ScreenRestore)
+				if m.restore == nil {
+					t.Fatal("restore sub-model not initialized")
+				}
+				m.restore.SelectedID = "abc1234"
+				return m
+			},
+			contains: "abc1234",
+		},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+			m := tt.setup()
+			got := m.View().WindowTitle
+			switch {
+			case tt.contains != "":
+				if !strings.Contains(got, tt.contains) {
+					t.Errorf("WindowTitle = %q, want to contain %q", got, tt.contains)
+				}
+			default:
+				if got != tt.wantTitle {
+					t.Errorf("WindowTitle = %q, want %q", got, tt.wantTitle)
+				}
+			}
+		})
+	}
+}
+
+// TestModel_View_StatusBar verifies the persistent status bar (REQ-TP-003) is
+// appended at the bottom of every screen on wide terminals and hidden below 40
+// columns. Uses ScreenProgress, whose own content has no "bak v" string, so the
+// presence of "bak v1.0.0" proves the status bar rendered.
+func TestModel_View_StatusBar(t *testing.T) { //nolint:paralleltest // shared styles/colorprofile global state
+	// Wide terminal: status bar present.
+	m := modelAtScreen(ScreenProgress)
+	out := m.View().Content
+	if !strings.Contains(out, "bak v1.0.0") {
+		t.Errorf("wide View() missing status bar 'bak v1.0.0':\n%s", out)
+	}
+
+	// Narrow terminal (<40 cols): status bar hidden.
+	m.width = 39
+	narrow := m.View().Content
+	if strings.Contains(narrow, "bak v1.0.0") {
+		t.Errorf("narrow View() should hide status bar, but contains 'bak v1.0.0':\n%s", narrow)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
@@ -33,6 +34,10 @@ type HealthModel struct {
 	running bool
 	width   int
 	height  int
+	// spinner drives the live rotating frame for the running check row
+	// (REQ-TP-002). It mirrors ProgressModel.spinner so both screens share one
+	// ticking pattern and avoid a double-tick storm.
+	spinner spinner.Model
 }
 
 // healthCheckNames are the names of the health checks in execution order.
@@ -43,14 +48,18 @@ var healthCheckNames = []string{
 	"Cloud reachable",
 }
 
-// NewHealthModel creates a new HealthModel in idle state with no checks.
+// NewHealthModel creates a new HealthModel in idle state with no checks and a
+// styled spinner ready to animate the running check row.
 func NewHealthModel() HealthModel {
-	return HealthModel{}
+	return HealthModel{
+		spinner: spinner.New(spinner.WithStyle(spinnerStyle)),
+	}
 }
 
-// Init returns nil — no initial side effects.
+// Init starts the spinner animation by returning a spinner.Tick command so the
+// running check row rotates as soon as checks begin.
 func (m HealthModel) Init() tea.Cmd {
-	return nil
+	return m.spinner.Tick
 }
 
 // Update handles keyboard input: enter starts the health checks, q/esc
@@ -91,6 +100,16 @@ func (m HealthModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.running = false
 		}
 		return m, nil
+
+	case spinner.TickMsg:
+		// Only animate while a check is running; stop ticking when idle so the
+		// spinner does not spin on the static prompt.
+		if !m.running {
+			return m, nil
+		}
+		newSp, cmd := m.spinner.Update(msg)
+		m.spinner = newSp
+		return m, cmd
 	}
 
 	return m, nil
@@ -143,7 +162,7 @@ func (m HealthModel) View() tea.View {
 	}
 
 	for _, check := range m.checks {
-		indicator, style := healthIndicator(check.Status)
+		indicator, style := healthIndicator(check.Status, m.spinner.View())
 		b.WriteString("  ")
 		b.WriteString(style.Render(indicator + " " + check.Name))
 		if check.Detail != "" {
@@ -165,13 +184,16 @@ func (m HealthModel) View() tea.View {
 	return tea.NewView(b.String())
 }
 
-// healthIndicator returns the visual indicator and style for a health check status.
-func healthIndicator(status StepStatus) (string, lipgloss.Style) {
+// healthIndicator returns the visual indicator and style for a health check
+// status. spinnerView is the live spinner.Model frame (m.spinner.View()); it
+// is used only for the StepRunning row so the running check visibly rotates
+// instead of freezing on a static glyph (REQ-TP-002).
+func healthIndicator(status StepStatus, spinnerView string) (string, lipgloss.Style) {
 	switch status {
 	case StepDone:
 		return "\u2713", styles.ProgressDoneStyle
 	case StepRunning:
-		return "\u28f9", styles.ProgressRunningStyle
+		return spinnerView, styles.ProgressRunningStyle
 	default:
 		return "○", styles.ProgressPendingStyle
 	}

@@ -104,3 +104,9 @@ var (
 			Foreground(ColorMuted).
 			Padding(1, 2)
 )
+
+// StatusBarStyle is the persistent one-line status bar style (Rose Pine
+// semantic colors). Foreground only — no padding — so the bar's visible width
+// equals its text width and truncation math stays predictable (AGENTS.md
+// §styles: package-level var, no inline NewStyle in render paths).
+var StatusBarStyle = lipgloss.NewStyle().Foreground(ColorSubtle)

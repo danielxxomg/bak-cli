@@ -3,6 +3,8 @@ package styles
 import (
 	"strings"
 	"testing"
+
+	"github.com/charmbracelet/colorprofile"
 )
 
 func TestRenderLogo_NonEmpty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
@@ -82,5 +84,45 @@ func TestRenderLogo_Gradient(t *testing.T) { //nolint:paralleltest // not yet pa
 
 	if found < 4 {
 		t.Errorf("RenderLogo(80) uses %d/5 gradient colors, want at least 4. Output: %q", found, result)
+	}
+}
+
+// TestRenderLogo_GradientLineCount verifies the gradient logo renders exactly
+// one colored line per ASCII art line (5 stops → 5 distinct colored lines),
+// proving Blend1D produces a per-line gradient (REQ-TP-004).
+func TestRenderLogo_GradientLineCount(t *testing.T) { //nolint:paralleltest // shared styles/colorprofile global state
+	result := RenderLogo(80)
+	lines := strings.Split(result, "\n")
+	if len(lines) != 5 { //nolint:mnd // asciiLogo is 5 lines
+		t.Fatalf("RenderLogo(80) has %d lines, want 5", len(lines))
+	}
+	colored := 0
+	for _, line := range lines {
+		if strings.Contains(line, "\x1b[") {
+			colored++
+		}
+	}
+	if colored != 5 { //nolint:mnd
+		t.Errorf("RenderLogo(80) has %d colored lines, want 5 (one gradient color per line)", colored)
+	}
+}
+
+// TestRenderLogo_AsciiProfileUncolored verifies that on a no-color profile
+// (Ascii) the logo falls back to plain text without ANSI color codes
+// (REQ-TP-004 §"plain logo on no-color terminal"). The default profile emits
+// color, so this exercises the explicit no-color branch.
+func TestRenderLogo_AsciiProfileUncolored(t *testing.T) { //nolint:paralleltest // mutates package-level colorProfile
+	orig := colorProfile
+	colorProfile = colorprofile.Ascii
+	defer func() { colorProfile = orig }()
+
+	result := RenderLogo(80)
+	if strings.Contains(result, "\x1b[") {
+		t.Errorf("Ascii profile logo must have no ANSI color codes, got %q", result)
+	}
+	// Plain text still renders the ASCII art (5 lines, art glyphs present).
+	lines := strings.Split(result, "\n")
+	if len(lines) != 5 { //nolint:mnd
+		t.Errorf("Ascii logo has %d lines, want 5", len(lines))
 	}
 }

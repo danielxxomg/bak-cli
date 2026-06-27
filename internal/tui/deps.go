@@ -11,6 +11,14 @@ type Deps struct {
 	// Version is the application version string shown in the UI.
 	Version string
 
+	// Preset is the active backup preset name shown in the status bar.
+	// Empty when no preset is configured (the bar omits the segment).
+	Preset string
+
+	// BackupPath is the local backups directory shown (truncated) in the
+	// status bar. Empty when unresolved (the bar omits the segment).
+	BackupPath string
+
 	// ListBackups returns all known backups. May be nil during testing.
 	ListBackups func() ([]BackupInfo, error)
 

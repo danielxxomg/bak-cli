@@ -3,7 +3,9 @@ package screens
 import (
 	"strings"
 	"testing"
+	"time"
 
+	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -26,11 +28,11 @@ func TestNewHealthModel(t *testing.T) { //nolint:paralleltest // not yet paralle
 // Phase 3: Init nil-return coverage
 // =============================================================================
 
-func TestHealthModel_Init_ReturnsNil(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+func TestHealthModel_Init_StartsSpinner(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewHealthModel()
 	cmd := m.Init()
-	if cmd != nil {
-		t.Errorf("Init() = %v, want nil", cmd)
+	if cmd == nil {
+		t.Error("Init() returned nil, want spinner.Tick so the running step rotates")
 	}
 }
 
@@ -92,6 +94,12 @@ func TestHealth_Update_Back(t *testing.T) { //nolint:paralleltest // not yet par
 
 func TestHealth_View_Running(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := NewHealthModel()
+	// Custom spinner with a unique frame so the live indicator is deterministic
+	// and distinct from the old static "\u28f9" glyph.
+	m.spinner = spinner.New(spinner.WithSpinner(spinner.Spinner{
+		Frames: []string{"alpha", "beta", "gamma", "delta"},
+		FPS:    time.Second / 10, //nolint:mnd
+	}))
 	m.width = 80
 	m.height = 24
 	m.running = true
@@ -111,9 +119,71 @@ func TestHealth_View_Running(t *testing.T) { //nolint:paralleltest // not yet pa
 	if !strings.Contains(output, "Backup dir") {
 		t.Error("View() running missing check name 'Backup dir'")
 	}
-	// Should show running indicator.
-	if !strings.Contains(output, "\u28f9") {
-		t.Errorf("View() running missing spinner indicator: %q", output)
+	// The running row must no longer render the old static glyph.
+	if strings.Contains(output, "\u28f9") {
+		t.Errorf("View() running still shows static indicator \\u28f9, want live spinner frame: %q", output)
+	}
+}
+
+// TestHealth_View_RunningStepShowsSpinnerFrame verifies the running health
+// check row renders the live spinner.Model frame (m.spinner.View()) instead of
+// a static glyph (REQ-TP-002). Mirrors the progress screen assertion.
+func TestHealth_View_RunningStepShowsSpinnerFrame(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	m := NewHealthModel()
+	m.spinner = spinner.New(spinner.WithSpinner(spinner.Spinner{
+		Frames: []string{"alpha", "beta", "gamma", "delta"},
+		FPS:    time.Second / 10, //nolint:mnd
+	}))
+	m.width = 80
+	m.height = 24
+	m.running = true
+	m.checks = []HealthCheck{{Name: "Config exists", Status: StepRunning}}
+
+	// Advance the spinner two ticks → frame index 2 → "gamma".
+	for range 2 { //nolint:mnd
+		tickMsg := m.spinner.Tick()
+		nm, _ := m.Update(tickMsg)
+		m = nm.(HealthModel)
+	}
+
+	output := m.View().Content
+	const wantFrame = "gamma"
+	var stepRow string
+	for _, line := range strings.Split(output, "\n") {
+		if strings.Contains(line, "Config exists") {
+			stepRow = line
+			break
+		}
+	}
+	if stepRow == "" {
+		t.Fatalf("running check row not found in output:\n%s", output)
+	}
+	if !strings.Contains(stepRow, wantFrame) {
+		t.Errorf("running check row must show live spinner frame %q, got row %q", wantFrame, stepRow)
+	}
+}
+
+// TestHealth_SpinnerTick verifies the spinner advances while running and
+// stops ticking when idle (mirrors the progress screen TickMsg handling).
+func TestHealth_SpinnerTick(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	// While running, a TickMsg advances the spinner and re-issues a tick.
+	m := NewHealthModel()
+	m.running = true
+	tickMsg := m.spinner.Tick()
+
+	nm, cmd := m.Update(tickMsg)
+	result := nm.(HealthModel)
+	if cmd == nil {
+		t.Error("after spinner tick while running: cmd = nil, want new Tick")
+	}
+	_ = result
+
+	// While idle, a TickMsg does not re-tick (stops the animation).
+	idle := NewHealthModel()
+	idle.running = false
+	_, cmd2 := idle.Update(idle.spinner.Tick())
+	if cmd2 != nil {
+		t.Error("after spinner tick while idle: expected nil cmd, got non-nil")
 	}
 }
 

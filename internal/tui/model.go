@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"fmt"
+
 	"charm.land/lipgloss/v2"
 
 	"github.com/danielxxomg/bak-cli/internal/tui/components"
@@ -618,7 +620,59 @@ func (m Model) View() tea.View {
 	}
 	v := tea.NewView(content)
 	v.AltScreen = true
+	v.WindowTitle = titleForScreen(m)
 	return v
+}
+
+// titleForScreen maps the active screen to a contextual terminal window title
+// of the form "bak — {Screen}" (REQ-TP-001). On ScreenProgress with a running
+// operation it appends the live step counter ("bak — Backup 3/7"); on
+// ScreenRestore it appends the selected backup id when present. The title is a
+// pure read of current model state, recomputed every render — no command
+// plumbing, matching the existing v.AltScreen field-assignment pattern.
+func titleForScreen(m Model) string {
+	switch m.screen {
+	case ScreenMenu:
+		return "bak — Main Menu"
+	case ScreenWelcome:
+		return "bak — Welcome"
+	case ScreenDashboard:
+		return "bak — Backups"
+	case ScreenSettings:
+		return "bak — Settings"
+	case ScreenCloud:
+		return "bak — Cloud"
+	case ScreenShortcuts:
+		return "bak — Shortcuts"
+	case ScreenHealth:
+		return "bak — Health"
+	case ScreenProfiles:
+		return "bak — Profiles"
+	case ScreenProgress:
+		return progressTitle(m)
+	case ScreenRestore:
+		return restoreTitle(m)
+	default:
+		return "bak"
+	}
+}
+
+// progressTitle renders the progress screen title, appending the live step
+// counter ("bak — Backup 3/7") when an operation is running with a known total.
+func progressTitle(m Model) string {
+	if m.progress != nil && m.progress.Running() && m.progress.Total > 0 {
+		return fmt.Sprintf("bak — Backup %d/%d", m.progress.Current, m.progress.Total)
+	}
+	return "bak — Backup"
+}
+
+// restoreTitle renders the restore screen title, appending the selected backup
+// id ("bak — Restore:abc1234") when one has been chosen.
+func restoreTitle(m Model) string {
+	if m.restore != nil && m.restore.SelectedID != "" {
+		return "bak — Restore:" + m.restore.SelectedID
+	}
+	return "bak — Restore"
 }
 
 // renderContent renders the active screen with optional help and toast
@@ -629,6 +683,11 @@ func (m Model) renderContent() string {
 	// Overlay help when toggled via '?'.
 	if m.showHelp {
 		content = screens.RenderShortcuts(m.width)
+	}
+	// Persistent status bar at the bottom of every screen (REQ-TP-003).
+	// Hidden on narrow terminals (<40 cols) by RenderStatusBar itself.
+	if bar := components.RenderStatusBar(m.width, m.deps.Version, m.deps.Preset, m.deps.BackupPath); bar != "" {
+		content += "\n" + bar
 	}
 	// Render toast overlay. On wide terminals (>= 50 cols), position
 	// the toast at bottom-right using lipgloss.Place. On narrow terminals,
