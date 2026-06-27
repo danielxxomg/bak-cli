@@ -308,6 +308,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case screens.ProgressDoneMsg:
 		return m.handleProgressDoneMsg(msg)
+
+	case tea.MouseWheelMsg, tea.MouseClickMsg:
+		// Mouse navigation is suppressed while the dashboard search input is
+		// active so wheel/click events can't move the table cursor behind the
+		// search box (REQ-TP-006). The guard lives on the root Model because
+		// that is where the search component state lives; DashboardModel has
+		// no search field. When search is inactive, fall through to the
+		// sub-model forwarding below so the dashboard handles the event.
+		if m.screen == ScreenDashboard && m.search.IsActive() {
+			return m, nil
+		}
 	}
 
 	// Forward remaining messages to the active sub-model.
@@ -621,6 +632,14 @@ func (m Model) View() tea.View {
 	v := tea.NewView(content)
 	v.AltScreen = true
 	v.WindowTitle = titleForScreen(m)
+	// Enable cell-motion mouse capture only on screens that handle mouse
+	// events (the dashboard). Other screens leave MouseMode at MouseModeNone
+	// so the terminal retains normal text-selection behavior (REQ-TP-006).
+	// v2 enables mouse declaratively via this View field — there is no
+	// tea.WithMouseCellMotion program option.
+	if m.screen == ScreenDashboard {
+		v.MouseMode = tea.MouseModeCellMotion
+	}
 	return v
 }
 

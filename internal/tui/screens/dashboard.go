@@ -35,6 +35,22 @@ var dashboardColumns = []table.Column{
 	{Title: "Cloud", Width: 10},
 }
 
+// dashboardMouseHeaderOffset is the number of rendered lines above the table
+// data rows (the "Backups" title + a blank line). A mouse click's Y coordinate
+// is mapped to a table row index by subtracting this offset (REQ-TP-006).
+const dashboardMouseHeaderOffset = 2
+
+// clampCursor clamps cur into the valid table row range [0, rows-1].
+func clampCursor(cur, rows int) int {
+	if cur < 0 {
+		return 0
+	}
+	if cur >= rows {
+		return rows - 1
+	}
+	return cur
+}
+
 // DashboardModel is the Bubble Tea sub-model for the dashboard screen.
 // It wraps a bubbles/table sub-model and handles keyboard navigation.
 //
@@ -107,6 +123,31 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.table = newTable
 			return m, cmd
 		}
+
+	case tea.MouseWheelMsg:
+		// Mouse wheel scrolls the backup list (REQ-TP-006).
+		rows := len(m.table.Rows())
+		if rows > 0 {
+			cur := m.table.Cursor()
+			switch msg.Button {
+			case tea.MouseWheelDown:
+				cur++
+			case tea.MouseWheelUp:
+				cur--
+			}
+			m.table.SetCursor(clampCursor(cur, rows))
+		}
+		return m, nil
+
+	case tea.MouseClickMsg:
+		// Left click selects the clicked row (REQ-TP-006).
+		if msg.Button == tea.MouseLeft {
+			rows := len(m.table.Rows())
+			if rows > 0 {
+				m.table.SetCursor(clampCursor(msg.Y-dashboardMouseHeaderOffset, rows))
+			}
+		}
+		return m, nil
 	}
 
 	// Forward all other messages to the table sub-model.
@@ -166,9 +207,9 @@ func (m DashboardModel) View() tea.View {
 		return tea.NewView(b.String())
 	}
 
-	// Empty state.
+	// Empty state (styled icon + message + hint, REQ-TP-007).
 	if len(m.table.Rows()) == 0 {
-		b.WriteString(styles.DashboardEmptyStyle.Render("No backups found"))
+		b.WriteString(components.RenderEmptyState("∅", "No backups yet", "Run 'bak backup' to create one"))
 		b.WriteString("\n\n")
 		b.WriteString(renderDashboardHelp())
 		return tea.NewView(b.String())

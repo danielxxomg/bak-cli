@@ -44,19 +44,19 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: Viewport Dry-Run (PR 2 — Tier 2a)
 
-- [ ] 3.1 [RED] `internal/tui/screens/restore_test.go`: send `restoreDryRunResultMsg{output: "diff..."}`, assert `viewport.SetContent` called and `View()` renders viewport output
-- [ ] 3.2 [GREEN] `internal/tui/screens/restore.go`: add `viewport viewport.Model` + `vpReady bool` fields; `WindowSizeMsg` sets viewport dimensions; `restoreDryRunResultMsg` calls `SetContent`; `renderDryRun` writes `m.viewport.View()`
-- [ ] 3.3 [RED] `restore_test.go`: press `PgDn`/`PgUp`/`j`/`k`/`g`/`G` in `restoreStateDryRun`, assert viewport scroll position changes; press `q`, assert transition to `restoreStateList`
-- [ ] 3.4 [GREEN] `restore.go` Update: forward scroll keys (`j/k/↑/↓/PgUp/PgDn/g/G`) to `m.viewport.Update`; `q` transitions to list state
+- [x] 3.1 [RED] `internal/tui/screens/restore_test.go`: send `restoreDryRunResultMsg{output: "diff..."}`, assert `viewport.SetContent` called and `View()` renders viewport output
+- [x] 3.2 [GREEN] `internal/tui/screens/restore.go`: add `viewport viewport.Model` + `vpReady bool` fields; `WindowSizeMsg` sets viewport dimensions; `restoreDryRunResultMsg` calls `SetContent`; `renderDryRun` writes `m.viewport.View()`
+- [x] 3.3 [RED] `restore_test.go`: press `PgDn`/`PgUp`/`j`/`k`/`g`/`G` in `restoreStateDryRun`, assert viewport scroll position changes; press `q`, assert transition to `restoreStateList`
+- [x] 3.4 [GREEN] `restore.go` Update: forward scroll keys (`j/k/↑/↓/PgUp/PgDn/g/G`) to `m.viewport.Update`; `q` transitions to list state
 
 ## Phase 4: Mouse Navigation & Empty States (PR 2 — Tier 2b)
 
-- [ ] 4.1 [RED] `internal/tui/screens/dashboard_test.go`: `MouseWheelMsg{Button: MouseWheelDown}` advances table cursor; `MouseClickMsg{Y: 2}` sets cursor; mouse suppressed when `search.IsActive()`
-- [ ] 4.2 [GREEN] `internal/tui/screens/dashboard.go`: set `v.MouseMode = tea.MouseModeCellMotion` in `View()`; add `MouseWheelMsg`/`MouseClickMsg` cases in `Update`; guard `m.search.IsActive()` return early
-- [ ] 4.3 [RED] `internal/tui/components/empty_state_test.go`: table-driven — output contains icon, italic message, hint text
-- [ ] 4.4 [GREEN] `internal/tui/components/empty_state.go`: stateless `RenderEmptyState(icon, message, hint string) string`
-- [ ] 4.5 [GREEN] `internal/tui/styles/screens.go`: add `EmptyStateIconStyle`, `EmptyStateMsgStyle`, `EmptyStateHintStyle` package-level vars
-- [ ] 4.6 [REFACTOR] `dashboard.go`, `restore.go`, `cloud.go`: replace bare empty strings with `components.RenderEmptyState(...)` calls
+- [x] 4.1 [RED] `internal/tui/screens/dashboard_test.go`: `MouseWheelMsg{Button: MouseWheelDown}` advances table cursor; `MouseClickMsg{Y: 2}` sets cursor; mouse suppressed when `search.IsActive()`
+- [x] 4.2 [GREEN] `internal/tui/screens/dashboard.go`: set `v.MouseMode = tea.MouseModeCellMotion` in `View()`; add `MouseWheelMsg`/`MouseClickMsg` cases in `Update`; guard `m.search.IsActive()` return early
+- [x] 4.3 [RED] `internal/tui/components/empty_state_test.go`: table-driven — output contains icon, italic message, hint text
+- [x] 4.4 [GREEN] `internal/tui/components/empty_state.go`: stateless `RenderEmptyState(icon, message, hint string) string`
+- [x] 4.5 [GREEN] `internal/tui/styles/screens.go`: add `EmptyStateIconStyle`, `EmptyStateMsgStyle`, `EmptyStateHintStyle` package-level vars
+- [x] 4.6 [REFACTOR] `dashboard.go`, `restore.go`, `cloud.go`: replace bare empty strings with `components.RenderEmptyState(...)` calls
 
 ## Phase 5: Paste Support (PR 3 — Tier 3)
 

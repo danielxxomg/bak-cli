@@ -110,3 +110,25 @@ var (
 // equals its text width and truncation math stays predictable (AGENTS.md
 // §styles: package-level var, no inline NewStyle in render paths).
 var StatusBarStyle = lipgloss.NewStyle().Foreground(ColorSubtle)
+
+// Empty-state styles (tui-personality REQ-TP-007): a Love-colored icon, an
+// italic message, and a muted hint with the next action. Package-level vars
+// per AGENTS.md §styles (no inline NewStyle in render paths).
+var (
+	// EmptyStateIconStyle renders the empty-state icon (Rose Pine Love).
+	EmptyStateIconStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(ColorLove).
+				Padding(1, 2)
+
+	// EmptyStateMsgStyle renders the empty-state message (italic primary text).
+	EmptyStateMsgStyle = lipgloss.NewStyle().
+				Italic(true).
+				Foreground(ColorText).
+				Padding(0, 2)
+
+	// EmptyStateHintStyle renders the empty-state hint (de-emphasized next action).
+	EmptyStateHintStyle = lipgloss.NewStyle().
+				Foreground(ColorMuted).
+				Padding(0, 2)
+)

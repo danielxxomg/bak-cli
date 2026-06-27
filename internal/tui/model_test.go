@@ -1067,8 +1067,8 @@ func TestModel_initDashboard_NilListBackups(t *testing.T) { //nolint:paralleltes
 
 	// Dashboard should be usable (empty, no error).
 	view := d.View().Content
-	if !strings.Contains(view, "No backups found") {
-		t.Errorf("nil ListBackups dashboard view = %q, want 'No backups found'", view)
+	if !strings.Contains(view, "No backups yet") {
+		t.Errorf("nil ListBackups dashboard view = %q, want 'No backups yet'", view)
 	}
 }
 
@@ -3034,5 +3034,111 @@ func TestModel_View_StatusBar(t *testing.T) { //nolint:paralleltest // shared st
 	narrow := m.View().Content
 	if strings.Contains(narrow, "bak v1.0.0") {
 		t.Errorf("narrow View() should hide status bar, but contains 'bak v1.0.0':\n%s", narrow)
+	}
+}
+
+// =============================================================================
+// tui-personality Phase 4 — Mouse navigation (REQ-TP-006)
+// RED: declarative v2 mouse mode + search-suppression guard. The mouse mode is
+// set declaratively via the tea.View.MouseMode field (v2 API — there is no
+// tea.WithMouseCellMotion program option in v2). The search guard lives on the
+// root Model because that is where the search component state lives;
+// DashboardModel has no search field (documented deviation from design.md).
+// =============================================================================
+
+// TestModel_View_MouseMode verifies the dashboard screen (the only screen that
+// handles wheel/click) requests MouseModeCellMotion, while screens that don't
+// handle mouse leave it at MouseModeNone so the terminal keeps normal
+// text-selection behavior (REQ-TP-006).
+func TestModel_View_MouseMode(t *testing.T) { //nolint:paralleltest // shared styles/colorprofile global state
+	tests := []struct {
+		name  string
+		setup func() Model
+		want  tea.MouseMode
+	}{
+		{"menu disables mouse", func() Model { return modelAtScreen(ScreenMenu) }, tea.MouseModeNone},
+		{"dashboard enables cell-motion mouse", func() Model { return modelAtScreen(ScreenDashboard) }, tea.MouseModeCellMotion},
+		{"restore disables mouse (keyboard-only viewport)", func() Model { return modelAtScreen(ScreenRestore) }, tea.MouseModeNone},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+			got := tt.setup().View().MouseMode
+			if got != tt.want {
+				t.Errorf("%s: View().MouseMode = %v, want %v", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestModel_MouseSuppressedDuringSearch verifies mouse wheel/click events are
+// dropped (dashboard view unchanged) while the dashboard search input is
+// active, so scrolling the wheel behind the search box can't move the table
+// cursor (REQ-TP-006 guard via search.IsActive()). The assertion is behavioral
+// (rendered output identical before/after) per strict-tdd preference for
+// user-visible behavior over internal cursor state.
+func TestModel_MouseSuppressedDuringSearch(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		ListBackups: func() ([]BackupInfo, error) {
+			return []BackupInfo{
+				{ID: "row-1"}, {ID: "row-2"}, {ID: "row-3"},
+			}, nil
+		},
+	})
+	m.width = 80
+	m.height = 24
+	// Navigate to dashboard and activate search.
+	m2, _ := m.Update(screenChangeMsg{screen: ScreenDashboard})
+	m = m2.(Model)
+	m3, _ := m.Update(tea.KeyPressMsg{Code: '/'})
+	m = m3.(Model)
+	if !m.search.IsActive() {
+		t.Fatal("search not active after '/' on dashboard")
+	}
+
+	before := m.dashboard.View().Content
+
+	// Wheel down during search: dashboard view must be unchanged.
+	nm, _ := m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
+	r := nm.(Model)
+	if r.dashboard.View().Content != before {
+		t.Errorf("wheel down during search changed dashboard view (should be suppressed)")
+	}
+
+	// Left click during search: dashboard view must be unchanged.
+	nm, _ = r.Update(tea.MouseClickMsg{Button: tea.MouseLeft, Y: 2})
+	r = nm.(Model)
+	if r.dashboard.View().Content != before {
+		t.Errorf("click during search changed dashboard view (should be suppressed)")
+	}
+}
+
+// TestModel_MouseActiveWhenSearchInactive verifies the suppression guard is
+// search-specific: with search INACTIVE, a mouse wheel event DOES change the
+// dashboard view (cursor advances). Triangulates that the guard is not a
+// blanket mouse block.
+func TestModel_MouseActiveWhenSearchInactive(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	m := NewModel(Deps{
+		Version: "1.0.0",
+		ListBackups: func() ([]BackupInfo, error) {
+			return []BackupInfo{
+				{ID: "row-1"}, {ID: "row-2"}, {ID: "row-3"},
+			}, nil
+		},
+	})
+	m.width = 80
+	m.height = 24
+	m2, _ := m.Update(screenChangeMsg{screen: ScreenDashboard})
+	m = m2.(Model)
+	if m.search.IsActive() {
+		t.Fatal("search should be inactive by default")
+	}
+
+	before := m.dashboard.View().Content
+	nm, _ := m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
+	r := nm.(Model)
+	if r.dashboard.View().Content == before {
+		t.Error("wheel down with search inactive did not change dashboard view (cursor should advance)")
 	}
 }
