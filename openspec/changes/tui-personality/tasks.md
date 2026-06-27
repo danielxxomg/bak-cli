@@ -65,6 +65,6 @@ Chain strategy: stacked-to-main
 
 ## Phase 6: Verification & Coverage
 
-- [ ] 6.1 Run `go test ./internal/tui/...` — all tests green
-- [ ] 6.2 Run `go test -cover ./internal/tui/...` — verify ≥80% per package
-- [ ] 6.3 Run `go vet ./...` and `golangci-lint run` — clean
+- [x] 6.1 Run `go test ./internal/tui/...` — all tests green
+- [x] 6.2 Run `go test -cover ./internal/tui/...` — verify ≥80% per package
+- [x] 6.3 Run `go vet ./...` and `golangci-lint run` — clean
