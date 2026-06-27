@@ -240,12 +240,33 @@ func TestDashboard_View_EmptyState(t *testing.T) { //nolint:paralleltest // not 
 
 	output := m.View().Content
 
-	if !strings.Contains(output, "No backups found") {
-		t.Errorf("View() output %q does not contain 'No backups found'", output)
+	if !strings.Contains(output, "No backups yet") {
+		t.Errorf("View() output %q does not contain 'No backups yet'", output)
 	}
 
 	if len(output) == 0 {
 		t.Error("View() returned empty string for empty state")
+	}
+}
+
+// TestDashboard_View_EmptyState_Styled verifies the empty dashboard renders the
+// shared styled empty-state block (icon + message + hint) via
+// components.RenderEmptyState, not a bare string (tui-personality REQ-TP-007).
+// The hint presence is the behavioral proof: a bare message string has none.
+func TestDashboard_View_EmptyState_Styled(t *testing.T) { //nolint:paralleltest // matches established codebase convention across all tui tests
+	m := NewDashboardModel(func() ([]BackupInfo, error) {
+		return []BackupInfo{}, nil
+	})
+	m.width = 80
+	m.height = 24
+
+	output := m.View().Content
+
+	if !strings.Contains(output, "No backups yet") {
+		t.Errorf("styled empty state missing message 'No backups yet': %q", output)
+	}
+	if !strings.Contains(output, "bak backup") {
+		t.Errorf("styled empty state missing hint 'bak backup': %q", output)
 	}
 }
 
@@ -364,12 +385,90 @@ func TestDashboard_View_SingleRow(t *testing.T) { //nolint:paralleltest // not y
 }
 
 // =============================================================================
-// Error type used in tests — matches NewDashboardModel tests.
+// Phase 4: Mouse Navigation (PR 2 — Tier 2b) — RED
 // =============================================================================
 
-// =============================================================================
-// Phase 2 Search → Dashboard Wiring Tests — RED (SetFilter does not exist yet)
-// =============================================================================
+// TestDashboard_MouseWheel_ScrollsList verifies the mouse wheel advances and
+// retreats the table cursor (REQ-TP-006: wheel scrolls the list).
+func TestDashboard_MouseWheel_ScrollsList(t *testing.T) { //nolint:paralleltest // matches established codebase convention across all tui tests
+	m := NewDashboardModel(func() ([]BackupInfo, error) {
+		return []BackupInfo{{ID: "1"}, {ID: "2"}, {ID: "3"}}, nil
+	})
+	m.width = 80
+	m.height = 24
+
+	// Wheel down advances the cursor (0 -> 1).
+	before := m.table.Cursor()
+	nm, _ := m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
+	r := nm.(DashboardModel)
+	if r.table.Cursor() <= before {
+		t.Errorf("wheel down did not advance cursor: %d -> %d", before, r.table.Cursor())
+	}
+
+	// Wheel up retreats the cursor (1 -> 0).
+	before = r.table.Cursor()
+	nm, _ = r.Update(tea.MouseWheelMsg{Button: tea.MouseWheelUp})
+	r = nm.(DashboardModel)
+	if r.table.Cursor() >= before {
+		t.Errorf("wheel up did not retreat cursor: %d -> %d", before, r.table.Cursor())
+	}
+}
+
+// TestDashboard_MouseClick_SelectsRow verifies a left click moves the cursor
+// to the clicked row (REQ-TP-006: click selects the clicked row).
+func TestDashboard_MouseClick_SelectsRow(t *testing.T) { //nolint:paralleltest // matches established codebase convention across all tui tests
+	m := NewDashboardModel(func() ([]BackupInfo, error) {
+		return []BackupInfo{{ID: "1"}, {ID: "2"}, {ID: "3"}}, nil
+	})
+	m.width = 80
+	m.height = 24
+
+	tests := []struct {
+		name    string
+		y       int
+		wantCur int
+	}{
+		{"click first data row", 2, 0},
+		{"click second data row", 3, 1},
+		{"click third data row", 4, 2},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) {
+			nm, _ := m.Update(tea.MouseClickMsg{Button: tea.MouseLeft, Y: tt.y})
+			r := nm.(DashboardModel)
+			if r.table.Cursor() != tt.wantCur {
+				t.Errorf("click at Y=%d: cursor = %d, want %d", tt.y, r.table.Cursor(), tt.wantCur)
+			}
+		})
+	}
+}
+
+// TestDashboard_MouseWheel_ClampsAtBounds verifies wheel scrolling clamps at
+// the first/last row instead of going out of bounds.
+func TestDashboard_MouseWheel_ClampsAtBounds(t *testing.T) { //nolint:paralleltest // matches established codebase convention across all tui tests
+	m := NewDashboardModel(func() ([]BackupInfo, error) {
+		return []BackupInfo{{ID: "1"}, {ID: "2"}, {ID: "3"}}, nil
+	})
+	m.width = 80
+	m.height = 24
+
+	// Wheel up from the top stays at 0.
+	nm, _ := m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelUp})
+	r := nm.(DashboardModel)
+	if r.table.Cursor() != 0 {
+		t.Errorf("wheel up at top: cursor = %d, want 0", r.table.Cursor())
+	}
+
+	// Wheel down past the last row clamps at the last row (index 2).
+	for i := 0; i < 10; i++ {
+		nm, _ = r.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
+		r = nm.(DashboardModel)
+	}
+	if r.table.Cursor() != 2 {
+		t.Errorf("wheel down past end: cursor = %d, want 2 (clamped)", r.table.Cursor())
+	}
+}
 
 // TestDashboard_SetFilter_MatchingRows verifies that SetFilter with a
 // matching query returns only rows containing that substring (case-insensitive).
@@ -513,8 +612,8 @@ func TestDashboard_View_HelpBar_Empty(t *testing.T) { //nolint:paralleltest // n
 	output := m.View().Content
 
 	// Must show empty state AND help bar.
-	if !strings.Contains(output, "No backups found") {
-		t.Errorf("empty dashboard missing 'No backups found': %q", output)
+	if !strings.Contains(output, "No backups yet") {
+		t.Errorf("empty dashboard missing 'No backups yet': %q", output)
 	}
 	if !strings.Contains(output, "navigate") {
 		t.Errorf("empty dashboard help bar missing 'navigate': %q", output)

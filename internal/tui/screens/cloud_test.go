@@ -74,6 +74,22 @@ func TestRenderCloudStatus_NoProvider(t *testing.T) { //nolint:paralleltest // n
 	}
 }
 
+// TestRenderCloudStatus_NoProvider_Styled verifies the no-provider branch
+// renders the shared styled empty-state block (icon + message + hint) via
+// components.RenderEmptyState, not a bare string (tui-personality REQ-TP-007).
+func TestRenderCloudStatus_NoProvider_Styled(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	info := CloudInfo{Provider: ""}
+
+	output := RenderCloudStatus(info, 80)
+
+	if !strings.Contains(output, "No cloud provider configured") {
+		t.Errorf("styled no-provider missing message: %q", output)
+	}
+	if !strings.Contains(output, "bak cloud login") {
+		t.Errorf("styled no-provider missing hint 'bak cloud login': %q", output)
+	}
+}
+
 // =============================================================================
 // TestRenderCloudStatus_Counts — RED
 // =============================================================================
