@@ -46,9 +46,6 @@ type ProgressDoneMsg struct{}
 // progressStepDoneIndicator is displayed for completed steps.
 const progressStepDoneIndicator = "✓"
 
-// progressStepRunningIndicator is displayed for the currently running step.
-const progressStepRunningIndicator = "⠹"
-
 // progressStepPendingIndicator is displayed for steps not yet started.
 const progressStepPendingIndicator = "○"
 
@@ -61,6 +58,11 @@ type ProgressModel struct {
 	running  bool
 	Width    int
 	Height   int
+	// Current and Total are the latest step counters reported by
+	// ProgressStepMsg. Exported so the root model can surface them in the
+	// terminal window title ("bak — Backup 3/7"). Zero until the first step.
+	Current int
+	Total   int
 }
 
 // NewProgressModel creates a ProgressModel with initialized spinner and
@@ -118,6 +120,8 @@ func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ProgressStepMsg:
 		m.running = true
+		m.Current = msg.Current
+		m.Total = msg.Total
 		// Mark previous steps as done, add new step as running.
 		for i := range m.steps {
 			m.steps[i].Status = StepDone
@@ -167,8 +171,9 @@ func (m ProgressModel) View() tea.View {
 
 	// Step list.
 	if len(m.steps) > 0 {
+		frame := m.spinner.View()
 		for _, step := range m.steps {
-			indicator, style := stepIndicator(step.Status)
+			indicator, style := stepIndicator(step.Status, frame)
 			b.WriteString("  ")
 			b.WriteString(style.Render(indicator + " " + step.Name))
 			b.WriteString("\n")
@@ -189,12 +194,15 @@ func (m ProgressModel) View() tea.View {
 }
 
 // stepIndicator returns the visual indicator and style for a step status.
-func stepIndicator(status StepStatus) (string, lipgloss.Style) {
+// spinnerView is the live spinner.Model frame (m.spinner.View()); it is used
+// only for the StepRunning row so the running step visibly rotates instead of
+// freezing on a static glyph (REQ-TP-002).
+func stepIndicator(status StepStatus, spinnerView string) (string, lipgloss.Style) {
 	switch status {
 	case StepDone:
 		return progressStepDoneIndicator, styles.ProgressDoneStyle
 	case StepRunning:
-		return progressStepRunningIndicator, styles.ProgressRunningStyle
+		return spinnerView, styles.ProgressRunningStyle
 	default:
 		return progressStepPendingIndicator, styles.ProgressPendingStyle
 	}

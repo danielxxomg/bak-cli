@@ -13,6 +13,10 @@ import (
 // WizardStep represents the current step in the interactive wizard.
 type WizardStep int
 
+// wizardWindowTitle is the terminal window title shown on every wizard view
+// branch (tui-personality REQ-TP-001).
+const wizardWindowTitle = "bak — Wizard"
+
 const (
 	StepName       WizardStep = iota // enter profile name
 	StepProvider                     // choose cloud provider
@@ -233,15 +237,24 @@ func (m *WizardModel) handleNavigation(msg tea.KeyPressMsg) (tea.Model, tea.Cmd)
 	return m, nil
 }
 
+// wizardView wraps rendered content in a tea.View tagged with the wizard
+// window title. Extracted so every View branch sets the title without
+// inflating View's statement count (AGENTS.md funlen budget).
+func wizardView(content string) tea.View {
+	v := tea.NewView(content)
+	v.WindowTitle = wizardWindowTitle
+	return v
+}
+
 // View implements bubbletea.Model.
 func (m *WizardModel) View() tea.View {
 	if m.Quitting {
-		return tea.NewView("")
+		return wizardView("")
 	}
 
 	// Guard against terminals below the minimum usable size.
 	if m.Width > 0 && m.Height > 0 && styles.IsTooSmall(m.Width, m.Height) {
-		return tea.NewView(styles.HelpStyle.Render(styles.RenderTooSmall(m.Width, m.Height)))
+		return wizardView(styles.HelpStyle.Render(styles.RenderTooSmall(m.Width, m.Height)))
 	}
 
 	var b strings.Builder
@@ -298,7 +311,7 @@ func (m *WizardModel) View() tea.View {
 		{Key: "q/esc", Desc: keyQuit},
 	}))
 
-	return tea.NewView(b.String())
+	return wizardView(b.String())
 }
 
 // renderCheckboxList renders a list of toggleable items using the shared

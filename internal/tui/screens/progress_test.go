@@ -6,7 +6,9 @@ package screens
 import (
 	"strings"
 	"testing"
+	"time"
 
+	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -350,5 +352,76 @@ func TestProgress_Running(t *testing.T) { //nolint:paralleltest // not yet paral
 				t.Errorf("Running() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// =============================================================================
+// tui-personality Phase 1 — Spinning step indicator (REQ-TP-002)
+// =============================================================================
+
+// TestProgress_View_RunningStepShowsSpinnerFrame verifies the running step
+// row renders the live spinner.Model frame (m.spinner.View()) instead of a
+// static glyph. A custom spinner with unique frame strings makes the live
+// frame deterministic and distinct from the old static "⠹".
+func TestProgress_View_RunningStepShowsSpinnerFrame(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	m := NewProgressModel()
+	m.spinner = spinner.New(spinner.WithSpinner(spinner.Spinner{
+		Frames: []string{"alpha", "beta", "gamma", "delta"},
+		FPS:    time.Second / 10, //nolint:mnd
+	}))
+	m.Width = 80
+	m.Height = 24
+	m.running = true
+	m.steps = []Step{{Name: "Scanning files", Status: StepRunning}}
+
+	// Advance the spinner two ticks → frame index 2 → "gamma".
+	for range 2 { //nolint:mnd
+		tickMsg := m.spinner.Tick()
+		nm, _ := m.Update(tickMsg)
+		m = nm.(ProgressModel)
+	}
+
+	output := m.View().Content
+	const wantFrame = "gamma"
+
+	// The live frame must appear on the SAME row as the running step name,
+	// not just on the disconnected standalone spinner row above it. Find the
+	// step row by the step name and assert it carries the spinner frame.
+	var stepRow string
+	for _, line := range strings.Split(output, "\n") {
+		if strings.Contains(line, "Scanning files") {
+			stepRow = line
+			break
+		}
+	}
+	if stepRow == "" {
+		t.Fatalf("running step row not found in output:\n%s", output)
+	}
+	if !strings.Contains(stepRow, wantFrame) {
+		t.Errorf("running step row must show live spinner frame %q on the step line, got row %q", wantFrame, stepRow)
+	}
+}
+
+// TestProgress_View_DoneStepShowsCheckmark verifies a completed step still
+// renders the colored checkmark (not the spinner frame), and a pending step
+// renders the circle — the spinner change must only affect the running row.
+func TestProgress_View_DoneAndPendingIndicators(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	m := NewProgressModel()
+	m.Width = 80
+	m.Height = 24
+	m.running = true
+	m.steps = []Step{
+		{Name: "Scanning files", Status: StepDone},
+		{Name: "Compressing", Status: StepRunning},
+		{Name: "Uploading", Status: StepPending},
+	}
+
+	output := m.View().Content
+
+	if !strings.Contains(output, progressStepDoneIndicator) {
+		t.Errorf("done step must render %q, got:\n%s", progressStepDoneIndicator, output)
+	}
+	if !strings.Contains(output, progressStepPendingIndicator) {
+		t.Errorf("pending step must render %q, got:\n%s", progressStepPendingIndicator, output)
 	}
 }
