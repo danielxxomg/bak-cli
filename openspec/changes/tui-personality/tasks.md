@@ -60,11 +60,11 @@ Chain strategy: stacked-to-main
 
 ## Phase 5: Paste Support (PR 3 — Tier 3)
 
-- [ ] 5.1 [RED] `internal/tui/screens/wizard_test.go`: send `tea.PasteMsg{Content: "work-laptop"}`, assert input buffer equals `"work-laptop"`; send paste to pre-filled input, assert append
-- [ ] 5.2 [GREEN] `internal/tui/screens/wizard.go`: add `case tea.PasteMsg:` in active textinput Update paths; append `msg.Content` to input buffer. **Note: field is `Content` not `Text`** (v2 API)
+- [x] 5.1 [RED] `internal/tui/screens/wizard_test.go`: send `tea.PasteMsg{Content: "work-laptop"}`, assert input buffer equals `"work-laptop"`; send paste to pre-filled input, assert append
+- [x] 5.2 [GREEN] `internal/tui/screens/wizard.go`: add `case tea.PasteMsg:` in active textinput Update paths; append `msg.Content` to input buffer. **Note: field is `Content` not `Text`** (v2 API)
 
 ## Phase 6: Verification & Coverage
 
-- [ ] 6.1 Run `go test ./internal/tui/...` — all tests green
-- [ ] 6.2 Run `go test -cover ./internal/tui/...` — verify ≥80% per package
-- [ ] 6.3 Run `go vet ./...` and `golangci-lint run` — clean
+- [x] 6.1 Run `go test ./internal/tui/...` — all tests green
+- [x] 6.2 Run `go test -cover ./internal/tui/...` — verify ≥80% per package
+- [x] 6.3 Run `go vet ./...` and `golangci-lint run` — clean
