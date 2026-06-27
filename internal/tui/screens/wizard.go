@@ -146,6 +146,16 @@ func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			return m.handleNavigation(msg)
 		}
+
+	case tea.PasteMsg:
+		// Bracketed paste (tui-personality wizard-flow F8): append the pasted
+		// content to the active free-text input buffer. Only the profile-name
+		// step accepts free text; other steps ignore paste so selection state
+		// is not corrupted.
+		if m.Step == StepName {
+			m.NameInput += msg.Content
+		}
+		return m, nil
 	}
 	return m, nil
 }

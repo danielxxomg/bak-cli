@@ -60,8 +60,8 @@ Chain strategy: stacked-to-main
 
 ## Phase 5: Paste Support (PR 3 — Tier 3)
 
-- [ ] 5.1 [RED] `internal/tui/screens/wizard_test.go`: send `tea.PasteMsg{Content: "work-laptop"}`, assert input buffer equals `"work-laptop"`; send paste to pre-filled input, assert append
-- [ ] 5.2 [GREEN] `internal/tui/screens/wizard.go`: add `case tea.PasteMsg:` in active textinput Update paths; append `msg.Content` to input buffer. **Note: field is `Content` not `Text`** (v2 API)
+- [x] 5.1 [RED] `internal/tui/screens/wizard_test.go`: send `tea.PasteMsg{Content: "work-laptop"}`, assert input buffer equals `"work-laptop"`; send paste to pre-filled input, assert append
+- [x] 5.2 [GREEN] `internal/tui/screens/wizard.go`: add `case tea.PasteMsg:` in active textinput Update paths; append `msg.Content` to input buffer. **Note: field is `Content` not `Text`** (v2 API)
 
 ## Phase 6: Verification & Coverage
 

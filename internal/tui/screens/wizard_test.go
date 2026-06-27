@@ -149,6 +149,73 @@ func TestWizardModel_NameStep_NamePersistsAcrossSteps(t *testing.T) { //nolint:p
 	}
 }
 
+// --- Paste support (tui-personality wizard-flow F8) ---
+
+// TestWizardModel_NameStep_PasteMsg verifies that a bracketed-paste event
+// appends msg.Content to the active profile-name input buffer. Covers the
+// spec scenarios "paste inserts pasted text" and "paste appends to existing
+// text", plus edge cases with spaces and path separators.
+func TestWizardModel_NameStep_PasteMsg(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	tests := []struct {
+		name      string
+		initial   string
+		paste     string
+		wantInput string
+	}{
+		{"empty input + paste inserts text", "", "work-laptop", "work-laptop"},
+		{"non-empty input + paste appends", "work-", "laptop", "work-laptop"},
+		{"paste with spaces", "", "my profile", "my profile"},
+		{"paste with path separators", "", "/home/user/config", "/home/user/config"},
+		{"paste appends to multi-segment", "foo-", "bar-baz", "foo-bar-baz"},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+			m := NewWizardModel("profile-create", []string{"github-gist"})
+			m.NameInput = tt.initial
+
+			_, _ = m.Update(tea.PasteMsg{Content: tt.paste})
+
+			if m.NameInput != tt.wantInput {
+				t.Errorf("NameInput after paste = %q, want %q", m.NameInput, tt.wantInput)
+			}
+		})
+	}
+}
+
+// TestWizardModel_NameStep_PasteThenBackspace verifies the spec scenario
+// "regular keys still work after paste": after a paste populates the buffer,
+// a Backspace keystroke removes the trailing rune as usual.
+func TestWizardModel_NameStep_PasteThenBackspace(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	m := NewWizardModel("profile-create", []string{"github-gist"})
+
+	_, _ = m.Update(tea.PasteMsg{Content: "work-laptop"})
+	_, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyBackspace})
+
+	if m.NameInput != "work-lapto" {
+		t.Errorf("NameInput after paste+backspace = %q, want %q", m.NameInput, "work-lapto")
+	}
+}
+
+// TestWizardModel_PasteMsg_NonNameStepNoOp verifies paste only affects the
+// active free-text step (StepName). On other steps the paste is ignored and
+// must not corrupt the name buffer or selection state.
+func TestWizardModel_PasteMsg_NonNameStepNoOp(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	m := NewWizardModel("profile-create", []string{"github-gist"})
+
+	// Advance past the name step to the provider step.
+	_, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if m.CurrentStep() != StepProvider {
+		t.Fatalf("setup: step = %d, want StepProvider", m.CurrentStep())
+	}
+
+	_, _ = m.Update(tea.PasteMsg{Content: "work-laptop"})
+
+	if m.NameInput != "" {
+		t.Errorf("NameInput should remain empty on non-name step, got %q", m.NameInput)
+	}
+}
+
 func TestWizardModel_ProfileName(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name             string
