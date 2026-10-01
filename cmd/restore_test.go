@@ -2,8 +2,16 @@ package cmd
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
+	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
 
 func TestRestoreCmd_Structure(t *testing.T) {
@@ -145,11 +153,14 @@ func TestRunRestoreWithDeps_BackupNotFound(t *testing.T) {
 }
 
 func TestRunRestore_MissingArgs(t *testing.T) {
+	configtest.SetConfigHome(t, t.TempDir())
 	// Reset rootCmd and restoreCmd state to avoid help-flag leakage
 	// from previous tests (e.g., TestRestoreCmd_Help). pflag doesn't
 	// reset flag values when parsing empty args (pflag v1.0.9 bug).
 	rootCmd.SetArgs(nil)
-	restoreCmd.Flags().Set("help", "false")
+	if err := restoreCmd.Flags().Set("help", "false"); err != nil {
+		t.Fatal(err)
+	}
 
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
@@ -188,7 +199,9 @@ func TestRestoreHelpFollowedByExecute(t *testing.T) {
 	rootCmd.SetOut(buf1)
 	rootCmd.SetErr(buf1)
 	rootCmd.SetArgs(nil)
-	restoreCmd.Flags().Set("help", "false")
+	if err := restoreCmd.Flags().Set("help", "false"); err != nil {
+		t.Fatal(err)
+	}
 
 	rootCmd.SetArgs([]string{"restore", "--help"})
 	if err := rootCmd.Execute(); err != nil {
@@ -200,7 +213,9 @@ func TestRestoreHelpFollowedByExecute(t *testing.T) {
 
 	// Step 2: Reset help flag (pflag doesn't reset on empty Parse)
 	// and run restore with no args — must NOT short-circuit to help.
-	restoreCmd.Flags().Set("help", "false")
+	if err := restoreCmd.Flags().Set("help", "false"); err != nil {
+		t.Fatal(err)
+	}
 	buf2 := new(bytes.Buffer)
 	rootCmd.SetOut(buf2)
 	rootCmd.SetErr(buf2)
@@ -226,6 +241,7 @@ func TestRestoreHelpFollowedByExecute(t *testing.T) {
 }
 
 func TestRunRestore_BackupNotFound(t *testing.T) {
+	configtest.SetConfigHome(t, t.TempDir())
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
 	rootCmd.SetOut(bufOut)
@@ -244,6 +260,7 @@ func TestRunRestore_BackupNotFound(t *testing.T) {
 }
 
 func TestRunRestore_DryRunNonexistent(t *testing.T) {
+	configtest.SetConfigHome(t, t.TempDir())
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
 	rootCmd.SetOut(bufOut)
@@ -278,6 +295,7 @@ func TestRestoreCmd_UseAndDescription(t *testing.T) {
 }
 
 func TestRunRestore_ForceFlag(t *testing.T) {
+	configtest.SetConfigHome(t, t.TempDir())
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
 	rootCmd.SetOut(bufOut)
@@ -316,6 +334,7 @@ func TestRunRestore_VerboseFlagExists(t *testing.T) {
 }
 
 func TestRunRestore_OverrideFlag(t *testing.T) {
+	configtest.SetConfigHome(t, t.TempDir())
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
 	rootCmd.SetOut(bufOut)
@@ -334,6 +353,7 @@ func TestRunRestore_OverrideFlag(t *testing.T) {
 }
 
 func TestRunRestore_OverrideAndDryRun(t *testing.T) {
+	configtest.SetConfigHome(t, t.TempDir())
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
 	rootCmd.SetOut(bufOut)
@@ -348,5 +368,172 @@ func TestRunRestore_OverrideAndDryRun(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "not found") {
 		t.Errorf("error should mention 'not found', got: %v", err)
+	}
+}
+
+func TestTuiRunRestore_IntegrityValidation(t *testing.T) {
+	tests := []struct {
+		name       string
+		dryRun     bool
+		tamper     bool
+		wantErr    bool
+		errContain string
+	}{
+		{
+			name:    "dry_run_tampered_passes_diff_phase",
+			dryRun:  true,
+			tamper:  true,
+			wantErr: false,
+		},
+		{
+			name:       "apply_tampered_fails_manifest_validation",
+			dryRun:     false,
+			tamper:     true,
+			wantErr:    true,
+			errContain: "manifest validation failed",
+		},
+		{
+			name:    "apply_valid_succeeds",
+			dryRun:  false,
+			tamper:  false,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+			configtest.SetConfigHome(t, home)
+
+			backupID := "20260101-120000"
+			bakDir := filepath.Join(home, ".bak")
+			backupDir := filepath.Join(bakDir, "backups", backupID)
+			if err := os.MkdirAll(backupDir, 0755); err != nil {
+				t.Fatal(err)
+			}
+
+			adapterDir := filepath.Join(backupDir, "test-adapter")
+			if err := os.MkdirAll(adapterDir, 0755); err != nil {
+				t.Fatal(err)
+			}
+			content := []byte("hello=world\n")
+			if err := os.WriteFile(filepath.Join(adapterDir, "config.json"), content, 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			h := sha256.Sum256(content)
+			m := manifest.New(backupID, runtime.GOOS, "testhost", "test", "quick", []string{"config"})
+			m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+				{
+					Category:   "config",
+					SourcePath: "~/.config/bak/config.json",
+					BackupPath: "test-adapter/config.json",
+					Hash:       fmt.Sprintf("sha256:%x", h),
+					Size:       int64(len(content)),
+				},
+			})
+			if err := m.Save(backupDir); err != nil {
+				t.Fatal(err)
+			}
+
+			if tt.tamper {
+				if err := os.WriteFile(filepath.Join(adapterDir, "config.json"), []byte("tampered-data\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			output, err := tuiRunRestore(backupID, tt.dryRun)
+
+			targetPath := filepath.Join(home, ".config", "bak", "config.json")
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil (output: %s)", tt.errContain, output)
+				}
+				if !strings.Contains(err.Error(), tt.errContain) {
+					t.Errorf("error %q should contain %q", err.Error(), tt.errContain)
+				}
+				if _, statErr := os.Stat(targetPath); !os.IsNotExist(statErr) {
+					t.Errorf("target file should not exist after failed validation")
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v (output: %s)", err, output)
+				}
+				if !tt.dryRun {
+					if _, statErr := os.Stat(targetPath); statErr != nil {
+						t.Errorf("target file should exist after successful restore: %v", statErr)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestRunRestoreWithDeps_TamperedManifestWithForceFails(t *testing.T) {
+	home := t.TempDir()
+	configtest.SetConfigHome(t, home)
+
+	backupID := "20260101-120000"
+	bakDir := filepath.Join(home, ".bak")
+	backupDir := filepath.Join(bakDir, "backups", backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := []byte("hello=world\n")
+	if err := os.WriteFile(filepath.Join(adapterDir, "config.json"), content, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	h := sha256.Sum256(content)
+	m := manifest.New(backupID, runtime.GOOS, "testhost", "test", "quick", []string{"config"})
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/config.json",
+			BackupPath: "test-adapter/config.json",
+			Hash:       fmt.Sprintf("sha256:%x", h),
+			Size:       int64(len(content)),
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Tamper the file content so hash mismatches.
+	if err := os.WriteFile(filepath.Join(adapterDir, "config.json"), []byte("tampered-data\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	deps, stdout, _ := setupTestDeps(t)
+	cmd := findSubcommand(t, "restore")
+	if cmd == nil {
+		t.Fatal("restore command not found")
+	}
+
+	// Set --force flag.
+	restoreForce = true
+	restoreDryRun = false
+	defer func() {
+		restoreForce = false
+		restoreDryRun = false
+	}()
+
+	err := runRestoreWithDeps(cmd, []string{backupID}, deps)
+	if err == nil {
+		t.Fatalf("expected error for tampered manifest even with --force, got nil (stdout: %s)", stdout.String())
+	}
+	if !strings.Contains(err.Error(), "manifest validation failed") {
+		t.Errorf("error %q should contain 'manifest validation failed'", err.Error())
+	}
+
+	targetPath := filepath.Join(home, ".config", "bak", "config.json")
+	if _, statErr := os.Stat(targetPath); !os.IsNotExist(statErr) {
+		t.Errorf("target file should not exist after failed validation")
 	}
 }

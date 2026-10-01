@@ -2,6 +2,7 @@ package actions
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -84,7 +85,7 @@ func (a *RestoreAction) Run() error {
 	}
 
 	// 5. Validate manifest checksums before applying.
-	if err := a.validateManifest(m, errOut); err != nil {
+	if err := a.validateManifest(m); err != nil {
 		return err
 	}
 
@@ -98,10 +99,17 @@ func (a *RestoreAction) Run() error {
 	}
 
 	// 7. Apply restore.
-	restored, skipped, failed := a.applyRestore(diffs, out, errOut)
+	restored, skipped, failed, applyErr := a.applyRestore(diffs, out, errOut)
 
 	// 8. Report results.
 	reportRestore(out, m, restored, skipped, failed)
+
+	if failed > 0 {
+		if applyErr != nil {
+			return fmt.Errorf("apply restore: %w", applyErr)
+		}
+		return fmt.Errorf("apply restore: %d file(s) failed", failed)
+	}
 
 	return nil
 }
@@ -136,16 +144,12 @@ func (a *RestoreAction) printDryRunDiff(out io.Writer, diffs []restorepkg.FileDi
 	_, _ = fmt.Fprintln(out)
 }
 
-// validateManifest validates checksums; with --force a validation failure is
-// downgraded to a verbose warning, otherwise it is a hard error.
-func (a *RestoreAction) validateManifest(m *manifest.Manifest, errOut io.Writer) error {
+// validateManifest validates checksums of all backed-up files against the
+// manifest. Integrity validation is mandatory and always fails hard on mismatch,
+// with or without --force, before any file write.
+func (a *RestoreAction) validateManifest(m *manifest.Manifest) error {
 	if err := m.Validate(a.BackupDir, nil); err != nil {
-		if !a.Force {
-			return fmt.Errorf("manifest validation failed (use --force to override): %w", err)
-		}
-		if a.Verbose {
-			_, _ = fmt.Fprintf(errOut, "warning: manifest validation: %v\n", err)
-		}
+		return fmt.Errorf("manifest validation failed: %w", err)
 	}
 	return nil
 }
@@ -178,8 +182,9 @@ func (a *RestoreAction) confirmRestore(out, errOut io.Writer) (bool, error) {
 
 // applyRestore copies each new/modified file, skipping unchanged and missing
 // files. Progress is reported via ProgressFn when set. Returns the counts of
-// restored, skipped, and failed files.
-func (a *RestoreAction) applyRestore(diffs []restorepkg.FileDiff, _, errOut io.Writer) (restored, skipped, failed int) {
+// restored, skipped, and failed files along with an aggregated error if any
+// copy failed.
+func (a *RestoreAction) applyRestore(diffs []restorepkg.FileDiff, _, errOut io.Writer) (restored, skipped, failed int, err error) {
 	filesTotal := 0
 	for _, d := range diffs {
 		if d.Status == restorepkg.DiffNew || d.Status == restorepkg.DiffModified {
@@ -187,6 +192,7 @@ func (a *RestoreAction) applyRestore(diffs []restorepkg.FileDiff, _, errOut io.W
 		}
 	}
 	filesDone := 0
+	var copyErrs []error
 
 	for _, d := range diffs {
 		switch d.Status {
@@ -197,6 +203,7 @@ func (a *RestoreAction) applyRestore(diffs []restorepkg.FileDiff, _, errOut io.W
 			}
 			if err := a.restoreFile(d); err != nil {
 				failed++
+				copyErrs = append(copyErrs, fmt.Errorf("restore %s: %w", d.SourcePath, err))
 				if a.Verbose {
 					_, _ = fmt.Fprintf(errOut, "restore %s: %v\n", d.SourcePath, err)
 				}
@@ -212,13 +219,20 @@ func (a *RestoreAction) applyRestore(diffs []restorepkg.FileDiff, _, errOut io.W
 			}
 		}
 	}
-	return restored, skipped, failed
+	if len(copyErrs) > 0 {
+		err = errors.Join(copyErrs...)
+	}
+	return restored, skipped, failed, err
 }
 
 // reportRestore writes the final restore summary to out, including the failed
 // count only when at least one file failed.
 func reportRestore(out io.Writer, m *manifest.Manifest, restored, skipped, failed int) {
-	_, _ = fmt.Fprintf(out, "Restore complete: %s\n", m.ID)
+	if failed > 0 {
+		_, _ = fmt.Fprintf(out, "Restore failed: %s\n", m.ID)
+	} else {
+		_, _ = fmt.Fprintf(out, "Restore complete: %s\n", m.ID)
+	}
 	_, _ = fmt.Fprintf(out, "  Restored: %d\n", restored)
 	_, _ = fmt.Fprintf(out, "  Skipped:  %d\n", skipped)
 	if failed > 0 {

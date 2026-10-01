@@ -7,10 +7,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
+	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 	restorepkg "github.com/danielxxomg/bak-cli/internal/restore"
 )
@@ -536,12 +536,7 @@ func TestResolveBackup(t *testing.T) { //nolint:paralleltest // not yet parallel
 			home := t.TempDir()
 
 			// Override home directory for BakDir() resolution.
-			switch runtime.GOOS {
-			case "windows":
-				t.Setenv("USERPROFILE", home)
-			default:
-				t.Setenv("HOME", home)
-			}
+			configtest.SetConfigHome(t, home)
 
 			backupID := tt.setup(home)
 
@@ -806,5 +801,166 @@ func TestRestoreAction_ForceSkipsPrompt(t *testing.T) { //nolint:paralleltest //
 	}
 	if !strings.Contains(out, "Restore complete") {
 		t.Errorf("expected 'Restore complete' with Force=true, got: %s", out)
+	}
+}
+
+func TestRestoreAction_Run_CopyFailure(t *testing.T) { //nolint:paralleltest // shared state isolation pending
+	tests := []struct {
+		name      string
+		setupMock func(home, backupDir string) *MockFileSystem
+		wantMsg   string
+	}{
+		{
+			name: "mkdir_failure",
+			setupMock: func(home, backupDir string) *MockFileSystem {
+				return &MockFileSystem{
+					HomeDir:    home,
+					StatResult: make(map[string]MockStatResult),
+					Files:      make(map[string][]byte),
+					MkdirErrors: map[string]error{
+						filepath.Join(home, ".config", "bak"): os.ErrPermission,
+					},
+				}
+			},
+			wantMsg: "permission denied",
+		},
+		{
+			name: "copy_file_failure",
+			setupMock: func(home, backupDir string) *MockFileSystem {
+				adapterDir := filepath.Join(backupDir, "test-adapter")
+				srcPath := filepath.Join(adapterDir, "config.json")
+				return &MockFileSystem{
+					HomeDir:    home,
+					StatResult: make(map[string]MockStatResult),
+					Files:      make(map[string][]byte),
+					CopyErrors: map[string]error{
+						srcPath: os.ErrPermission,
+					},
+				}
+			},
+			wantMsg: "permission denied",
+		},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest
+			home := t.TempDir()
+			backupID := createBackupForRestore(t, home)
+			bakDir := filepath.Join(home, ".bak")
+			backupDir := filepath.Join(bakDir, "backups", backupID)
+
+			mockFS := tt.setupMock(home, backupDir)
+			var stdout, stderr bytes.Buffer
+
+			action := &RestoreAction{
+				FS:        mockFS,
+				BackupDir: backupDir,
+				Force:     true,
+				Stdout:    &stdout,
+				Stderr:    &stderr,
+			}
+
+			err := action.Run()
+			if err == nil {
+				t.Fatal("expected error on copy failure, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantMsg) {
+				t.Errorf("error %q should contain %q", err.Error(), tt.wantMsg)
+			}
+			outStr := stdout.String()
+			if strings.Contains(outStr, "Restore complete") {
+				t.Errorf("stdout should NOT contain 'Restore complete' on failure, got: %s", outStr)
+			}
+			if !strings.Contains(outStr, "Restore failed") {
+				t.Errorf("stdout should contain 'Restore failed' on failure, got: %s", outStr)
+			}
+		})
+	}
+}
+
+func TestRestoreAction_ManifestIntegrity(t *testing.T) { //nolint:paralleltest // shared state isolation pending
+	tests := []struct {
+		name       string
+		force      bool
+		tamper     bool
+		wantErr    bool
+		errContain string
+	}{
+		{
+			name:    "valid_manifest_without_force",
+			force:   false,
+			tamper:  false,
+			wantErr: false,
+		},
+		{
+			name:    "valid_manifest_with_force",
+			force:   true,
+			tamper:  false,
+			wantErr: false,
+		},
+		{
+			name:       "tampered_manifest_without_force",
+			force:      false,
+			tamper:     true,
+			wantErr:    true,
+			errContain: "manifest validation failed",
+		},
+		{
+			name:       "tampered_manifest_with_force_fails_hard",
+			force:      true,
+			tamper:     true,
+			wantErr:    true,
+			errContain: "manifest validation failed",
+		},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest
+			home := t.TempDir()
+			backupID := createBackupForRestore(t, home)
+			bakDir := filepath.Join(home, ".bak")
+			backupDir := filepath.Join(bakDir, "backups", backupID)
+
+			if tt.tamper {
+				adapterDir := filepath.Join(backupDir, "test-adapter")
+				if err := os.WriteFile(filepath.Join(adapterDir, "config.json"),
+					[]byte("tampered-content\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			action := &RestoreAction{
+				FS:        newHomeFS(home),
+				BackupDir: backupDir,
+				Force:     tt.force,
+				Stdin:     strings.NewReader("y\n"),
+				Stdout:    io.Discard,
+				Stderr:    io.Discard,
+			}
+
+			err := action.Run()
+			targetPath := filepath.Join(home, ".config", "bak", "config.json")
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.errContain)
+				}
+				if !strings.Contains(err.Error(), tt.errContain) {
+					t.Errorf("error %q should contain %q", err.Error(), tt.errContain)
+				}
+				// Verify no file was written when manifest validation failed.
+				if _, statErr := os.Stat(targetPath); !os.IsNotExist(statErr) {
+					t.Errorf("target file should not exist after failed validation, got statErr=%v", statErr)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				// Verify file was written.
+				if _, statErr := os.Stat(targetPath); statErr != nil {
+					t.Errorf("target file should exist: %v", statErr)
+				}
+			}
+		})
 	}
 }
