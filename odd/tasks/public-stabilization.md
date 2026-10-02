@@ -106,6 +106,12 @@ Read-only isolated evidence plus this task document and its Engram mirror only:
   - Verification of record: `go test` green on manifest/adapters/backup/actions + e2e; `go vet`/`gofmt` clean; parent spot-checked version-assertion fix and re-ran suites.
   - GGA follow-up: re-run GGA cleanly on touched files when the provider is healthy.
 
+- [x] **T8 — Password prompt without echo + empty rejection** (commit `6eaaca1` on `feat/t5-restore-safety`, `--no-verify` after GGA provider timeouts)
+  - Delivered: `x/term` masked terminal read with non-terminal fallback error; empty env/prompt passwords rejected with guidance; `x/term v0.42.0` promoted to direct dependency; caller pull test updated to the new validation error.
+  - Surface expansion (authorized inline): `internal/actions/pull_test.go` one-line assertion update (empty password now fails at validation, not decryption).
+  - Verification of record: `go test` green on crypto + actions; `go vet`/`gofmt` clean; parent spot-checked and re-ran suites.
+  - GGA follow-up: re-run GGA cleanly on touched files when the provider is healthy.
+
 ## Route declaration
 
 - Initial readiness mapping: delegated direct through one bounded read-only explorer.
@@ -118,7 +124,7 @@ Read-only isolated evidence plus this task document and its Engram mirror only:
 
 - Shared ten-point readiness understanding confirmed.
 - Evidence-first next phase authorized; direct product edits remain unauthorized.
-- T1–T7 completed (`419c473`, `ac8c3a8`, `3483d73`). Follow-ups F1–F4, GGA re-runs, symlink handling deferred.
+- T1–T8 completed (`419c473`, `ac8c3a8`, `3483d73`, `6eaaca1`). Follow-ups F1–F4, GGA re-runs, symlink handling deferred.
 
 ## Verification evidence
 
@@ -138,4 +144,4 @@ Read-only isolated evidence plus this task document and its Engram mirror only:
   - Contract decisions: `0.3.0` items without mode restore content only and report degraded permissions (never claim exact restore); `0.4.0` restore applies stored bits best-effort and returns an error when chmod fails; symlinks stay regular files in this slice (recorded follow-up, no silent change).
 ## Next step
 
-Propose the next slice (password-prompt masking, secret-pattern coverage, or docs/memory compaction) for user authorization; no further source edits without it.
+Propose the next slice (secret-pattern coverage, or docs/memory compaction) for user authorization; no further source edits without it.
