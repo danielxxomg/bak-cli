@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <strong>bak</strong> is a CLI tool that backs up, restores, and syncs your AI coding configuration across machines. Supports Claude Code, Cursor, Codex, Windsurf, Kiro, KiloCode, pi.dev, and OpenCode. Never lose your skills, MCP servers, plugins, agents, or config files again.
+  <strong>bak</strong> is a CLI tool that backs up, restores, and syncs your AI coding configuration across machines. Originating with OpenCode and expanded to support 8 AI coding tools — Claude Code, Cursor, Codex, Windsurf, Kiro, KiloCode, pi.dev, and OpenCode. Never lose your skills, MCP servers, plugins, agents, or config files again.
 </p>
 
 ## Supported Platforms
@@ -25,15 +25,15 @@
 
 ## Features
 
-- 🤖 **Multi-Agent Support** — Auto-detects 8 AI coding tools: Claude Code, Cursor, Codex, Windsurf, Kiro, KiloCode, pi.dev, and OpenCode
-- 🔄 **Backup & Restore** — Preset-based backups (quick, full, skills) with mandatory dry-run before restore
-- 🔒 **Secret Detection** — Automatically excludes API keys, tokens, and generates `.env.example` templates
+- 🤖 **Multi-Agent Support** — Auto-detects 8 AI coding tools (originating with OpenCode): Claude Code, Cursor, Codex, Windsurf, Kiro, KiloCode, pi.dev, and OpenCode
+- 🔄 **Backup & Restore** — Preset-based backups (quick, full, skills) with interactive confirmation and dry-run preview before restore
+- 🔒 **Secret Detection** — Automatically detects and excludes recognized secret families (GitHub, OpenAI, Anthropic, Slack) and generates `.env.example` templates
 - ☁️ **Multi-Cloud Sync** — Push/pull backups to GitHub Gist, GitHub Repo, Codeberg, Gitea/Forgejo, and rclone (Google Drive, S3, etc.)
-- 🔐 **Encryption at Rest** — AES-256-GCM encryption with Argon2id key derivation; opt-in per profile
+- 🔐 **Cloud Archive Encryption** — AES-256-GCM encryption with Argon2id key derivation for cloud archives (opt-in per profile; local backups under ~/.bak remain plaintext)
 - 👤 **Machine Profiles** — `bak profile` commands to scope backups per machine with independent adapter, category, preset, provider, and encryption settings
 - 🖥️ **Cross-Platform** — Works on Windows, macOS, and Linux with path normalization
 - 🎯 **Interactive Picker** — TUI with bubbletea for selective category backup
-- ↩️ **Undo** — Git-backed safety with `bak undo` (git revert)
+- ↩️ **Undo** — Git-backed safety net scoped to ~/.bak with `bak undo` (git revert)
 - 📦 **Export** — Export backups as portable tar.gz archives
 
 ## Why bak?
@@ -44,7 +44,7 @@ There are many dotfile managers. **bak** is not one of them — it's purpose-bui
 |---------|-----|---------|--------|------|
 | AI agent auto-detection (8 agents) | ✅ | ❌ | ❌ | ❌ |
 | Cloud sync (Gist, Codeberg, Gitea, rclone) | ✅ | ✅ (git) | ✅ (iCloud, etc.) | ❌ |
-| Encryption at rest (AES-256-GCM) | ✅ | ❌ | ❌ | ❌ |
+| Cloud archive encryption (AES-256-GCM) | ✅ | ❌ | ❌ | ❌ |
 | Machine profiles | ✅ | ✅ (templates) | ❌ | ❌ |
 | Secret detection (auto-exclude tokens) | ✅ | ❌ | ❌ | ❌ |
 | Mandatory dry-run before restore | ✅ | ❌ | ❌ | ❌ |
@@ -116,10 +116,13 @@ bak backup --profile work
 # Preview what would be restored
 bak restore --dry-run 20260604-150405
 
-# Restore a backup
+# Restore a backup (shows diff and prompts for confirmation)
 bak restore 20260604-150405
 
-# Undo the last restore
+# Skip interactive confirmation (integrity checks remain mandatory)
+bak restore --force 20260604-150405
+
+# Undo the last restore (reverts ~/.bak history)
 bak undo
 
 # Sync to cloud (GitHub Gist, Codeberg, Gitea, rclone, etc.)
@@ -140,8 +143,8 @@ bak diff 20260604-150405 20260605-080000
 | Command | Description |
 |---------|-------------|
 | `bak backup [--preset quick\|full\|skills] [--profile <name>]` | Create a backup |
-| `bak restore [--dry-run] [--force] <id>` | Restore a backup |
-| `bak undo` | Revert the last operation |
+| `bak restore [--dry-run] [--force] <id>` | Restore a backup (shows diff and prompts; --force skips confirmation only) |
+| `bak undo` | Revert the last operation in ~/.bak via git revert |
 | `bak list [--provider <name>]` | List local or cloud backups |
 | `bak pick` | Interactive TUI picker |
 | `bak push [id] [--provider <name>] [--profile <name>]` | Push to a cloud backend |
@@ -367,13 +370,16 @@ Encryption is enabled per profile with the `--encrypt` flag on `bak profile crea
 Encrypted archives use **AES-256-GCM** with **Argon2id** key derivation (64 MB RAM,
 3 iterations, 4 parallelism).
 
+> **Note**: Encryption applies exclusively to cloud push/pull archives. Backups stored locally under `~/.bak/backups/` remain unencrypted on disk; rely on OS filesystem permissions or full-disk encryption for local confidentiality.
+
 | Feature | Detail |
 |---------|--------|
 | Algorithm | AES-256-GCM |
 | Key derivation | Argon2id (64 MB, 3 iter, 4 parallel) |
 | Magic bytes | `BAK_ENC\x01` — instant detection without parsing |
-| Password input | Interactive prompt (stdin) or `BAK_ENCRYPTION_PASSWORD` env var |
+| Password input | Masked interactive prompt (stdin) or `BAK_ENCRYPTION_PASSWORD` env var |
 | Backward compat | Plaintext archives from v0.2.0 are detected and handled automatically |
+| Scope | Cloud archives only (local backups under `~/.bak/` remain plaintext) |
 
 **Push flow**: `bak push --profile work` encrypts the tar.gz archive before upload.
 **Pull flow**: `bak pull` detects magic bytes, prompts for password, decrypts on the fly.
@@ -393,7 +399,7 @@ for auditability. The password itself is never persisted to disk.
 
 ### Supported AI Coding Agents
 
-`bak backup` auto-detects installed agents in priority order:
+Originating with OpenCode and expanded to 8 tools, `bak backup` auto-detects installed agents in priority order:
 
 | Agent | Path | Priority |
 |-------|------|----------|
@@ -453,7 +459,6 @@ graph LR
         I --> J{User Confirms?}
         J -->|Yes| K[Apply Restore]
         J -->|No| L[Cancel]
-        K --> M[Auto-commit]
     end
 
     subgraph "Cloud Sync"
@@ -498,12 +503,12 @@ classDiagram
 
 ## Safety Guarantees
 
-- ✅ **Mandatory dry-run** — Always preview changes before restore
-- ✅ **Git-backed safety** — Auto-commit before/after restore
-- ✅ **Instant rollback** — `bak undo` reverts in one command
-- ✅ **Secret exclusion** — API keys/tokens never backed up
-- ✅ **Path validation** — Prevents path traversal attacks
-- ✅ **Checksum verification** — SHA-256 integrity checks
+- ✅ **Interactive confirmation & dry-run** — Always preview changes before restore; interactive confirmation required unless bypassed with `--force`
+- ✅ **Mandatory integrity** — SHA-256 checksum and manifest integrity checks cannot be bypassed, even under `--force` (which only skips the confirmation prompt)
+- ✅ **Permission preservation (0.4.0)** — Manifest schema 0.4.0 records portable file permission mode bits and reapplies them on restore; legacy 0.3.0 manifests restore in degraded mode with an explicit warning
+- ✅ **Git-backed safety in ~/.bak** — Tracks backup snapshots and metadata in `~/.bak` with instant rollback via `bak undo` (`git revert`). Note: target tool configuration directories are not auto-committed to Git during restore
+- ✅ **Secret exclusion** — Automatically detects recognized token families (GitHub `ghp_*`, `gho_*`, `ghu_*`, `ghs_*`, `ghr_*`, OpenAI `sk-*`, Anthropic `sk-ant-*`, Slack `xoxb-*`, `xoxp-*`) and generates `.env.example` templates with redacted placeholders instead of storing real secrets
+- ✅ **Path validation** — Prevents path traversal attacks by validating that all restored paths stay within the user home directory
 
 ## Contributing
 

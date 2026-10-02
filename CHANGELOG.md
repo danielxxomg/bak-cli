@@ -5,6 +5,23 @@ All notable changes to bak-cli will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- **Mandatory restore integrity verification** — Manifest and SHA-256 checksum validation cannot be bypassed. The `--force` flag skips interactive confirmation only, never integrity checks.
+- **Fail-closed push encryption gating** — `bak push` fails closed when a profile is missing, unknown, or if no profiles are configured, preventing accidental plaintext uploads.
+- **Masked encryption password input** — Terminal password prompts now suppress echo via `golang.org/x/term`, and empty passwords from environment variables or interactive prompts are rejected immediately with actionable guidance.
+- **Expanded secret detection patterns** — Backup engine detects additional token families: GitHub OAuth (`gho_*`), user-to-server (`ghu_*`), server-to-server (`ghs_*`), and refresh tokens (`ghr_*`), plus Slack bot (`xoxb-*`) and user (`xoxp-*`) tokens.
+
+### Fixed
+
+- **Restore error aggregation** — Restores now aggregate all file copy and chmod errors into a multi-error and exit with a non-zero status instead of silently returning success.
+
+### Changed
+
+- **Manifest schema 0.4.0 with permission preservation** — Backups now record portable file mode bits in manifest schema `0.4.0` and reapply them on restore. Legacy `0.3.0` manifests without mode metadata restore in degraded mode with an explicit report rather than claiming exact permission restoration.
+
 ## [1.4.1] — 2026-06-16
 
 ### Fixed

@@ -5,9 +5,9 @@
 **Name**: bak-cli
 **Binary**: `bak`
 **Tagline**: Pack your AI coding setup. Move anywhere.
-**Purpose**: CLI tool that backs up, restores, and syncs AI coding configurations (OpenCode) across machines.
+**Purpose**: CLI tool that backs up, restores, and syncs AI coding configurations across machines (originating with OpenCode, expanding to a full multi-agent ecosystem: Claude Code, Cursor, Codex, Windsurf, Kiro, KiloCode, pi.dev, and OpenCode).
 **Language**: Go
-**Target audience**: Developers using AI coding tools (OpenCode, Cursor, Claude Code, etc.)
+**Target audience**: Developers using AI coding tools (Claude Code, Cursor, Codex, Windsurf, Kiro, KiloCode, pi.dev, OpenCode, and custom setups)
 
 ## Brand Personality
 
@@ -56,7 +56,7 @@
 - **Text**:
   - Main: `bak`
   - Sub: `Pack your AI coding setup. Move anywhere.`
-  - Small: `CLI tool for backing up OpenCode configurations`
+  - Small: `CLI tool for backing up AI coding configurations`
 
 ## What to Generate
 
@@ -79,5 +79,5 @@ Think: Vercel logo, Linear logo, Railway logo — minimal and confident.
 
 For the banner: include the text "bak" in large monospace font, 
 with tagline "Pack your AI coding setup. Move anywhere." below.
-Add small text: "CLI tool for backing up OpenCode configurations"
+Add small text: "CLI tool for backing up AI coding configurations"
 ```

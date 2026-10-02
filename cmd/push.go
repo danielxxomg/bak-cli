@@ -24,13 +24,21 @@ If no backup ID is provided, the most recent backup is used.
 
 Supported providers:
   github-gist (default) — push to a private GitHub Gist
+  codeberg              — push to a Codeberg repository
+  gitea                 — push to a self-hosted Gitea/Forgejo instance
+  rclone                — push via an rclone remote (Google Drive, S3, etc.)
 
-Requires a token configured via 'bak login' or the appropriate
+Push requires a configured profile in settings and fails closed if
+the profile is missing, unknown, or has no profiles configured, preventing
+unintended plaintext uploads.
+
+Requires credentials configured via 'bak login' or the appropriate
 environment variable.
 
 Examples:
-  bak push                          # push latest backup
+  bak push                          # push latest backup with default profile
   bak push 20260604-150405          # push a specific backup
+  bak push --profile work           # push using named profile
   bak push --provider github-gist   # explicit provider`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runPush,
@@ -38,9 +46,9 @@ Examples:
 
 func init() {
 	pushCmd.Flags().StringVar(&pushProvider, "provider", "github-gist",
-		"cloud provider to use (github-gist)")
+		"cloud provider to use (github-gist, codeberg, gitea, rclone)")
 	pushCmd.Flags().StringVar(&pushProfile, "profile", "default",
-		"encryption profile to use from config")
+		"encryption profile to use from config (fails closed if missing)")
 	rootCmd.AddCommand(pushCmd)
 }
 

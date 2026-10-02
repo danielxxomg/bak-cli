@@ -20,6 +20,8 @@ func DefaultPatterns() []*regexp.Regexp {
 		// Known token formats — match anywhere in the line.
 		regexp.MustCompile(`(?i)ghp_[A-Za-z0-9]{36,}`),                      // GitHub classic PAT
 		regexp.MustCompile(`(?i)gh[ps]_[A-Za-z0-9]{36,}`),                   // GitHub fine-grained / installation
+		regexp.MustCompile(`(?i)gh[ousr]_[A-Za-z0-9]{36,}`),                 // GitHub OAuth / user / server / refresh tokens
+		regexp.MustCompile(`(?i)\bxox[bp]-[A-Za-z0-9-]{10,}\b`),             // Slack bot / user tokens
 		regexp.MustCompile(`(?i)\bsk-(?:proj-)?[A-Za-z0-9]{32,}\b`),         // OpenAI project / session keys
 		regexp.MustCompile(`(?i)\bsk-ant-(?:api\d{2}-)?[A-Za-z0-9]{32,}\b`), // Anthropic / Claude keys
 

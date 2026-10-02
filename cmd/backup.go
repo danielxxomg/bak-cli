@@ -21,8 +21,8 @@ var backupOverride bool
 var backupCmd = &cobra.Command{
 	Use:   "backup",
 	Short: "Create a backup of your AI coding setup",
-	Long: `Scans for installed AI coding tools (currently OpenCode), resolves the
-requested preset, copies configuration files to ~/.bak/backups/<id>/,
+	Long: `Scans for installed AI coding tools (OpenCode, Claude Code, Cursor, and more),
+resolves the requested preset, copies configuration files to ~/.bak/backups/<id>/,
 detects and redacts secrets, and writes a manifest.
 
 Examples:

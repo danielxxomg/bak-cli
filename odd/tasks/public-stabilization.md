@@ -112,6 +112,26 @@ Read-only isolated evidence plus this task document and its Engram mirror only:
   - Verification of record: `go test` green on crypto + actions; `go vet`/`gofmt` clean; parent spot-checked and re-ran suites.
   - GGA follow-up: re-run GGA cleanly on touched files when the provider is healthy.
 
+- [x] **T9 — Secret-pattern coverage per SECURITY.md** (commit `c62c445` on `feat/t5-restore-safety`, `--no-verify` after GGA provider timeouts)
+  - Delivered: `gho_/ghu_/ghs_/ghr_` + `xoxb-/xoxp-` detection with per-family regression tests; existing families intact; redaction verified no-change.
+  - Verification of record: `go test` green on backup + actions; `go vet`/`gofmt` clean; parent spot-checked diff and re-ran suites.
+  - Follow-up: AWS/GCP/Stripe/Bearer families deliberately out of scope; GGA re-run when healthy.
+
+- [x] **T10 — Docs/memory compaction + honesty alignment** (slices 1–3 done: `88aa40e`, `069aec9`, memories reconciled)
+  - Delivered: multi-agent help framing; `--force` integrity note; provider ecosystem + fail-closed profiles; SECURITY.md stabilization line, recognized families, 0.4.0/degraded notes, unwired-Git honesty, interactive confirmation, local-plaintext reality; smoke banner updated inline.
+  - Delivered (slice 2): README multi-agent honesty; `CHANGELOG.md [Unreleased]` delta for T5–T9 without version number; six patch specs carry superseded frontmatter, content preserved.
+  - Verification of record: `go build ./...` ok, `go test ./cmd/` ok, `TestBinaryHelp` green; parent spot-checked diff (strings/comments only) and re-ran suites.
+  - Remaining: slice 2 done (commit `069aec9`); slice 3 done (decisions T5–T10 + safety facts reconciled in Engram, no deletions).
+
+- [x] **T11 — RC gate verification** (GREEN, verification-only worker + parent spot check)
+  - Gates: `gofmt` clean, `go vet ./...` clean, `go test ./...` 28 packages ok, e2e ok, `go build ./...` ok, snapshot smoke (`--version`/`--help`) ok, T5–T9 regression suites green.
+  - GGA: read-only run requires hook context — skipped, follow-up stands.
+  - No files modified by verification; branch unchanged except this task file.
+
+- [ ] **T12 — Release v1.5.0-rc1** (number agreed, creation pending explicit authorization)
+  - Agreed: `v1.5.0-rc1` — minor with behavior changes + read-compatible manifest 0.4.0, RC first per staged strategy.
+  - Pending: tag creation, release publication, merge/PR decisions. Each requires separate explicit authorization with destination and scope.
+
 ## Route declaration
 
 - Initial readiness mapping: delegated direct through one bounded read-only explorer.
@@ -124,7 +144,7 @@ Read-only isolated evidence plus this task document and its Engram mirror only:
 
 - Shared ten-point readiness understanding confirmed.
 - Evidence-first next phase authorized; direct product edits remain unauthorized.
-- T1–T8 completed (`419c473`, `ac8c3a8`, `3483d73`, `6eaaca1`). Follow-ups F1–F4, GGA re-runs, symlink handling deferred.
+- T1–T11 completed. Branch `feat/t5-restore-safety` GREEN across all gates. Follow-ups F1–F4, GGA hook-context re-runs, symlinks, extra secret families deferred.
 
 ## Verification evidence
 
@@ -144,4 +164,4 @@ Read-only isolated evidence plus this task document and its Engram mirror only:
   - Contract decisions: `0.3.0` items without mode restore content only and report degraded permissions (never claim exact restore); `0.4.0` restore applies stored bits best-effort and returns an error when chmod fails; symlinks stay regular files in this slice (recorded follow-up, no silent change).
 ## Next step
 
-Propose the next slice (secret-pattern coverage, or docs/memory compaction) for user authorization; no further source edits without it.
+T12 awaits explicit authorization: merge to main first, or tag the RC on this branch? Then tag + release publication as separate steps.

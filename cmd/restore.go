@@ -23,7 +23,9 @@ original locations. A dry-run diff is always shown before any files
 are modified.
 
 Without --dry-run, you will be prompted to confirm before applying.
-Use --force to skip the confirmation (useful for scripting).
+Use --force to skip the confirmation prompt (useful for scripting).
+Note that --force only bypasses the confirmation prompt; manifest and checksum
+integrity verification remain mandatory and cannot be skipped.
 
 Examples:
   bak restore 20260604-232200 --dry-run
@@ -38,7 +40,7 @@ func init() {
 	restoreCmd.Flags().BoolVar(&restoreDryRun, "dry-run", false,
 		"show what would change without applying")
 	restoreCmd.Flags().BoolVar(&restoreForce, "force", false,
-		"skip confirmation prompt")
+		"skip confirmation prompt (integrity checks remain mandatory)")
 	restoreCmd.Flags().BoolVar(&restoreOverride, "override", false,
 		"prefer custom YAML presets and adapters over built-ins")
 
