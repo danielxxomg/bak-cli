@@ -75,4 +75,15 @@ jobs:
           COMMANDCODE_API_KEY: ${{ secrets.COMMANDCODE_API_KEY }}
           GGA_PROVIDER: "opencode:commandcode/meta/muse-spark-1.3-contributor"
           PR_BASE_BRANCH: "main"
-        run: gga run --pr-mode --diff-only
+        run: |
+          # The repo .gga is gitignored, so synthesize the CI equivalent:
+          # GGA v2.8.1 only reads PR_BASE_BRANCH from the config file,
+          # not from the environment.
+          cat << 'EOF' > .gga
+          PROVIDER="opencode:commandcode/meta/muse-spark-1.3-contributor"
+          RULES_FILE="AGENTS.md"
+          STRICT_MODE="true"
+          TIMEOUT="900"
+          PR_BASE_BRANCH="main"
+          EOF
+          gga run --pr-mode --diff-only
