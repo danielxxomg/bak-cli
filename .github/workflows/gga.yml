@@ -14,6 +14,10 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so GGA can detect the base branch locally
+          # for the PR diff range (shallow checkouts have no main ref).
+          fetch-depth: 0
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
