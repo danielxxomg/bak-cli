@@ -158,6 +158,9 @@ func TestRunRestore_MissingArgs(t *testing.T) {
 	// from previous tests (e.g., TestRestoreCmd_Help). pflag doesn't
 	// reset flag values when parsing empty args (pflag v1.0.9 bug).
 	rootCmd.SetArgs(nil)
+	// Ensure the default help flag exists (cobra adds it lazily on first
+	// Execute) before resetting leaked state from previous tests.
+	restoreCmd.InitDefaultHelpFlag()
 	if err := restoreCmd.Flags().Set("help", "false"); err != nil {
 		t.Fatal(err)
 	}
@@ -199,6 +202,7 @@ func TestRestoreHelpFollowedByExecute(t *testing.T) {
 	rootCmd.SetOut(buf1)
 	rootCmd.SetErr(buf1)
 	rootCmd.SetArgs(nil)
+	restoreCmd.InitDefaultHelpFlag()
 	if err := restoreCmd.Flags().Set("help", "false"); err != nil {
 		t.Fatal(err)
 	}
@@ -213,6 +217,7 @@ func TestRestoreHelpFollowedByExecute(t *testing.T) {
 
 	// Step 2: Reset help flag (pflag doesn't reset on empty Parse)
 	// and run restore with no args — must NOT short-circuit to help.
+	restoreCmd.InitDefaultHelpFlag()
 	if err := restoreCmd.Flags().Set("help", "false"); err != nil {
 		t.Fatal(err)
 	}

@@ -143,9 +143,8 @@ func TestGetPassword_Terminal(t *testing.T) { //nolint:paralleltest,tparallel //
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+	for _, tt := range tests { //nolint:paralleltest,tparallel // sequential: subtests mutate package-level hooks
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest,tparallel // subtests mutate package-level hooks; must run sequentially
 			if err := os.Unsetenv("BAK_ENCRYPTION_PASSWORD"); err != nil {
 				t.Fatal(err)
 			}
