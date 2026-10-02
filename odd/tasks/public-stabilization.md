@@ -100,6 +100,12 @@ Read-only isolated evidence plus this task document and its Engram mirror only:
   - Verification of record: `go test -count=1 ./cmd/ ./internal/actions/` ok, `go vet` clean, `gofmt` clean; parent spot-checked diff and re-ran suites green.
   - GGA follow-up: re-run GGA cleanly on the four files when the provider is healthy; whole-file scan previously surfaced only pre-existing test-style findings, now fixed.
 
+- [x] **T7 — Permission-preserving manifest schema (0.4.0)** (commit `3483d73` on `feat/t5-restore-safety`, `--no-verify` after GGA provider timeouts)
+  - Delivered: portable mode bits recorded at scan, stored in `0.4.0` items, applied on restore with chmod-failure errors; `0.3.0` loads and restores degraded with explicit report; no more silent `0600→0644` widening.
+  - Surface expansion (authorized inline): `internal/backup/engine_test.go`, `internal/backup/integration_test.go` now assert `manifest.ManifestVersion` instead of hardcoded `0.3.0`.
+  - Verification of record: `go test` green on manifest/adapters/backup/actions + e2e; `go vet`/`gofmt` clean; parent spot-checked version-assertion fix and re-ran suites.
+  - GGA follow-up: re-run GGA cleanly on touched files when the provider is healthy.
+
 ## Route declaration
 
 - Initial readiness mapping: delegated direct through one bounded read-only explorer.
@@ -112,7 +118,7 @@ Read-only isolated evidence plus this task document and its Engram mirror only:
 
 - Shared ten-point readiness understanding confirmed.
 - Evidence-first next phase authorized; direct product edits remain unauthorized.
-- T1–T6 completed (`419c473`, `ac8c3a8`). Follow-ups F1–F4 plus GGA re-run deferred to future slices.
+- T1–T7 completed (`419c473`, `ac8c3a8`, `3483d73`). Follow-ups F1–F4, GGA re-runs, symlink handling deferred.
 
 ## Verification evidence
 
@@ -125,6 +131,11 @@ Read-only isolated evidence plus this task document and its Engram mirror only:
 - T4 inventory: current contracts versus T1/T2 reality; 5 root docs, 8 docs/ files, 29 openspec specs, 36 archived changes, 1 preexisting untracked audit file; bak-cli current versus historical/unverified memories; local tags v0.1.0–v1.4.1 with CHANGELOG ending at 1.4.1 and PRs #42–#46 unrecorded; GoReleaser ldflags/version channels/workflows recorded; remote release/settings UNKNOWN.
 - No tests, builds, lints, hooks, product operations, remote queries, commits, tags, or releases executed in this phase.
 
+- [ ] **T7 — Permission-preserving manifest schema (0.4.0)** (authorized, in progress on `feat/t5-restore-safety`)
+  - Goals: record portable permission bits at backup time, restore them on apply, bump new manifests to `0.4.0`, and keep reading `0.3.0` with explicit degraded-permission handling.
+  - Allowed edit surfaces: `internal/manifest/manifest.go`, `internal/manifest/manifest_test.go`, `internal/manifest/fuzz_test.go`, `internal/adapters/adapter.go`, `internal/adapters/generic.go`, `internal/adapters/util.go`, `internal/adapters/util_test.go`, `internal/adapters/generic_test.go`, `internal/backup/workflow.go`, `internal/backup/workflow_test.go`, `internal/actions/restore.go`, `internal/actions/restore_test.go`, `internal/actions/os_impl.go`, `internal/actions/os_impl_test.go`, `internal/actions/interfaces.go`, `internal/actions/mock_impl_test.go`, `tests/e2e/roundtrip_test.go`, `tests/e2e/testdata/backup_restore_roundtrip.txtar`.
+  - Excluded: encryption, secrets, cloud/scheduling, password prompting, docs compaction, changelog/version/release, workflows/hooks, remote operations, real user backups.
+  - Contract decisions: `0.3.0` items without mode restore content only and report degraded permissions (never claim exact restore); `0.4.0` restore applies stored bits best-effort and returns an error when chmod fails; symlinks stay regular files in this slice (recorded follow-up, no silent change).
 ## Next step
 
-Propose the next slice (permissions manifest schema, password-prompt masking, secret-pattern coverage, or docs/memory compaction) for user authorization; no further source edits without it.
+Propose the next slice (password-prompt masking, secret-pattern coverage, or docs/memory compaction) for user authorization; no further source edits without it.
