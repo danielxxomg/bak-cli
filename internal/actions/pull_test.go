@@ -510,7 +510,7 @@ func TestPull_WrongPassword(t *testing.T) { //nolint:paralleltest // not yet par
 		{
 			name:         "empty password",
 			envPassword:  "",
-			wantContains: "decrypt archive",
+			wantContains: "empty",
 		},
 	}
 
