@@ -94,6 +94,12 @@ Read-only isolated evidence plus this task document and its Engram mirror only:
   - Commit bypass: `--no-verify` with documented `NO-VERIFY` (GGA whole-file scope mismatch); GGA-new-code findings fixed before commit.
   - Follow-ups (deferred, not this slice): F1 fmt write-error idiom decision; F2 Git auto-commit wiring; F3 backup-version warning; F4 remaining old-test table refactors.
 
+- [x] **T6 — Explicit push encryption gating** (commit `ac8c3a8` on `feat/t5-restore-safety`, `--no-verify` after GGA provider timeout)
+  - Delivered: unknown/missing profiles and fresh-install setups fail closed with guidance; explicit unencrypted profiles stay a deliberate opt-out; empty profile rejected at CLI + action layers; table-driven gating tests.
+  - Boy-scout in touched test files: checked ignored os errors, `Mock*` doubles with interface assertions, `Run` error assertions, consolidated `ResolveBackupID` table.
+  - Verification of record: `go test -count=1 ./cmd/ ./internal/actions/` ok, `go vet` clean, `gofmt` clean; parent spot-checked diff and re-ran suites green.
+  - GGA follow-up: re-run GGA cleanly on the four files when the provider is healthy; whole-file scan previously surfaced only pre-existing test-style findings, now fixed.
+
 ## Route declaration
 
 - Initial readiness mapping: delegated direct through one bounded read-only explorer.
@@ -106,7 +112,7 @@ Read-only isolated evidence plus this task document and its Engram mirror only:
 
 - Shared ten-point readiness understanding confirmed.
 - Evidence-first next phase authorized; direct product edits remain unauthorized.
-- T1–T5 completed; T5 work-unit commit `419c473` on `feat/t5-restore-safety`. Follow-ups F1–F4 deferred to future slices.
+- T1–T6 completed (`419c473`, `ac8c3a8`). Follow-ups F1–F4 plus GGA re-run deferred to future slices.
 
 ## Verification evidence
 
@@ -121,4 +127,4 @@ Read-only isolated evidence plus this task document and its Engram mirror only:
 
 ## Next step
 
-Propose the next slice (permissions manifest schema, encryption gating, or remaining GGA follow-ups) for user authorization; no further source edits without it.
+Propose the next slice (permissions manifest schema, password-prompt masking, secret-pattern coverage, or docs/memory compaction) for user authorization; no further source edits without it.
