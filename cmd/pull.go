@@ -21,13 +21,20 @@ If no ID is provided, the ID stored from a previous push is used.
 
 Supported providers:
   github-gist (default) — pull from a private GitHub Gist
+  codeberg              — pull from a Codeberg repository
+  gitea                 — pull from a self-hosted Gitea/Forgejo instance
+  rclone                — pull via an rclone remote (Google Drive, S3, etc.)
 
-Requires a token configured via 'bak login' or the appropriate
+Pull uses profile settings to decrypt encrypted cloud archives.
+The command fails closed if decryption profile requirements are not satisfied.
+
+Requires credentials configured via 'bak login' or the appropriate
 environment variable.
 
 Examples:
   bak pull                          # pull from stored ID
   bak pull abc123def456             # pull from specific ID
+  bak pull --profile work           # pull using named profile
   bak pull --provider github-gist   # explicit provider`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runPull,
@@ -35,7 +42,7 @@ Examples:
 
 func init() {
 	pullCmd.Flags().StringVar(&pullProvider, "provider", "github-gist",
-		"cloud provider to use (github-gist)")
+		"cloud provider to use (github-gist, codeberg, gitea, rclone)")
 	pullCmd.Flags().StringVar(&pullProfile, "profile", "default",
 		"decryption profile to use from config")
 	rootCmd.AddCommand(pullCmd)

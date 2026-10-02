@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
 
 // TestIntegration_FullBackupFlow creates a realistic OpenCode config directory
@@ -82,7 +84,7 @@ func TestIntegration_FullBackupFlow(t *testing.T) { //nolint:paralleltest // not
 
 	// Verify manifest metadata.
 	checks := map[string]interface{}{
-		"version":     "0.3.0",
+		"version":     manifest.ManifestVersion,
 		"preset":      "full",
 		"os_source":   engine.HomeDir, // not really — os_source is runtime.GOOS
 		"bak_version": "test",

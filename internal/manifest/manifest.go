@@ -17,7 +17,7 @@ import (
 )
 
 // ManifestVersion is the current schema version written by this tool.
-const ManifestVersion = "0.3.0"
+const ManifestVersion = "0.4.0"
 
 // AdapterManifest records the items backed up by a single adapter.
 type AdapterManifest struct {
@@ -33,6 +33,7 @@ type Item struct {
 	BackupPath string `json:"backup_path"`
 	Hash       string `json:"hash"`
 	Size       int64  `json:"size"`
+	Mode       uint32 `json:"mode,omitempty"`
 }
 
 // Encryption holds encryption metadata for an encrypted backup.

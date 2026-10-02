@@ -2,6 +2,7 @@ package actions
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -84,7 +85,7 @@ func (a *RestoreAction) Run() error {
 	}
 
 	// 5. Validate manifest checksums before applying.
-	if err := a.validateManifest(m, errOut); err != nil {
+	if err := a.validateManifest(m); err != nil {
 		return err
 	}
 
@@ -98,10 +99,17 @@ func (a *RestoreAction) Run() error {
 	}
 
 	// 7. Apply restore.
-	restored, skipped, failed := a.applyRestore(diffs, out, errOut)
+	restored, skipped, failed, degraded, applyErr := a.applyRestore(m, diffs, out, errOut)
 
 	// 8. Report results.
-	reportRestore(out, m, restored, skipped, failed)
+	reportRestore(out, m, restored, skipped, failed, degraded)
+
+	if failed > 0 {
+		if applyErr != nil {
+			return fmt.Errorf("apply restore: %w", applyErr)
+		}
+		return fmt.Errorf("apply restore: %d file(s) failed", failed)
+	}
 
 	return nil
 }
@@ -136,16 +144,12 @@ func (a *RestoreAction) printDryRunDiff(out io.Writer, diffs []restorepkg.FileDi
 	_, _ = fmt.Fprintln(out)
 }
 
-// validateManifest validates checksums; with --force a validation failure is
-// downgraded to a verbose warning, otherwise it is a hard error.
-func (a *RestoreAction) validateManifest(m *manifest.Manifest, errOut io.Writer) error {
+// validateManifest validates checksums of all backed-up files against the
+// manifest. Integrity validation is mandatory and always fails hard on mismatch,
+// with or without --force, before any file write.
+func (a *RestoreAction) validateManifest(m *manifest.Manifest) error {
 	if err := m.Validate(a.BackupDir, nil); err != nil {
-		if !a.Force {
-			return fmt.Errorf("manifest validation failed (use --force to override): %w", err)
-		}
-		if a.Verbose {
-			_, _ = fmt.Fprintf(errOut, "warning: manifest validation: %v\n", err)
-		}
+		return fmt.Errorf("manifest validation failed: %w", err)
 	}
 	return nil
 }
@@ -178,8 +182,16 @@ func (a *RestoreAction) confirmRestore(out, errOut io.Writer) (bool, error) {
 
 // applyRestore copies each new/modified file, skipping unchanged and missing
 // files. Progress is reported via ProgressFn when set. Returns the counts of
-// restored, skipped, and failed files.
-func (a *RestoreAction) applyRestore(diffs []restorepkg.FileDiff, _, errOut io.Writer) (restored, skipped, failed int) {
+// restored, skipped, failed, and degraded files along with an aggregated error if any
+// copy or chmod failed.
+func (a *RestoreAction) applyRestore(m *manifest.Manifest, diffs []restorepkg.FileDiff, _, errOut io.Writer) (restored, skipped, failed, degraded int, err error) {
+	modeMap := make(map[string]uint32)
+	for _, am := range m.Adapters {
+		for _, item := range am.Items {
+			modeMap[item.BackupPath] = item.Mode
+		}
+	}
+
 	filesTotal := 0
 	for _, d := range diffs {
 		if d.Status == restorepkg.DiffNew || d.Status == restorepkg.DiffModified {
@@ -187,49 +199,72 @@ func (a *RestoreAction) applyRestore(diffs []restorepkg.FileDiff, _, errOut io.W
 		}
 	}
 	filesDone := 0
+	var copyErrs []error
 
 	for _, d := range diffs {
-		switch d.Status {
-		case restorepkg.DiffNew, restorepkg.DiffModified:
-			filesDone++
-			if a.ProgressFn != nil {
-				a.ProgressFn(d.SourcePath, filesDone, filesTotal)
-			}
-			if err := a.restoreFile(d); err != nil {
-				failed++
-				if a.Verbose {
-					_, _ = fmt.Fprintf(errOut, "restore %s: %v\n", d.SourcePath, err)
-				}
-			} else {
-				restored++
-			}
-		case restorepkg.DiffUnchanged:
-			skipped++
-		case restorepkg.DiffMissing:
-			skipped++
+		restored, skipped, failed, degraded = a.applyDiff(d, modeMap, filesTotal, &filesDone, restored, skipped, failed, degraded, &copyErrs, errOut)
+	}
+	if len(copyErrs) > 0 {
+		err = errors.Join(copyErrs...)
+	}
+	return restored, skipped, failed, degraded, err
+}
+
+// applyDiff applies one diff entry and returns the updated counters. Copy
+// errors accumulate in errs so the caller can join them after the loop.
+func (a *RestoreAction) applyDiff(d restorepkg.FileDiff, modeMap map[string]uint32, filesTotal int, filesDone *int, restored, skipped, failed, degraded int, errs *[]error, errOut io.Writer) (int, int, int, int) {
+	switch d.Status {
+	case restorepkg.DiffNew, restorepkg.DiffModified:
+		*filesDone++
+		if a.ProgressFn != nil {
+			a.ProgressFn(d.SourcePath, *filesDone, filesTotal)
+		}
+		mode := modeMap[d.BackupPath]
+		if mode == 0 {
+			degraded++
+		}
+		if err := a.restoreFile(d, mode); err != nil {
+			failed++
+			*errs = append(*errs, fmt.Errorf("restore %s: %w", d.SourcePath, err))
 			if a.Verbose {
-				_, _ = fmt.Fprintf(errOut, "warning: missing backup file %s\n", d.BackupPath)
+				_, _ = fmt.Fprintf(errOut, "restore %s: %v\n", d.SourcePath, err)
 			}
+		} else {
+			restored++
+		}
+	case restorepkg.DiffUnchanged:
+		skipped++
+	case restorepkg.DiffMissing:
+		skipped++
+		if a.Verbose {
+			_, _ = fmt.Fprintf(errOut, "warning: missing backup file %s\n", d.BackupPath)
 		}
 	}
-	return restored, skipped, failed
+	return restored, skipped, failed, degraded
 }
 
 // reportRestore writes the final restore summary to out, including the failed
-// count only when at least one file failed.
-func reportRestore(out io.Writer, m *manifest.Manifest, restored, skipped, failed int) {
-	_, _ = fmt.Fprintf(out, "Restore complete: %s\n", m.ID)
+// count only when at least one file failed and degraded permissions warning.
+func reportRestore(out io.Writer, m *manifest.Manifest, restored, skipped, failed, degraded int) {
+	if failed > 0 {
+		_, _ = fmt.Fprintf(out, "Restore failed: %s\n", m.ID)
+	} else {
+		_, _ = fmt.Fprintf(out, "Restore complete: %s\n", m.ID)
+	}
 	_, _ = fmt.Fprintf(out, "  Restored: %d\n", restored)
 	_, _ = fmt.Fprintf(out, "  Skipped:  %d\n", skipped)
 	if failed > 0 {
 		_, _ = fmt.Fprintf(out, "  Failed:   %d\n", failed)
 	}
+	if degraded > 0 {
+		_, _ = fmt.Fprintf(out, "  Warning: degraded permissions (%d file(s) lack mode metadata)\n", degraded)
+	}
 }
 
 // restoreFile copies a single file from the backup directory to the
 // target path, creating parent directories as needed. Validates path
-// traversal safety.
-func (a *RestoreAction) restoreFile(d restorepkg.FileDiff) error {
+// traversal safety and applies stored permission bits when mode != 0.
+func (a *RestoreAction) restoreFile(d restorepkg.FileDiff, mode uint32) error {
 	src := filepath.Join(a.BackupDir, d.BackupPath)
 
 	// Security: validate source path stays under backup directory.
@@ -257,6 +292,16 @@ func (a *RestoreAction) restoreFile(d restorepkg.FileDiff) error {
 
 	if err := a.FS.CopyFile(src, d.TargetPath); err != nil {
 		return fmt.Errorf("copy: %w", err)
+	}
+
+	if mode != 0 {
+		if err := a.FS.Chmod(d.TargetPath, os.FileMode(mode)); err != nil {
+			// Windows restore applies best-effort (Chmod may be a no-op for exec bits —
+			// acceptable, but must not error the restore on Windows for mode-only reasons).
+			if !isWindows() {
+				return fmt.Errorf("chmod: %w", err)
+			}
+		}
 	}
 
 	return nil

@@ -81,3 +81,56 @@ func TestRedactJSON_NestedProviderTokens(t *testing.T) { //nolint:paralleltest /
 		t.Error("output should contain default_preset")
 	}
 }
+
+// TestRedactJSON_DocumentedTokenFamilies verifies that documented token families
+// do not leak through JSON redaction when stored in provider configurations.
+func TestRedactJSON_DocumentedTokenFamilies(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	input := map[string]any{
+		"providers": map[string]any{
+			"github_oauth": map[string]any{
+				"token": "gho_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4",
+			},
+			"github_user": map[string]any{
+				"token": "ghu_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4",
+			},
+			"github_server": map[string]any{
+				"token": "ghs_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4",
+			},
+			"github_refresh": map[string]any{
+				"token": "ghr_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4",
+			},
+			"slack_bot": map[string]any{
+				"token": "xoxb-123456789012-1234567890123-abcdefghij!?#klmnop",
+			},
+			"slack_user": map[string]any{
+				"token": "xoxp-123456789012-1234567890123-abcdefghij!?#klmnop",
+			},
+		},
+	}
+
+	data, err := json.Marshal(input)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+
+	redacted, err := RedactJSON(data)
+	if err != nil {
+		t.Fatalf("RedactJSON: %v", err)
+	}
+
+	output := string(redacted)
+	rawTokens := []string{
+		"gho_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4",
+		"ghu_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4",
+		"ghs_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4",
+		"ghr_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4",
+		"xoxb-123456789012-1234567890123-abcdefghij!?#klmnop",
+		"xoxp-123456789012-1234567890123-abcdefghij!?#klmnop",
+	}
+
+	for _, raw := range rawTokens {
+		if strings.Contains(output, raw) {
+			t.Errorf("output should NOT contain raw token %q", raw)
+		}
+	}
+}

@@ -28,7 +28,7 @@ func TestBinaryHelp(t *testing.T) { //nolint:paralleltest // not yet parallelize
 	// setup") is not rendered in cobra's default --help output; cobra displays
 	// the Long description instead. Assert on the Long text that actually
 	// appears in help output.
-	wantBanner := "packs, restores, and syncs your OpenCode configuration"
+	wantBanner := "packs, restores, and syncs AI coding configurations"
 	if !strings.Contains(output, wantBanner) {
 		t.Errorf("bak --help output missing expected banner %q\ngot:\n%s", wantBanner, output)
 	}

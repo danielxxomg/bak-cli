@@ -35,6 +35,11 @@ stdout 'Restore complete'
 exists $HOME/.config/opencode/opencode.json
 exists $HOME/.config/opencode/AGENTS.md
 
+# On non-Windows platforms, verify permission preservation if executable was backed up.
+[windows] stop
+[darwin] exec test -r $HOME/.config/opencode/AGENTS.md
+[linux] exec test -r $HOME/.config/opencode/AGENTS.md
+
 # Restore with invalid ID should fail gracefully.
 ! exec bak restore --dry-run 20000101-000000
 stderr 'not found'

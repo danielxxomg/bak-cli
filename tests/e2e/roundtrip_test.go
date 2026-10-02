@@ -29,7 +29,13 @@ func TestBackupRestoreRoundtrip(t *testing.T) { //nolint:paralleltest // not yet
 			cfgDir := filepath.Join(home, ".config", "opencode")
 			mustMkdirAll(t, cfgDir)
 			mustWriteFile(t, filepath.Join(cfgDir, "opencode.json"), []byte(`{"version":"1.0","theme":"dark"}`+"\n"))
-			mustWriteFile(t, filepath.Join(cfgDir, "AGENTS.md"), []byte("# OpenCode Agents\n\nTest agent configuration.\n"))
+			agentsPath := filepath.Join(cfgDir, "AGENTS.md")
+			mustWriteFile(t, agentsPath, []byte("# OpenCode Agents\n\nTest agent configuration.\n"))
+			if runtime.GOOS != "windows" {
+				if err := os.Chmod(agentsPath, 0755); err != nil {
+					t.Fatalf("chmod: %v", err)
+				}
+			}
 		})
 	})
 
@@ -113,6 +119,18 @@ func testRoundtrip(t *testing.T, preset string, setupFixtures func(home string))
 				t.Errorf("adapter %q, file %q (%s): hash mismatch\n  expected: %s\n  actual:   %s",
 					adapterName, item.BackupPath, restoredAbs, item.Hash, actualHash)
 			}
+
+			// Mode preservation check on Linux/macOS:
+			if runtime.GOOS != "windows" && item.Mode != 0 {
+				fi, statErr := os.Stat(restoredAbs)
+				if statErr != nil {
+					t.Errorf("stat restored file %s: %v", restoredAbs, statErr)
+				} else if uint32(fi.Mode().Perm()) != item.Mode {
+					t.Errorf("adapter %q, file %q: mode mismatch\n  expected: %o\n  actual:   %o",
+						adapterName, item.BackupPath, item.Mode, fi.Mode().Perm())
+				}
+			}
+
 			filesChecked++
 		}
 	}

@@ -1,3 +1,8 @@
+---
+status: superseded
+superseded_by: odd/tasks/public-stabilization.md
+---
+
 # Spec: gga-bypass
 
 ## Purpose

@@ -26,8 +26,8 @@ var verbose bool
 var rootCmd = &cobra.Command{
 	Use:   "bak",
 	Short: "Backup and restore your AI coding setup",
-	Long: `bak packs, restores, and syncs your OpenCode configuration
-across machines with safety guarantees.
+	Long: `bak packs, restores, and syncs AI coding configurations across machines
+with safety guarantees (OpenCode, Claude Code, Cursor, and more).
 
 Run 'bak backup' to create a backup.
 Run 'bak restore --dry-run <id>' to preview before applying.`,

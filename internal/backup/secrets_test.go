@@ -228,3 +228,183 @@ func TestScanFile_Nonexistent(t *testing.T) { //nolint:paralleltest // not yet p
 		t.Error("expected error for nonexistent file")
 	}
 }
+
+func TestScanFile_DocumentedTokenFamilies(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	patterns := DefaultPatterns()
+
+	tests := []struct {
+		name    string
+		content string
+		want    int
+	}{
+		{
+			name:    "GitHub OAuth token (gho_*)",
+			content: "VAR_OACC=gho_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4\n",
+			want:    1,
+		},
+		{
+			name:    "GitHub user-to-server token (ghu_*)",
+			content: "VAR_USER=ghu_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4\n",
+			want:    1,
+		},
+		{
+			name:    "GitHub server-to-server token (ghs_*)",
+			content: "VAR_SRV=ghs_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4\n",
+			want:    1,
+		},
+		{
+			name:    "GitHub refresh token (ghr_*)",
+			content: "VAR_REF=ghr_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4\n",
+			want:    1,
+		},
+		{
+			name:    "Slack bot token (xoxb-*)",
+			content: "VAR_BOT=xoxb-123456789012-1234567890123-abcdefghij!?#klmnop\n",
+			want:    1,
+		},
+		{
+			name:    "Slack user token (xoxp-*)",
+			content: "VAR_USR=xoxp-123456789012-1234567890123-abcdefghij!?#klmnop\n",
+			want:    1,
+		},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+			dir := t.TempDir()
+			fp := filepath.Join(dir, "tokens.env")
+			if err := os.WriteFile(fp, []byte(tt.content), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			results, err := ScanFile(fp, patterns)
+			if err != nil {
+				t.Fatalf("ScanFile: %v", err)
+			}
+			if len(results) < tt.want {
+				t.Errorf("got %d matches, want at least %d. Results: %+v", len(results), tt.want, results)
+			}
+		})
+	}
+}
+
+func TestGenerateEnvExample_DocumentedTokenFamilies(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	dir := t.TempDir()
+	envFile := filepath.Join(dir, "documented.env")
+	content := strings.Join([]string{
+		"VAR_OACC=gho_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4",
+		"VAR_USER=ghu_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4",
+		"VAR_SRV=ghs_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4",
+		"VAR_REF=ghr_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4",
+		"VAR_BOT=xoxb-123456789012-1234567890123-abcdefghij!?#klmnop",
+		"VAR_USR=xoxp-123456789012-1234567890123-abcdefghij!?#klmnop",
+		"APP_PORT=8080",
+	}, "\n") + "\n"
+
+	if err := os.WriteFile(envFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	outputDir := t.TempDir()
+	patterns := DefaultPatterns()
+
+	if err := GenerateEnvExample([]string{envFile}, patterns, outputDir); err != nil {
+		t.Fatalf("GenerateEnvExample: %v", err)
+	}
+
+	examplePath := filepath.Join(outputDir, ".env.example")
+	data, err := os.ReadFile(examplePath)
+	if err != nil {
+		t.Fatalf("read .env.example: %v", err)
+	}
+
+	example := string(data)
+
+	rawTokens := []string{
+		"gho_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4",
+		"ghu_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4",
+		"ghs_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4",
+		"ghr_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4",
+		"xoxb-123456789012-1234567890123-abcdefghij!?#klmnop",
+		"xoxp-123456789012-1234567890123-abcdefghij!?#klmnop",
+	}
+
+	for _, token := range rawTokens {
+		if strings.Contains(example, token) {
+			t.Errorf(".env.example still contains raw token: %s", token)
+		}
+	}
+
+	if !strings.Contains(example, "APP_PORT=8080") {
+		t.Errorf(".env.example missing preserved non-secret line APP_PORT=8080")
+	}
+}
+
+func TestScanFile_DocumentedTokenFamilies_Triangulation(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	patterns := DefaultPatterns()
+
+	tests := []struct {
+		name    string
+		content string
+		want    int
+	}{
+		{
+			name:    "Too-short GitHub token rejected",
+			content: "VAR_OACC=gho_tooshort123\n",
+			want:    0,
+		},
+		{
+			name:    "Too-short Slack token rejected",
+			content: "VAR_BOT=xoxb-short\n",
+			want:    0,
+		},
+		{
+			name:    "Unrecognized gh prefix rejected",
+			content: "VAR_OTHER=ghx_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4\n",
+			want:    0,
+		},
+		{
+			name:    "Unrecognized xox prefix rejected",
+			content: "VAR_OTHER=xoxa-123456789012-1234567890123-abcdefghij!?#klmnop\n",
+			want:    0,
+		},
+		{
+			name:    "Case-insensitive GitHub OAuth token",
+			content: "VAR_OACC=GHO_0123456789ABCDEFGHIJKLMNOPQRSTUVe0a1b2c3d4\n",
+			want:    1,
+		},
+		{
+			name:    "Case-insensitive Slack bot token",
+			content: "VAR_BOT=XOXB-123456789012-1234567890123-ABCDEFGHIJ!?#KLMNOP\n",
+			want:    1,
+		},
+		{
+			name:    "JSON embedded GitHub token",
+			content: `{"custom_field": "gho_0123456789abcdefghijklmnopqrstuvE0A1B2C3D4"}` + "\n",
+			want:    1,
+		},
+		{
+			name:    "JSON embedded Slack token",
+			content: `{"custom_field": "xoxp-123456789012-1234567890123-abcdefghij!?#klmnop"}` + "\n",
+			want:    1,
+		},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+			dir := t.TempDir()
+			fp := filepath.Join(dir, "triangulate.env")
+			if err := os.WriteFile(fp, []byte(tt.content), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			results, err := ScanFile(fp, patterns)
+			if err != nil {
+				t.Fatalf("ScanFile: %v", err)
+			}
+			if len(results) != tt.want {
+				t.Errorf("got %d matches, want %d. Results: %+v", len(results), tt.want, results)
+			}
+		})
+	}
+}

@@ -869,3 +869,57 @@ func TestGenericAdapter_InterfaceCompliance(t *testing.T) { //nolint:paralleltes
 		t.Error("configDir should not be empty even when not installed")
 	}
 }
+
+func TestGenericAdapter_ListItems_RecordsMode(t *testing.T) { //nolint:paralleltest // shared state
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping permission bits test on Windows")
+	}
+	home := t.TempDir()
+	configDir := filepath.Join(home, ".test")
+	if err := os.MkdirAll(filepath.Join(configDir, "scripts"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(configDir, "scripts", "run.sh")
+	if err := os.WriteFile(scriptPath, []byte("#!/bin/sh\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(scriptPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	rootFilePath := filepath.Join(configDir, "settings.json")
+	if err := os.WriteFile(rootFilePath, []byte("{}"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(rootFilePath, 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	ga := newTestAdapter("mode-test")
+	items, err := ga.ListItems(home, []string{"scripts", "config"})
+	if err != nil {
+		t.Fatalf("ListItems: %v", err)
+	}
+
+	var foundScript, foundRoot bool
+	for _, it := range items {
+		if it.RelPath == "scripts/run.sh" {
+			foundScript = true
+			if it.Mode != 0755 {
+				t.Errorf("scripts/run.sh mode = %o, want 0755", it.Mode)
+			}
+		}
+		if it.RelPath == "settings.json" {
+			foundRoot = true
+			if it.Mode != 0600 {
+				t.Errorf("settings.json mode = %o, want 0600", it.Mode)
+			}
+		}
+	}
+	if !foundScript {
+		t.Error("expected scripts/run.sh in items")
+	}
+	if !foundRoot {
+		t.Error("expected settings.json in items")
+	}
+}

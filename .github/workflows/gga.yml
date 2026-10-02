@@ -14,6 +14,10 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so GGA can detect the base branch locally
+          # for the PR diff range (shallow checkouts have no main ref).
+          fetch-depth: 0
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -38,7 +42,48 @@ jobs:
           echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
       - name: Verify OpenCode CLI
         run: opencode --version
+      - name: Configure OpenCode CommandCode provider
+        env:
+          COMMANDCODE_API_KEY: ${{ secrets.COMMANDCODE_API_KEY }}
+        run: |
+          # Synthesize a minimal opencode.json defining the custom
+          # commandcode provider. The API key is injected via env
+          # interpolation and never written to the repo.
+          mkdir -p "$HOME/.config/opencode"
+          cat << 'EOF' > "$HOME/.config/opencode/opencode.json"
+          {
+            "$schema": "https://opencode.ai/config.json",
+            "provider": {
+              "commandcode": {
+                "name": "Command Code",
+                "npm": "@ai-sdk/openai-compatible",
+                "options": {
+                  "baseURL": "https://api.commandcode.ai/provider/v1",
+                  "apiKey": "{env:COMMANDCODE_API_KEY}"
+                },
+                "models": {
+                  "meta/muse-spark-1.3-contributor": {
+                    "id": "meta/muse-spark-1.3-contributor"
+                  }
+                }
+              }
+            }
+          }
+          EOF
       - name: Run GGA
         env:
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-        run: gga run --pr-mode --diff-only
+          COMMANDCODE_API_KEY: ${{ secrets.COMMANDCODE_API_KEY }}
+          GGA_PROVIDER: "opencode:commandcode/meta/muse-spark-1.3-contributor"
+          PR_BASE_BRANCH: "main"
+        run: |
+          # The repo .gga is gitignored, so synthesize the CI equivalent:
+          # GGA v2.8.1 only reads PR_BASE_BRANCH from the config file,
+          # not from the environment.
+          cat << 'EOF' > .gga
+          PROVIDER="opencode:commandcode/meta/muse-spark-1.3-contributor"
+          RULES_FILE="AGENTS.md"
+          STRICT_MODE="true"
+          TIMEOUT="900"
+          PR_BASE_BRANCH="main"
+          EOF
+          gga run --pr-mode --diff-only

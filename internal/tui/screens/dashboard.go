@@ -134,6 +134,8 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cur++
 			case tea.MouseWheelUp:
 				cur--
+			default:
+				// Other wheel-axis events carry no vertical scroll.
 			}
 			m.table.SetCursor(clampCursor(cur, rows))
 		}

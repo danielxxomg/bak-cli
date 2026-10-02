@@ -9,7 +9,7 @@ import (
 )
 
 // CopyFile copies a regular file from src to dst, creating parent
-// directories as needed. It preserves no metadata beyond file content.
+// directories as needed. It preserves permission bits from src.
 //
 // Callers MUST validate that src and dst paths are within the expected
 // boundary (e.g., under the user's home directory) before calling this
@@ -21,11 +21,16 @@ func CopyFile(src, dst string) error {
 	}
 	defer func() { _ = sf.Close() }()
 
+	info, err := sf.Stat()
+	if err != nil {
+		return fmt.Errorf("stat src: %w", err)
+	}
+
 	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
 		return fmt.Errorf("mkdir: %w", err)
 	}
 
-	df, err := os.Create(dst)
+	df, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode().Perm())
 	if err != nil {
 		return fmt.Errorf("create dst: %w", err)
 	}
@@ -38,6 +43,12 @@ func CopyFile(src, dst string) error {
 
 	if err := df.Close(); err != nil {
 		return fmt.Errorf("close dst: %w", err)
+	}
+
+	// Explicitly apply permission bits to bypass umask. On Windows, Chmod
+	// is a no-op for exec bits and must not error for mode-only reasons.
+	if err := os.Chmod(dst, info.Mode().Perm()); err != nil && !isWindows() {
+		return fmt.Errorf("chmod dst: %w", err)
 	}
 	return nil
 }

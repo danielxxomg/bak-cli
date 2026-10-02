@@ -8,105 +8,103 @@ import (
 	"testing"
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
+	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 )
 
 // --- resolveBackupID tests ---
 
-func TestResolveBackupID_ExplicitArg(t *testing.T) {
-	id, err := actions.ResolveBackupID("/nonexistent", []string{"20260604-150405"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if id != "20260604-150405" {
-		t.Errorf("got %q, want '20260604-150405'", id)
-	}
-}
-
-func TestResolveBackupID_Latest(t *testing.T) {
-	backupsDir := t.TempDir()
-
-	ids := []string{"20260601-120000", "20260604-150405", "20260603-080000"}
-	for _, id := range ids {
-		if err := os.MkdirAll(filepath.Join(backupsDir, id), 0755); err != nil {
-			t.Fatal(err)
+func TestResolveBackupID(t *testing.T) {
+	setup := func(t *testing.T, dirs []string, files []string) string {
+		t.Helper()
+		backupsDir := t.TempDir()
+		for _, dir := range dirs {
+			if err := os.MkdirAll(filepath.Join(backupsDir, dir), 0755); err != nil {
+				t.Fatal(err)
+			}
 		}
+		for _, file := range files {
+			if err := os.WriteFile(filepath.Join(backupsDir, file), []byte("hello"), 0644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return backupsDir
 	}
 
-	id, err := actions.ResolveBackupID(backupsDir, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if id != "20260604-150405" {
-		t.Errorf("got %q, want '20260604-150405'", id)
-	}
-}
-
-func TestResolveBackupID_EmptyArg(t *testing.T) {
-	backupsDir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(backupsDir, "20260604-150405"), 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	id, err := actions.ResolveBackupID(backupsDir, []string{""})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if id != "20260604-150405" {
-		t.Errorf("got %q, want '20260604-150405'", id)
-	}
-}
-
-func TestResolveBackupID_NoBackups(t *testing.T) {
-	backupsDir := t.TempDir()
-
-	_, err := actions.ResolveBackupID(backupsDir, nil)
-	if err == nil {
-		t.Fatal("expected error for empty backups dir")
-	}
-	if !strings.Contains(err.Error(), "no backups found") {
-		t.Errorf("error should mention 'no backups found', got: %v", err)
-	}
-}
-
-func TestResolveBackupID_DirNotFound(t *testing.T) {
-	nonexistentDir := filepath.Join(t.TempDir(), "definitely-not-real")
-	_, err := actions.ResolveBackupID(nonexistentDir, nil)
-	if err == nil {
-		t.Fatal("expected error for non-existent dir")
-	}
-}
-
-func TestResolveBackupID_OnlyDirsConsidered(t *testing.T) {
-	backupsDir := t.TempDir()
-
-	if err := os.WriteFile(filepath.Join(backupsDir, "not-a-backup.txt"), []byte("hello"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(backupsDir, "20260604-150405"), 0755); err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name        string
+		dirs        []string
+		files       []string
+		args        []string
+		fixedDir    string
+		wantID      string
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:   "explicit arg",
+			args:   []string{"20260604-150405"},
+			wantID: "20260604-150405",
+		},
+		{
+			name:   "latest of three",
+			dirs:   []string{"20260601-120000", "20260604-150405", "20260603-080000"},
+			wantID: "20260604-150405",
+		},
+		{
+			name:   "empty arg resolves latest",
+			dirs:   []string{"20260604-150405"},
+			args:   []string{""},
+			wantID: "20260604-150405",
+		},
+		{
+			name:        "no backups errors",
+			wantErr:     true,
+			errContains: "no backups found",
+		},
+		{
+			name:     "missing dir errors",
+			fixedDir: "missing",
+			wantErr:  true,
+		},
+		{
+			name:   "only dirs considered",
+			dirs:   []string{"20260604-150405"},
+			files:  []string{"not-a-backup.txt"},
+			wantID: "20260604-150405",
+		},
+		{
+			name:   "single backup",
+			dirs:   []string{"20260101-000000"},
+			wantID: "20260101-000000",
+		},
 	}
 
-	id, err := actions.ResolveBackupID(backupsDir, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if id != "20260604-150405" {
-		t.Errorf("got %q, want '20260604-150405'", id)
-	}
-}
-
-func TestResolveBackupID_SingleBackup(t *testing.T) {
-	backupsDir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(backupsDir, "20260101-000000"), 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	id, err := actions.ResolveBackupID(backupsDir, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if id != "20260101-000000" {
-		t.Errorf("got %q, want '20260101-000000'", id)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			backupsDir := setup(t, tt.dirs, tt.files)
+			if tt.fixedDir == "missing" {
+				backupsDir = filepath.Join(t.TempDir(), "definitely-not-real")
+			}
+			if tt.fixedDir == "" && len(tt.args) > 0 && tt.args[0] != "" {
+				backupsDir = "/nonexistent"
+			}
+			id, err := actions.ResolveBackupID(backupsDir, tt.args)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("error should mention %q, got: %v", tt.errContains, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if id != tt.wantID {
+				t.Errorf("got %q, want %q", id, tt.wantID)
+			}
+		})
 	}
 }
 
@@ -139,6 +137,7 @@ func TestRunPushWithDeps_Delegation(t *testing.T) {
 }
 
 func TestRunPush_ErrorsAppropriately(t *testing.T) {
+	configtest.SetConfigHome(t, t.TempDir())
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
 	rootCmd.SetOut(bufOut)
@@ -162,6 +161,7 @@ func TestRunPush_ErrorsAppropriately(t *testing.T) {
 }
 
 func TestRunPush_BackupNotFound(t *testing.T) {
+	configtest.SetConfigHome(t, t.TempDir())
 	// Push with an explicit backup ID that doesn't exist should fail
 	// with a "not found" error, before even checking the token.
 	bufOut := new(bytes.Buffer)
@@ -194,5 +194,27 @@ func TestRunPush_TooManyArgs(t *testing.T) {
 	err := cmd.Args(cmd, []string{"abc", "xyz"})
 	if err == nil {
 		t.Fatal("expected push command to reject 2 args")
+	}
+}
+
+func TestRunPush_EmptyProfile(t *testing.T) {
+	deps, _, _ := setupTestDeps(t)
+
+	cmd := findSubcommand(t, "push")
+	if cmd == nil {
+		t.Fatal("push command not found")
+	}
+
+	// Reset pushProfile flag after test.
+	origProfile := pushProfile
+	defer func() { pushProfile = origProfile }()
+
+	pushProfile = ""
+	err := runPushWithDeps(cmd, []string{"20250101-000000"}, deps)
+	if err == nil {
+		t.Fatal("expected error for empty profile, got nil")
+	}
+	if !strings.Contains(err.Error(), "profile") || !strings.Contains(err.Error(), "empty") {
+		t.Errorf("error should mention empty profile, got: %v", err)
 	}
 }

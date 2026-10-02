@@ -7,10 +7,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
+	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 	restorepkg "github.com/danielxxomg/bak-cli/internal/restore"
 )
@@ -328,7 +328,7 @@ func TestRestoreAction_RestoreFile_PathTraversalBackupDir(t *testing.T) { //noli
 	err := action.restoreFile(restorepkg.FileDiff{
 		BackupPath: "../../../etc/passwd",
 		TargetPath: filepath.Join(home, "safe.txt"),
-	})
+	}, 0)
 
 	if err == nil {
 		t.Fatal("expected path traversal error")
@@ -356,7 +356,7 @@ func TestRestoreAction_RestoreFile_PathTraversalTarget(t *testing.T) { //nolint:
 	err := action.restoreFile(restorepkg.FileDiff{
 		BackupPath: "safe.txt",
 		TargetPath: filepath.Join(home, "..", "..", "etc", "passwd"),
-	})
+	}, 0)
 
 	if err == nil {
 		t.Fatal("expected path traversal error")
@@ -413,7 +413,7 @@ func TestRestoreAction_RestoreFile_CopyFile_Success(t *testing.T) { //nolint:par
 	err := action.restoreFile(restorepkg.FileDiff{
 		BackupPath: "safe.txt",
 		TargetPath: dst,
-	})
+	}, 0)
 	if err != nil {
 		t.Fatalf("restoreFile: %v", err)
 	}
@@ -452,7 +452,7 @@ func TestRestoreAction_RestoreFile_CopyFile_Error(t *testing.T) { //nolint:paral
 	err := action.restoreFile(restorepkg.FileDiff{
 		BackupPath: "safe.txt",
 		TargetPath: dst,
-	})
+	}, 0)
 	if err == nil {
 		t.Fatal("expected error from CopyFile")
 	}
@@ -536,12 +536,7 @@ func TestResolveBackup(t *testing.T) { //nolint:paralleltest // not yet parallel
 			home := t.TempDir()
 
 			// Override home directory for BakDir() resolution.
-			switch runtime.GOOS {
-			case "windows":
-				t.Setenv("USERPROFILE", home)
-			default:
-				t.Setenv("HOME", home)
-			}
+			configtest.SetConfigHome(t, home)
 
 			backupID := tt.setup(home)
 
@@ -806,5 +801,288 @@ func TestRestoreAction_ForceSkipsPrompt(t *testing.T) { //nolint:paralleltest //
 	}
 	if !strings.Contains(out, "Restore complete") {
 		t.Errorf("expected 'Restore complete' with Force=true, got: %s", out)
+	}
+}
+
+func TestRestoreAction_Run_CopyFailure(t *testing.T) { //nolint:paralleltest // shared state isolation pending
+	tests := []struct {
+		name      string
+		setupMock func(home, backupDir string) *MockFileSystem
+		wantMsg   string
+	}{
+		{
+			name: "mkdir_failure",
+			setupMock: func(home, backupDir string) *MockFileSystem {
+				return &MockFileSystem{
+					HomeDir:    home,
+					StatResult: make(map[string]MockStatResult),
+					Files:      make(map[string][]byte),
+					MkdirErrors: map[string]error{
+						filepath.Join(home, ".config", "bak"): os.ErrPermission,
+					},
+				}
+			},
+			wantMsg: "permission denied",
+		},
+		{
+			name: "copy_file_failure",
+			setupMock: func(home, backupDir string) *MockFileSystem {
+				adapterDir := filepath.Join(backupDir, "test-adapter")
+				srcPath := filepath.Join(adapterDir, "config.json")
+				return &MockFileSystem{
+					HomeDir:    home,
+					StatResult: make(map[string]MockStatResult),
+					Files:      make(map[string][]byte),
+					CopyErrors: map[string]error{
+						srcPath: os.ErrPermission,
+					},
+				}
+			},
+			wantMsg: "permission denied",
+		},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest
+			home := t.TempDir()
+			backupID := createBackupForRestore(t, home)
+			bakDir := filepath.Join(home, ".bak")
+			backupDir := filepath.Join(bakDir, "backups", backupID)
+
+			mockFS := tt.setupMock(home, backupDir)
+			var stdout, stderr bytes.Buffer
+
+			action := &RestoreAction{
+				FS:        mockFS,
+				BackupDir: backupDir,
+				Force:     true,
+				Stdout:    &stdout,
+				Stderr:    &stderr,
+			}
+
+			err := action.Run()
+			if err == nil {
+				t.Fatal("expected error on copy failure, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantMsg) {
+				t.Errorf("error %q should contain %q", err.Error(), tt.wantMsg)
+			}
+			outStr := stdout.String()
+			if strings.Contains(outStr, "Restore complete") {
+				t.Errorf("stdout should NOT contain 'Restore complete' on failure, got: %s", outStr)
+			}
+			if !strings.Contains(outStr, "Restore failed") {
+				t.Errorf("stdout should contain 'Restore failed' on failure, got: %s", outStr)
+			}
+		})
+	}
+}
+
+func TestRestoreAction_ManifestIntegrity(t *testing.T) { //nolint:paralleltest // shared state isolation pending
+	tests := []struct {
+		name       string
+		force      bool
+		tamper     bool
+		wantErr    bool
+		errContain string
+	}{
+		{
+			name:    "valid_manifest_without_force",
+			force:   false,
+			tamper:  false,
+			wantErr: false,
+		},
+		{
+			name:    "valid_manifest_with_force",
+			force:   true,
+			tamper:  false,
+			wantErr: false,
+		},
+		{
+			name:       "tampered_manifest_without_force",
+			force:      false,
+			tamper:     true,
+			wantErr:    true,
+			errContain: "manifest validation failed",
+		},
+		{
+			name:       "tampered_manifest_with_force_fails_hard",
+			force:      true,
+			tamper:     true,
+			wantErr:    true,
+			errContain: "manifest validation failed",
+		},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest
+			home := t.TempDir()
+			backupID := createBackupForRestore(t, home)
+			bakDir := filepath.Join(home, ".bak")
+			backupDir := filepath.Join(bakDir, "backups", backupID)
+
+			if tt.tamper {
+				adapterDir := filepath.Join(backupDir, "test-adapter")
+				if err := os.WriteFile(filepath.Join(adapterDir, "config.json"),
+					[]byte("tampered-content\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			action := &RestoreAction{
+				FS:        newHomeFS(home),
+				BackupDir: backupDir,
+				Force:     tt.force,
+				Stdin:     strings.NewReader("y\n"),
+				Stdout:    io.Discard,
+				Stderr:    io.Discard,
+			}
+
+			err := action.Run()
+			targetPath := filepath.Join(home, ".config", "bak", "config.json")
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.errContain)
+				}
+				if !strings.Contains(err.Error(), tt.errContain) {
+					t.Errorf("error %q should contain %q", err.Error(), tt.errContain)
+				}
+				// Verify no file was written when manifest validation failed.
+				if _, statErr := os.Stat(targetPath); !os.IsNotExist(statErr) {
+					t.Errorf("target file should not exist after failed validation, got statErr=%v", statErr)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				// Verify file was written.
+				if _, statErr := os.Stat(targetPath); statErr != nil {
+					t.Errorf("target file should exist: %v", statErr)
+				}
+			}
+		})
+	}
+}
+
+func TestRestoreAction_V030Manifest_RestoresDegraded(t *testing.T) { //nolint:paralleltest // shared state
+	home := t.TempDir()
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-120000"
+	backupDir := filepath.Join(backupsDir, backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	testContent := []byte("key=value\n")
+	backedFile := filepath.Join(adapterDir, "config.json")
+	if err := os.WriteFile(backedFile, testContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+	h := sha256.Sum256(testContent)
+
+	m := manifest.New(backupID, "linux", "testhost", "0.3.0", "quick", []string{"config"})
+	m.Version = "0.3.0"
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/config.json",
+			BackupPath: "test-adapter/config.json",
+			Hash:       fmt.Sprintf("sha256:%x", h),
+			Size:       int64(len(testContent)),
+			Mode:       0, // 0.3.0 manifest has no mode
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	action := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: backupDir,
+		Force:     true,
+		Stdout:    &stdout,
+		Stderr:    io.Discard,
+	}
+
+	if err := action.Run(); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	outStr := stdout.String()
+	if !strings.Contains(outStr, "degraded permissions") {
+		t.Errorf("expected summary to report degraded permissions, got:\n%s", outStr)
+	}
+}
+
+// chmodFailingFS wraps a FileSystem double and fails Chmod calls.
+type chmodFailingFS struct {
+	FileSystem
+}
+
+func (c *chmodFailingFS) Chmod(name string, _ os.FileMode) error {
+	return fmt.Errorf("chmod %s: permission denied", name)
+}
+
+func TestRestoreAction_ChmodFailure_SurfacesAsError(t *testing.T) { //nolint:paralleltest // shared state
+	home := t.TempDir()
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-chmodfail"
+	backupDir := filepath.Join(backupsDir, backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	testContent := []byte("#!/bin/sh\necho test\n")
+	backedFile := filepath.Join(adapterDir, "script.sh")
+	if err := os.WriteFile(backedFile, testContent, 0755); err != nil {
+		t.Fatal(err)
+	}
+	h := sha256.Sum256(testContent)
+
+	m := manifest.New(backupID, "linux", "testhost", "0.4.0", "quick", []string{"config"})
+	m.Version = "0.4.0"
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/script.sh",
+			BackupPath: "test-adapter/script.sh",
+			Hash:       fmt.Sprintf("sha256:%x", h),
+			Size:       int64(len(testContent)),
+			Mode:       0755,
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	baseFS := newHomeFS(home)
+	failingFS := &chmodFailingFS{FileSystem: baseFS}
+
+	action := &RestoreAction{
+		FS:        failingFS,
+		BackupDir: backupDir,
+		Force:     true,
+		Stdout:    io.Discard,
+		Stderr:    io.Discard,
+	}
+
+	err := action.Run()
+	if err == nil {
+		t.Fatal("expected error on chmod failure, got nil")
+	}
+	if !strings.Contains(err.Error(), "chmod") {
+		t.Errorf("error %q should mention chmod", err.Error())
 	}
 }

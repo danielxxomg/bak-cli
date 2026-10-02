@@ -50,4 +50,5 @@ type Item struct {
 	IsDir      bool
 	Hash       string // SHA-256 hex digest of content
 	Size       int64  // file size in bytes
+	Mode       uint32 // portable permission bits (os.FileMode.Perm())
 }

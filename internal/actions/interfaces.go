@@ -38,6 +38,9 @@ type FileSystem interface {
 
 	// WriteFile writes data to a file named by filename.
 	WriteFile(filename string, data []byte, perm os.FileMode) error
+
+	// Chmod changes the mode of the named file.
+	Chmod(name string, mode os.FileMode) error
 }
 
 // ConfigLoader abstracts configuration loading for testability.

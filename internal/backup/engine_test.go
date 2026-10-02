@@ -8,6 +8,7 @@ import (
 
 	"github.com/danielxxomg/bak-cli/internal/adapters"
 	opencodeadapter "github.com/danielxxomg/bak-cli/internal/adapters/opencode"
+	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
 
 // --- utility tests -------------------------------------------------------
@@ -121,8 +122,8 @@ func TestEngine_Run_Presets(t *testing.T) { //nolint:paralleltest // not yet par
 				if m["preset"] != "quick" {
 					t.Errorf("manifest preset = %v, want quick", m["preset"])
 				}
-				if m["version"] != "0.3.0" {
-					t.Errorf("manifest version = %v, want 0.3.0", m["version"])
+				if m["version"] != manifest.ManifestVersion {
+					t.Errorf("manifest version = %v, want %s", m["version"], manifest.ManifestVersion)
 				}
 			},
 		},

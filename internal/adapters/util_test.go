@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -118,4 +119,45 @@ func TestCopyFile(t *testing.T) { //nolint:paralleltest // not yet parallelized 
 			t.Error("expected error for nonexistent source")
 		}
 	})
+}
+
+func TestCopyFile_PreservesMode(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping mode preservation test on Windows")
+	}
+	tests := []struct {
+		name string
+		mode os.FileMode
+	}{
+		{"executable script", 0755},
+		{"private file", 0600},
+		{"regular file", 0644},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			src := filepath.Join(dir, "src.sh")
+			dst := filepath.Join(dir, "dst.sh")
+			if err := os.WriteFile(src, []byte("#!/bin/sh\n"), tt.mode); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(src, tt.mode); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := CopyFile(src, dst); err != nil {
+				t.Fatalf("CopyFile: %v", err)
+			}
+
+			fi, err := os.Stat(dst)
+			if err != nil {
+				t.Fatalf("stat dst: %v", err)
+			}
+			if fi.Mode().Perm() != tt.mode {
+				t.Errorf("got mode %o, want %o", fi.Mode().Perm(), tt.mode)
+			}
+		})
+	}
 }

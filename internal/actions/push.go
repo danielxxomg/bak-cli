@@ -2,6 +2,7 @@ package actions
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,6 +16,13 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/config"
 	"github.com/danielxxomg/bak-cli/internal/crypto"
 	"github.com/danielxxomg/bak-cli/internal/paths"
+)
+
+var (
+	// ErrProfileNotFound indicates that the requested profile does not exist in configuration.
+	ErrProfileNotFound = errors.New("profile not found")
+	// ErrNoProfiles indicates that no profiles are configured in the configuration file.
+	ErrNoProfiles = errors.New("no profiles configured")
 )
 
 // PushAction encapsulates the push-to-cloud workflow with injectable
@@ -70,7 +78,7 @@ func (a *PushAction) Run(args []string) error {
 	// 2. Resolve backup ID.
 	backupID, err := a.resolveBackupID(backupsDir, args)
 	if err != nil {
-		return err
+		return fmt.Errorf("resolve backup: %w", err)
 	}
 	backupPath := filepath.Join(backupsDir, backupID)
 
@@ -82,7 +90,7 @@ func (a *PushAction) Run(args []string) error {
 	}
 
 	if _, err := a.FS.Stat(backupPath); err != nil {
-		return fmt.Errorf("backup %q not found", backupID)
+		return fmt.Errorf("backup %q not found: %w", backupID, err)
 	}
 
 	// 3. Resolve provider via injected factory.
@@ -169,7 +177,7 @@ func (a *PushAction) publishArchive(
 func (a *PushAction) encryptArchiveIfNeeded(rawArchive []byte, errOut io.Writer) ([]byte, error) {
 	encrypt, err := a.shouldEncrypt()
 	if err != nil {
-		return nil, fmt.Errorf("load config: %w", err)
+		return nil, err
 	}
 	if !encrypt {
 		return rawArchive, nil
@@ -194,17 +202,26 @@ func (a *PushAction) encryptArchiveIfNeeded(rawArchive []byte, errOut io.Writer)
 
 // shouldEncrypt checks whether the configured profile has encryption
 // enabled. It returns (true, nil) when the profile exists and has
-// Encryption.Enabled set, (false, nil) when the profile is missing or
-// encryption is not enabled, and (false, err) when config loading fails.
+// Encryption.Enabled set, (false, nil) when encryption is explicitly
+// disabled or no profile is specified, and an error when config loading
+// fails, no profiles exist in configuration, or the named profile is unknown.
 func (a *PushAction) shouldEncrypt() (bool, error) {
+	if strings.TrimSpace(a.Profile) == "" {
+		return false, nil
+	}
+
 	cfg, err := loadConfigOr(a.ConfigLoader)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("load config: %w", err)
+	}
+
+	if len(cfg.Profiles) == 0 {
+		return false, fmt.Errorf("push: profile %q: %w — create a profile or configure encryption before pushing", a.Profile, ErrNoProfiles)
 	}
 
 	profile, ok := cfg.Profiles[a.Profile]
 	if !ok {
-		return false, nil
+		return false, fmt.Errorf("push: profile %q: %w — select an existing profile or create one", a.Profile, ErrProfileNotFound)
 	}
 
 	if profile.Encryption != nil && profile.Encryption.Enabled {

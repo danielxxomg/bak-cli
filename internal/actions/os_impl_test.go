@@ -3,6 +3,7 @@ package actions
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -155,5 +156,27 @@ func TestOSFileSystem_WriteFile(t *testing.T) { //nolint:paralleltest // not yet
 	}
 	if string(data) != "data" {
 		t.Errorf("data = %q, want data", string(data))
+	}
+}
+
+func TestOSFileSystem_Chmod(t *testing.T) { //nolint:paralleltest // shared state
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping chmod test on Windows")
+	}
+	fsys := &OSFileSystem{}
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "test.sh")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := fsys.Chmod(path, 0755); err != nil {
+		t.Fatalf("Chmod: %v", err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0755 {
+		t.Errorf("mode = %o, want 0755", info.Mode().Perm())
 	}
 }

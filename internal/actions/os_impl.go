@@ -6,7 +6,15 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 )
+
+// osName is the runtime OS identifier, centralized so platform-specific
+// behavior has a single reference per package.
+var osName = runtime.GOOS
+
+// isWindows reports whether the current platform is Windows.
+func isWindows() bool { return osName == "windows" }
 
 // OSFileSystem implements FileSystem using the real operating system.
 type OSFileSystem struct{}
@@ -60,11 +68,16 @@ func (o *OSFileSystem) CopyFile(src, dst string) error {
 	}
 	defer func() { _ = sf.Close() }()
 
+	info, err := sf.Stat()
+	if err != nil {
+		return fmt.Errorf("stat source: %w", err)
+	}
+
 	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
 		return fmt.Errorf("mkdir destination: %w", err)
 	}
 
-	df, err := os.Create(dst)
+	df, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode().Perm())
 	if err != nil {
 		return fmt.Errorf("create destination: %w", err)
 	}
@@ -74,7 +87,15 @@ func (o *OSFileSystem) CopyFile(src, dst string) error {
 		return fmt.Errorf("copy: %w", err)
 	}
 
-	return df.Close()
+	if err := df.Close(); err != nil {
+		return fmt.Errorf("close destination: %w", err)
+	}
+
+	if err := os.Chmod(dst, info.Mode().Perm()); err != nil && !isWindows() {
+		return fmt.Errorf("chmod destination: %w", err)
+	}
+
+	return nil
 }
 
 func (o *OSFileSystem) RemoveAll(path string) error {
@@ -94,6 +115,13 @@ func (o *OSFileSystem) WalkDir(root string, fn fs.WalkDirFunc) error {
 func (o *OSFileSystem) WriteFile(filename string, data []byte, perm os.FileMode) error {
 	if err := os.WriteFile(filename, data, perm); err != nil {
 		return fmt.Errorf("write file: %w", err)
+	}
+	return nil
+}
+
+func (o *OSFileSystem) Chmod(name string, mode os.FileMode) error {
+	if err := os.Chmod(name, mode); err != nil {
+		return fmt.Errorf("chmod: %w", err)
 	}
 	return nil
 }

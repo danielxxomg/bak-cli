@@ -13,34 +13,39 @@ import (
 
 	"github.com/danielxxomg/bak-cli/internal/cloud"
 	"github.com/danielxxomg/bak-cli/internal/config"
+	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 	"github.com/danielxxomg/bak-cli/internal/crypto"
 )
 
-// mockFileInfo implements os.FileInfo for testing.
-type mockFileInfo struct {
+// MockFileInfo implements os.FileInfo for testing.
+type MockFileInfo struct {
 	name  string
 	size  int64
 	isDir bool
 }
 
-func (m mockFileInfo) Name() string       { return m.name }
-func (m mockFileInfo) Size() int64        { return m.size }
-func (m mockFileInfo) Mode() os.FileMode  { return 0644 }
-func (m mockFileInfo) ModTime() time.Time { return time.Time{} }
-func (m mockFileInfo) IsDir() bool        { return m.isDir }
-func (m mockFileInfo) Sys() interface{}   { return nil }
+var _ os.FileInfo = MockFileInfo{}
 
-// mockDirEntry implements os.DirEntry for testing.
-type mockDirEntry struct {
+func (m MockFileInfo) Name() string       { return m.name }
+func (m MockFileInfo) Size() int64        { return m.size }
+func (m MockFileInfo) Mode() os.FileMode  { return 0644 }
+func (m MockFileInfo) ModTime() time.Time { return time.Time{} }
+func (m MockFileInfo) IsDir() bool        { return m.isDir }
+func (m MockFileInfo) Sys() interface{}   { return nil }
+
+// MockDirEntry implements os.DirEntry for testing.
+type MockDirEntry struct {
 	name  string
 	isDir bool
 }
 
-func (m mockDirEntry) Name() string      { return m.name }
-func (m mockDirEntry) IsDir() bool       { return m.isDir }
-func (m mockDirEntry) Type() fs.FileMode { return 0 }
-func (m mockDirEntry) Info() (os.FileInfo, error) {
-	return mockFileInfo{name: m.name, isDir: m.isDir}, nil
+var _ os.DirEntry = MockDirEntry{}
+
+func (m MockDirEntry) Name() string      { return m.name }
+func (m MockDirEntry) IsDir() bool       { return m.isDir }
+func (m MockDirEntry) Type() fs.FileMode { return 0 }
+func (m MockDirEntry) Info() (os.FileInfo, error) {
+	return MockFileInfo{name: m.name, isDir: m.isDir}, nil
 }
 
 // --- push helpers -------------------------------------------------------
@@ -52,12 +57,12 @@ func setupPushMockFS(home string) *MockFileSystem {
 	return &MockFileSystem{
 		HomeDir: home,
 		StatResult: map[string]MockStatResult{
-			backupDir: {Info: &mockFileInfo{name: "20260101-120000", isDir: true}},
+			backupDir: {Info: &MockFileInfo{name: "20260101-120000", isDir: true}},
 		},
 		DirEntries: map[string][]os.DirEntry{
 			backupsDir: {
-				&mockDirEntry{name: "20260101-120000", isDir: true},
-				&mockDirEntry{name: "20260102-130000", isDir: true},
+				&MockDirEntry{name: "20260101-120000", isDir: true},
+				&MockDirEntry{name: "20260102-130000", isDir: true},
 			},
 		},
 		Files: make(map[string][]byte),
@@ -110,7 +115,7 @@ func TestPushAction_StatError(t *testing.T) { //nolint:paralleltest // not yet p
 		HomeDir: home,
 		DirEntries: map[string][]os.DirEntry{
 			backupsDir: {
-				&mockDirEntry{name: "20260101-120000", isDir: true},
+				&MockDirEntry{name: "20260101-120000", isDir: true},
 			},
 		},
 		StatResult: map[string]MockStatResult{},
@@ -149,7 +154,7 @@ func TestPushAction_ExplicitBackupID(t *testing.T) { //nolint:paralleltest // no
 	mockFS := &MockFileSystem{
 		HomeDir: home,
 		StatResult: map[string]MockStatResult{
-			backupDir: {Info: &mockFileInfo{name: "20260101-120000", isDir: true}},
+			backupDir: {Info: &MockFileInfo{name: "20260101-120000", isDir: true}},
 		},
 		Files: make(map[string][]byte),
 	}
@@ -190,7 +195,9 @@ func TestPushAction_VerboseLogging(t *testing.T) { //nolint:paralleltest // not 
 	}
 
 	action := &PushAction{Stdout: io.Discard, Stderr: io.Discard, FS: mockFS, Provider: "github-gist", Verbose: true}
-	_ = action.Run([]string{"nonexistent"})
+	if err := action.Run([]string{"nonexistent"}); err == nil {
+		t.Fatal("expected error for nonexistent backup")
+	}
 	// Just exercises the verbose code path. Error expected.
 }
 
@@ -216,7 +223,7 @@ func TestPushAction_PathTraversal_Latest(t *testing.T) { //nolint:paralleltest /
 		HomeDir: home,
 		DirEntries: map[string][]os.DirEntry{
 			backupsDir: {
-				&mockDirEntry{name: "../escape", isDir: true},
+				&MockDirEntry{name: "../escape", isDir: true},
 			},
 		},
 		StatResult: map[string]MockStatResult{},
@@ -238,7 +245,7 @@ func TestPushAction_ExplicitArgResolvesID(t *testing.T) { //nolint:paralleltest 
 	mockFS := &MockFileSystem{
 		HomeDir: home,
 		StatResult: map[string]MockStatResult{
-			backupDir: {Info: &mockFileInfo{name: "20260101-120000", isDir: true}},
+			backupDir: {Info: &MockFileInfo{name: "20260101-120000", isDir: true}},
 		},
 		Files: make(map[string][]byte),
 	}
@@ -259,11 +266,11 @@ func TestPushAction_EmptyArgFallsback(t *testing.T) { //nolint:paralleltest // n
 		HomeDir: home,
 		DirEntries: map[string][]os.DirEntry{
 			backupsDir: {
-				&mockDirEntry{name: "20260102-130000", isDir: true},
+				&MockDirEntry{name: "20260102-130000", isDir: true},
 			},
 		},
 		StatResult: map[string]MockStatResult{
-			filepath.Join(backupsDir, "20260102-130000"): {Info: &mockFileInfo{name: "20260102-130000", isDir: true}},
+			filepath.Join(backupsDir, "20260102-130000"): {Info: &MockFileInfo{name: "20260102-130000", isDir: true}},
 		},
 		Files: make(map[string][]byte),
 	}
@@ -317,11 +324,15 @@ func TestPushAction_MockProvider_HappyPath(t *testing.T) { //nolint:paralleltest
 	backupsDir := filepath.Join(bakDir, "backups")
 	backupID := "20260101-120000"
 	backupPath := filepath.Join(backupsDir, backupID)
-	os.MkdirAll(backupPath, 0755)
+	if err := os.MkdirAll(backupPath, 0755); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a manifest so Stat succeeds.
 	manifestData := []byte(`{"id":"20260101-120000","version":"1.0"}`)
-	os.WriteFile(filepath.Join(backupPath, "manifest.json"), manifestData, 0644)
+	if err := os.WriteFile(filepath.Join(backupPath, "manifest.json"), manifestData, 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	// Track push calls.
 	var pushedArchive []byte
@@ -379,8 +390,12 @@ func TestPushAction_MockProvider_ProviderError(t *testing.T) { //nolint:parallel
 	backupsDir := filepath.Join(bakDir, "backups")
 	backupID := "20260101-120000"
 	backupPath := filepath.Join(backupsDir, backupID)
-	os.MkdirAll(backupPath, 0755)
-	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"test"}`), 0644)
+	if err := os.MkdirAll(backupPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"test"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	factory := &MockProviderFactory{
 		Err: errors.New("factory explosion"),
@@ -407,8 +422,12 @@ func TestPushAction_MockProvider_PushError(t *testing.T) { //nolint:paralleltest
 	backupsDir := filepath.Join(bakDir, "backups")
 	backupID := "20260101-120000"
 	backupPath := filepath.Join(backupsDir, backupID)
-	os.MkdirAll(backupPath, 0755)
-	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"test"}`), 0644)
+	if err := os.MkdirAll(backupPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"test"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	mockProvider := &MockProvider{
 		MockName: "mock-gist",
@@ -450,8 +469,12 @@ func TestPushAction_EncryptionEnabled(t *testing.T) { //nolint:paralleltest // n
 	backupsDir := filepath.Join(bakDir, "backups")
 	backupID := "20260101-120000"
 	backupPath := filepath.Join(backupsDir, backupID)
-	os.MkdirAll(backupPath, 0755)
-	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644)
+	if err := os.MkdirAll(backupPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	t.Setenv("BAK_ENCRYPTION_PASSWORD", "test-password-123")
 
@@ -505,8 +528,12 @@ func TestPushAction_EncryptionDisabled(t *testing.T) { //nolint:paralleltest // 
 	backupsDir := filepath.Join(bakDir, "backups")
 	backupID := "20260101-120000"
 	backupPath := filepath.Join(backupsDir, backupID)
-	os.MkdirAll(backupPath, 0755)
-	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644)
+	if err := os.MkdirAll(backupPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	var pushedArchive []byte
 	mockProvider := &MockProvider{
@@ -551,19 +578,24 @@ func TestPushAction_EncryptionDisabled(t *testing.T) { //nolint:paralleltest // 
 
 func TestPushAction_NonexistentProfile(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
+	configtest.SetConfigHome(t, home)
 
 	bakDir := filepath.Join(home, ".bak")
 	backupsDir := filepath.Join(bakDir, "backups")
 	backupID := "20260101-120000"
 	backupPath := filepath.Join(backupsDir, backupID)
-	os.MkdirAll(backupPath, 0755)
-	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644)
+	if err := os.MkdirAll(backupPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
 
-	var pushedArchive []byte
+	pushCalled := false
 	mockProvider := &MockProvider{
 		MockName: "mock-gist",
 		PushFn: func(archive []byte, meta cloud.PushMeta) (string, error) {
-			pushedArchive = archive
+			pushCalled = true
 			return "mock-id-123", nil
 		},
 	}
@@ -593,13 +625,158 @@ func TestPushAction_NonexistentProfile(t *testing.T) { //nolint:paralleltest // 
 	}
 
 	err := action.Run([]string{backupID})
-	if err != nil {
-		t.Fatalf("Run: %v", err)
+	if err == nil {
+		t.Fatal("expected error for nonexistent profile, got nil")
+	}
+	if !errors.Is(err, ErrProfileNotFound) {
+		t.Errorf("expected ErrProfileNotFound, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), `"nonexistent"`) {
+		t.Errorf("error should name missing profile %q, got: %v", "nonexistent", err)
+	}
+	if pushCalled {
+		t.Fatal("archive was uploaded despite nonexistent profile")
+	}
+}
+
+func TestPushAction_ProfileEncryptionGating(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	tests := []struct {
+		name          string
+		profile       string
+		config        *config.Config
+		password      string
+		wantErr       bool
+		targetErr     error
+		errContains   string
+		wantEncrypted bool
+		wantPushed    bool
+	}{
+		{
+			name:    "unknown profile returns error with guidance",
+			profile: "staging",
+			config: &config.Config{
+				Profiles: map[string]config.ProfileConfig{
+					"default": {},
+				},
+			},
+			wantErr:     true,
+			targetErr:   ErrProfileNotFound,
+			errContains: `profile "staging"`,
+			wantPushed:  false,
+		},
+		{
+			name:        "fresh install with no profiles returns error with guidance",
+			profile:     "default",
+			config:      &config.Config{},
+			wantErr:     true,
+			targetErr:   ErrNoProfiles,
+			errContains: "no profiles configured",
+			wantPushed:  false,
+		},
+		{
+			name:    "encrypted profile encrypts archive",
+			profile: "encrypted-work",
+			config: &config.Config{
+				Profiles: map[string]config.ProfileConfig{
+					"encrypted-work": {
+						Encryption: &config.EncryptionConfig{Enabled: true},
+					},
+				},
+			},
+			password:      "test-pass",
+			wantErr:       false,
+			wantEncrypted: true,
+			wantPushed:    true,
+		},
+		{
+			name:    "explicit unencrypted profile allows plaintext upload",
+			profile: "plain-work",
+			config: &config.Config{
+				Profiles: map[string]config.ProfileConfig{
+					"plain-work": {},
+				},
+			},
+			wantErr:       false,
+			wantEncrypted: false,
+			wantPushed:    true,
+		},
 	}
 
-	// Nonexistent profile should gracefully fall back to plaintext.
-	if crypto.IsEncrypted(pushedArchive) {
-		t.Fatal("expected plaintext for nonexistent profile, but archive is encrypted")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+			configtest.SetConfigHome(t, home)
+
+			bakDir := filepath.Join(home, ".bak")
+			backupsDir := filepath.Join(bakDir, "backups")
+			backupID := "20260101-120000"
+			backupPath := filepath.Join(backupsDir, backupID)
+			if err := os.MkdirAll(backupPath, 0755); err != nil {
+				t.Fatalf("mkdir backup: %v", err)
+			}
+			if err := os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644); err != nil {
+				t.Fatalf("write manifest: %v", err)
+			}
+
+			if tt.password != "" {
+				t.Setenv("BAK_ENCRYPTION_PASSWORD", tt.password)
+			}
+
+			var pushedArchive []byte
+			pushCalled := false
+			mockProvider := &MockProvider{
+				MockName: "mock-gist",
+				PushFn: func(archive []byte, meta cloud.PushMeta) (string, error) {
+					pushedArchive = archive
+					pushCalled = true
+					return "mock-id-123", nil
+				},
+			}
+
+			factory := &MockProviderFactory{
+				Providers: map[string]cloud.Provider{
+					"mock-gist": mockProvider,
+				},
+			}
+
+			action := &PushAction{
+				FS:           newHomeFS(home),
+				Provider:     "mock-gist",
+				Profile:      tt.profile,
+				Factory:      factory,
+				ConfigLoader: func() (*config.Config, error) { return tt.config, nil },
+			}
+
+			err := action.Run([]string{backupID})
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got nil")
+				}
+				if tt.targetErr != nil && !errors.Is(err, tt.targetErr) {
+					t.Errorf("expected error wrapping %v, got: %v", tt.targetErr, err)
+				}
+				if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("error %q should contain %q", err.Error(), tt.errContains)
+				}
+				if pushCalled {
+					t.Error("provider.Push was called despite error")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !pushCalled {
+				t.Fatal("provider.Push was not called")
+			}
+			if tt.wantEncrypted && !crypto.IsEncrypted(pushedArchive) {
+				t.Errorf("expected encrypted archive, but magic bytes not found")
+			}
+			if !tt.wantEncrypted && crypto.IsEncrypted(pushedArchive) {
+				t.Errorf("expected plaintext archive, but magic bytes found")
+			}
+		})
 	}
 }
 
@@ -610,8 +787,12 @@ func TestPushAction_ConfigLoadError(t *testing.T) { //nolint:paralleltest // not
 	backupsDir := filepath.Join(bakDir, "backups")
 	backupID := "20260101-120000"
 	backupPath := filepath.Join(backupsDir, backupID)
-	os.MkdirAll(backupPath, 0755)
-	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644)
+	if err := os.MkdirAll(backupPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	mockProvider := &MockProvider{
 		MockName: "mock-gist",
@@ -652,13 +833,19 @@ func TestPushAction_PasswordError(t *testing.T) { //nolint:paralleltest // not y
 	backupsDir := filepath.Join(bakDir, "backups")
 	backupID := "20260101-120000"
 	backupPath := filepath.Join(backupsDir, backupID)
-	os.MkdirAll(backupPath, 0755)
-	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644)
+	if err := os.MkdirAll(backupPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	// Unset the env var so GetPassword falls through to stdin.
 	// In a non-interactive test environment, stdin returns io.EOF,
 	// triggering the password error.
-	os.Unsetenv("BAK_ENCRYPTION_PASSWORD")
+	if err := os.Unsetenv("BAK_ENCRYPTION_PASSWORD"); err != nil {
+		t.Fatal(err)
+	}
 
 	mockProvider := &MockProvider{
 		MockName: "mock-gist",
@@ -707,8 +894,12 @@ func TestPushAction_StdoutInjection(t *testing.T) { //nolint:paralleltest // not
 	backupsDir := filepath.Join(bakDir, "backups")
 	backupID := "20260101-120000"
 	backupPath := filepath.Join(backupsDir, backupID)
-	os.MkdirAll(backupPath, 0755)
-	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644)
+	if err := os.MkdirAll(backupPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	var stdout, stderr bytes.Buffer
 
@@ -752,8 +943,12 @@ func TestPushAction_StdoutNotLeaked(t *testing.T) { //nolint:paralleltest // not
 	backupsDir := filepath.Join(bakDir, "backups")
 	backupID := "20260101-120000"
 	backupPath := filepath.Join(backupsDir, backupID)
-	os.MkdirAll(backupPath, 0755)
-	os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644)
+	if err := os.MkdirAll(backupPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(backupPath, "manifest.json"), []byte(`{"id":"20260101-120000","version":"1.0"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	mockProvider := &MockProvider{
 		MockName: "mock-gist",
