@@ -90,7 +90,7 @@ Read-only isolated evidence plus this task document and its Engram mirror only:
   - Delivered: aggregated copy-failure errors with nonzero exit, mandatory manifest validation (`--force` confirmation-only), TUI confirmation decoupled without code change, table-driven RED/GREEN tests.
   - Allowed edit surfaces: `internal/actions/restore.go`, `internal/actions/restore_test.go`, `cmd/root.go`, `cmd/restore.go`, `cmd/restore_test.go` (root.go/restore.go untouched — no change required).
   - Verification of record: `go test -count=1 ./internal/actions/` ok, `go test -count=1 ./cmd/` ok, `go vet` clean, `gofmt` clean; parent spot-checked diff and re-ran actions suite green.
-  - Review: assess `medium`/`under_budget` — no native review due for this slice; boundary stays pending.
+  - Review: pre-commit assess `medium`/`under_budget`; post-commit assess `medium`/`slice_budget_reached` → preflight blocked on unpublished intended-untracked-selection schema (2 well-formed submissions rejected, no mutation); occurrence reported upstream (#5129); boundary stays pending.
   - Commit bypass: `--no-verify` with documented `NO-VERIFY` (GGA whole-file scope mismatch); GGA-new-code findings fixed before commit.
   - Follow-ups (deferred, not this slice): F1 fmt write-error idiom decision; F2 Git auto-commit wiring; F3 backup-version warning; F4 remaining old-test table refactors.
 
