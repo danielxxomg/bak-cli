@@ -38,7 +38,36 @@ jobs:
           echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
       - name: Verify OpenCode CLI
         run: opencode --version
+      - name: Configure OpenCode CommandCode provider
+        env:
+          COMMANDCODE_API_KEY: ${{ secrets.COMMANDCODE_API_KEY }}
+        run: |
+          # Synthesize a minimal opencode.json defining the custom
+          # commandcode provider. The API key is injected via env
+          # interpolation and never written to the repo.
+          mkdir -p "$HOME/.config/opencode"
+          cat << 'EOF' > "$HOME/.config/opencode/opencode.json"
+          {
+            "$schema": "https://opencode.ai/config.json",
+            "provider": {
+              "commandcode": {
+                "name": "Command Code",
+                "npm": "@ai-sdk/openai-compatible",
+                "options": {
+                  "baseURL": "https://api.commandcode.ai/provider/v1",
+                  "apiKey": "{env:COMMANDCODE_API_KEY}"
+                },
+                "models": {
+                  "meta/muse-spark-1.3-contributor": {
+                    "id": "meta/muse-spark-1.3-contributor"
+                  }
+                }
+              }
+            }
+          }
+          EOF
       - name: Run GGA
         env:
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          COMMANDCODE_API_KEY: ${{ secrets.COMMANDCODE_API_KEY }}
+          GGA_PROVIDER: "opencode:commandcode/meta/muse-spark-1.3-contributor"
         run: gga run --pr-mode --diff-only
