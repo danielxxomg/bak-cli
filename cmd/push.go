@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/spf13/cobra"
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
@@ -47,6 +50,10 @@ func runPush(cmd *cobra.Command, args []string) error {
 
 // runPushWithDeps follows the *WithDeps pattern for testability.
 func runPushWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
+	if strings.TrimSpace(pushProfile) == "" {
+		return fmt.Errorf("push: profile name cannot be empty")
+	}
+
 	action := &actions.PushAction{
 		FS:           &actions.OSFileSystem{},
 		Provider:     pushProvider,
