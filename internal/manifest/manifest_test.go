@@ -294,3 +294,99 @@ func TestSetEncryption_NilSaltNonce(t *testing.T) { //nolint:paralleltest // not
 		t.Errorf("nonce = %q, want empty", m.Encryption.Nonce)
 	}
 }
+
+func TestManifest_NewVersion_040(t *testing.T) { //nolint:paralleltest // shared state
+	m := New("test-v040", "linux", "box", "0.4.0", "quick", []string{"config"})
+	if m.Version != "0.4.0" {
+		t.Errorf("manifest version = %q, want 0.4.0", m.Version)
+	}
+}
+
+func TestManifest_ModeRoundTrip(t *testing.T) { //nolint:paralleltest // shared state
+	tests := []struct {
+		name string
+		mode uint32
+	}{
+		{"executable script", 0755},
+		{"regular file", 0644},
+		{"private file", 0600},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table state
+			dir := t.TempDir()
+			m := New("test-mode", "linux", "host", "0.4.0", "quick", []string{"config"})
+			m.AddAdapter("opencode", "1.0.0", "~/.config/opencode", []Item{
+				{Category: "config", SourcePath: "~/test", BackupPath: "opencode/test", Hash: "sha256:123", Size: 10, Mode: tt.mode},
+			})
+			if err := m.Save(dir); err != nil {
+				t.Fatalf("Save: %v", err)
+			}
+			loaded, err := Load(dir)
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if len(loaded.Adapters["opencode"].Items) != 1 {
+				t.Fatalf("expected 1 item")
+			}
+			got := loaded.Adapters["opencode"].Items[0].Mode
+			if got != tt.mode {
+				t.Errorf("Mode = %o, want %o", got, tt.mode)
+			}
+		})
+	}
+}
+
+func TestManifest_LoadV030WithoutMode(t *testing.T) { //nolint:paralleltest // shared state
+	dir := t.TempDir()
+	rawJSON := `{
+  "version": "0.3.0",
+  "id": "20260101-legacy",
+  "created_at": "2026-01-01T00:00:00Z",
+  "os_source": "linux",
+  "bak_version": "0.3.0",
+  "preset": "quick",
+  "categories": ["config"],
+  "adapters": {
+    "opencode": {
+      "config_dir": "~/.config/opencode",
+      "items": [
+        {
+          "category": "config",
+          "source_path": "~/.config/opencode/config.json",
+          "backup_path": "opencode/config.json",
+          "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        }
+      ]
+    }
+  }
+}`
+	if err := os.WriteFile(filepath.Join(dir, "manifest.json"), []byte(rawJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if loaded.Version != "0.3.0" {
+		t.Errorf("version = %q, want 0.3.0", loaded.Version)
+	}
+	am := loaded.Adapters["opencode"]
+	if len(am.Items) != 1 {
+		t.Fatalf("items len = %d, want 1", len(am.Items))
+	}
+	if am.Items[0].Mode != 0 {
+		t.Errorf("expected Mode == 0 for 0.3.0 manifest, got %o", am.Items[0].Mode)
+	}
+	// Also verify that 0.3.0 manifest passes Validate (after writing backing file).
+	backupFile := filepath.Join(dir, "opencode", "config.json")
+	if err := os.MkdirAll(filepath.Dir(backupFile), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(backupFile, []byte{}, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := loaded.Validate(dir, nil); err != nil {
+		t.Errorf("Validate 0.3.0 manifest: %v", err)
+	}
+}

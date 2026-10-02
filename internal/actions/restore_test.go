@@ -328,7 +328,7 @@ func TestRestoreAction_RestoreFile_PathTraversalBackupDir(t *testing.T) { //noli
 	err := action.restoreFile(restorepkg.FileDiff{
 		BackupPath: "../../../etc/passwd",
 		TargetPath: filepath.Join(home, "safe.txt"),
-	})
+	}, 0)
 
 	if err == nil {
 		t.Fatal("expected path traversal error")
@@ -356,7 +356,7 @@ func TestRestoreAction_RestoreFile_PathTraversalTarget(t *testing.T) { //nolint:
 	err := action.restoreFile(restorepkg.FileDiff{
 		BackupPath: "safe.txt",
 		TargetPath: filepath.Join(home, "..", "..", "etc", "passwd"),
-	})
+	}, 0)
 
 	if err == nil {
 		t.Fatal("expected path traversal error")
@@ -413,7 +413,7 @@ func TestRestoreAction_RestoreFile_CopyFile_Success(t *testing.T) { //nolint:par
 	err := action.restoreFile(restorepkg.FileDiff{
 		BackupPath: "safe.txt",
 		TargetPath: dst,
-	})
+	}, 0)
 	if err != nil {
 		t.Fatalf("restoreFile: %v", err)
 	}
@@ -452,7 +452,7 @@ func TestRestoreAction_RestoreFile_CopyFile_Error(t *testing.T) { //nolint:paral
 	err := action.restoreFile(restorepkg.FileDiff{
 		BackupPath: "safe.txt",
 		TargetPath: dst,
-	})
+	}, 0)
 	if err == nil {
 		t.Fatal("expected error from CopyFile")
 	}
@@ -962,5 +962,127 @@ func TestRestoreAction_ManifestIntegrity(t *testing.T) { //nolint:paralleltest /
 				}
 			}
 		})
+	}
+}
+
+func TestRestoreAction_V030Manifest_RestoresDegraded(t *testing.T) { //nolint:paralleltest // shared state
+	home := t.TempDir()
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-120000"
+	backupDir := filepath.Join(backupsDir, backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	testContent := []byte("key=value\n")
+	backedFile := filepath.Join(adapterDir, "config.json")
+	if err := os.WriteFile(backedFile, testContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+	h := sha256.Sum256(testContent)
+
+	m := manifest.New(backupID, "linux", "testhost", "0.3.0", "quick", []string{"config"})
+	m.Version = "0.3.0"
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/config.json",
+			BackupPath: "test-adapter/config.json",
+			Hash:       fmt.Sprintf("sha256:%x", h),
+			Size:       int64(len(testContent)),
+			Mode:       0, // 0.3.0 manifest has no mode
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	action := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: backupDir,
+		Force:     true,
+		Stdout:    &stdout,
+		Stderr:    io.Discard,
+	}
+
+	if err := action.Run(); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	outStr := stdout.String()
+	if !strings.Contains(outStr, "degraded permissions") {
+		t.Errorf("expected summary to report degraded permissions, got:\n%s", outStr)
+	}
+}
+
+// chmodFailingFS wraps a FileSystem double and fails Chmod calls.
+type chmodFailingFS struct {
+	FileSystem
+}
+
+func (c *chmodFailingFS) Chmod(name string, _ os.FileMode) error {
+	return fmt.Errorf("chmod %s: permission denied", name)
+}
+
+func TestRestoreAction_ChmodFailure_SurfacesAsError(t *testing.T) { //nolint:paralleltest // shared state
+	home := t.TempDir()
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-chmodfail"
+	backupDir := filepath.Join(backupsDir, backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	testContent := []byte("#!/bin/sh\necho test\n")
+	backedFile := filepath.Join(adapterDir, "script.sh")
+	if err := os.WriteFile(backedFile, testContent, 0755); err != nil {
+		t.Fatal(err)
+	}
+	h := sha256.Sum256(testContent)
+
+	m := manifest.New(backupID, "linux", "testhost", "0.4.0", "quick", []string{"config"})
+	m.Version = "0.4.0"
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/script.sh",
+			BackupPath: "test-adapter/script.sh",
+			Hash:       fmt.Sprintf("sha256:%x", h),
+			Size:       int64(len(testContent)),
+			Mode:       0755,
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	baseFS := newHomeFS(home)
+	failingFS := &chmodFailingFS{FileSystem: baseFS}
+
+	action := &RestoreAction{
+		FS:        failingFS,
+		BackupDir: backupDir,
+		Force:     true,
+		Stdout:    io.Discard,
+		Stderr:    io.Discard,
+	}
+
+	err := action.Run()
+	if err == nil {
+		t.Fatal("expected error on chmod failure, got nil")
+	}
+	if !strings.Contains(err.Error(), "chmod") {
+		t.Errorf("error %q should mention chmod", err.Error())
 	}
 }

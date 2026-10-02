@@ -23,6 +23,8 @@ type MockFileSystem struct {
 	RemoveErrors   map[string]error
 	WalkErrors     map[string]error
 	WriteErrors    map[string]error
+	ChmodErrors    map[string]error
+	ChmodCalls     map[string]os.FileMode
 
 	// Counters for observing mock behavior.
 	RemoveAllCalls int
@@ -124,6 +126,17 @@ func (m *MockFileSystem) WriteFile(filename string, data []byte, _ os.FileMode) 
 		m.Files = make(map[string][]byte)
 	}
 	m.Files[filename] = data
+	return nil
+}
+
+func (m *MockFileSystem) Chmod(name string, mode os.FileMode) error {
+	if err, ok := m.ChmodErrors[name]; ok {
+		return err
+	}
+	if m.ChmodCalls == nil {
+		m.ChmodCalls = make(map[string]os.FileMode)
+	}
+	m.ChmodCalls[name] = mode
 	return nil
 }
 

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/danielxxomg/bak-cli/internal/paths"
@@ -179,14 +180,28 @@ func copyItems(items []Item, srcBase, dstBase string) error {
 		dst := filepath.Join(dstBase, rel)
 
 		if item.IsDir {
+			perm := os.FileMode(0755)
+			if item.Mode != 0 {
+				perm = os.FileMode(item.Mode)
+			}
 			if err := os.MkdirAll(dst, 0755); err != nil {
 				return fmt.Errorf("create dir %s: %w", item.RelPath, err)
+			}
+			if item.Mode != 0 {
+				if err := os.Chmod(dst, perm); err != nil && runtime.GOOS != "windows" {
+					return fmt.Errorf("chmod dir %s: %w", item.RelPath, err)
+				}
 			}
 			continue
 		}
 
 		if err := CopyFile(src, dst); err != nil {
 			return fmt.Errorf("copy %s: %w", item.RelPath, err)
+		}
+		if item.Mode != 0 {
+			if err := os.Chmod(dst, os.FileMode(item.Mode)); err != nil && runtime.GOOS != "windows" {
+				return fmt.Errorf("chmod %s: %w", item.RelPath, err)
+			}
 		}
 	}
 	return nil
@@ -223,12 +238,13 @@ func scanDir(dir, category, configDir string, opts ScanOptions) ([]Item, error) 
 			return nil
 		}
 
+		info, statErr := d.Info()
+		if statErr != nil {
+			return fmt.Errorf("stat %s: %w", relPath, statErr)
+		}
+
 		// Check MaxFileSize for regular files.
 		if !d.IsDir() && opts.MaxFileSize > 0 {
-			info, statErr := d.Info()
-			if statErr != nil {
-				return fmt.Errorf("stat %s: %w", relPath, statErr)
-			}
 			if info.Size() > opts.MaxFileSize {
 				if warnErr := emitOversizeWarning(info.Size(), opts.MaxFileSize, rel); warnErr != nil {
 					// Log the write failure to verbose output and continue —
@@ -246,6 +262,7 @@ func scanDir(dir, category, configDir string, opts ScanOptions) ([]Item, error) 
 			SourcePath: canonical,
 			RelPath:    strings.ReplaceAll(relPath, "\\", "/"),
 			IsDir:      d.IsDir(),
+			Mode:       uint32(info.Mode().Perm()),
 		}
 
 		if !d.IsDir() {
@@ -415,6 +432,7 @@ func scanRootFiles(configDir string, catSet map[string]bool, opts ScanOptions, r
 			IsDir:      false,
 			Hash:       hash,
 			Size:       info.Size(),
+			Mode:       uint32(info.Mode().Perm()),
 		})
 	}
 

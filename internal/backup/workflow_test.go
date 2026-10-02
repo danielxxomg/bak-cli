@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/danielxxomg/bak-cli/internal/adapters"
+	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
 
 // scanTrackingAdapter records whether SetScanOptions was called so the
@@ -77,5 +78,82 @@ func TestRun_PreservesExclusionPipeline(t *testing.T) { //nolint:paralleltest //
 	}
 	if adp.listCalled && !adp.scanOptsSet {
 		t.Error("ListItems ran before SetScanOptions — exclusion pipeline order violated")
+	}
+}
+
+type modeReportingAdapter struct {
+	name      string
+	configDir string
+	mode      uint32
+}
+
+func (m *modeReportingAdapter) Name() string { return m.name }
+func (m *modeReportingAdapter) Detect(string) (bool, string, error) {
+	return true, m.configDir, nil
+}
+func (m *modeReportingAdapter) ListItems(string, []string) ([]adapters.Item, error) {
+	return []adapters.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/opencode/script.sh",
+			RelPath:    "script.sh",
+			Mode:       m.mode,
+		},
+	}, nil
+}
+func (m *modeReportingAdapter) Backup(homeDir, backupDir string, items []adapters.Item) error {
+	dst := filepath.Join(backupDir, m.name, "script.sh")
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(dst, []byte("#!/bin/sh\n"), 0755)
+}
+func (m *modeReportingAdapter) Restore(string, string, []adapters.Item) error { return nil }
+
+var _ adapters.Adapter = (*modeReportingAdapter)(nil)
+
+func TestRun_RecordsExecutableBit(t *testing.T) { //nolint:paralleltest // shared state
+	home := t.TempDir()
+	configDir := filepath.Join(home, ".config", "opencode")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(configDir, "script.sh")
+	if err := os.WriteFile(scriptPath, []byte("#!/bin/sh\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adp := &modeReportingAdapter{name: "opencode", configDir: configDir, mode: 0755}
+	reg := adapters.NewRegistry()
+	if err := reg.Register(adp); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := Context{
+		FS:       osFS{},
+		HomeDir:  home,
+		BakDir:   filepath.Join(home, ".bak"),
+		Registry: reg,
+		Preset:   "quick",
+	}
+	res, err := Run(ctx)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res == nil {
+		t.Fatal("expected non-nil Result")
+	}
+
+	m, err := manifest.Load(res.BackupDir)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+	am, ok := m.Adapters["opencode"]
+	if !ok || len(am.Items) == 0 {
+		t.Fatal("expected manifest items for opencode adapter")
+	}
+	gotMode := am.Items[0].Mode
+	if gotMode != 0755 {
+		t.Errorf("manifest item mode = %o, want 0755", gotMode)
 	}
 }

@@ -396,6 +396,7 @@ func buildAdapterManifestItems(
 			BackupPath: backupPath,
 			Hash:       item.Hash,
 			Size:       item.Size,
+			Mode:       item.Mode,
 		})
 		files++
 		size += item.Size
