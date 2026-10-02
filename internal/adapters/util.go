@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 )
 
 // CopyFile copies a regular file from src to dst, creating parent
@@ -48,7 +47,7 @@ func CopyFile(src, dst string) error {
 
 	// Explicitly apply permission bits to bypass umask. On Windows, Chmod
 	// is a no-op for exec bits and must not error for mode-only reasons.
-	if err := os.Chmod(dst, info.Mode().Perm()); err != nil && runtime.GOOS != "windows" {
+	if err := os.Chmod(dst, info.Mode().Perm()); err != nil && !isWindows() {
 		return fmt.Errorf("chmod dst: %w", err)
 	}
 	return nil

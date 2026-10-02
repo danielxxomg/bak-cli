@@ -302,7 +302,8 @@ func TestManifest_NewVersion_040(t *testing.T) { //nolint:paralleltest // shared
 	}
 }
 
-func TestManifest_ModeRoundTrip(t *testing.T) { //nolint:paralleltest // shared state
+func TestManifest_ModeRoundTrip(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		mode uint32
@@ -312,7 +313,8 @@ func TestManifest_ModeRoundTrip(t *testing.T) { //nolint:paralleltest // shared 
 		{"private file", 0600},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table state
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			dir := t.TempDir()
 			m := New("test-mode", "linux", "host", "0.4.0", "quick", []string{"config"})
 			m.AddAdapter("opencode", "1.0.0", "~/.config/opencode", []Item{

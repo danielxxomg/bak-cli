@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/danielxxomg/bak-cli/internal/backup"
@@ -203,38 +202,45 @@ func (a *RestoreAction) applyRestore(m *manifest.Manifest, diffs []restorepkg.Fi
 	var copyErrs []error
 
 	for _, d := range diffs {
-		switch d.Status {
-		case restorepkg.DiffNew, restorepkg.DiffModified:
-			filesDone++
-			if a.ProgressFn != nil {
-				a.ProgressFn(d.SourcePath, filesDone, filesTotal)
-			}
-			mode := modeMap[d.BackupPath]
-			if mode == 0 {
-				degraded++
-			}
-			if err := a.restoreFile(d, mode); err != nil {
-				failed++
-				copyErrs = append(copyErrs, fmt.Errorf("restore %s: %w", d.SourcePath, err))
-				if a.Verbose {
-					_, _ = fmt.Fprintf(errOut, "restore %s: %v\n", d.SourcePath, err)
-				}
-			} else {
-				restored++
-			}
-		case restorepkg.DiffUnchanged:
-			skipped++
-		case restorepkg.DiffMissing:
-			skipped++
-			if a.Verbose {
-				_, _ = fmt.Fprintf(errOut, "warning: missing backup file %s\n", d.BackupPath)
-			}
-		}
+		restored, skipped, failed, degraded = a.applyDiff(d, modeMap, filesTotal, &filesDone, restored, skipped, failed, degraded, &copyErrs, errOut)
 	}
 	if len(copyErrs) > 0 {
 		err = errors.Join(copyErrs...)
 	}
 	return restored, skipped, failed, degraded, err
+}
+
+// applyDiff applies one diff entry and returns the updated counters. Copy
+// errors accumulate in errs so the caller can join them after the loop.
+func (a *RestoreAction) applyDiff(d restorepkg.FileDiff, modeMap map[string]uint32, filesTotal int, filesDone *int, restored, skipped, failed, degraded int, errs *[]error, errOut io.Writer) (int, int, int, int) {
+	switch d.Status {
+	case restorepkg.DiffNew, restorepkg.DiffModified:
+		*filesDone++
+		if a.ProgressFn != nil {
+			a.ProgressFn(d.SourcePath, *filesDone, filesTotal)
+		}
+		mode := modeMap[d.BackupPath]
+		if mode == 0 {
+			degraded++
+		}
+		if err := a.restoreFile(d, mode); err != nil {
+			failed++
+			*errs = append(*errs, fmt.Errorf("restore %s: %w", d.SourcePath, err))
+			if a.Verbose {
+				_, _ = fmt.Fprintf(errOut, "restore %s: %v\n", d.SourcePath, err)
+			}
+		} else {
+			restored++
+		}
+	case restorepkg.DiffUnchanged:
+		skipped++
+	case restorepkg.DiffMissing:
+		skipped++
+		if a.Verbose {
+			_, _ = fmt.Fprintf(errOut, "warning: missing backup file %s\n", d.BackupPath)
+		}
+	}
+	return restored, skipped, failed, degraded
 }
 
 // reportRestore writes the final restore summary to out, including the failed
@@ -292,7 +298,7 @@ func (a *RestoreAction) restoreFile(d restorepkg.FileDiff, mode uint32) error {
 		if err := a.FS.Chmod(d.TargetPath, os.FileMode(mode)); err != nil {
 			// Windows restore applies best-effort (Chmod may be a no-op for exec bits —
 			// acceptable, but must not error the restore on Windows for mode-only reasons).
-			if runtime.GOOS != "windows" {
+			if !isWindows() {
 				return fmt.Errorf("chmod: %w", err)
 			}
 		}

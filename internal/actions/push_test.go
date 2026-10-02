@@ -13,7 +13,7 @@ import (
 
 	"github.com/danielxxomg/bak-cli/internal/cloud"
 	"github.com/danielxxomg/bak-cli/internal/config"
-	"github.com/danielxxomg/bak-cli/internal/config/testutil"
+	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 	"github.com/danielxxomg/bak-cli/internal/crypto"
 )
 

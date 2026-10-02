@@ -15,6 +15,13 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/paths"
 )
 
+// osName is the runtime OS identifier, injected for testability and
+// centralized so platform-specific behavior has a single reference.
+var osName = runtime.GOOS
+
+// isWindows reports whether the current platform is Windows.
+func isWindows() bool { return osName == "windows" }
+
 // CategoryDir maps a category name to the subdirectory pattern it represents
 // under the adapter's config root.
 type CategoryDir struct {
@@ -188,7 +195,7 @@ func copyItems(items []Item, srcBase, dstBase string) error {
 				return fmt.Errorf("create dir %s: %w", item.RelPath, err)
 			}
 			if item.Mode != 0 {
-				if err := os.Chmod(dst, perm); err != nil && runtime.GOOS != "windows" {
+				if err := os.Chmod(dst, perm); err != nil && !isWindows() {
 					return fmt.Errorf("chmod dir %s: %w", item.RelPath, err)
 				}
 			}
@@ -199,7 +206,7 @@ func copyItems(items []Item, srcBase, dstBase string) error {
 			return fmt.Errorf("copy %s: %w", item.RelPath, err)
 		}
 		if item.Mode != 0 {
-			if err := os.Chmod(dst, os.FileMode(item.Mode)); err != nil && runtime.GOOS != "windows" {
+			if err := os.Chmod(dst, os.FileMode(item.Mode)); err != nil && !isWindows() {
 				return fmt.Errorf("chmod %s: %w", item.RelPath, err)
 			}
 		}

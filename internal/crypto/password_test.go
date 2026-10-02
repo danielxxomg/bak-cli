@@ -69,16 +69,18 @@ func TestGetPassword_EnvVar_EmptyString(t *testing.T) { //nolint:paralleltest //
 	}
 }
 
-func TestGetPassword_Terminal(t *testing.T) { //nolint:paralleltest // mutates global function pointers
+func TestGetPassword_Terminal(t *testing.T) { //nolint:paralleltest,tparallel // mutates package-level isTerminalFn/readPasswordFn hooks; subtests cannot run parallel
 	// Ensure env var is unset so GetPassword falls through to terminal prompt.
-	os.Unsetenv("BAK_ENCRYPTION_PASSWORD")
+	if err := os.Unsetenv("BAK_ENCRYPTION_PASSWORD"); err != nil {
+		t.Fatal(err)
+	}
 
 	oldIsTerm := isTerminalFn
 	oldReadPass := readPasswordFn
-	defer func() {
+	t.Cleanup(func() {
 		isTerminalFn = oldIsTerm
 		readPasswordFn = oldReadPass
-	}()
+	})
 
 	mockErr := errors.New("simulated terminal read error")
 
@@ -143,7 +145,10 @@ func TestGetPassword_Terminal(t *testing.T) { //nolint:paralleltest // mutates g
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Unsetenv("BAK_ENCRYPTION_PASSWORD")
+			t.Parallel()
+			if err := os.Unsetenv("BAK_ENCRYPTION_PASSWORD"); err != nil {
+				t.Fatal(err)
+			}
 
 			maskedCalled := false
 			isTerminalFn = func(fd int) bool {
@@ -178,7 +183,9 @@ func TestGetPassword_Terminal(t *testing.T) { //nolint:paralleltest // mutates g
 }
 
 func TestResolveFromEnv_NotSet(t *testing.T) { //nolint:paralleltest // mutates environment
-	os.Unsetenv("BAK_ENCRYPTION_PASSWORD")
+	if err := os.Unsetenv("BAK_ENCRYPTION_PASSWORD"); err != nil {
+		t.Fatal(err)
+	}
 
 	_, ok := resolveFromEnv()
 	if ok {

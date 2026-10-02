@@ -9,6 +9,13 @@ import (
 	"runtime"
 )
 
+// osName is the runtime OS identifier, centralized so platform-specific
+// behavior has a single reference per package.
+var osName = runtime.GOOS
+
+// isWindows reports whether the current platform is Windows.
+func isWindows() bool { return osName == "windows" }
+
 // OSFileSystem implements FileSystem using the real operating system.
 type OSFileSystem struct{}
 
@@ -84,7 +91,7 @@ func (o *OSFileSystem) CopyFile(src, dst string) error {
 		return fmt.Errorf("close destination: %w", err)
 	}
 
-	if err := os.Chmod(dst, info.Mode().Perm()); err != nil && runtime.GOOS != "windows" {
+	if err := os.Chmod(dst, info.Mode().Perm()); err != nil && !isWindows() {
 		return fmt.Errorf("chmod destination: %w", err)
 	}
 

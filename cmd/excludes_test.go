@@ -7,6 +7,7 @@ import (
 
 	"github.com/danielxxomg/bak-cli/internal/config"
 	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
+	"github.com/danielxxomg/bak-cli/internal/paths"
 )
 
 // defaultMaxFileSize mirrors config.applyDefaults' MaxFileSize default
@@ -41,8 +42,13 @@ func TestLoadExcludes(t *testing.T) {
 			configtest.SetConfigHome(t, dir)
 
 			if tt.ignoreContent != "" {
-				// ConfigDir("bak") resolves to <configHome>/bak.
-				cfgDir := filepath.Join(dir, "bak")
+				// Resolve the real config dir (platform-aware) instead of
+				// assuming <home>/bak: on macOS it lives under
+				// ~/Library/Application Support/bak.
+				cfgDir, err := paths.ConfigDir("bak")
+				if err != nil {
+					t.Fatal(err)
+				}
 				if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 					t.Fatal(err)
 				}

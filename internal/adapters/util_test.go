@@ -121,7 +121,8 @@ func TestCopyFile(t *testing.T) { //nolint:paralleltest // not yet parallelized 
 	})
 }
 
-func TestCopyFile_PreservesMode(t *testing.T) { //nolint:paralleltest // shared state
+func TestCopyFile_PreservesMode(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS == "windows" {
 		t.Skip("skipping mode preservation test on Windows")
 	}
@@ -134,7 +135,8 @@ func TestCopyFile_PreservesMode(t *testing.T) { //nolint:paralleltest // shared 
 		{"regular file", 0644},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table state
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			dir := t.TempDir()
 			src := filepath.Join(dir, "src.sh")
 			dst := filepath.Join(dir, "dst.sh")
