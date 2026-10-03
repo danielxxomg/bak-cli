@@ -511,6 +511,7 @@ classDiagram
 - ✅ **Version compatibility & schema gating** — Warns on `stderr` when restoring backups created by a different or unversioned/development `bak` version; fails closed before any target write or recovery preparation if the manifest schema is newer than supported (`0.4.0`), prompting the user to upgrade
 - ✅ **Secret exclusion** — Automatically detects recognized token families (GitHub `ghp_*`, `gho_*`, `ghu_*`, `ghs_*`, `ghr_*`, OpenAI `sk-*`, Anthropic `sk-ant-*`, Slack `xoxb-*`, `xoxp-*`) and generates `.env.example` templates with redacted placeholders instead of storing real secrets
 - ✅ **Path validation** — Prevents path traversal attacks by validating that all restored paths stay within the user home directory
+- ✅ **Executable journey matrix proof** — Validated by an eight-stage real-binary journey test suite (`tests/e2e/journey_matrix_test.go`): discovery, mutation/deletion diff recovery, dry-run zero-write guarantees, apply correctness (with POSIX permission bit preservation on non-Windows platforms), checksum verification, tamper fail-closed rejection, partial failure rollback, and target undo drift protection (verified locally on Linux; Windows and macOS behaviors are validated in CI)
 
 ## Contributing
 

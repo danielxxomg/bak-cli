@@ -82,6 +82,7 @@ Instead of backing up real secrets, bak generates a `.env.example` template with
 - **Degraded 0.3.0 handling**: Legacy `0.3.0` manifests lacking mode metadata are loaded and restored in degraded mode, explicitly warning the user that restored files lack original mode metadata rather than claiming exact permission restoration.
 - **Version compatibility warning**: On restore, `bak` compares the backup tool version (`bak_version`) with the running tool version. Any mismatch (including unknown, development, or empty versions on either side) produces a clear warning on stderr naming the backup ID and both versions without blocking restore.
 - **Schema version gating**: Manifest schema versions newer than supported (`0.4.0`) cannot be safely interpreted and fail closed with an actionable error before any target write or recovery preparation, instructing the user to upgrade `bak`. Legacy known versions (`0.3.0`) continue to restore in degraded mode.
+- **Real-binary journey verification**: An eight-stage real-binary journey matrix (`tests/e2e/journey_matrix_test.go`) characterizes discovery, mutation/deletion diff recovery, dry-run zero-write guarantees, apply correctness, manifest verification, tamper fail-closed rejection, partial failure rollback, and target undo drift protection.
 
 ### Target Recovery and Automatic Rollback
 
@@ -124,6 +125,7 @@ This prevents accidental overwrites. There is no silent restoration path.
 - **Target undo & drift protection**: `bak undo` projects pre-restore snapshots back to target configuration files and requires an exact match with post-restore state. If any target file has drifted (content changed, deleted, permission modified, or replaced with a directory or symlink), `bak undo` refuses all changes before writing any file. Best-effort limits: target undo requires un-drifted local state and a valid applied recovery point; concurrent external modifications during undo are not race-proof.
 - **Token in environment**: `GITHUB_TOKEN` and other cloud provider credentials passed via environment variables are readable by any process with access to the user's environment.
 - **Local backups at rest**: Backups stored locally under `~/.bak/backups/` are **never** encrypted on disk. AES-256-GCM encryption applies exclusively to cloud push/pull archives when configured per profile. Users must rely on OS filesystem permissions and full-disk encryption for local backup confidentiality.
+- **Platform limits on permission assertions**: File permission preservation (`0.4.0` mode bits) is verified on non-Windows platforms (Linux and macOS); Windows filesystems do not support POSIX permission bits. Local automated suite proof is executed on Linux; Windows and macOS runtime behaviors remain CI evidence.
 
 ## Dependencies
 

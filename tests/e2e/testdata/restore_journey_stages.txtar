@@ -1,0 +1,23 @@
+# restore journey CLI-shape checks without POSIX sh
+
+# Backup creation CLI shape
+exec bak backup --preset quick
+stdout 'Backup created:'
+exists .bak/backups
+
+# Discovery CLI shape: list local backups
+exec bak list
+stdout 'PRESET'
+stdout 'quick'
+
+# Negative discovery CLI shape: invalid backup ID format exits 1
+! exec bak restore --dry-run invalid-backup-id
+stderr 'invalid backup ID'
+
+# Negative discovery CLI shape: unknown backup ID exits 1
+! exec bak restore --dry-run 20000101-000000
+stderr 'not found'
+
+# Verify non-existent backup exits 1
+! exec bak verify 20000101-000000
+stderr 'not found'
