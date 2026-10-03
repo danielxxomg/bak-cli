@@ -216,6 +216,11 @@ The user authorized F2 real restore/undo recovery and confirmed that undo must r
   - Merged: squash commit `4bb7ac0` on `main` after all checks passed. The GGA job failed once for infrastructure reasons (`curl https://opencode.ai/install` returned "Failed to fetch version information" and killed the job before any review); re-running that single job produced the real verdict, 41 files reviewed with `STATUS: PASSED`. A red GGA check therefore does not imply a code violation — read the log before reacting.
   - The 25 reviewable atomic commits remain on `origin/feat/f2-target-recovery`; `main` carries the single squash commit.
 
+- [ ] **T22 — Release candidate phase (RC)**
+  - Done locally on `main`: `release.prerelease: auto` added to `.goreleaser.yaml`, so any `-rc`/`-beta`/`-alpha` tag is published as a GitHub pre-release instead of becoming "Latest". `GoReleaser Check` green. CHANGELOG `[Unreleased]` rewritten with the stabilization work.
+  - Corrected a false claim from a previous session: `v1.5.0-rc1` **does** exist, is published, and points at the old `1413423`, so none of this work is in it. It was published with `isPrerelease: false` and GitHub surfaced it as "Latest", meaning default installs pointed at a release candidate. Fixed on 2026-10-03 with `gh release edit v1.5.0-rc1 --prerelease`; verified `isPrerelease: true` and `v1.4.1` is now correctly "Latest".
+  - **Deliberately not done: cutting `v1.5.0-rc2`.** The release workflow triggers on `push tags: v*`, so pushing the tag *publishes* the release. No tag may be cut until the user has run the built binary through a real backup/restore/undo on their own configuration, because a recovery defect would act on real user data rather than a sandbox. Waiting on that manual validation before any tag.
+
 ## Route declaration
 
 - Initial readiness mapping: delegated direct through one bounded read-only explorer.
