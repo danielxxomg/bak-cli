@@ -505,8 +505,9 @@ classDiagram
 
 - ✅ **Interactive confirmation & dry-run** — Always preview changes before restore; interactive confirmation required unless bypassed with `--force`
 - ✅ **Mandatory integrity** — SHA-256 checksum and manifest integrity checks cannot be bypassed, even under `--force` (which only skips the confirmation prompt)
+- ✅ **Target recovery & automatic rollback** — Before modifying target files on restore, captures affected target pre-state in private local recovery storage (`~/.bak/recovery/<point-id>`) with restricted permissions (0700/0600); stops at first copy or chmod failure and attempts automatic rollback of all attempted targets
 - ✅ **Permission preservation (0.4.0)** — Manifest schema 0.4.0 records portable file permission mode bits and reapplies them on restore; legacy 0.3.0 manifests restore in degraded mode with an explicit warning
-- ✅ **Git-backed safety in ~/.bak** — Tracks backup snapshots and metadata in `~/.bak` with instant rollback via `bak undo` (`git revert`). Note: target tool configuration directories are not auto-committed to Git during restore
+- ✅ **Git-backed safety in ~/.bak** — Tracks backup snapshots and metadata in `~/.bak` with instant rollback via `bak undo` (`git revert`). Note: target tool configuration directories are not auto-committed to Git during restore, and user-initiated undo of actual target files remains deferred to T14
 - ✅ **Secret exclusion** — Automatically detects recognized token families (GitHub `ghp_*`, `gho_*`, `ghu_*`, `ghs_*`, `ghr_*`, OpenAI `sk-*`, Anthropic `sk-ant-*`, Slack `xoxb-*`, `xoxp-*`) and generates `.env.example` templates with redacted placeholders instead of storing real secrets
 - ✅ **Path validation** — Prevents path traversal attacks by validating that all restored paths stay within the user home directory
 

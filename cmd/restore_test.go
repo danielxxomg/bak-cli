@@ -542,3 +542,71 @@ func TestRunRestoreWithDeps_TamperedManifestWithForceFails(t *testing.T) {
 		t.Errorf("target file should not exist after failed validation")
 	}
 }
+
+// TestRunRestoreWithDeps_RecoveryPointCreatedOnApply proves that the CLI/shared-action path
+// creates a recovery point under ~/.bak/recovery/ upon successful restore apply (does not claim
+// an independently executed TUI flow).
+func TestRunRestoreWithDeps_RecoveryPointCreatedOnApply(t *testing.T) {
+	home := t.TempDir()
+	configtest.SetConfigHome(t, home)
+
+	backupID := "20260101-123456"
+	bakDir := filepath.Join(home, ".bak")
+	backupDir := filepath.Join(bakDir, "backups", backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := []byte("setting=on\n")
+	if err := os.WriteFile(filepath.Join(adapterDir, "config.json"), content, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	h := sha256.Sum256(content)
+	m := manifest.New(backupID, runtime.GOOS, "testhost", "test", "quick", []string{"config"})
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/config.json",
+			BackupPath: "test-adapter/config.json",
+			Hash:       fmt.Sprintf("sha256:%x", h),
+			Size:       int64(len(content)),
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	deps, _, _ := setupTestDeps(t)
+	cmd := findSubcommand(t, "restore")
+	if cmd == nil {
+		t.Fatal("restore command not found")
+	}
+
+	restoreForce = true
+	restoreDryRun = false
+	defer func() {
+		restoreForce = false
+		restoreDryRun = false
+	}()
+
+	err := runRestoreWithDeps(cmd, []string{backupID}, deps)
+	if err != nil {
+		t.Fatalf("runRestoreWithDeps failed: %v", err)
+	}
+
+	targetPath := filepath.Join(home, ".config", "bak", "config.json")
+	if _, statErr := os.Stat(targetPath); statErr != nil {
+		t.Fatalf("target file should exist after restore: %v", statErr)
+	}
+
+	recDir := filepath.Join(home, ".bak", "recovery")
+	entries, err := os.ReadDir(recDir)
+	if err != nil || len(entries) == 0 {
+		t.Fatalf("expected recovery point directory in %s, got err: %v, count: %d", recDir, err, len(entries))
+	}
+}

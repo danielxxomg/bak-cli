@@ -81,6 +81,17 @@ Instead of backing up real secrets, bak generates a `.env.example` template with
 - **Permission preservation (0.4.0)**: Manifest schema `0.4.0` preserves portable file permission bits (`Mode`) at backup time and reapplies them during restore. Any chmod failures are reported as restore errors.
 - **Degraded 0.3.0 handling**: Legacy `0.3.0` manifests lacking mode metadata are loaded and restored in degraded mode, explicitly warning the user that restored files lack original mode metadata rather than claiming exact permission restoration.
 
+### Target Recovery and Automatic Rollback
+
+Restore operations are protected by private local target recovery snapshots:
+
+- **Pre-restore target capture**: Before any target file is modified during restore, `bak` captures the affected target files (original bytes, permission mode bits, and absence status) in private local recovery storage under `~/.bak/recovery/<point-id>`.
+- **Fail-closed preparation**: If target inspection, recovery staging, or the pre-restore commit fails, the restore operation aborts immediately before any target file is modified.
+- **Automatic rollback on failure**: If writing any target file or applying file permissions fails, the restore halts immediately and attempts rollback of every attempted target file (including partially written files). Targets that did not exist before restore are deleted; targets that previously existed are restored to their original bytes and permissions.
+- **Preserved recovery evidence**: Recovery evidence is retained locally under `~/.bak/recovery/<point-id>` with restricted permissions (0700/0600) for diagnostics and manual recovery. The operation returns an error reporting the original failure and rollback outcome.
+- **Private local plaintext storage**: Recovery data is stored unencrypted in local private storage under `~/.bak/recovery/` with restrictive permissions. It is never pushed to cloud providers or included in cloud backup archives.
+- **Best-effort limitations**: Rollback makes a best-effort attempt to revert target files across failures, but cannot promise race-proof atomicity against external concurrent processes or OS-level permission revocations during rollback.
+
 ### Git Safety Net
 
 Local backup operations are protected by Git history tracking within `~/.bak`:
@@ -108,6 +119,7 @@ This prevents accidental overwrites. There is no silent restoration path.
 ## Known Limitations
 
 - **Local Git required for undo**: The `bak undo` feature requires Git to be installed and operates on the `~/.bak` repository.
+- **Target undo limitation (pending T14)**: Target recovery and automatic rollback protect active restore failures. However, user-initiated `bak undo` currently operates on the `~/.bak` repository only and does not yet project reverts back to external target configuration files. Target-level undo with drift protection is deferred to a future stabilization unit (T14).
 - **Token in environment**: `GITHUB_TOKEN` and other cloud provider credentials passed via environment variables are readable by any process with access to the user's environment.
 - **Local backups at rest**: Backups stored locally under `~/.bak/backups/` are **never** encrypted on disk. AES-256-GCM encryption applies exclusively to cloud push/pull archives when configured per profile. Users must rely on OS filesystem permissions and full-disk encryption for local backup confidentiality.
 

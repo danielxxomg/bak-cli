@@ -2,7 +2,6 @@ package actions
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -26,6 +25,12 @@ type RestoreAction struct {
 	Verbose   bool
 	GitDir    string // optional git repo for safety commits
 
+	// RecoveryDir optionally overrides the base recovery directory.
+	// When empty, defaults to <home>/.bak/recovery.
+	RecoveryDir string
+
+	storageFS FileSystem // unexported injection for recovery storage in tests
+
 	// ProgressFn is an optional callback invoked once per file during restore.
 	// When nil (default), no progress is reported.
 	ProgressFn func(currentFile string, filesDone int, filesTotal int)
@@ -46,6 +51,29 @@ func (a *RestoreAction) ResolveBackup(backupID string) error {
 	}
 	a.BackupDir = dir
 	return nil
+}
+
+// handlePostStateFailure attempts rollback when post-state recording fails.
+func handlePostStateFailure(recMgr *recoveryManager, diffs []restorepkg.FileDiff, err error) error {
+	var attempted []string
+	for _, d := range diffs {
+		if d.Status == restorepkg.DiffNew || d.Status == restorepkg.DiffModified {
+			attempted = append(attempted, d.TargetPath)
+		}
+	}
+	outcome := recMgr.Rollback(attempted)
+	var errSuffix string
+	if len(outcome.Errors) > 0 {
+		errMsgs := make([]string, 0, len(outcome.Errors))
+		for _, e := range outcome.Errors {
+			errMsgs = append(errMsgs, e.Error())
+		}
+		errSuffix = "; " + strings.Join(errMsgs, "; ")
+	}
+	if len(outcome.Unresolved) > 0 {
+		return fmt.Errorf("record post-restore state: %w (rollback unresolved for %d file(s); recovery point: %s%s)", err, len(outcome.Unresolved), recMgr.PointID, errSuffix)
+	}
+	return fmt.Errorf("record post-restore state: %w (all targets rolled back to pre-restore state; recovery point: %s%s)", err, recMgr.PointID, errSuffix)
 }
 
 // Run executes the restore workflow: load manifest, compute diffs, and
@@ -98,18 +126,35 @@ func (a *RestoreAction) Run() error {
 		return nil
 	}
 
-	// 7. Apply restore.
-	restored, skipped, failed, degraded, applyErr := a.applyRestore(m, diffs, out, errOut)
-
-	// 8. Report results.
-	reportRestore(out, m, restored, skipped, failed, degraded)
-
-	if failed > 0 {
-		if applyErr != nil {
-			return fmt.Errorf("apply restore: %w", applyErr)
-		}
-		return fmt.Errorf("apply restore: %d file(s) failed", failed)
+	// 7. Setup recovery manager and prepare pre-state before any target mutation.
+	recMgr := &recoveryManager{
+		FS:          a.FS,
+		StorageFS:   a.storageFS,
+		HomeDir:     homeDir,
+		BackupID:    m.ID,
+		RecoveryDir: a.RecoveryDir,
 	}
+
+	if err := recMgr.Prepare(diffs); err != nil {
+		return fmt.Errorf("prepare recovery snapshot: %w", err)
+	}
+
+	// 8. Apply restore with recovery and automatic rollback on first failure.
+	restored, skipped, failed, degraded, applyErr := a.applyRestore(m, diffs, recMgr, out, errOut)
+
+	if failed > 0 || applyErr != nil {
+		reportRestore(out, m, restored, skipped, failed, degraded)
+		return applyErr
+	}
+
+	// Record post-state commit on successful apply.
+	if err := recMgr.RecordPostState(); err != nil {
+		reportRestore(out, m, 0, skipped, countByStatus(diffs, restorepkg.DiffNew)+countByStatus(diffs, restorepkg.DiffModified), degraded)
+		return handlePostStateFailure(recMgr, diffs, err)
+	}
+
+	// 9. Report results.
+	reportRestore(out, m, restored, skipped, failed, degraded)
 
 	return nil
 }
@@ -180,67 +225,91 @@ func (a *RestoreAction) confirmRestore(out, errOut io.Writer) (bool, error) {
 	return true, nil
 }
 
-// applyRestore copies each new/modified file, skipping unchanged and missing
-// files. Progress is reported via ProgressFn when set. Returns the counts of
-// restored, skipped, failed, and degraded files along with an aggregated error if any
-// copy or chmod failed.
-func (a *RestoreAction) applyRestore(m *manifest.Manifest, diffs []restorepkg.FileDiff, _, errOut io.Writer) (restored, skipped, failed, degraded int, err error) {
+func formatRollbackOutcome(outcome rollbackOutcome) string {
+	var base string
+	switch {
+	case len(outcome.Unresolved) > 0:
+		base = fmt.Sprintf("rollback unresolved for %d file(s); recovery point: %s", len(outcome.Unresolved), outcome.PointID)
+	case len(outcome.Reverted) > 0:
+		base = fmt.Sprintf("reverted %d attempted target(s); recovery point: %s", len(outcome.Reverted), outcome.PointID)
+	default:
+		base = fmt.Sprintf("recovery point: %s", outcome.PointID)
+	}
+	if len(outcome.Errors) > 0 {
+		errMsgs := make([]string, 0, len(outcome.Errors))
+		for _, e := range outcome.Errors {
+			errMsgs = append(errMsgs, e.Error())
+		}
+		return fmt.Sprintf("%s; %s", base, strings.Join(errMsgs, "; "))
+	}
+	return base
+}
+
+func buildModeMap(m *manifest.Manifest) map[string]uint32 {
 	modeMap := make(map[string]uint32)
 	for _, am := range m.Adapters {
 		for _, item := range am.Items {
 			modeMap[item.BackupPath] = item.Mode
 		}
 	}
+	return modeMap
+}
 
+func countRestoreTargets(diffs []restorepkg.FileDiff) int {
 	filesTotal := 0
 	for _, d := range diffs {
 		if d.Status == restorepkg.DiffNew || d.Status == restorepkg.DiffModified {
 			filesTotal++
 		}
 	}
-	filesDone := 0
-	var copyErrs []error
-
-	for _, d := range diffs {
-		restored, skipped, failed, degraded = a.applyDiff(d, modeMap, filesTotal, &filesDone, restored, skipped, failed, degraded, &copyErrs, errOut)
-	}
-	if len(copyErrs) > 0 {
-		err = errors.Join(copyErrs...)
-	}
-	return restored, skipped, failed, degraded, err
+	return filesTotal
 }
 
-// applyDiff applies one diff entry and returns the updated counters. Copy
-// errors accumulate in errs so the caller can join them after the loop.
-func (a *RestoreAction) applyDiff(d restorepkg.FileDiff, modeMap map[string]uint32, filesTotal int, filesDone *int, restored, skipped, failed, degraded int, errs *[]error, errOut io.Writer) (int, int, int, int) {
-	switch d.Status {
-	case restorepkg.DiffNew, restorepkg.DiffModified:
-		*filesDone++
-		if a.ProgressFn != nil {
-			a.ProgressFn(d.SourcePath, *filesDone, filesTotal)
-		}
-		mode := modeMap[d.BackupPath]
-		if mode == 0 {
-			degraded++
-		}
-		if err := a.restoreFile(d, mode); err != nil {
-			failed++
-			*errs = append(*errs, fmt.Errorf("restore %s: %w", d.SourcePath, err))
-			if a.Verbose {
-				_, _ = fmt.Fprintf(errOut, "restore %s: %v\n", d.SourcePath, err)
+// applyRestore copies each new/modified file, stopping at the first failure
+// and attempting rollback of all attempted targets. Returns the counts of
+// restored, skipped, failed, and degraded files along with an aggregated error if any
+// copy or chmod failed.
+func (a *RestoreAction) applyRestore(m *manifest.Manifest, diffs []restorepkg.FileDiff, recMgr *recoveryManager, _, errOut io.Writer) (restored, skipped, failed, degraded int, err error) {
+	modeMap := buildModeMap(m)
+	filesTotal := countRestoreTargets(diffs)
+	filesDone := 0
+	var attemptedTargets []string
+
+	for _, d := range diffs {
+		switch d.Status {
+		case restorepkg.DiffNew, restorepkg.DiffModified:
+			filesDone++
+			if a.ProgressFn != nil {
+				a.ProgressFn(d.SourcePath, filesDone, filesTotal)
 			}
-		} else {
+			mode := modeMap[d.BackupPath]
+			if mode == 0 {
+				degraded++
+			}
+			attemptedTargets = append(attemptedTargets, d.TargetPath)
+			if err := a.restoreFile(d, mode); err != nil {
+				failed++
+				if a.Verbose {
+					_, _ = fmt.Fprintf(errOut, "restore %s: %v\n", d.SourcePath, err)
+				}
+				var outcome rollbackOutcome
+				if recMgr != nil {
+					outcome = recMgr.Rollback(attemptedTargets)
+				}
+				rollbackMsg := formatRollbackOutcome(outcome)
+				return restored, skipped, failed, degraded, fmt.Errorf("restore %s: %w (%s)", d.SourcePath, err, rollbackMsg)
+			}
 			restored++
-		}
-	case restorepkg.DiffUnchanged:
-		skipped++
-	case restorepkg.DiffMissing:
-		skipped++
-		if a.Verbose {
-			_, _ = fmt.Fprintf(errOut, "warning: missing backup file %s\n", d.BackupPath)
+		case restorepkg.DiffUnchanged:
+			skipped++
+		case restorepkg.DiffMissing:
+			skipped++
+			if a.Verbose {
+				_, _ = fmt.Fprintf(errOut, "warning: missing backup file %s\n", d.BackupPath)
+			}
 		}
 	}
-	return restored, skipped, failed, degraded
+	return restored, skipped, failed, degraded, nil
 }
 
 // reportRestore writes the final restore summary to out, including the failed

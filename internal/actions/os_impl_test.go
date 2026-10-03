@@ -27,6 +27,50 @@ func TestOSFileSystem_Stat_NotFound(t *testing.T) { //nolint:paralleltest // not
 	}
 }
 
+func TestOSFileSystem_Lstat_HappyPath(t *testing.T) { //nolint:paralleltest // shared state
+	fsys := &OSFileSystem{}
+	tmpDir := t.TempDir()
+	info, err := fsys.Lstat(tmpDir)
+	if err != nil {
+		t.Fatalf("Lstat: %v", err)
+	}
+	if !info.IsDir() {
+		t.Error("expected directory")
+	}
+}
+
+func TestOSFileSystem_Lstat_NotFound(t *testing.T) { //nolint:paralleltest // shared state
+	fsys := &OSFileSystem{}
+	_, err := fsys.Lstat(filepath.Join(t.TempDir(), "nonexistent"))
+	if err == nil {
+		t.Fatal("expected error for nonexistent file")
+	}
+}
+
+func TestOSFileSystem_Lstat_Symlink(t *testing.T) { //nolint:paralleltest // shared state
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks require elevated privileges on Windows")
+	}
+	fsys := &OSFileSystem{}
+	tmpDir := t.TempDir()
+	target := filepath.Join(tmpDir, "target.txt")
+	if err := os.WriteFile(target, []byte("target"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(tmpDir, "link.txt")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := fsys.Lstat(link)
+	if err != nil {
+		t.Fatalf("Lstat: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Error("expected symlink mode bit")
+	}
+}
+
 func TestOSFileSystem_ReadDir_HappyPath(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	fsys := &OSFileSystem{}
 	tmpDir := t.TempDir()
@@ -107,6 +151,21 @@ func TestOSFileSystem_CopyFile_SourceNotFound(t *testing.T) { //nolint:parallelt
 	err := fsys.CopyFile(filepath.Join(t.TempDir(), "nonexistent"), filepath.Join(t.TempDir(), "dst.txt"))
 	if err == nil {
 		t.Fatal("expected error for missing source")
+	}
+}
+
+func TestOSFileSystem_Remove(t *testing.T) { //nolint:paralleltest // shared state
+	fsys := &OSFileSystem{}
+	tmpDir := t.TempDir()
+	p := filepath.Join(tmpDir, "file.txt")
+	if err := os.WriteFile(p, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := fsys.Remove(p); err != nil {
+		t.Fatalf("Remove: %v", err)
+	}
+	if _, err := os.Stat(p); !os.IsNotExist(err) {
+		t.Error("file should be removed")
 	}
 }
 

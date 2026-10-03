@@ -1086,3 +1086,389 @@ func TestRestoreAction_ChmodFailure_SurfacesAsError(t *testing.T) { //nolint:par
 		t.Errorf("error %q should mention chmod", err.Error())
 	}
 }
+
+// partialCopyFailingFS wraps a FileSystem double to simulate a copy failure with partial write.
+type partialCopyFailingFS struct {
+	FileSystem
+	failOnDst string
+	failErr   error
+}
+
+func (p *partialCopyFailingFS) CopyFile(src, dst string) error {
+	if dst == p.failOnDst {
+		if err := p.WriteFile(dst, []byte("corrupted partial write"), 0644); err != nil {
+			return err
+		}
+		return p.failErr
+	}
+	return p.FileSystem.CopyFile(src, dst)
+}
+
+func TestRestoreAction_RollbackOnFailure(t *testing.T) { //nolint:paralleltest // shared state
+	home := t.TempDir()
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-rollback-test"
+	backupDir := filepath.Join(backupsDir, backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Two backup files.
+	file1Backup := filepath.Join(adapterDir, "file1.txt")
+	file2Backup := filepath.Join(adapterDir, "file2.txt")
+	file1NewContent := []byte("new-content-1\n")
+	file2NewContent := []byte("new-content-2\n")
+	if err := os.WriteFile(file1Backup, file1NewContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file2Backup, file2NewContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	h1 := sha256.Sum256(file1NewContent)
+	h2 := sha256.Sum256(file2NewContent)
+
+	m := manifest.New(backupID, "linux", "testhost", "0.4.0", "quick", []string{"config"})
+	m.Version = "0.4.0"
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/file1.txt",
+			BackupPath: "test-adapter/file1.txt",
+			Hash:       fmt.Sprintf("sha256:%x", h1),
+			Size:       int64(len(file1NewContent)),
+			Mode:       0644,
+		},
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/file2.txt",
+			BackupPath: "test-adapter/file2.txt",
+			Hash:       fmt.Sprintf("sha256:%x", h2),
+			Size:       int64(len(file2NewContent)),
+			Mode:       0644,
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Pre-create targets with original content.
+	targetDir := filepath.Join(home, ".config", "bak")
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	target1Path := filepath.Join(targetDir, "file1.txt")
+	target2Path := filepath.Join(targetDir, "file2.txt")
+	orig1 := []byte("original-1\n")
+	orig2 := []byte("original-2\n")
+	if err := os.WriteFile(target1Path, orig1, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target2Path, orig2, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	baseFS := newHomeFS(home)
+	failingFS := &partialCopyFailingFS{
+		FileSystem: baseFS,
+		failOnDst:  target2Path,
+		failErr:    fmt.Errorf("injected disk write error on file2"),
+	}
+
+	action := &RestoreAction{
+		FS:        failingFS,
+		BackupDir: backupDir,
+		Force:     true,
+		Stdout:    io.Discard,
+		Stderr:    io.Discard,
+	}
+
+	err := action.Run()
+	if err == nil {
+		t.Fatal("expected error on partial restore failure, got nil")
+	}
+
+	// Target 1 must be reverted to original content via rollback.
+	got1, err := os.ReadFile(target1Path)
+	if err != nil {
+		t.Fatalf("read target 1: %v", err)
+	}
+	if string(got1) != string(orig1) {
+		t.Errorf("target 1 was not rolled back: got %q, want %q", string(got1), string(orig1))
+	}
+
+	// Target 2 must also be restored to original content, not left partially written.
+	got2, err := os.ReadFile(target2Path)
+	if err != nil {
+		t.Fatalf("read target 2: %v", err)
+	}
+	if string(got2) != string(orig2) {
+		t.Errorf("target 2 was not rolled back: got %q, want %q", string(got2), string(orig2))
+	}
+
+	// Recovery evidence must be retained in home/.bak/recovery.
+	recBase := filepath.Join(home, ".bak", "recovery")
+	entries, err := os.ReadDir(recBase)
+	if err != nil || len(entries) == 0 {
+		t.Errorf("expected recovery evidence in %s, got err: %v, entries: %d", recBase, err, len(entries))
+	}
+}
+
+type metadataFailCopyFS struct {
+	FileSystem
+	failOnDst string
+	failErr   error
+	homeDir   string
+}
+
+func (m *metadataFailCopyFS) CopyFile(src, dst string) error {
+	if dst == m.failOnDst {
+		recBase := filepath.Join(m.homeDir, ".bak", "recovery")
+		if entries, err := os.ReadDir(recBase); err == nil && len(entries) > 0 {
+			metaFile := filepath.Join(recBase, entries[0].Name(), "repo", "recovery-meta.json")
+			_ = os.Remove(metaFile)
+			_ = os.Mkdir(metaFile, 0755)
+		}
+		return m.failErr
+	}
+	return m.FileSystem.CopyFile(src, dst)
+}
+
+func TestRestoreAction_MetadataFailureDuringRollback_SurfacedAtActionBoundary(t *testing.T) { //nolint:paralleltest // shared state
+	home := t.TempDir()
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-metafail-test"
+	backupDir := filepath.Join(backupsDir, backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	f1Backup := filepath.Join(adapterDir, "file1.txt")
+	f2Backup := filepath.Join(adapterDir, "file2.txt")
+	if err := os.WriteFile(f1Backup, []byte("new-1\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(f2Backup, []byte("new-2\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	h1 := sha256.Sum256([]byte("new-1\n"))
+	h2 := sha256.Sum256([]byte("new-2\n"))
+
+	m := manifest.New(backupID, "linux", "testhost", "0.4.0", "quick", []string{"config"})
+	m.Version = "0.4.0"
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/file1.txt",
+			BackupPath: "test-adapter/file1.txt",
+			Hash:       fmt.Sprintf("sha256:%x", h1),
+			Size:       int64(len("new-1\n")),
+			Mode:       0644,
+		},
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/file2.txt",
+			BackupPath: "test-adapter/file2.txt",
+			Hash:       fmt.Sprintf("sha256:%x", h2),
+			Size:       int64(len("new-2\n")),
+			Mode:       0644,
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	targetDir := filepath.Join(home, ".config", "bak")
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	t1Path := filepath.Join(targetDir, "file1.txt")
+	t2Path := filepath.Join(targetDir, "file2.txt")
+	if err := os.WriteFile(t1Path, []byte("orig-1\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(t2Path, []byte("orig-2\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	baseFS := newHomeFS(home)
+	failingFS := &metadataFailCopyFS{
+		FileSystem: baseFS,
+		failOnDst:  t2Path,
+		failErr:    fmt.Errorf("injected disk failure on file2"),
+		homeDir:    home,
+	}
+
+	var stdoutBuf strings.Builder
+	action := &RestoreAction{
+		FS:        failingFS,
+		BackupDir: backupDir,
+		Force:     true,
+		Stdout:    &stdoutBuf,
+		Stderr:    io.Discard,
+	}
+
+	err := action.Run()
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	errMsg := err.Error()
+	// Must keep original apply error
+	if !strings.Contains(errMsg, "injected disk failure on file2") {
+		t.Errorf("error %q should retain original apply error", errMsg)
+	}
+	// Must surface evidence persistence failure
+	if !strings.Contains(errMsg, "write rollback metadata") {
+		t.Errorf("error %q should surface evidence persistence failure 'write rollback metadata'", errMsg)
+	}
+
+	report := stdoutBuf.String()
+	if !strings.Contains(report, "Failed:   1") {
+		t.Errorf("report %q should reflect accurate failed count 1", report)
+	}
+}
+
+type postFailStorageFS struct {
+	FileSystem
+}
+
+func (p *postFailStorageFS) WriteFile(path string, data []byte, perm os.FileMode) error {
+	if strings.HasSuffix(path, "recovery-meta.json") && strings.Contains(string(data), `"status": "applied"`) {
+		return fmt.Errorf("injected post commit error")
+	}
+	return p.FileSystem.WriteFile(path, data, perm)
+}
+
+func TestRestoreAction_RealAutomaticPostRecordingFailure(t *testing.T) { //nolint:paralleltest // shared state
+	home := t.TempDir()
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-autorecordfail"
+	backupDir := filepath.Join(backupsDir, backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	f1Backup := filepath.Join(adapterDir, "existing.txt")
+	f2Backup := filepath.Join(adapterDir, "new.txt")
+	f1NewBytes := []byte("restored-existing\n")
+	f2NewBytes := []byte("restored-new\n")
+	if err := os.WriteFile(f1Backup, f1NewBytes, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(f2Backup, f2NewBytes, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	h1 := sha256.Sum256(f1NewBytes)
+	h2 := sha256.Sum256(f2NewBytes)
+
+	m := manifest.New(backupID, "linux", "testhost", "0.4.0", "quick", []string{"config"})
+	m.Version = "0.4.0"
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/existing.txt",
+			BackupPath: "test-adapter/existing.txt",
+			Hash:       fmt.Sprintf("sha256:%x", h1),
+			Size:       int64(len(f1NewBytes)),
+			Mode:       0644,
+		},
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/new.txt",
+			BackupPath: "test-adapter/new.txt",
+			Hash:       fmt.Sprintf("sha256:%x", h2),
+			Size:       int64(len(f2NewBytes)),
+			Mode:       0644,
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	targetDir := filepath.Join(home, ".config", "bak")
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	existingTarget := filepath.Join(targetDir, "existing.txt")
+	newTarget := filepath.Join(targetDir, "new.txt")
+
+	origExistingBytes := []byte("orig-existing-content\n")
+	if err := os.WriteFile(existingTarget, origExistingBytes, 0600); err != nil {
+		t.Fatal(err)
+	}
+	// newTarget intentionally does not exist (pre-existing absence)
+
+	baseFS := newHomeFS(home)
+	var stdoutBuf strings.Builder
+	action := &RestoreAction{
+		FS:        baseFS,
+		storageFS: &postFailStorageFS{FileSystem: &OSFileSystem{}},
+		BackupDir: backupDir,
+		Force:     true,
+		Stdout:    &stdoutBuf,
+		Stderr:    io.Discard,
+	}
+
+	err := action.Run()
+	if err == nil {
+		t.Fatal("expected restore to fail during post-state recording, got nil")
+	}
+
+	// Assert original error from RecordPostState is retained
+	if !strings.Contains(err.Error(), "injected post commit error") {
+		t.Errorf("error %q should retain original post recording error", err.Error())
+	}
+	if !strings.Contains(err.Error(), "record post-restore state") {
+		t.Errorf("error %q should mention record post-restore state", err.Error())
+	}
+
+	// Assert existing target has original bytes and original mode restored
+	gotExisting, err := os.ReadFile(existingTarget)
+	if err != nil {
+		t.Fatalf("read existing target: %v", err)
+	}
+	if string(gotExisting) != string(origExistingBytes) {
+		t.Errorf("existing target was not rolled back: got %q, want %q", string(gotExisting), string(origExistingBytes))
+	}
+	if !isWindows() {
+		fi, err := os.Stat(existingTarget)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fi.Mode().Perm() != 0600 {
+			t.Errorf("existing target mode = %v, want 0600", fi.Mode().Perm())
+		}
+	}
+
+	// Assert pre-existing absence is restored for newTarget (must not exist)
+	if _, err := os.Stat(newTarget); err == nil {
+		t.Errorf("newTarget should have been removed by rollback to restore pre-existing absence, but still exists")
+	}
+
+	// Assert report reflected failed status
+	report := stdoutBuf.String()
+	if !strings.Contains(report, "Restore failed") {
+		t.Errorf("report %q should reflect failed restore", report)
+	}
+}

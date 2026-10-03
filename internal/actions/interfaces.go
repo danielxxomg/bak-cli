@@ -18,6 +18,9 @@ type FileSystem interface {
 	// Stat returns file info for the given path.
 	Stat(path string) (os.FileInfo, error)
 
+	// Lstat returns file info for the given path without following symlinks.
+	Lstat(path string) (os.FileInfo, error)
+
 	// ReadDir reads the directory named by dirname.
 	ReadDir(dirname string) ([]os.DirEntry, error)
 
@@ -29,6 +32,9 @@ type FileSystem interface {
 
 	// CopyFile copies a file from src to dst.
 	CopyFile(src, dst string) error
+
+	// Remove removes the named file or (empty) directory.
+	Remove(name string) error
 
 	// RemoveAll removes path and any children it contains.
 	RemoveAll(path string) error

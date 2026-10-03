@@ -38,6 +38,14 @@ func (o *OSFileSystem) Stat(path string) (os.FileInfo, error) {
 	return info, nil
 }
 
+func (o *OSFileSystem) Lstat(path string) (os.FileInfo, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, fmt.Errorf("lstat: %w", err)
+	}
+	return info, nil
+}
+
 func (o *OSFileSystem) ReadDir(dirname string) ([]os.DirEntry, error) {
 	entries, err := os.ReadDir(dirname)
 	if err != nil {
@@ -95,6 +103,13 @@ func (o *OSFileSystem) CopyFile(src, dst string) error {
 		return fmt.Errorf("chmod destination: %w", err)
 	}
 
+	return nil
+}
+
+func (o *OSFileSystem) Remove(name string) error {
+	if err := os.Remove(name); err != nil {
+		return fmt.Errorf("remove: %w", err)
+	}
 	return nil
 }
 

@@ -6,7 +6,7 @@ Prepare a reliable public `bak` release by stabilizing existing behavior, withou
 
 ## Problem
 
-The product advertises local backup, restore, verification, and recovery guarantees, but the current audit has directly verified restore error-propagation and safety-integration gaps. Other reported security, permission, compatibility, documentation, and test-proof gaps still require isolated reproduction before implementation scope can be fixed.
+The initial audit found restore error-propagation and safety-integration gaps. T5–T11 fixed and checked the first stabilization slices, now merged at `1413423` (PR #47). Real target recovery remains unwired: active restore does not use `GitDir`, and undo only reverts the internal backup repository. Historical evidence below describes the pre-fix baseline, not current behavior.
 
 ## Why
 
@@ -42,27 +42,34 @@ Out of scope for this feature:
 
 ## Authorized scope for the current phase
 
-Read-only isolated evidence plus this task document and its Engram mirror only:
+The user authorized F2 real restore/undo recovery and confirmed that undo must refuse subsequent target edits without touching files. Work is local on `feat/f2-target-recovery`, branched from `1413423`.
 
-- Inspect source, tests, workflows, docs, local Git metadata, and toolchain presence.
-- Run no product backup/restore/login/scheduling against real user state.
-- No source, docs, config, workflow, hook, or release edits except this document and mirror.
-- No commits, tags, branches, pushes, PRs, releases, or remote API/settings operations.
-- No access to real credentials, tokens, backups, or unrelated repositories.
+- Implement bounded recovery behavior, deterministic tests, and matching user documentation.
+- Create a recovery point before target writes; abort if preparation fails; stop at the first apply failure and attempt rollback, including the possibly partially written failing target.
+- Preserve bytes, supported permission bits, and pre-existing absence. Keep recovery evidence for manual recovery and return an error even after successful rollback.
+- Isolate recovery storage from cloud-pushable backup archives and unrelated credentials; do not initialize a Git repository over the home directory or stage all of `.bak`.
+- Implement safe undo of actual target files, refusing post-restore drift; do not force-overwrite later user work or prune recovery history.
+- Only use isolated temporary fixtures for runtime checks. No real user configuration, credentials, backups, cloud accounts, or schedulers.
+- No tags, pushes, PRs, releases, remote API/settings operations, or persistent Git configuration changes. Preserve pre-existing untracked material.
 
 ## Acceptance criteria
 
-- [ ] Safety blockers are either reproduced in isolation or refuted with evidence.
-- [ ] Critical real-binary journey assertions are specified before test/product edits.
-- [ ] Documentation, memory, changelog, and release baselines are inventoried.
-- [ ] No product behavior was changed during the evidence phase.
-- [ ] Next implementation slice has bounded surfaces, checks, and rollback reporting.
+- [x] Initial safety evidence, critical journey specification, and documentation inventory recorded by T1–T4.
+- [x] Initial evidence phase remained read-only; later authorized slices are separately recorded.
+- [ ] F2 restore captures the affected target state before writing and fails closed when capture fails.
+- [ ] F2 stops on an apply failure, attempts rollback including partial writes, and reports unresolved recovery honestly.
+- [ ] F2 undo restores actual target state through history-preserving revert and rejects drift before any target write.
+- [ ] Dry-run, cancellation, and no-change paths create no recovery side effects.
+- [ ] Focused proof, applicable broader checks, and local delivery evidence recorded per work unit.
 
 ## Applicable checks
 
-- Evidence tasks: structural readback plus exact deferred commands for a later isolated delegate.
-- No full test suite, build matrix, lint, security scan, or packaged-artifact smoke test is claimed as run until a fresh verification worker reports observed results.
-- Later implementation tasks will use the agreed deterministic checks and three-platform critical journeys.
+- Behavior changes use observed RED → GREEN → REFACTOR. Explicit repository TDD configuration was not found; this is the applicable ODD deterministic-test default, not a claim about configured strict mode.
+- T13: `go test -count=1 ./internal/actions ./cmd`, `go test -race -count=1 ./internal/actions ./cmd`, `go vet ./...`, `go build ./...`, and `bash scripts/cover-pkg.sh`.
+- Normalize only changed Go files before functional checks and review freeze; run check-only formatting afterward. Run `golangci-lint run` and required GGA validation without hook bypasses.
+- Full suite and applicable real-binary E2E checks run at closure. Linux checks do not prove macOS/Windows runtime behavior; those remain CI proof unless actually run.
+- Native RDD mode was read as on (global). Native assessment, candidate consent, and exact returned lifecycle transitions remain separate from functional tests and delivery decisions.
+- Every command result is pending until observed; unavailable or failing checks remain explicit.
 
 ## Tasks
 
@@ -128,9 +135,34 @@ Read-only isolated evidence plus this task document and its Engram mirror only:
   - GGA: read-only run requires hook context — skipped, follow-up stands.
   - No files modified by verification; branch unchanged except this task file.
 
-- [ ] **T12 — Release v1.5.0-rc1** (number agreed, creation pending explicit authorization)
-  - Agreed: `v1.5.0-rc1` — minor with behavior changes + read-compatible manifest 0.4.0, RC first per staged strategy.
-  - Pending: tag creation, release publication, merge/PR decisions. Each requires separate explicit authorization with destination and scope.
+- **T12 — Historical v1.5.0-rc1 release boundary**
+  - Previous session summary and roadmap report PR #47 merged, RC published, and CI green. Current local HEAD verifies the merge; remote release/assets/CI were not rechecked during resume.
+  - Do not repeat tag or release creation from the obsolete pending checkbox. Any new remote operation requires separate authorization.
+
+- [ ] **T13 — F2.1: Protect restore with target recovery and automatic rollback**
+  - Capture only affected target files in private recovery storage before applying; retain original bytes, modes, and absence.
+  - Stop on first copy/chmod failure; attempt rollback of every possibly modified target, including the failing file; preserve recovery evidence and report the original error plus rollback outcome.
+  - Keep dry-run/cancel/no-change paths side-effect free and refuse unsafe target/recovery symlink paths.
+  - Share behavior through the action used by CLI and TUI; do not route through the divergent legacy restore engine.
+  - Route: delegated direct, because preparation and multiple non-trivial source/test files require one bounded writer.
+  - Status: implementation present, NOT complete or ready for delivery. No local work-unit commit or native review START has occurred. Undo projection is intentionally T14, not claimed by this slice.
+  - Observed proof: initial partial-copy RED followed by GREEN; writer reports full suite (28 packages), actions/cmd race, vet/build/lint and all internal package coverage floors passing after the first correction. Parent reran actions/cmd GREEN. Independent verifier ran focused recovery tests/race and CLI recovery regression GREEN; weighted `recovery.go` coverage was 238/290 statements (82.1%).
+  - Confirmed remaining blockers: Git ignores nested `.git` and honors captured `.gitignore` names, so payload needs opaque filenames and pre-commit-tree assertions; rollback evidence-write errors are not surfaced at action boundary; storage/Git errors can still expose absolute paths through wrapped `os.PathError`.
+  - Missing proof: actual post-recording failure after post bytes are captured, private chmod failure, rollback inspection errors, case-duplicate refusal, real changed-mode restoration, and no-write unsafe override behavior. Existing post-failure test manually rolls back after a successful post capture and must be named honestly.
+  - Final correction delegation failed; a fresh-context delegation returned incomplete output. Parent checked Git after both: same 12 staged paths, no unstaged source diff, no new commits, preserved untracked directories. Do not infer correction or verification from either unusable result.
+  - Retry GREEN (2026-10-03): bounded writer implemented the 3 production fixes. `recovery.go`: opaque flat SHA-256 payload names under `snapshots/pre|post`, recursive `sanitizeError` through wrapped `os.PathError`, sanitized storage/commit errors. `restore.go`: rollback `outcome.Errors` surfaced at action boundary with original error and counts preserved. Worker reports: focused recovery suite PASS (0.029s), `actions`+`cmd` PASS, race PASS, full `go test ./...` 28 packages PASS, `go vet`/`go build` clean, `cover-pkg.sh` PASS (`internal/actions` 87.1%, all internal >=80%), `golangci-lint` 0 issues, `git diff --check` clean, `recovery.go` 254/293 statements (86.7%). Parent spot-checked focused suite: `ok ... 0.030s`. Unstaged: `recovery.go`, `recovery_test.go`, `restore.go`, `restore_test.go`, tracker. Effective staged GGA, delivery strategy, and native review remain pending. No commit or publication.
+  - GGA pending: initial unstaged invocation inspected no matching files; intended paths are now staged but effective GGA validation has not run. Native assessment was high/unassessable due undeclared untracked inventory; no consent or approval exists.
+
+- [ ] **T14 — F2.2: Undo actual target files with drift protection**
+  - Project a history-preserving revert back to the affected target files, restoring pre-existing absence and permissions.
+  - Refuse subsequent target changes before mutation; fail honestly on recovery/projection errors and preserve evidence.
+  - Route: delegated direct, reusing the bounded recovery architecture; exact edit surfaces and tests are derived before launch.
+  - Verification and local commit identity: pending.
+
+- [ ] **T15 — F2 closure proof and documentation**
+  - Run applicable suites, coverage, lint, GGA, and real-binary checks; distinguish Linux proof from pending cross-platform proof.
+  - Keep documentation with each behavior unit; record native risk/consent outcomes and local delivery evidence without publication.
+  - Route: delegated checks plus one parent spot check; no artificial approval from task checkboxes.
 
 ## Route declaration
 
@@ -142,11 +174,18 @@ Read-only isolated evidence plus this task document and its Engram mirror only:
 
 ## Progress
 
-- Shared ten-point readiness understanding confirmed.
-- Evidence-first next phase authorized; direct product edits remain unauthorized.
-- T1–T11 completed. Branch `feat/t5-restore-safety` GREEN across all gates. Follow-ups F1–F4, GGA hook-context re-runs, symlinks, extra secret families deferred.
+- T1–T11 are historical completed slices from `feat/t5-restore-safety`, now merged in PR #47.
+- F2 local implementation and fail-closed undo drift policy are authorized. T13 is in progress and blocked on its final confirmed corrections; T14/T15 remain pending. Do not treat passing aggregate tests as closure of the remaining durability/error/privacy defects.
+- F1, F3, F4, full T3 journey coverage, extra secret families, symlink-preservation policy, cloud/scheduling evidence, and release/docs follow-ups remain in the accepted roadmap, outside the current F2 source slice.
 
-## Verification evidence
+## Delivery forecast
+
+- Current branch point and initial review boundary: `1413423`.
+- Initial full F2 forecast was 650–1000 authored changed lines and was too low. Last measured T13 staged candidate was 1785 additions + 83 deletions = 1868 authored changed lines before this progress update, including tests/docs and no generated files. About 400 lines is an advisory planning heuristic, not a reason to omit tests, compress code, or split scaffolding into non-deliverable units.
+- Strategy: `ask-on-risk`. Chain strategy remains undecided; resolve it before a commit if forecast/running authored changes exceed the advisory delivery budget. No PR creation or push is authorized.
+- Running authored work-unit count: 0. Commit identities and slice boundaries: pending.
+
+## Historical verification evidence (pre-fix audit)
 
 - `internal/actions/restore.go`: counted restore failures return `nil`; declared `GitDir` is unused in the inspected action.
 - `internal/manifest/manifest.go`: current schema is `0.3.0`; per-file items do not record permission metadata.
@@ -157,11 +196,6 @@ Read-only isolated evidence plus this task document and its Engram mirror only:
 - T4 inventory: current contracts versus T1/T2 reality; 5 root docs, 8 docs/ files, 29 openspec specs, 36 archived changes, 1 preexisting untracked audit file; bak-cli current versus historical/unverified memories; local tags v0.1.0–v1.4.1 with CHANGELOG ending at 1.4.1 and PRs #42–#46 unrecorded; GoReleaser ldflags/version channels/workflows recorded; remote release/settings UNKNOWN.
 - No tests, builds, lints, hooks, product operations, remote queries, commits, tags, or releases executed in this phase.
 
-- [ ] **T7 — Permission-preserving manifest schema (0.4.0)** (authorized, in progress on `feat/t5-restore-safety`)
-  - Goals: record portable permission bits at backup time, restore them on apply, bump new manifests to `0.4.0`, and keep reading `0.3.0` with explicit degraded-permission handling.
-  - Allowed edit surfaces: `internal/manifest/manifest.go`, `internal/manifest/manifest_test.go`, `internal/manifest/fuzz_test.go`, `internal/adapters/adapter.go`, `internal/adapters/generic.go`, `internal/adapters/util.go`, `internal/adapters/util_test.go`, `internal/adapters/generic_test.go`, `internal/backup/workflow.go`, `internal/backup/workflow_test.go`, `internal/actions/restore.go`, `internal/actions/restore_test.go`, `internal/actions/os_impl.go`, `internal/actions/os_impl_test.go`, `internal/actions/interfaces.go`, `internal/actions/mock_impl_test.go`, `tests/e2e/roundtrip_test.go`, `tests/e2e/testdata/backup_restore_roundtrip.txtar`.
-  - Excluded: encryption, secrets, cloud/scheduling, password prompting, docs compaction, changelog/version/release, workflows/hooks, remote operations, real user backups.
-  - Contract decisions: `0.3.0` items without mode restore content only and report degraded permissions (never claim exact restore); `0.4.0` restore applies stored bits best-effort and returns an error when chmod fails; symlinks stay regular files in this slice (recorded follow-up, no silent change).
 ## Next step
 
-T12 awaits explicit authorization: merge to main first, or tag the RC on this branch? Then tag + release publication as separate steps.
+Resume only the bounded remaining T13 fixes with a functioning writer: opaque Git payload names, propagated recovery-evidence errors, and sanitized storage/Git errors with the missing deterministic regressions. Recheck actual source/index state, normalize, verify, and run effective staged GGA before closing. Resolve delivery strategy before any work-unit commit. Keep T13–T15 unchecked; no native approval, commit, or publication is implied by this partial state.
