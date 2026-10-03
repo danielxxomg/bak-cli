@@ -184,6 +184,16 @@ The user authorized F2 real restore/undo recovery and confirmed that undo must r
   - Commit `e5779bf`. Two further MUSTs surfaced by the pre-commit hook scan were fixed inline before committing: godoc on every exported `OSFileSystem` method and a wrapped `load config: %w` error in `RealConfigLoader.Load`.
   - Tooling defect observed (not a code finding): the GGA pre-commit hook stages the pre-existing untracked `.codegraph/.gitignore` with a blob absent from the object database, so the tree cannot be built (`error: invalid object ... /.codegraph/.gitignore` / `Error building trees`). The hook also re-stages `openspec/changes/product-deep-audit/deep-verify-total.md`. Parent repaired the index with `git reset HEAD -- <paths>` and confirmed both files remain untouched on disk. Commits after such a hook run use documented `NO-VERIFY` because GGA had already returned `CODE REVIEW PASSED` / `STATUS: PASSED` in that same run, not because validation was skipped.
 
+- [x] **T18 — Extract backup listing and restore picker out of `cmd/`**
+  - `cmd/` now only translates cobra types to action parameters: `actions.ListBackupsAction` (plain result struct, struct-field injection, usable zero value) owns backup discovery and manifest loading, and `internal/tui/screens.RestorePickerModel` owns the bubbletea v2 picker per the TUI package-organization rule. `cmd/` maps between them and keeps the TUI dashboard feed.
+  - Verified dependency boundaries: `internal/actions` imports neither cobra nor any TUI package; `internal/tui/screens` does not import `internal/actions`. Non-TTY error, empty-state error, cancellation text, dashboard behavior and exit codes unchanged.
+  - Cleared the follow-up GGA test-hygiene MUSTs in the same unit: checked discarded errors in `cmd/undo_test.go` and `internal/actions/recovery_test.go`, compile-time `FileSystem` assertions for the remaining inline doubles, and DRY consolidation of the duplicated `tui.BackupInfo` conversion in `cmd/root.go`.
+  - Verification: parent re-ran `go test -count=1 ./...` 28 packages ok, `golangci-lint` 0 issues, and all 7 real-binary `TestE2E` journeys including `undo_after_restore`; writer reported build, race, vet and `cover-pkg.sh` green (all internal ≥80%, `internal/actions` 86.7%, `internal/tui/screens` 90.0%).
+
+- [ ] **T19 — T3 eight-stage real-binary journey matrix**
+  - Specified in T3 and still open: discovery, mutation/deletion, dry-run no-write, apply byte/permission assertions, verify, tamper/negative, partial-failure, and real-recovery, with exit/output requirements. Existing txtar journeys prove backup/restore/verify/diff/export/profile/schedule/undo but assert mostly existence rather than bytes, permissions or exit codes.
+  - Route: delegated direct; isolation must be portable per OS (XDG on Linux, APPDATA on Windows, HOME on macOS) since `os.UserConfigDir` is not portable for this purpose.
+
 ## Route declaration
 
 - Initial readiness mapping: delegated direct through one bounded read-only explorer.
