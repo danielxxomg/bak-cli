@@ -1196,6 +1196,9 @@ func (c *chmodFailingFS) Chmod(name string, _ os.FileMode) error {
 }
 
 func TestRestoreAction_ChmodFailure_SurfacesAsError(t *testing.T) { //nolint:paralleltest // shared state
+	if isWindows() {
+		t.Skip("skipping chmod failure test on Windows: POSIX permission bits do not exist, so restore skips chmod entirely and can never surface a chmod error")
+	}
 	home := t.TempDir()
 	bakDir := filepath.Join(home, ".bak")
 	backupsDir := filepath.Join(bakDir, "backups")
