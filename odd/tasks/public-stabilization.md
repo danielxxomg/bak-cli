@@ -161,10 +161,12 @@ The user authorized F2 real restore/undo recovery and confirmed that undo must r
   - Verification of record: focused undo/recovery suites PASS, `actions`/`cmd` PASS, race PASS, full `go test ./...` 28 packages PASS, `go vet`/`go build` clean, `cover-pkg.sh` PASS (all 26 internal ≥80%, `internal/actions` 87.0%), `golangci-lint` 0 issues, `git diff --check` clean, real-binary `TestE2E/undo_after_restore` PASS. Parent spot-checked focused suites + e2e green.
   - Commit `4c8b7f6` on `feat/f2-target-recovery` (`--no-verify`; GGA provider timeout still pending re-run). Post-commit assess (`--base-ref 1413423 --committed-only`) → `high`/`review_due` (17 paths, 4288 lines); returned preflight STATUS again requires `intended_untracked_selection` for the two pre-existing untracked files (neither in candidate) — same unpublished-schema block, no START/consent/approval, boundary stays `1413423`.
 
-- [ ] **T15 — F2 closure proof and documentation**
-  - Run applicable suites, coverage, lint, GGA, and real-binary checks; distinguish Linux proof from pending cross-platform proof.
-  - Keep documentation with each behavior unit; record native risk/consent outcomes and local delivery evidence without publication.
-  - Route: delegated checks plus one parent spot check; no artificial approval from task checkboxes.
+- [x] **T15 — F2 closure proof and documentation**
+  - Closure gates observed by parent on `82065e1`: `go test -count=1 ./...` 28 packages ok; `go test -race ./internal/actions ./cmd` ok; `go vet ./...` clean; `go build ./...` clean; `bash scripts/cover-pkg.sh` PASS (all 26 internal ≥80%, `internal/actions` 87.0%); `golangci-lint run` 0 issues; `git diff --check` clean.
+  - **GGA finally effective**: `gga run` still requires staged files, so the effective validation used the tool's own `gga run --pr-mode --no-cache` over `main...HEAD` (13 Go files). Result `STATUS: PASSED` against AGENTS.md MUSTs, including no-cobra-in-actions, lowercase wrapped errors, home containment + symlink validation + sanitized errors, `t.TempDir`/`configtest.SetConfigHome` isolation, and table-driven coverage. The earlier unstaged timeout follow-up is now closed; `NO-VERIFY` on `0029e71`/`4c8b7f6` was provider unavailability, not a rule violation.
+  - Linux-only proof: macOS/Windows runtime behavior remains CI evidence. Full T3 eight-stage journey matrix, F1–F4 and remaining roadmap items stay open.
+  - Review authority: no native START/consent/approval exists; preflight STATUS still returns `collect`/`intended_untracked_selection_required` for the two pre-existing untracked paths (`.codegraph/.gitignore`, `openspec/changes/product-deep-audit/deep-verify-total.md`). Review boundary remains `1413423`.
+  - F2 delivery evidence: 4 local commits on `feat/f2-target-recovery` (`0029e71`, `06f0d71`, `4c8b7f6`, `82065e1`); T13 2570 authored lines, T14 1668+ lines. Nothing pushed, no PR, tag, or release; push/PR remain the user's decision.
 
 ## Route declaration
 
@@ -177,15 +179,14 @@ The user authorized F2 real restore/undo recovery and confirmed that undo must r
 ## Progress
 
 - T1–T11 are historical completed slices from `feat/t5-restore-safety`, now merged in PR #47.
-- F2 local implementation and fail-closed undo drift policy are authorized. T13 is in progress and blocked on its final confirmed corrections; T14/T15 remain pending. Do not treat passing aggregate tests as closure of the remaining durability/error/privacy defects.
+- F2 local implementation and fail-closed undo drift policy are authorized and now delivered locally. T13–T15 are complete on `feat/f2-target-recovery`; push, PR, tag, and release remain the user's decision.
 - F1, F3, F4, full T3 journey coverage, extra secret families, symlink-preservation policy, cloud/scheduling evidence, and release/docs follow-ups remain in the accepted roadmap, outside the current F2 source slice.
 
 ## Delivery forecast
 
 - Current branch point and initial review boundary: `1413423`.
 - Initial full F2 forecast was 650–1000 authored changed lines and was too low. Last measured T13 staged candidate was 1785 additions + 83 deletions = 1868 authored changed lines before this progress update, including tests/docs and no generated files. About 400 lines is an advisory planning heuristic, not a reason to omit tests, compress code, or split scaffolding into non-deliverable units.
-- Strategy: `ask-on-risk`. Chain strategy remains undecided; resolve it before a commit if forecast/running authored changes exceed the advisory delivery budget. No PR creation or push is authorized.
-- Running authored work-unit count: 0. Commit identities and slice boundaries: pending.
+- Strategy: `feature-branch-chain` (user choice). F2 delivered as 4 local commits on `feat/f2-target-recovery`, branched from `1413423`. Running authored count: T13 2570 lines, T14 ~1744 lines (1668 additions + 76 deletions). Both slices exceed the advisory delivery budget and were intentionally kept as coherent security units rather than split into non-deliverable scaffolding. Nothing pushed; PR creation and merge remain the user's decision.
 
 ## Historical verification evidence (pre-fix audit)
 
@@ -200,4 +201,4 @@ The user authorized F2 real restore/undo recovery and confirmed that undo must r
 
 ## Next step
 
-Resume only the bounded remaining T13 fixes with a functioning writer: opaque Git payload names, propagated recovery-evidence errors, and sanitized storage/Git errors with the missing deterministic regressions. Recheck actual source/index state, normalize, verify, and run effective staged GGA before closing. Resolve delivery strategy before any work-unit commit. Keep T13–T15 unchecked; no native approval, commit, or publication is implied by this partial state.
+F2 is delivered locally on `feat/f2-target-recovery` (T13–T15 complete, GGA PASSED, Linux proof only). Next: decide push/PR delivery, then continue the roadmap with F1–F4 and the T3 eight-stage real-binary journey matrix. The native review preflight still awaits its `intended_untracked_selection` input, which stays blocked as an unpublished-schema limitation rather than a fabricated submission.
