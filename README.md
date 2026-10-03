@@ -143,7 +143,7 @@ bak diff 20260604-150405 20260605-080000
 | Command | Description |
 |---------|-------------|
 | `bak backup [--preset quick\|full\|skills] [--profile <name>]` | Create a backup |
-| `bak restore [--dry-run] [--force] <id>` | Restore a backup (shows diff and prompts; --force skips confirmation only) |
+| `bak restore [--dry-run] [--force] <id>` | Restore a backup (shows diff and prompts; warns on version mismatch, fails on newer schema; --force skips confirmation only) |
 | `bak undo` | Revert the last restore operation on target files and in ~/.bak with drift protection |
 | `bak list [--provider <name>]` | List local or cloud backups |
 | `bak pick` | Interactive TUI picker |
@@ -508,6 +508,7 @@ classDiagram
 - ✅ **Target recovery & automatic rollback** — Before modifying target files on restore, captures affected target pre-state in private local recovery storage (`~/.bak/recovery/<point-id>`) with restricted permissions (0700/0600); stops at first copy or chmod failure and attempts automatic rollback of all attempted targets
 - ✅ **Permission preservation (0.4.0)** — Manifest schema 0.4.0 records portable file permission mode bits and reapplies them on restore; legacy 0.3.0 manifests restore in degraded mode with an explicit warning
 - ✅ **Target-level undo & drift protection** — `bak undo` restores actual target configuration files to their pre-restore state using local recovery snapshots, while creating a revert commit in `~/.bak`. If any target file was modified, deleted, created, or replaced since the restore, undo fails closed before writing any files to protect subsequent user work
+- ✅ **Version compatibility & schema gating** — Warns on `stderr` when restoring backups created by a different or unversioned/development `bak` version; fails closed before any target write or recovery preparation if the manifest schema is newer than supported (`0.4.0`), prompting the user to upgrade
 - ✅ **Secret exclusion** — Automatically detects recognized token families (GitHub `ghp_*`, `gho_*`, `ghu_*`, `ghs_*`, `ghr_*`, OpenAI `sk-*`, Anthropic `sk-ant-*`, Slack `xoxb-*`, `xoxp-*`) and generates `.env.example` templates with redacted placeholders instead of storing real secrets
 - ✅ **Path validation** — Prevents path traversal attacks by validating that all restored paths stay within the user home directory
 

@@ -18,12 +18,13 @@ import (
 // dependencies. All OS operations that are the action's responsibility
 // go through a.FS.
 type RestoreAction struct {
-	FS        FileSystem
-	BackupDir string // resolved backup directory
-	DryRun    bool
-	Force     bool
-	Verbose   bool
-	GitDir    string // optional git repo for safety commits
+	FS         FileSystem
+	BackupDir  string // resolved backup directory
+	BakVersion string // version of running bak tool; zero value means unknown
+	DryRun     bool
+	Force      bool
+	Verbose    bool
+	GitDir     string // optional git repo for safety commits
 
 	// RecoveryDir optionally overrides the base recovery directory.
 	// When empty, defaults to <home>/.bak/recovery.
@@ -87,6 +88,8 @@ func (a *RestoreAction) Run() error {
 	if err != nil {
 		return fmt.Errorf("load manifest: %w", err)
 	}
+
+	a.warnBakVersionMismatch(m.ID, m.BakVersion, errOut)
 
 	// 2. Get home directory.
 	homeDir, err := a.FS.UserHomeDir()
@@ -171,6 +174,36 @@ func (a *RestoreAction) resolveWriters() (io.Writer, io.Writer) {
 		errOut = os.Stderr
 	}
 	return out, errOut
+}
+
+const unknownVersion = "unknown"
+
+// warnBakVersionMismatch checks for version compatibility between the running bak
+// tool and the version that created the backup. Any mismatch or unknown/dev version
+// on either side produces a warning on errOut naming the backup id and both versions,
+// but does not block restore.
+func (a *RestoreAction) warnBakVersionMismatch(backupID, manifestBakVersion string, errOut io.Writer) {
+	runningVer := a.BakVersion
+	if runningVer == "" {
+		runningVer = unknownVersion
+	}
+	backupVer := manifestBakVersion
+	if backupVer == "" {
+		backupVer = unknownVersion
+	}
+
+	id := backupID
+	if id == "" {
+		id = unknownVersion
+	}
+
+	isUnknownOrDev := func(v string) bool {
+		return v == unknownVersion || v == "dev"
+	}
+
+	if isUnknownOrDev(runningVer) || isUnknownOrDev(backupVer) || runningVer != backupVer {
+		_, _ = fmt.Fprintf(errOut, "warning: backup %s was created with bak %s, running version is %s\n", id, backupVer, runningVer)
+	}
 }
 
 // printDryRunDiff writes the per-file dry-run diff to out. When verbose and

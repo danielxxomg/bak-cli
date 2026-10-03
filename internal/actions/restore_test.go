@@ -1472,3 +1472,242 @@ func TestRestoreAction_RealAutomaticPostRecordingFailure(t *testing.T) { //nolin
 		t.Errorf("report %q should reflect failed restore", report)
 	}
 }
+
+func createCustomManifestBackupForRestore(t *testing.T, home, bakVersion, schemaVersion string) string {
+	t.Helper()
+	bakDir := filepath.Join(home, ".bak")
+	backupsDir := filepath.Join(bakDir, "backups")
+	backupID := "20260101-120000"
+	backupDir := filepath.Join(backupsDir, backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	m := manifest.New(backupID, "linux", "testhost", bakVersion, "quick", []string{"config"})
+	m.Version = schemaVersion
+	configDir := filepath.Join(home, ".config", "bak")
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	testContent := []byte("key=value\n")
+	backedFile := filepath.Join(adapterDir, "config.json")
+	if err := os.WriteFile(backedFile, testContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	h := sha256.Sum256(testContent)
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/config.json",
+			BackupPath: "test-adapter/config.json",
+			Hash:       fmt.Sprintf("sha256:%x", h),
+			Size:       int64(len(testContent)),
+			Mode:       0644,
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	return backupID
+}
+
+func TestRestoreAction_BakVersionWarning(t *testing.T) { //nolint:paralleltest // shared state
+	tests := []struct {
+		name           string
+		backupBakVer   string
+		injectedBakVer string
+		dryRun         bool
+		wantWarning    bool
+		warnContains   []string
+	}{
+		{
+			name:           "matching_versions_stay_silent",
+			backupBakVer:   "1.5.0",
+			injectedBakVer: "1.5.0",
+			dryRun:         false,
+			wantWarning:    false,
+		},
+		{
+			name:           "version_mismatch_warns_with_both_versions_and_id",
+			backupBakVer:   "1.4.0",
+			injectedBakVer: "1.5.0",
+			dryRun:         false,
+			wantWarning:    true,
+			warnContains:   []string{"warning:", "20260101-120000", "1.4.0", "1.5.0"},
+		},
+		{
+			name:           "running_dev_warns",
+			backupBakVer:   "1.5.0",
+			injectedBakVer: "dev",
+			dryRun:         false,
+			wantWarning:    true,
+			warnContains:   []string{"warning:", "20260101-120000", "1.5.0", "dev"},
+		},
+		{
+			name:           "backup_dev_warns",
+			backupBakVer:   "dev",
+			injectedBakVer: "1.5.0",
+			dryRun:         false,
+			wantWarning:    true,
+			warnContains:   []string{"warning:", "20260101-120000", "dev", "1.5.0"},
+		},
+		{
+			name:           "both_dev_warns",
+			backupBakVer:   "dev",
+			injectedBakVer: "dev",
+			dryRun:         false,
+			wantWarning:    true,
+			warnContains:   []string{"warning:", "20260101-120000", "dev"},
+		},
+		{
+			name:           "running_empty_unknown_warns",
+			backupBakVer:   "1.5.0",
+			injectedBakVer: "",
+			dryRun:         false,
+			wantWarning:    true,
+			warnContains:   []string{"warning:", "20260101-120000", "1.5.0", "unknown"},
+		},
+		{
+			name:           "backup_empty_unknown_warns",
+			backupBakVer:   "",
+			injectedBakVer: "1.5.0",
+			dryRun:         false,
+			wantWarning:    true,
+			warnContains:   []string{"warning:", "20260101-120000", "unknown", "1.5.0"},
+		},
+		{
+			name:           "dry_run_with_mismatch_still_warns",
+			backupBakVer:   "1.4.0",
+			injectedBakVer: "1.5.0",
+			dryRun:         true,
+			wantWarning:    true,
+			warnContains:   []string{"warning:", "20260101-120000", "1.4.0", "1.5.0"},
+		},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest
+			home := t.TempDir()
+			backupID := createCustomManifestBackupForRestore(t, home, tt.backupBakVer, manifest.ManifestVersion)
+
+			var stdoutBuf, stderrBuf bytes.Buffer
+			action := &RestoreAction{
+				FS:         newHomeFS(home),
+				BackupDir:  filepath.Join(home, ".bak", "backups", backupID),
+				BakVersion: tt.injectedBakVer,
+				DryRun:     tt.dryRun,
+				Force:      true,
+				Stdout:     &stdoutBuf,
+				Stderr:     &stderrBuf,
+			}
+
+			err := action.Run()
+			if err != nil {
+				t.Fatalf("Run() unexpected error: %v", err)
+			}
+
+			stderrOutput := stderrBuf.String()
+			stdoutOutput := stdoutBuf.String()
+
+			// Warning must never leak to Stdout.
+			if strings.Contains(stdoutOutput, "warning:") {
+				t.Errorf("stdout should not contain warning: %q", stdoutOutput)
+			}
+
+			if tt.wantWarning {
+				if stderrOutput == "" {
+					t.Fatalf("expected warning on Stderr, got empty")
+				}
+				for _, sub := range tt.warnContains {
+					if !strings.Contains(stderrOutput, sub) {
+						t.Errorf("stderr %q should contain %q", stderrOutput, sub)
+					}
+				}
+			} else if strings.Contains(stderrOutput, "warning:") {
+				t.Errorf("stderr should not contain warning, got %q", stderrOutput)
+			}
+		})
+	}
+}
+
+func TestRestoreAction_NewerSchemaVersion_FailsClosedBeforeWrite(t *testing.T) { //nolint:paralleltest // shared state
+	tests := []struct {
+		name          string
+		schemaVersion string
+		wantErr       bool
+		errContain    string
+	}{
+		{
+			name:          "newer_minor_schema_fails_closed",
+			schemaVersion: "0.5.0",
+			wantErr:       true,
+			errContain:    "unsupported manifest schema version",
+		},
+		{
+			name:          "newer_major_schema_fails_closed",
+			schemaVersion: "1.0.0",
+			wantErr:       true,
+			errContain:    "unsupported manifest schema version",
+		},
+		{
+			name:          "current_schema_040_succeeds",
+			schemaVersion: "0.4.0",
+			wantErr:       false,
+		},
+		{
+			name:          "older_schema_030_succeeds",
+			schemaVersion: "0.3.0",
+			wantErr:       false,
+		},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest
+			home := t.TempDir()
+			backupID := createCustomManifestBackupForRestore(t, home, "1.5.0", tt.schemaVersion)
+
+			targetFile := filepath.Join(home, ".config", "bak", "config.json")
+			var stdoutBuf, stderrBuf bytes.Buffer
+			action := &RestoreAction{
+				FS:         newHomeFS(home),
+				BackupDir:  filepath.Join(home, ".bak", "backups", backupID),
+				BakVersion: "1.5.0",
+				Force:      true,
+				Stdout:     &stdoutBuf,
+				Stderr:     &stderrBuf,
+			}
+
+			err := action.Run()
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Run() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				if !strings.Contains(err.Error(), tt.errContain) {
+					t.Errorf("error %q should contain %q", err.Error(), tt.errContain)
+				}
+				// Verify zero target files written
+				if _, statErr := os.Stat(targetFile); !os.IsNotExist(statErr) {
+					t.Errorf("target file should not have been written on schema rejection")
+				}
+				// Verify zero recovery side effects (recovery directory should not have any points)
+				recoveryPointsDir := filepath.Join(home, ".bak", "recovery")
+				entries, _ := os.ReadDir(recoveryPointsDir)
+				if len(entries) > 0 {
+					t.Errorf("recovery directory should not contain points, found %d", len(entries))
+				}
+			} else {
+				// Succeeded: target should exist
+				if _, statErr := os.Stat(targetFile); statErr != nil {
+					t.Errorf("target file should exist: %v", statErr)
+				}
+			}
+		})
+	}
+}

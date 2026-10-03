@@ -610,3 +610,181 @@ func TestRunRestoreWithDeps_RecoveryPointCreatedOnApply(t *testing.T) {
 		t.Fatalf("expected recovery point directory in %s, got err: %v, count: %d", recDir, err, len(entries))
 	}
 }
+
+func TestRunRestoreWithDeps_BakVersionMismatchWarning(t *testing.T) {
+	home := t.TempDir()
+	configtest.SetConfigHome(t, home)
+
+	backupID := "20260101-120000"
+	backupDir := filepath.Join(home, ".bak", "backups", backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := []byte("key=value\n")
+	backedFile := filepath.Join(adapterDir, "config.json")
+	if err := os.WriteFile(backedFile, content, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	h := sha256.Sum256(content)
+	m := manifest.New(backupID, "linux", "host", "1.0.0", "quick", []string{"config"})
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/config.json",
+			BackupPath: "test-adapter/config.json",
+			Hash:       fmt.Sprintf("sha256:%x", h),
+			Size:       int64(len(content)),
+			Mode:       0644,
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	oldVersion := Version
+	Version = "2.0.0"
+	defer func() { Version = oldVersion }()
+
+	restoreForce = true
+	restoreDryRun = false
+	defer func() {
+		restoreForce = false
+		restoreDryRun = false
+	}()
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+	deps := cmdDeps{
+		ConfigLoader: defaultDeps.ConfigLoader,
+		Stdout:       &stdoutBuf,
+		Stderr:       &stderrBuf,
+		Stdin:        strings.NewReader(""),
+	}
+
+	cmd := findSubcommand(t, "restore")
+	err := runRestoreWithDeps(cmd, []string{backupID}, deps)
+	if err != nil {
+		t.Fatalf("runRestoreWithDeps failed: %v", err)
+	}
+
+	stderrOut := stderrBuf.String()
+	if !strings.Contains(stderrOut, "warning:") {
+		t.Fatalf("expected warning on Stderr, got: %q", stderrOut)
+	}
+	if !strings.Contains(stderrOut, backupID) || !strings.Contains(stderrOut, "1.0.0") || !strings.Contains(stderrOut, "2.0.0") {
+		t.Errorf("warning %q should mention backup ID, 1.0.0, and 2.0.0", stderrOut)
+	}
+}
+
+func TestRunRestoreWithDeps_NewerSchemaFailsClosed(t *testing.T) {
+	home := t.TempDir()
+	configtest.SetConfigHome(t, home)
+
+	backupID := "20260101-120000"
+	backupDir := filepath.Join(home, ".bak", "backups", backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := []byte("key=value\n")
+	backedFile := filepath.Join(adapterDir, "config.json")
+	if err := os.WriteFile(backedFile, content, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	h := sha256.Sum256(content)
+	m := manifest.New(backupID, "linux", "host", "1.0.0", "quick", []string{"config"})
+	m.Version = "0.5.0" // newer than 0.4.0
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/config.json",
+			BackupPath: "test-adapter/config.json",
+			Hash:       fmt.Sprintf("sha256:%x", h),
+			Size:       int64(len(content)),
+			Mode:       0644,
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	restoreForce = true
+	restoreDryRun = false
+	defer func() {
+		restoreForce = false
+		restoreDryRun = false
+	}()
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+	deps := cmdDeps{
+		ConfigLoader: defaultDeps.ConfigLoader,
+		Stdout:       &stdoutBuf,
+		Stderr:       &stderrBuf,
+		Stdin:        strings.NewReader(""),
+	}
+
+	cmd := findSubcommand(t, "restore")
+	err := runRestoreWithDeps(cmd, []string{backupID}, deps)
+	if err == nil {
+		t.Fatal("expected error for newer schema, got nil")
+	}
+	if !strings.Contains(err.Error(), "unsupported manifest schema version") {
+		t.Errorf("error %q should mention unsupported manifest schema version", err.Error())
+	}
+}
+
+func TestTuiRunRestore_BakVersionAndSchema(t *testing.T) {
+	home := t.TempDir()
+	configtest.SetConfigHome(t, home)
+
+	backupID := "20260101-120000"
+	backupDir := filepath.Join(home, ".bak", "backups", backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := []byte("key=value\n")
+	backedFile := filepath.Join(adapterDir, "config.json")
+	if err := os.WriteFile(backedFile, content, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	h := sha256.Sum256(content)
+	m := manifest.New(backupID, "linux", "host", "0.9.0", "quick", []string{"config"})
+	m.Version = "0.5.0"
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/config.json",
+			BackupPath: "test-adapter/config.json",
+			Hash:       fmt.Sprintf("sha256:%x", h),
+			Size:       int64(len(content)),
+			Mode:       0644,
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := tuiRunRestore(backupID, false)
+	if err == nil {
+		t.Fatalf("expected error for newer schema, got out: %s", out)
+	}
+	if !strings.Contains(err.Error(), "unsupported manifest schema version") {
+		t.Errorf("expected error to mention unsupported schema version, got: %v", err)
+	}
+}

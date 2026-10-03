@@ -80,6 +80,8 @@ Instead of backing up real secrets, bak generates a `.env.example` template with
 - **Mandatory under `--force`**: Manifest and checksum integrity verification cannot be bypassed. The `--force` flag skips interactive confirmation only, never integrity checks.
 - **Permission preservation (0.4.0)**: Manifest schema `0.4.0` preserves portable file permission bits (`Mode`) at backup time and reapplies them during restore. Any chmod failures are reported as restore errors.
 - **Degraded 0.3.0 handling**: Legacy `0.3.0` manifests lacking mode metadata are loaded and restored in degraded mode, explicitly warning the user that restored files lack original mode metadata rather than claiming exact permission restoration.
+- **Version compatibility warning**: On restore, `bak` compares the backup tool version (`bak_version`) with the running tool version. Any mismatch (including unknown, development, or empty versions on either side) produces a clear warning on stderr naming the backup ID and both versions without blocking restore.
+- **Schema version gating**: Manifest schema versions newer than supported (`0.4.0`) cannot be safely interpreted and fail closed with an actionable error before any target write or recovery preparation, instructing the user to upgrade `bak`. Legacy known versions (`0.3.0`) continue to restore in degraded mode.
 
 ### Target Recovery and Automatic Rollback
 

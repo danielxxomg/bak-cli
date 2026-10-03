@@ -168,6 +168,17 @@ The user authorized F2 real restore/undo recovery and confirmed that undo must r
   - Review authority: no native START/consent/approval exists; preflight STATUS still returns `collect`/`intended_untracked_selection_required` for the two pre-existing untracked paths (`.codegraph/.gitignore`, `openspec/changes/product-deep-audit/deep-verify-total.md`). Review boundary remains `1413423`.
   - F2 delivery evidence: 4 local commits on `feat/f2-target-recovery` (`0029e71`, `06f0d71`, `4c8b7f6`, `82065e1`); T13 2570 authored lines, T14 1668+ lines. Nothing pushed, no PR, tag, or release; push/PR remain the user's decision.
 
+- [x] **T16 — F3: restore version-compatibility honesty** (commit pending on `feat/f2-target-recovery`)
+  - `RestoreAction.BakVersion` injected from `cmd.Version` on both CLI and TUI restore paths; manifest `bak_version` mismatch (including unknown/`dev`) warns on Stderr without blocking restore, per the AGENTS.md warning requirement.
+  - Schema knowledge stays in `internal/manifest`: numeric semver comparison plus fail-closed rejection of manifests newer than the supported schema before any target write or recovery side effect; `0.3.0` degraded handling unchanged.
+  - Verification: writer observed RED→GREEN for warning, silent-match, unknown/dev and newer-schema cases; parent re-ran `go test -count=1 ./...` 28 packages ok, `cover-pkg.sh` PASS (`internal/actions` 87.1%, `internal/manifest` 88.8%, all 26 internal ≥80%), `golangci-lint` 0 issues. Linux-only proof; Windows/macOS remain CI evidence.
+  - GGA rejected the first commit attempt with `STATUS: FAILED` on whole-file review. Parent verified the flagged items against base `1413423`: the F3-introduced one (hand-rolled `bytesContains` in `internal/manifest/manifest_test.go`) was fixed inline to `bytes.Contains` before committing; the remaining findings are pre-existing whole-file debt, so T16 commits with a documented `NO-VERIFY` and T17 owns the debt.
+
+- [ ] **T17 — F1/F4: GGA MUST debt round (whole-file scan of restore/undo paths)**
+  - Verified real MUSTs to fix, all pre-existing: `internal/actions/restore.go:375,386` uses case-sensitive `strings.HasPrefix` containment while `internal/manifest/manifest.go:244` case-folds with `ToLower` — a cross-platform containment inconsistency that AGENTS.md forbids; `internal/manifest/manifest.go` `hashFile` double-closes (`defer _ = f.Close()` plus explicit close); discarded write errors (`_, _ = fmt.Fprintf/Fprintln`) across `internal/actions/restore.go` writers and `cmd/restore.go:126`; unchecked `os.MkdirAll`/`os.WriteFile` in restore tests; duplicated setup/assertion groups in `cmd/restore_test.go` and `internal/actions/restore_test.go` that belong in table-driven form; missing compile-time interface assertions for inline `*FS` doubles; `restorePickerModel` has no `Update()`/`View()` unit tests.
+  - Larger architectural item flagged by GGA: `cmd/restore.go` `resolveRestoreArg` performs backup listing, empty-state checks and interactive picker control flow in `cmd/`, which AGENTS.md restricts to parameter translation. Extracting that logic into `internal/actions/` is its own unit with behavior-preservation risk for the TUI picker.
+  - Gate: T17 must fix every listed violation so the next whole-file GGA scan passes; a `--no-verify` bypass is not acceptable for this unit.
+
 ## Route declaration
 
 - Initial readiness mapping: delegated direct through one bounded read-only explorer.

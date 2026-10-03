@@ -242,12 +242,13 @@ func tuiRunRestore(backupID string, dryRun bool) (string, error) {
 	var buf bytes.Buffer
 
 	action := &actions.RestoreAction{
-		FS:      &actions.OSFileSystem{},
-		DryRun:  dryRun,
-		Force:   !dryRun, // TUI modal is the confirmation gate
-		Verbose: verbose,
-		Stdout:  &buf,
-		Stderr:  &buf,
+		FS:         &actions.OSFileSystem{},
+		BakVersion: Version,
+		DryRun:     dryRun,
+		Force:      !dryRun, // TUI modal is the confirmation gate
+		Verbose:    verbose,
+		Stdout:     &buf,
+		Stderr:     &buf,
 	}
 
 	if err := action.ResolveBackup(backupID); err != nil {

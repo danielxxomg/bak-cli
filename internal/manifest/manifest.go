@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,6 +19,92 @@ import (
 
 // ManifestVersion is the current schema version written by this tool.
 const ManifestVersion = "0.4.0"
+
+// parseSemver splits a version into [major, minor, patch] integers and optional prerelease string.
+func parseSemver(v string) ([]int, string, error) {
+	v = strings.TrimSpace(v)
+	v = strings.TrimPrefix(v, "v")
+	v = strings.TrimPrefix(v, "V")
+	if v == "" {
+		return nil, "", fmt.Errorf("version string is empty")
+	}
+
+	// Strip build metadata (+...)
+	main, _, _ := strings.Cut(v, "+")
+	main, prerelease, _ := strings.Cut(main, "-")
+
+	parts := strings.Split(main, ".")
+	if len(parts) > 3 {
+		return nil, "", fmt.Errorf("too many parts in version %q", v)
+	}
+
+	nums := make([]int, 3)
+	for i, p := range parts {
+		if p == "" {
+			return nil, "", fmt.Errorf("empty part in version %q", v)
+		}
+		n, err := strconv.Atoi(p)
+		if err != nil || n < 0 {
+			return nil, "", fmt.Errorf("invalid numeric version part %q in %q", p, v)
+		}
+		nums[i] = n
+	}
+	return nums, prerelease, nil
+}
+
+// CompareVersions compares two semver-like version strings v1 and v2.
+// It returns -1 if v1 < v2, 0 if v1 == v2, and 1 if v1 > v2.
+func CompareVersions(v1, v2 string) (int, error) {
+	nums1, pre1, err := parseSemver(v1)
+	if err != nil {
+		return 0, err
+	}
+	nums2, pre2, err := parseSemver(v2)
+	if err != nil {
+		return 0, err
+	}
+
+	for i := 0; i < 3; i++ {
+		if nums1[i] < nums2[i] {
+			return -1, nil
+		}
+		if nums1[i] > nums2[i] {
+			return 1, nil
+		}
+	}
+
+	// Numbers are equal. Check prerelease.
+	// Semver rule: 1.0.0-alpha < 1.0.0 (release version has higher precedence than prerelease)
+	if pre1 != "" && pre2 == "" {
+		return -1, nil
+	}
+	if pre1 == "" && pre2 != "" {
+		return 1, nil
+	}
+	if pre1 < pre2 {
+		return -1, nil
+	}
+	if pre1 > pre2 {
+		return 1, nil
+	}
+	return 0, nil
+}
+
+// ValidateSchemaVersion checks that a manifest schema version is known and supported
+// by this version of bak (i.e. not newer than ManifestVersion).
+func ValidateSchemaVersion(version string) error {
+	if version == "" {
+		return fmt.Errorf("manifest version is empty")
+	}
+	cmp, err := CompareVersions(version, ManifestVersion)
+	if err != nil {
+		return fmt.Errorf("unsupported manifest schema version %q: %w", version, err)
+	}
+	if cmp > 0 {
+		return fmt.Errorf("unsupported manifest schema version %s (maximum supported is %s): upgrade bak to restore this backup", version, ManifestVersion)
+	}
+	return nil
+}
 
 // AdapterManifest records the items backed up by a single adapter.
 type AdapterManifest struct {
@@ -137,6 +224,9 @@ func (m *Manifest) SetEncryption(algorithm, kdf string, salt, nonce []byte, iter
 func (m *Manifest) Validate(backupDir string, progressFn func(string)) error {
 	if m.Version == "" {
 		return fmt.Errorf("manifest version is empty")
+	}
+	if err := ValidateSchemaVersion(m.Version); err != nil {
+		return err
 	}
 	if len(m.Adapters) == 0 {
 		return fmt.Errorf("manifest contains no adapters")
