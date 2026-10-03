@@ -92,14 +92,22 @@ jobs:
           TIMEOUT="900"
           PR_BASE_BRANCH="main"
           EOF
-          gga run --pr-mode
+          # GGA resolves the base branch as a local ref. After checking out the
+          # PR head sha there is no local `main` branch, so the range resolves
+          # to nothing and the review no-ops. Recreate the local ref.
+          git branch -f main origin/main
+          gga run --pr-mode 2>&1 | tee gga-output.txt
 
       - name: Guard against a vacuous review
         run: |
-          # A silent no-op must never look like a passing review. If the PR
-          # diff is empty, fail loudly instead of reporting green.
+          # A silent no-op must never look like a passing review.
           if [ -z "$(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}...HEAD")" ]; then
-            echo "::error::GGA reviewed no files: the PR diff against ${{ github.event.pull_request.base.ref }} is empty. The review gate did not run."
+            echo "::error::The PR diff against ${{ github.event.pull_request.base.ref }} is empty; the review gate did not run."
             exit 1
           fi
-          echo "PR diff contains $(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}...HEAD" | wc -l) changed file(s)"
+          if grep -q 'No matching files' gga-output.txt; then
+            echo "::error::GGA reported 'No matching files changed in PR' despite a non-empty diff. The review gate did not review anything."
+            cat gga-output.txt
+            exit 1
+          fi
+          echo "PR diff contains $(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}...HEAD" | wc -l) changed file(s); GGA reviewed the PR"
