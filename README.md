@@ -33,7 +33,7 @@
 - 👤 **Machine Profiles** — `bak profile` commands to scope backups per machine with independent adapter, category, preset, provider, and encryption settings
 - 🖥️ **Cross-Platform** — Works on Windows, macOS, and Linux with path normalization
 - 🎯 **Interactive Picker** — TUI with bubbletea for selective category backup
-- ↩️ **Undo** — Git-backed safety net scoped to ~/.bak with `bak undo` (git revert)
+- ↩️ **Undo** — Target-level undo with fail-closed drift protection and Git-backed rollback in ~/.bak via `bak undo`
 - 📦 **Export** — Export backups as portable tar.gz archives
 
 ## Why bak?
@@ -143,8 +143,8 @@ bak diff 20260604-150405 20260605-080000
 | Command | Description |
 |---------|-------------|
 | `bak backup [--preset quick\|full\|skills] [--profile <name>]` | Create a backup |
-| `bak restore [--dry-run] [--force] <id>` | Restore a backup (shows diff and prompts; --force skips confirmation only) |
-| `bak undo` | Revert the last operation in ~/.bak via git revert |
+| `bak restore [--dry-run] [--force] <id>` | Restore a backup (shows diff and prompts; warns on version mismatch, fails on newer schema; --force skips confirmation only) |
+| `bak undo` | Revert the last restore operation on target files and in ~/.bak with drift protection |
 | `bak list [--provider <name>]` | List local or cloud backups |
 | `bak pick` | Interactive TUI picker |
 | `bak push [id] [--provider <name>] [--profile <name>]` | Push to a cloud backend |
@@ -505,10 +505,13 @@ classDiagram
 
 - ✅ **Interactive confirmation & dry-run** — Always preview changes before restore; interactive confirmation required unless bypassed with `--force`
 - ✅ **Mandatory integrity** — SHA-256 checksum and manifest integrity checks cannot be bypassed, even under `--force` (which only skips the confirmation prompt)
+- ✅ **Target recovery & automatic rollback** — Before modifying target files on restore, captures affected target pre-state in private local recovery storage (`~/.bak/recovery/<point-id>`) with restricted permissions (0700/0600); stops at first copy or chmod failure and attempts automatic rollback of all attempted targets
 - ✅ **Permission preservation (0.4.0)** — Manifest schema 0.4.0 records portable file permission mode bits and reapplies them on restore; legacy 0.3.0 manifests restore in degraded mode with an explicit warning
-- ✅ **Git-backed safety in ~/.bak** — Tracks backup snapshots and metadata in `~/.bak` with instant rollback via `bak undo` (`git revert`). Note: target tool configuration directories are not auto-committed to Git during restore
+- ✅ **Target-level undo & drift protection** — `bak undo` restores actual target configuration files to their pre-restore state using local recovery snapshots, while creating a revert commit in `~/.bak`. If any target file was modified, deleted, created, or replaced since the restore, undo fails closed before writing any files to protect subsequent user work
+- ✅ **Version compatibility & schema gating** — Warns on `stderr` when restoring backups created by a different or unversioned/development `bak` version; fails closed before any target write or recovery preparation if the manifest schema is newer than supported (`0.4.0`), prompting the user to upgrade
 - ✅ **Secret exclusion** — Automatically detects recognized token families (GitHub `ghp_*`, `gho_*`, `ghu_*`, `ghs_*`, `ghr_*`, OpenAI `sk-*`, Anthropic `sk-ant-*`, Slack `xoxb-*`, `xoxp-*`) and generates `.env.example` templates with redacted placeholders instead of storing real secrets
 - ✅ **Path validation** — Prevents path traversal attacks by validating that all restored paths stay within the user home directory
+- ✅ **Executable journey matrix proof** — Validated by an eight-stage real-binary journey test suite (`tests/e2e/journey_matrix_test.go`): discovery, mutation/deletion diff recovery, dry-run zero-write guarantees, apply correctness (with POSIX permission bit preservation on non-Windows platforms), checksum verification, tamper fail-closed rejection, partial failure rollback, and target undo drift protection (verified locally on Linux; Windows and macOS behaviors are validated in CI)
 
 ## Contributing
 

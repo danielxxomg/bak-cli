@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -54,6 +55,11 @@ func TestProfileCmd_HasSubcommands(t *testing.T) {
 }
 
 func TestProfileCmd_Help(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -87,6 +93,11 @@ func TestProfileList_NoProfiles(t *testing.T) {
 }
 
 func TestProfileList_Help(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -127,6 +138,11 @@ func TestProfileShow_NotFound(t *testing.T) {
 }
 
 func TestProfileShow_Help(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -154,6 +170,7 @@ func TestProfileDelete_MissingArgs(t *testing.T) {
 
 func TestProfileDelete_NotFound(t *testing.T) {
 	deps, _, _ := setupTestDeps(t)
+
 	cmd := &cobra.Command{}
 	err := runProfileDeleteWithDeps(cmd, []string{"nonexistent_xyz"}, deps)
 	if err == nil {
@@ -166,6 +183,11 @@ func TestProfileDelete_NotFound(t *testing.T) {
 }
 
 func TestProfileDelete_Help(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -186,8 +208,8 @@ func TestProfileDelete_Help(t *testing.T) {
 
 func TestProfileCreate_MissingProvider(t *testing.T) {
 	oldProvider := profileCreateProvider
+	t.Cleanup(func() { profileCreateProvider = oldProvider })
 	profileCreateProvider = ""
-	defer func() { profileCreateProvider = oldProvider }()
 
 	deps, _, _ := setupTestDeps(t)
 	cmd := &cobra.Command{}
@@ -230,8 +252,24 @@ func TestProfileCreate_NoArgs_LaunchesWizard(t *testing.T) {
 // with --interactive and no args attempts to launch the wizard.
 func TestProfileCreate_NoArgs_InteractiveAttempt(t *testing.T) {
 	oldInteractive := profileCreateInteractive
+	t.Cleanup(func() { profileCreateInteractive = oldInteractive })
 	profileCreateInteractive = true
-	defer func() { profileCreateInteractive = oldInteractive }()
+
+	// The package default already forces isTTY false, but assert the seam
+	// explicitly: this test must never be the reason a real wizard program
+	// starts. The wizard TUI blocked on input on Windows CI until the package
+	// timed out.
+	origIsTTY := isTTY
+	t.Cleanup(func() { isTTY = origIsTTY })
+	isTTY = func() bool { return false }
+
+	origRun := runWizardProgram
+	t.Cleanup(func() { runWizardProgram = origRun })
+	var wizardLaunched bool
+	runWizardProgram = func(model tea.Model) (tea.Model, error) {
+		wizardLaunched = true
+		return model, nil
+	}
 
 	deps, _, _ := setupTestDeps(t)
 	cmd := &cobra.Command{}
@@ -239,6 +277,9 @@ func TestProfileCreate_NoArgs_InteractiveAttempt(t *testing.T) {
 	// With --interactive and no args, the wizard is launched. Without a TTY
 	// it will error, but it must not be the "provide a name" error.
 	err := runProfileCreateWithDeps(cmd, []string{}, deps)
+	if wizardLaunched {
+		t.Error("non-interactive context launched the wizard program")
+	}
 	if err == nil {
 		t.Log("wizard succeeded (TTY available)")
 		return
@@ -267,6 +308,11 @@ func TestProfileCreate_TooManyArgs(t *testing.T) {
 }
 
 func TestProfileCreate_Help(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -338,6 +384,11 @@ func TestProfileCreateCmd_Flags(t *testing.T) {
 // --- additional profile execution tests ---
 
 func TestProfileList_Execute(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -350,6 +401,11 @@ func TestProfileList_Execute(t *testing.T) {
 }
 
 func TestProfileShow_ExecuteNonexistent(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -362,6 +418,11 @@ func TestProfileShow_ExecuteNonexistent(t *testing.T) {
 }
 
 func TestProfileDelete_ExecuteNonexistent(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -374,6 +435,11 @@ func TestProfileDelete_ExecuteNonexistent(t *testing.T) {
 }
 
 func TestProfileCreate_RcloneProvider(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -386,6 +452,11 @@ func TestProfileCreate_RcloneProvider(t *testing.T) {
 }
 
 func TestProfileCreate_AdaptersAndCategories(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)

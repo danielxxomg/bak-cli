@@ -1,8 +1,12 @@
 package manifest
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -264,18 +268,9 @@ func TestManifest_JSON_PlaintextOmitsEncryption(t *testing.T) { //nolint:paralle
 	if err != nil {
 		t.Fatalf("read raw manifest: %v", err)
 	}
-	if bytesContains(raw, `"encryption"`) {
+	if bytes.Contains(raw, []byte(`"encryption"`)) {
 		t.Error("raw JSON contains 'encryption' key for plaintext manifest")
 	}
-}
-
-func bytesContains(data []byte, substr string) bool {
-	for i := 0; i <= len(data)-len(substr); i++ {
-		if string(data[i:i+len(substr)]) == substr {
-			return true
-		}
-	}
-	return false
 }
 
 func TestSetEncryption_NilSaltNonce(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
@@ -390,5 +385,139 @@ func TestManifest_LoadV030WithoutMode(t *testing.T) { //nolint:paralleltest // s
 	}
 	if err := loaded.Validate(dir, nil); err != nil {
 		t.Errorf("Validate 0.3.0 manifest: %v", err)
+	}
+}
+
+func TestCompareVersions(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	tests := []struct {
+		name    string
+		v1      string
+		v2      string
+		want    int
+		wantErr bool
+	}{
+		{"equal_same", "0.4.0", "0.4.0", 0, false},
+		{"older_minor", "0.3.0", "0.4.0", -1, false},
+		{"newer_minor", "0.5.0", "0.4.0", 1, false},
+		{"older_major", "0.4.0", "1.0.0", -1, false},
+		{"newer_major", "1.0.0", "0.4.0", 1, false},
+		{"newer_patch", "0.4.1", "0.4.0", 1, false},
+		{"older_patch", "0.4.0", "0.4.1", -1, false},
+		{"two_components", "0.4", "0.4.0", 0, false},
+		{"multi_digit_newer", "0.10.0", "0.4.0", 1, false},
+		{"multi_digit_older", "0.4.0", "0.10.0", -1, false},
+		{"v_prefix", "v0.4.0", "0.4.0", 0, false},
+		{"prerelease_older", "0.4.0-rc1", "0.4.0", -1, false},
+		{"empty_v1", "", "0.4.0", 0, true},
+		{"empty_v2", "0.4.0", "", 0, true},
+		{"invalid_non_numeric", "abc", "0.4.0", 0, true},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest
+			got, err := CompareVersions(tt.v1, tt.v2)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("CompareVersions(%q, %q) error = %v, wantErr %v", tt.v1, tt.v2, err, tt.wantErr)
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("CompareVersions(%q, %q) = %d, want %d", tt.v1, tt.v2, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateSchemaVersion(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	tests := []struct {
+		name       string
+		version    string
+		wantErr    bool
+		errContain string
+	}{
+		{"current_schema_040", "0.4.0", false, ""},
+		{"older_schema_030", "0.3.0", false, ""},
+		{"older_schema_010", "0.1.0", false, ""},
+		{"newer_minor_050", "0.5.0", true, "unsupported manifest schema version 0.5.0 (maximum supported is 0.4.0): upgrade bak"},
+		{"newer_major_100", "1.0.0", true, "unsupported manifest schema version 1.0.0 (maximum supported is 0.4.0): upgrade bak"},
+		{"empty_version", "", true, "manifest version is empty"},
+		{"invalid_version", "not-a-version", true, "unsupported manifest schema version"},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest
+			err := ValidateSchemaVersion(tt.version)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ValidateSchemaVersion(%q) error = %v, wantErr %v", tt.version, err, tt.wantErr)
+			}
+			if tt.wantErr && tt.errContain != "" && (err == nil || !strings.Contains(err.Error(), tt.errContain)) {
+				t.Errorf("ValidateSchemaVersion(%q) error = %v, want to contain %q", tt.version, err, tt.errContain)
+			}
+		})
+	}
+}
+
+func TestValidate_NewerSchemaVersion(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	m := &Manifest{
+		Version:  "0.5.0",
+		Adapters: map[string]AdapterManifest{"test": {}},
+	}
+	err := m.Validate(".", nil)
+	if err == nil {
+		t.Fatal("Validate() expected error for newer schema 0.5.0, got nil")
+	}
+	if !strings.Contains(err.Error(), "unsupported manifest schema version") {
+		t.Errorf("Validate() error %q should mention unsupported manifest schema version", err.Error())
+	}
+}
+
+func TestHashFile(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	validFile := filepath.Join(dir, "test.txt")
+	content := []byte("hello world\n")
+	if err := os.WriteFile(validFile, content, 0644); err != nil {
+		t.Fatalf("write test file: %v", err)
+	}
+
+	h := sha256.Sum256(content)
+	expectedHash := fmt.Sprintf("sha256:%x", h)
+
+	tests := []struct {
+		name       string
+		path       string
+		wantHash   string
+		wantErr    bool
+		errSnippet string
+	}{
+		{
+			name:     "valid_file",
+			path:     validFile,
+			wantHash: expectedHash,
+			wantErr:  false,
+		},
+		{
+			name:       "nonexistent_file",
+			path:       filepath.Join(dir, "missing.txt"),
+			wantErr:    true,
+			errSnippet: "open:",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := hashFile(tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("hashFile(%q) error = %v, wantErr %v", tt.path, err, tt.wantErr)
+			}
+			if tt.wantErr {
+				if !strings.Contains(err.Error(), tt.errSnippet) {
+					t.Errorf("hashFile error %q should contain %q", err.Error(), tt.errSnippet)
+				}
+				return
+			}
+			if got != tt.wantHash {
+				t.Errorf("hashFile(%q) = %q, want %q", tt.path, got, tt.wantHash)
+			}
+		})
 	}
 }

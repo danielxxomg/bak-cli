@@ -125,12 +125,18 @@ func (otherModel) View() tea.View                      { return tea.NewView("") 
 func TestLaunchWizard(t *testing.T) {
 	origTTY := isTTY
 	origRun := runWizardProgram
-	defer func() {
+	t.Cleanup(func() {
 		isTTY = origTTY
 		runWizardProgram = origRun
-	}()
+	})
 
 	t.Run("not a TTY returns terminal error", func(t *testing.T) {
+		subTTY := isTTY
+		subRun := runWizardProgram
+		t.Cleanup(func() {
+			isTTY = subTTY
+			runWizardProgram = subRun
+		})
 		isTTY = func() bool { return false }
 		runWizardProgram = func(m tea.Model) (tea.Model, error) {
 			t.Fatal("program must not run without a TTY")
@@ -146,6 +152,12 @@ func TestLaunchWizard(t *testing.T) {
 	})
 
 	t.Run("program run error is wrapped", func(t *testing.T) {
+		subTTY := isTTY
+		subRun := runWizardProgram
+		t.Cleanup(func() {
+			isTTY = subTTY
+			runWizardProgram = subRun
+		})
 		isTTY = func() bool { return true }
 		runWizardProgram = func(m tea.Model) (tea.Model, error) {
 			return nil, errors.New("boom")
@@ -160,6 +172,12 @@ func TestLaunchWizard(t *testing.T) {
 	})
 
 	t.Run("unexpected model type returns error", func(t *testing.T) {
+		subTTY := isTTY
+		subRun := runWizardProgram
+		t.Cleanup(func() {
+			isTTY = subTTY
+			runWizardProgram = subRun
+		})
 		isTTY = func() bool { return true }
 		runWizardProgram = func(m tea.Model) (tea.Model, error) {
 			return otherModel{}, nil
@@ -174,6 +192,12 @@ func TestLaunchWizard(t *testing.T) {
 	})
 
 	t.Run("returns selections and wizard model", func(t *testing.T) {
+		subTTY := isTTY
+		subRun := runWizardProgram
+		t.Cleanup(func() {
+			isTTY = subTTY
+			runWizardProgram = subRun
+		})
 		isTTY = func() bool { return true }
 		wm := &screens.WizardModel{
 			Confirmed:        true,

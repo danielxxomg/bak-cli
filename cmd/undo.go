@@ -11,12 +11,16 @@ import (
 var undoCmd = &cobra.Command{
 	Use:   "undo",
 	Short: "Revert the last bak operation",
-	Long: `Reverts the last operation (restore or backup) by creating a new
-revert commit. This is equivalent to 'git revert HEAD' on the bak
+	Long: `Reverts the last restore operation by restoring target configuration
+files to their pre-restore state and creating a revert commit in the bak
 storage directory (~/.bak/).
 
-The undo is safe and non-destructive — it does NOT rewrite history
-or force-push. You can undo the undo by running 'bak undo' again.
+Undo includes fail-closed drift protection: if any target file was modified,
+deleted, created, or replaced since the restore was applied, undo refuses all
+changes before writing any file.
+
+The undo is safe, non-destructive, and history-preserving — it does NOT rewrite
+history or force-push.
 
 Examples:
   bak undo          Revert the last restore
@@ -35,6 +39,7 @@ func runUndo(cmd *cobra.Command, args []string) error {
 
 func runUndoWithDeps(cmd *cobra.Command, args []string, deps cmdDeps) error {
 	action := &actions.UndoAction{
+		FS:     &actions.OSFileSystem{},
 		Stdout: deps.Stdout,
 		IsRepo: gitutil.IsRepo,
 		UndoFn: func(repoPath string) error {

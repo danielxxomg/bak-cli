@@ -14,6 +14,7 @@ import (
 type MockFileSystem struct {
 	HomeDir        string
 	StatResult     map[string]MockStatResult
+	LstatResult    map[string]MockStatResult
 	DirEntries     map[string][]os.DirEntry
 	ReadDirErrors  map[string]error
 	Files          map[string][]byte
@@ -43,6 +44,16 @@ func (m *MockFileSystem) UserHomeDir() (string, error) {
 }
 
 func (m *MockFileSystem) Stat(path string) (os.FileInfo, error) {
+	if r, ok := m.StatResult[path]; ok {
+		return r.Info, r.Err
+	}
+	return nil, os.ErrNotExist
+}
+
+func (m *MockFileSystem) Lstat(path string) (os.FileInfo, error) {
+	if r, ok := m.LstatResult[path]; ok {
+		return r.Info, r.Err
+	}
 	if r, ok := m.StatResult[path]; ok {
 		return r.Info, r.Err
 	}
@@ -90,6 +101,15 @@ func (m *MockFileSystem) CopyFile(src, dst string) error {
 		m.Files = make(map[string][]byte)
 	}
 	m.Files[dst] = data
+	return nil
+}
+
+func (m *MockFileSystem) Remove(name string) error {
+	m.RemoveAllCalls++
+	if err, ok := m.RemoveErrors[name]; ok {
+		return err
+	}
+	delete(m.Files, name)
 	return nil
 }
 

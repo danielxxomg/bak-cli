@@ -41,13 +41,13 @@ func TestRunLoginWithDeps_ConfigLoaderError(t *testing.T) {
 func TestRunLoginWithDeps_NonTTYGuard(t *testing.T) {
 	// Override isTTY to simulate non-interactive terminal.
 	origIsTTY := isTTY
+	t.Cleanup(func() { isTTY = origIsTTY })
 	isTTY = func() bool { return false }
-	defer func() { isTTY = origIsTTY }()
 
 	// Enable interactive mode.
 	origInteractive := loginInteractive
+	t.Cleanup(func() { loginInteractive = origInteractive })
 	loginInteractive = true
-	defer func() { loginInteractive = origInteractive }()
 
 	deps, _, _ := setupTestDeps(t)
 	cmd := &cobra.Command{}
@@ -94,10 +94,14 @@ func TestRunLogin_EmptyToken(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error from un-authorized device login, got nil")
 	}
-	// Must resolve in seconds, not the server-advertised 10 minutes — proves no
-	// real network call and the test cannot hang CI.
-	if elapsed > 2*time.Second {
-		t.Errorf("login exceeded 2s (elapsed=%v); test is not isolated from the network", elapsed)
+	// Must resolve in seconds, well below a real device-flow expiry, so this
+	// proves no real network call and the test cannot hang CI. The budget is
+	// deliberately generous: the loop honours the server-advertised expires_in
+	// (1s here) but CI runners can overshoot that by whole seconds under load,
+	// and a tight ceiling turned a slow macOS runner into a red build. 30s is
+	// still ~30x the advertised expiry and nowhere near a real 15-minute flow.
+	if elapsed > 30*time.Second {
+		t.Errorf("login took %v, far longer than the 1s server-advertised expiry; test is not isolated from the network", elapsed)
 	}
 	if !strings.Contains(err.Error(), "timed out") && !strings.Contains(err.Error(), "token") {
 		t.Errorf("expected a token/timeout error, got: %v", err)
@@ -115,8 +119,8 @@ func TestRunLogin_NonGitHubProviders(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.provider, func(t *testing.T) {
 			orig := loginProvider
+			t.Cleanup(func() { loginProvider = orig })
 			loginProvider = tt.provider
-			defer func() { loginProvider = orig }()
 
 			err := runLogin(nil, nil)
 			if err == nil {

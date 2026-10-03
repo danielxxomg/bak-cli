@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 
+	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
 
@@ -121,12 +121,7 @@ func TestDiffCmd_Args(t *testing.T) {
 
 func TestRunDiff_AllCategories(t *testing.T) {
 	tmpDir := t.TempDir()
-	switch runtime.GOOS {
-	case "windows":
-		t.Setenv("USERPROFILE", tmpDir)
-	default:
-		t.Setenv("HOME", tmpDir)
-	}
+	configtest.SetConfigHome(t, tmpDir)
 
 	id1, id2 := stageDiffBackups(t, tmpDir)
 
@@ -162,12 +157,7 @@ func TestRunDiff_AllCategories(t *testing.T) {
 
 func TestRunDiff_IdenticalBackups(t *testing.T) {
 	tmpDir := t.TempDir()
-	switch runtime.GOOS {
-	case "windows":
-		t.Setenv("USERPROFILE", tmpDir)
-	default:
-		t.Setenv("HOME", tmpDir)
-	}
+	configtest.SetConfigHome(t, tmpDir)
 
 	backupsDir := filepath.Join(tmpDir, ".bak", "backups")
 	os.MkdirAll(backupsDir, 0755)
@@ -211,12 +201,7 @@ func TestRunDiff_IdenticalBackups(t *testing.T) {
 
 func TestRunDiff_MissingBackup(t *testing.T) {
 	tmpDir := t.TempDir()
-	switch runtime.GOOS {
-	case "windows":
-		t.Setenv("USERPROFILE", tmpDir)
-	default:
-		t.Setenv("HOME", tmpDir)
-	}
+	configtest.SetConfigHome(t, tmpDir)
 
 	deps, _, _ := setupTestDeps(t)
 	cmd := &cobra.Command{}
@@ -231,12 +216,7 @@ func TestRunDiff_MissingBackup(t *testing.T) {
 
 func TestRunDiff_TraversalBlocked(t *testing.T) {
 	tmpDir := t.TempDir()
-	switch runtime.GOOS {
-	case "windows":
-		t.Setenv("USERPROFILE", tmpDir)
-	default:
-		t.Setenv("HOME", tmpDir)
-	}
+	configtest.SetConfigHome(t, tmpDir)
 
 	// Create a valid backup so the first ID resolves successfully.
 	backupsDir := filepath.Join(tmpDir, ".bak", "backups")
@@ -263,12 +243,7 @@ func TestRunDiff_TraversalBlocked(t *testing.T) {
 
 func TestRunDiff_EmptyManifests(t *testing.T) {
 	tmpDir := t.TempDir()
-	switch runtime.GOOS {
-	case "windows":
-		t.Setenv("USERPROFILE", tmpDir)
-	default:
-		t.Setenv("HOME", tmpDir)
-	}
+	configtest.SetConfigHome(t, tmpDir)
 
 	backupsDir := filepath.Join(tmpDir, ".bak", "backups")
 	os.MkdirAll(backupsDir, 0755)

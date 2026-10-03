@@ -8,7 +8,9 @@ import (
 	"testing"
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
+	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 	"github.com/danielxxomg/bak-cli/internal/restore"
+	"github.com/danielxxomg/bak-cli/internal/tui"
 )
 
 // --- Root command structure tests ---
@@ -51,6 +53,11 @@ func TestRootCmd_HasSubcommands(t *testing.T) {
 }
 
 func TestRootCmd_Help(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -112,6 +119,11 @@ func TestBackupCmd_Flags(t *testing.T) {
 }
 
 func TestBackupCmd_Help(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -156,6 +168,11 @@ func TestVersionCmd_Structure(t *testing.T) {
 }
 
 func TestVersionCmd_Help(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -415,6 +432,11 @@ func TestVersionIsNonEmpty(t *testing.T) {
 // --- Execute tests ---
 
 func TestExecute_Help(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	// Test root command --help execution.
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
@@ -433,10 +455,31 @@ func TestExecute_Help(t *testing.T) {
 }
 
 func TestExecute_NoSubcommand(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
 	rootCmd.SetOut(bufOut)
 	rootCmd.SetErr(bufErr)
+
+	// Force the non-interactive path. Without this the test consults the real
+	// os.Stdin: on Windows CI runners isatty can report a terminal, so root's
+	// RunE launched the real Bubble Tea program and the job hung until the
+	// 10-minute timeout. Never let a unit test reach a live TUI.
+	origIsTTY := isTTY
+	isTTY = func() bool { return false }
+	t.Cleanup(func() { isTTY = origIsTTY })
+
+	origRunTUI := runTUI
+	var tuiLaunched bool
+	runTUI = func(tui.Deps) error {
+		tuiLaunched = true
+		return nil
+	}
+	t.Cleanup(func() { runTUI = origRunTUI })
 
 	// Running root without a subcommand or help flag should show help.
 	rootCmd.SetArgs([]string{})
@@ -444,18 +487,30 @@ func TestExecute_NoSubcommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("root execution without subcommand should not error: %v", err)
 	}
+	if tuiLaunched {
+		t.Error("root without a subcommand launched the TUI in a non-interactive context")
+	}
 }
 
 func TestExecute_VerboseFlag(t *testing.T) {
 	// The --verbose flag is added in the Execute() function (root.go).
 	// Test that it works after execution.
+	origVerbose := verbose
+	t.Cleanup(func() {
+		verbose = origVerbose
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
 	rootCmd.SetOut(bufOut)
 	rootCmd.SetErr(bufErr)
 
 	// Add the persistent verbose flag like Execute() does.
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+	if rootCmd.PersistentFlags().Lookup("verbose") == nil {
+		rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+	}
 
 	rootCmd.SetArgs([]string{"--help"})
 	err := rootCmd.Execute()
@@ -469,6 +524,11 @@ func TestExecute_VerboseFlag(t *testing.T) {
 }
 
 func TestExecute_UnknownCommand(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
 	rootCmd.SetOut(bufOut)
@@ -669,7 +729,7 @@ func mustWriteFile(t *testing.T, path, content string) {
 // RestoreAction instead of returning hardcoded strings.
 func TestTuiRunRestore_RealAction(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	configtest.SetConfigHome(t, home)
 	bakDir := filepath.Join(home, ".bak")
 
 	// Create a backup directory with a valid manifest.
@@ -709,24 +769,20 @@ func TestTuiRunRestore_RealAction(t *testing.T) {
 	}
 }
 
-// TestTuiRunWizard_RealWizard verifies that tuiRunWizard launches the real
-// wizardModel instead of returning a hardcoded ProfileInfo.
+// TestTuiRunWizard_RealWizard verifies that tuiRunWizard is wired to the real
+// wizard instead of returning a hardcoded ProfileInfo, and that it refuses to
+// start a program without a terminal.
 func TestTuiRunWizard_RealWizard(t *testing.T) {
-	// tuiRunWizard launches tea.NewProgram(wizardModel) and returns user-selected values.
-	// In a non-TTY test, tea.NewProgram won't work — but we can verify the function
-	// no longer returns the hardcoded "default" profile by checking it returns a
-	// real implementation (the function should try to launch the wizard).
-	//
-	// The function will fail in non-TTY tests, but this proves the stub is gone.
+	// Force non-interactive explicitly instead of relying on the host probe.
+	origIsTTY := isTTY
+	isTTY = func() bool { return false }
+	t.Cleanup(func() { isTTY = origIsTTY })
+
 	_, err := tuiRunWizard()
-	// In test env without TTY, we expect either a TTY error or the real result.
-	// Either way, the hardcoded stub is removed — the function now calls real code.
-	if err != nil {
-		// Real wizard launch failed (expected in non-TTY) — stub is gone.
-		// Error from real code is different from the old silent success.
-		return
+	if err == nil {
+		t.Fatal("tuiRunWizard without a TTY must fail instead of starting a program")
 	}
-	// If it succeeds (TTY env), verify the result isn't a hardcoded stub.
-	// (Rare in test, but worth checking.)
-	t.Log("tuiRunWizard succeeded in test: real return value")
+	if !strings.Contains(err.Error(), "TTY") {
+		t.Errorf("expected a TTY error, got: %v", err)
+	}
 }

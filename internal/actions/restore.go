@@ -19,12 +19,19 @@ import (
 // dependencies. All OS operations that are the action's responsibility
 // go through a.FS.
 type RestoreAction struct {
-	FS        FileSystem
-	BackupDir string // resolved backup directory
-	DryRun    bool
-	Force     bool
-	Verbose   bool
-	GitDir    string // optional git repo for safety commits
+	FS         FileSystem
+	BackupDir  string // resolved backup directory
+	BakVersion string // version of running bak tool; zero value means unknown
+	DryRun     bool
+	Force      bool
+	Verbose    bool
+	GitDir     string // optional git repo for safety commits
+
+	// RecoveryDir optionally overrides the base recovery directory.
+	// When empty, defaults to <home>/.bak/recovery.
+	RecoveryDir string
+
+	storageFS FileSystem // unexported injection for recovery storage in tests
 
 	// ProgressFn is an optional callback invoked once per file during restore.
 	// When nil (default), no progress is reported.
@@ -48,6 +55,69 @@ func (a *RestoreAction) ResolveBackup(backupID string) error {
 	return nil
 }
 
+// handlePostStateFailure attempts rollback when post-state recording fails.
+func handlePostStateFailure(recMgr *recoveryManager, diffs []restorepkg.FileDiff, err error) error {
+	var attempted []string
+	for _, d := range diffs {
+		if d.Status == restorepkg.DiffNew || d.Status == restorepkg.DiffModified {
+			attempted = append(attempted, d.TargetPath)
+		}
+	}
+	outcome := recMgr.Rollback(attempted)
+	var errSuffix string
+	if len(outcome.Errors) > 0 {
+		errMsgs := make([]string, 0, len(outcome.Errors))
+		for _, e := range outcome.Errors {
+			errMsgs = append(errMsgs, e.Error())
+		}
+		errSuffix = "; " + strings.Join(errMsgs, "; ")
+	}
+	if len(outcome.Unresolved) > 0 {
+		return fmt.Errorf("record post-restore state: %w (rollback unresolved for %d file(s); recovery point: %s%s)", err, len(outcome.Unresolved), recMgr.PointID, errSuffix)
+	}
+	return fmt.Errorf("record post-restore state: %w (all targets rolled back to pre-restore state; recovery point: %s%s)", err, recMgr.PointID, errSuffix)
+}
+
+// showDryRun formats and displays dry-run diffs, and if DryRun is enabled,
+// writes the summary and reports completion.
+func (a *RestoreAction) showDryRun(out io.Writer, diffs []restorepkg.FileDiff) error {
+	if err := a.printDryRunDiff(out, diffs); err != nil {
+		return err
+	}
+	if !a.DryRun {
+		return nil
+	}
+	if _, err := fmt.Fprintf(out, "Dry-run complete. %d file(s) would be restored, %d unchanged, %d missing.\n",
+		countByStatus(diffs, restorepkg.DiffNew)+countByStatus(diffs, restorepkg.DiffModified),
+		countByStatus(diffs, restorepkg.DiffUnchanged),
+		countByStatus(diffs, restorepkg.DiffMissing),
+	); err != nil {
+		return fmt.Errorf("write dry-run summary: %w", err)
+	}
+	return nil
+}
+
+// finishRestore handles post-apply reporting, post-state recording, and error propagation.
+func (a *RestoreAction) finishRestore(out io.Writer, m *manifest.Manifest, diffs []restorepkg.FileDiff, recMgr *recoveryManager, restored, skipped, failed, degraded int, applyErr error) error {
+	if failed > 0 || applyErr != nil {
+		if repErr := reportRestore(out, m, restored, skipped, failed, degraded); repErr != nil && applyErr != nil {
+			return errors.Join(applyErr, repErr)
+		} else if repErr != nil {
+			return repErr
+		}
+		return applyErr
+	}
+
+	if err := recMgr.RecordPostState(); err != nil {
+		if repErr := reportRestore(out, m, 0, skipped, countByStatus(diffs, restorepkg.DiffNew)+countByStatus(diffs, restorepkg.DiffModified), degraded); repErr != nil {
+			return errors.Join(handlePostStateFailure(recMgr, diffs, err), repErr)
+		}
+		return handlePostStateFailure(recMgr, diffs, err)
+	}
+
+	return reportRestore(out, m, restored, skipped, failed, degraded)
+}
+
 // Run executes the restore workflow: load manifest, compute diffs, and
 // optionally apply changes. Each phase is delegated to a helper to keep the
 // orchestration readable and below the cognitive-complexity threshold.
@@ -58,6 +128,10 @@ func (a *RestoreAction) Run() error {
 	m, err := manifest.Load(a.BackupDir)
 	if err != nil {
 		return fmt.Errorf("load manifest: %w", err)
+	}
+
+	if err := a.warnBakVersionMismatch(m.ID, m.BakVersion, errOut); err != nil {
+		return err
 	}
 
 	// 2. Get home directory.
@@ -72,15 +146,11 @@ func (a *RestoreAction) Run() error {
 		return fmt.Errorf("compute dry-run: %w", err)
 	}
 
-	// 4. Show diffs.
-	a.printDryRunDiff(out, diffs)
-
+	// 4. Show diffs / handle dry-run.
+	if err := a.showDryRun(out, diffs); err != nil {
+		return err
+	}
 	if a.DryRun {
-		_, _ = fmt.Fprintf(out, "Dry-run complete. %d file(s) would be restored, %d unchanged, %d missing.\n",
-			countByStatus(diffs, restorepkg.DiffNew)+countByStatus(diffs, restorepkg.DiffModified),
-			countByStatus(diffs, restorepkg.DiffUnchanged),
-			countByStatus(diffs, restorepkg.DiffMissing),
-		)
 		return nil
 	}
 
@@ -98,20 +168,24 @@ func (a *RestoreAction) Run() error {
 		return nil
 	}
 
-	// 7. Apply restore.
-	restored, skipped, failed, degraded, applyErr := a.applyRestore(m, diffs, out, errOut)
-
-	// 8. Report results.
-	reportRestore(out, m, restored, skipped, failed, degraded)
-
-	if failed > 0 {
-		if applyErr != nil {
-			return fmt.Errorf("apply restore: %w", applyErr)
-		}
-		return fmt.Errorf("apply restore: %d file(s) failed", failed)
+	// 7. Setup recovery manager and prepare pre-state before any target mutation.
+	recMgr := &recoveryManager{
+		FS:          a.FS,
+		StorageFS:   a.storageFS,
+		HomeDir:     homeDir,
+		BackupID:    m.ID,
+		RecoveryDir: a.RecoveryDir,
 	}
 
-	return nil
+	if err := recMgr.Prepare(diffs); err != nil {
+		return fmt.Errorf("prepare recovery snapshot: %w", err)
+	}
+
+	// 8. Apply restore with recovery and automatic rollback on first failure.
+	restored, skipped, failed, degraded, applyErr := a.applyRestore(m, diffs, recMgr, out, errOut)
+
+	// 9. Post-apply reporting and recovery completion.
+	return a.finishRestore(out, m, diffs, recMgr, restored, skipped, failed, degraded, applyErr)
 }
 
 // resolveWriters returns the output and error writers, falling back to
@@ -128,20 +202,58 @@ func (a *RestoreAction) resolveWriters() (io.Writer, io.Writer) {
 	return out, errOut
 }
 
-// printDryRunDiff writes the per-file dry-run diff to out. When verbose and
-// a file is modified with a non-empty diff, the unified diff is appended.
-func (a *RestoreAction) printDryRunDiff(out io.Writer, diffs []restorepkg.FileDiff) {
-	if len(diffs) == 0 {
-		return
+const unknownVersion = "unknown"
+
+// warnBakVersionMismatch checks for version compatibility between the running bak
+// tool and the version that created the backup. Any mismatch or unknown/dev version
+// on either side produces a warning on errOut naming the backup id and both versions,
+// but does not block restore.
+func (a *RestoreAction) warnBakVersionMismatch(backupID, manifestBakVersion string, errOut io.Writer) error {
+	runningVer := a.BakVersion
+	if runningVer == "" {
+		runningVer = unknownVersion
 	}
-	_, _ = fmt.Fprintln(out, "Dry-run diff:")
-	for _, d := range diffs {
-		_, _ = fmt.Fprintf(out, "  [%s] %s\n", d.Status, d.SourcePath)
-		if d.Status == restorepkg.DiffModified && d.Diff != "" && a.Verbose {
-			_, _ = fmt.Fprint(out, d.Diff)
+	backupVer := manifestBakVersion
+	if backupVer == "" {
+		backupVer = unknownVersion
+	}
+
+	id := backupID
+	if id == "" {
+		id = unknownVersion
+	}
+
+	isUnknownOrDev := func(v string) bool {
+		return v == unknownVersion || v == "dev"
+	}
+
+	if isUnknownOrDev(runningVer) || isUnknownOrDev(backupVer) || runningVer != backupVer {
+		if _, err := fmt.Fprintf(errOut, "warning: backup %s was created with bak %s, running version is %s\n", id, backupVer, runningVer); err != nil {
+			return fmt.Errorf("write version warning: %w", err)
 		}
 	}
-	_, _ = fmt.Fprintln(out)
+	return nil
+}
+
+// printDryRunDiff writes the per-file dry-run diff to out. When verbose and
+// a file is modified with a non-empty diff, the unified diff is appended.
+func (a *RestoreAction) printDryRunDiff(out io.Writer, diffs []restorepkg.FileDiff) error {
+	if len(diffs) == 0 {
+		return nil
+	}
+	var b strings.Builder
+	b.WriteString("Dry-run diff:\n")
+	for _, d := range diffs {
+		fmt.Fprintf(&b, "  [%s] %s\n", d.Status, d.SourcePath)
+		if d.Status == restorepkg.DiffModified && d.Diff != "" && a.Verbose {
+			b.WriteString(d.Diff)
+		}
+	}
+	b.WriteByte('\n')
+	if _, err := fmt.Fprint(out, b.String()); err != nil {
+		return fmt.Errorf("write dry-run diff: %w", err)
+	}
+	return nil
 }
 
 // validateManifest validates checksums of all backed-up files against the
@@ -162,7 +274,9 @@ func (a *RestoreAction) confirmRestore(out, errOut io.Writer) (bool, error) {
 	if a.Force {
 		return true, nil
 	}
-	_, _ = fmt.Fprint(out, "Apply restore? [y/N]: ")
+	if _, err := fmt.Fprint(out, "Apply restore? [y/N]: "); err != nil {
+		return false, fmt.Errorf("write confirmation prompt: %w", err)
+	}
 	stdin := a.Stdin
 	if stdin == nil {
 		stdin = os.Stdin
@@ -174,91 +288,126 @@ func (a *RestoreAction) confirmRestore(out, errOut io.Writer) (bool, error) {
 	}
 	answer = strings.TrimSpace(strings.ToLower(answer))
 	if answer != "y" && answer != "yes" {
-		_, _ = fmt.Fprintln(errOut, "Restore cancelled.")
+		if _, err := fmt.Fprintln(errOut, "Restore cancelled."); err != nil {
+			return false, fmt.Errorf("write cancellation: %w", err)
+		}
 		return false, nil
 	}
 	return true, nil
 }
 
-// applyRestore copies each new/modified file, skipping unchanged and missing
-// files. Progress is reported via ProgressFn when set. Returns the counts of
-// restored, skipped, failed, and degraded files along with an aggregated error if any
-// copy or chmod failed.
-func (a *RestoreAction) applyRestore(m *manifest.Manifest, diffs []restorepkg.FileDiff, _, errOut io.Writer) (restored, skipped, failed, degraded int, err error) {
+func formatRollbackOutcome(outcome rollbackOutcome) string {
+	var base string
+	switch {
+	case len(outcome.Unresolved) > 0:
+		base = fmt.Sprintf("rollback unresolved for %d file(s); recovery point: %s", len(outcome.Unresolved), outcome.PointID)
+	case len(outcome.Reverted) > 0:
+		base = fmt.Sprintf("reverted %d attempted target(s); recovery point: %s", len(outcome.Reverted), outcome.PointID)
+	default:
+		base = fmt.Sprintf("recovery point: %s", outcome.PointID)
+	}
+	if len(outcome.Errors) > 0 {
+		errMsgs := make([]string, 0, len(outcome.Errors))
+		for _, e := range outcome.Errors {
+			errMsgs = append(errMsgs, e.Error())
+		}
+		return fmt.Sprintf("%s; %s", base, strings.Join(errMsgs, "; "))
+	}
+	return base
+}
+
+func buildModeMap(m *manifest.Manifest) map[string]uint32 {
 	modeMap := make(map[string]uint32)
 	for _, am := range m.Adapters {
 		for _, item := range am.Items {
 			modeMap[item.BackupPath] = item.Mode
 		}
 	}
+	return modeMap
+}
 
+func countRestoreTargets(diffs []restorepkg.FileDiff) int {
 	filesTotal := 0
 	for _, d := range diffs {
 		if d.Status == restorepkg.DiffNew || d.Status == restorepkg.DiffModified {
 			filesTotal++
 		}
 	}
-	filesDone := 0
-	var copyErrs []error
-
-	for _, d := range diffs {
-		restored, skipped, failed, degraded = a.applyDiff(d, modeMap, filesTotal, &filesDone, restored, skipped, failed, degraded, &copyErrs, errOut)
-	}
-	if len(copyErrs) > 0 {
-		err = errors.Join(copyErrs...)
-	}
-	return restored, skipped, failed, degraded, err
+	return filesTotal
 }
 
-// applyDiff applies one diff entry and returns the updated counters. Copy
-// errors accumulate in errs so the caller can join them after the loop.
-func (a *RestoreAction) applyDiff(d restorepkg.FileDiff, modeMap map[string]uint32, filesTotal int, filesDone *int, restored, skipped, failed, degraded int, errs *[]error, errOut io.Writer) (int, int, int, int) {
-	switch d.Status {
-	case restorepkg.DiffNew, restorepkg.DiffModified:
-		*filesDone++
-		if a.ProgressFn != nil {
-			a.ProgressFn(d.SourcePath, *filesDone, filesTotal)
-		}
-		mode := modeMap[d.BackupPath]
-		if mode == 0 {
-			degraded++
-		}
-		if err := a.restoreFile(d, mode); err != nil {
-			failed++
-			*errs = append(*errs, fmt.Errorf("restore %s: %w", d.SourcePath, err))
-			if a.Verbose {
-				_, _ = fmt.Fprintf(errOut, "restore %s: %v\n", d.SourcePath, err)
+// applyRestore copies each new/modified file, stopping at the first failure
+// and attempting rollback of all attempted targets. Returns the counts of
+// restored, skipped, failed, and degraded files along with an aggregated error if any
+// copy or chmod failed.
+func (a *RestoreAction) applyRestore(m *manifest.Manifest, diffs []restorepkg.FileDiff, recMgr *recoveryManager, _, errOut io.Writer) (restored, skipped, failed, degraded int, err error) {
+	modeMap := buildModeMap(m)
+	filesTotal := countRestoreTargets(diffs)
+	filesDone := 0
+	var attemptedTargets []string
+
+	for _, d := range diffs {
+		switch d.Status {
+		case restorepkg.DiffNew, restorepkg.DiffModified:
+			filesDone++
+			if a.ProgressFn != nil {
+				a.ProgressFn(d.SourcePath, filesDone, filesTotal)
 			}
-		} else {
+			mode := modeMap[d.BackupPath]
+			if mode == 0 {
+				degraded++
+			}
+			attemptedTargets = append(attemptedTargets, d.TargetPath)
+			if err := a.restoreFile(d, mode); err != nil {
+				failed++
+				if a.Verbose {
+					if _, wErr := fmt.Fprintf(errOut, "restore %s: %v\n", d.SourcePath, err); wErr != nil {
+						err = errors.Join(err, fmt.Errorf("write verbose log: %w", wErr))
+					}
+				}
+				var outcome rollbackOutcome
+				if recMgr != nil {
+					outcome = recMgr.Rollback(attemptedTargets)
+				}
+				rollbackMsg := formatRollbackOutcome(outcome)
+				return restored, skipped, failed, degraded, fmt.Errorf("restore %s: %w (%s)", d.SourcePath, err, rollbackMsg)
+			}
 			restored++
-		}
-	case restorepkg.DiffUnchanged:
-		skipped++
-	case restorepkg.DiffMissing:
-		skipped++
-		if a.Verbose {
-			_, _ = fmt.Fprintf(errOut, "warning: missing backup file %s\n", d.BackupPath)
+		case restorepkg.DiffUnchanged:
+			skipped++
+		case restorepkg.DiffMissing:
+			skipped++
+			if a.Verbose {
+				if _, wErr := fmt.Fprintf(errOut, "warning: missing backup file %s\n", d.BackupPath); wErr != nil {
+					return restored, skipped, failed, degraded, fmt.Errorf("write verbose warning: %w", wErr)
+				}
+			}
 		}
 	}
-	return restored, skipped, failed, degraded
+	return restored, skipped, failed, degraded, nil
 }
 
 // reportRestore writes the final restore summary to out, including the failed
 // count only when at least one file failed and degraded permissions warning.
-func reportRestore(out io.Writer, m *manifest.Manifest, restored, skipped, failed, degraded int) {
+func reportRestore(out io.Writer, m *manifest.Manifest, restored, skipped, failed, degraded int) error {
+	var b strings.Builder
 	if failed > 0 {
-		_, _ = fmt.Fprintf(out, "Restore failed: %s\n", m.ID)
+		fmt.Fprintf(&b, "Restore failed: %s\n", m.ID)
 	} else {
-		_, _ = fmt.Fprintf(out, "Restore complete: %s\n", m.ID)
+		fmt.Fprintf(&b, "Restore complete: %s\n", m.ID)
 	}
-	_, _ = fmt.Fprintf(out, "  Restored: %d\n", restored)
-	_, _ = fmt.Fprintf(out, "  Skipped:  %d\n", skipped)
+	fmt.Fprintf(&b, "  Restored: %d\n", restored)
+	fmt.Fprintf(&b, "  Skipped:  %d\n", skipped)
 	if failed > 0 {
-		_, _ = fmt.Fprintf(out, "  Failed:   %d\n", failed)
+		fmt.Fprintf(&b, "  Failed:   %d\n", failed)
 	}
 	if degraded > 0 {
-		_, _ = fmt.Fprintf(out, "  Warning: degraded permissions (%d file(s) lack mode metadata)\n", degraded)
+		fmt.Fprintf(&b, "  Warning: degraded permissions (%d file(s) lack mode metadata)\n", degraded)
 	}
+	if _, err := fmt.Fprint(out, b.String()); err != nil {
+		return fmt.Errorf("write restore report: %w", err)
+	}
+	return nil
 }
 
 // restoreFile copies a single file from the backup directory to the
@@ -270,7 +419,7 @@ func (a *RestoreAction) restoreFile(d restorepkg.FileDiff, mode uint32) error {
 	// Security: validate source path stays under backup directory.
 	cleanSrc := paths.CanonicalPath(src)
 	cleanBackupDir := paths.CanonicalPath(a.BackupDir) + "/"
-	if !strings.HasPrefix(cleanSrc, cleanBackupDir) {
+	if !strings.HasPrefix(strings.ToLower(cleanSrc), strings.ToLower(cleanBackupDir)) {
 		return fmt.Errorf("source path escapes backup directory")
 	}
 
@@ -281,7 +430,7 @@ func (a *RestoreAction) restoreFile(d restorepkg.FileDiff, mode uint32) error {
 	}
 	cleanTarget := paths.CanonicalPath(d.TargetPath)
 	cleanHome := paths.CanonicalPath(homeDir) + "/"
-	if !strings.HasPrefix(cleanTarget, cleanHome) {
+	if !strings.HasPrefix(strings.ToLower(cleanTarget), strings.ToLower(cleanHome)) {
 		return fmt.Errorf("target path escapes home directory")
 	}
 

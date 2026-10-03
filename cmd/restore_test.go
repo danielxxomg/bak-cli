@@ -71,6 +71,11 @@ func TestRestoreCmd_Args(t *testing.T) {
 }
 
 func TestRestoreCmd_Help(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -93,25 +98,30 @@ func TestRestoreCmd_Help(t *testing.T) {
 	}
 }
 
-func TestRestoreCmd_Use(t *testing.T) {
+func TestRestoreCmd_UseAndDescription(t *testing.T) {
 	cmd := findSubcommand(t, "restore")
 	if cmd == nil {
 		t.Fatal("restore command not found")
 	}
 
-	// Use should start with "restore".
-	if cmd.Use == "" {
-		t.Fatal("restore command should have a Use string")
+	tests := []struct {
+		name       string
+		got        string
+		wantPrefix string
+	}{
+		{name: "Use", got: cmd.Use, wantPrefix: "restore"},
+		{name: "Short", got: cmd.Short},
+		{name: "Long", got: cmd.Long},
 	}
-	if !strings.HasPrefix(cmd.Use, "restore") {
-		t.Fatalf("Use = %q, should start with \"restore\"", cmd.Use)
-	}
-
-	if cmd.Short == "" {
-		t.Fatal("restore command should have a short description")
-	}
-	if cmd.Long == "" {
-		t.Fatal("restore command should have a long description")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got == "" {
+				t.Fatalf("restore %s should not be empty", tt.name)
+			}
+			if tt.wantPrefix != "" && !strings.HasPrefix(tt.got, tt.wantPrefix) {
+				t.Fatalf("restore %s = %q, should start with %q", tt.name, tt.got, tt.wantPrefix)
+			}
+		})
 	}
 }
 
@@ -153,6 +163,11 @@ func TestRunRestoreWithDeps_BackupNotFound(t *testing.T) {
 }
 
 func TestRunRestore_MissingArgs(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	configtest.SetConfigHome(t, t.TempDir())
 	// Reset rootCmd and restoreCmd state to avoid help-flag leakage
 	// from previous tests (e.g., TestRestoreCmd_Help). pflag doesn't
@@ -197,6 +212,11 @@ func TestRunRestore_MissingArgs(t *testing.T) {
 // does not leak state into subsequent Execute() calls on the shared
 // restoreCmd. This tests the isolation fix for TestRunRestore_MissingArgs.
 func TestRestoreHelpFollowedByExecute(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	// Step 1: Run --help on restore (like TestRestoreCmd_Help does).
 	buf1 := new(bytes.Buffer)
 	rootCmd.SetOut(buf1)
@@ -245,80 +265,51 @@ func TestRestoreHelpFollowedByExecute(t *testing.T) {
 	}
 }
 
-func TestRunRestore_BackupNotFound(t *testing.T) {
-	configtest.SetConfigHome(t, t.TempDir())
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
-
-	rootCmd.SetArgs([]string{"restore", "20250101-000000"})
-	err := rootCmd.Execute()
-
-	if err == nil {
-		t.Log("restore of non-existent backup succeeded (backup may exist)")
-		return
+func TestRunRestore_FlagVariants(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "no_flags", args: []string{"restore", "20250101-000000"}},
+		{name: "dry_run", args: []string{"restore", "--dry-run", "20250101-000000"}},
+		{name: "force", args: []string{"restore", "--force", "20250101-000000"}},
+		{name: "override", args: []string{"restore", "--override", "20250101-000000"}},
+		{name: "override_and_dry_run", args: []string{"restore", "--override", "--dry-run", "20250101-000000"}},
 	}
-	if !strings.Contains(err.Error(), "not found") {
-		t.Errorf("error should mention 'not found', got: %v", err)
-	}
-}
 
-func TestRunRestore_DryRunNonexistent(t *testing.T) {
-	configtest.SetConfigHome(t, t.TempDir())
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Cleanup(func() {
+				rootCmd.SetOut(nil)
+				rootCmd.SetErr(nil)
+				rootCmd.SetArgs(nil)
+			})
+			configtest.SetConfigHome(t, t.TempDir())
+			bufOut := new(bytes.Buffer)
+			bufErr := new(bytes.Buffer)
+			rootCmd.SetOut(bufOut)
+			rootCmd.SetErr(bufErr)
 
-	rootCmd.SetArgs([]string{"restore", "--dry-run", "20250101-000000"})
-	err := rootCmd.Execute()
+			rootCmd.SetArgs(tt.args)
+			err := rootCmd.Execute()
 
-	if err == nil {
-		t.Log("restore --dry-run succeeded (backup may exist)")
-		return
-	}
-	if !strings.Contains(err.Error(), "not found") {
-		t.Errorf("error should mention 'not found', got: %v", err)
-	}
-}
-
-func TestRestoreCmd_UseAndDescription(t *testing.T) {
-	cmd := findSubcommand(t, "restore")
-	if cmd == nil {
-		t.Fatal("restore command not found")
-	}
-	if cmd.Use == "" {
-		t.Fatal("restore Use should not be empty")
-	}
-	if cmd.Short == "" {
-		t.Fatal("restore Short should not be empty")
-	}
-	if cmd.Long == "" {
-		t.Fatal("restore Long should not be empty")
-	}
-}
-
-func TestRunRestore_ForceFlag(t *testing.T) {
-	configtest.SetConfigHome(t, t.TempDir())
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
-
-	rootCmd.SetArgs([]string{"restore", "--force", "20250101-000000"})
-	err := rootCmd.Execute()
-
-	if err == nil {
-		t.Log("restore --force succeeded (backup may exist)")
-		return
-	}
-	if !strings.Contains(err.Error(), "not found") {
-		t.Errorf("error should mention 'not found', got: %v", err)
+			if err == nil {
+				t.Logf("restore %v succeeded (backup may exist)", tt.args)
+				return
+			}
+			if !strings.Contains(err.Error(), "not found") {
+				t.Errorf("error should mention 'not found', got: %v", err)
+			}
+		})
 	}
 }
 
 func TestRunRestore_VerboseFlagExists(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	// --verbose exists as a cobra PersistentFlag registered in root.go.
 	// Verify it is available as a global/persistent flag concept.
 	// The flag is registered in Execute() at runtime; in tests we check
@@ -335,44 +326,6 @@ func TestRunRestore_VerboseFlagExists(t *testing.T) {
 	output := buf.String()
 	if !strings.Contains(output, "restore") {
 		t.Error("restore help should mention 'restore'")
-	}
-}
-
-func TestRunRestore_OverrideFlag(t *testing.T) {
-	configtest.SetConfigHome(t, t.TempDir())
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
-
-	rootCmd.SetArgs([]string{"restore", "--override", "20250101-000000"})
-	err := rootCmd.Execute()
-
-	if err == nil {
-		t.Log("restore --override succeeded (backup may exist)")
-		return
-	}
-	if !strings.Contains(err.Error(), "not found") {
-		t.Errorf("error should mention 'not found', got: %v", err)
-	}
-}
-
-func TestRunRestore_OverrideAndDryRun(t *testing.T) {
-	configtest.SetConfigHome(t, t.TempDir())
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
-
-	rootCmd.SetArgs([]string{"restore", "--override", "--dry-run", "20250101-000000"})
-	err := rootCmd.Execute()
-
-	if err == nil {
-		t.Log("restore --override --dry-run succeeded (backup may exist)")
-		return
-	}
-	if !strings.Contains(err.Error(), "not found") {
-		t.Errorf("error should mention 'not found', got: %v", err)
 	}
 }
 
@@ -522,12 +475,14 @@ func TestRunRestoreWithDeps_TamperedManifestWithForceFails(t *testing.T) {
 	}
 
 	// Set --force flag.
+	origForce := restoreForce
+	origDryRun := restoreDryRun
+	t.Cleanup(func() {
+		restoreForce = origForce
+		restoreDryRun = origDryRun
+	})
 	restoreForce = true
 	restoreDryRun = false
-	defer func() {
-		restoreForce = false
-		restoreDryRun = false
-	}()
 
 	err := runRestoreWithDeps(cmd, []string{backupID}, deps)
 	if err == nil {
@@ -540,5 +495,257 @@ func TestRunRestoreWithDeps_TamperedManifestWithForceFails(t *testing.T) {
 	targetPath := filepath.Join(home, ".config", "bak", "config.json")
 	if _, statErr := os.Stat(targetPath); !os.IsNotExist(statErr) {
 		t.Errorf("target file should not exist after failed validation")
+	}
+}
+
+// TestRunRestoreWithDeps_RecoveryPointCreatedOnApply proves that the CLI/shared-action path
+// creates a recovery point under ~/.bak/recovery/ upon successful restore apply (does not claim
+// an independently executed TUI flow).
+func TestRunRestoreWithDeps_RecoveryPointCreatedOnApply(t *testing.T) {
+	home := t.TempDir()
+	configtest.SetConfigHome(t, home)
+
+	backupID := "20260101-123456"
+	bakDir := filepath.Join(home, ".bak")
+	backupDir := filepath.Join(bakDir, "backups", backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := []byte("setting=on\n")
+	if err := os.WriteFile(filepath.Join(adapterDir, "config.json"), content, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	h := sha256.Sum256(content)
+	m := manifest.New(backupID, runtime.GOOS, "testhost", "test", "quick", []string{"config"})
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/config.json",
+			BackupPath: "test-adapter/config.json",
+			Hash:       fmt.Sprintf("sha256:%x", h),
+			Size:       int64(len(content)),
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	deps, _, _ := setupTestDeps(t)
+	cmd := findSubcommand(t, "restore")
+	if cmd == nil {
+		t.Fatal("restore command not found")
+	}
+
+	origForce := restoreForce
+	origDryRun := restoreDryRun
+	t.Cleanup(func() {
+		restoreForce = origForce
+		restoreDryRun = origDryRun
+	})
+	restoreForce = true
+	restoreDryRun = false
+
+	err := runRestoreWithDeps(cmd, []string{backupID}, deps)
+	if err != nil {
+		t.Fatalf("runRestoreWithDeps failed: %v", err)
+	}
+
+	targetPath := filepath.Join(home, ".config", "bak", "config.json")
+	if _, statErr := os.Stat(targetPath); statErr != nil {
+		t.Fatalf("target file should exist after restore: %v", statErr)
+	}
+
+	recDir := filepath.Join(home, ".bak", "recovery")
+	entries, err := os.ReadDir(recDir)
+	if err != nil || len(entries) == 0 {
+		t.Fatalf("expected recovery point directory in %s, got err: %v, count: %d", recDir, err, len(entries))
+	}
+}
+
+func TestRunRestoreWithDeps_BakVersionMismatchWarning(t *testing.T) {
+	home := t.TempDir()
+	configtest.SetConfigHome(t, home)
+
+	backupID := "20260101-120000"
+	backupDir := filepath.Join(home, ".bak", "backups", backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := []byte("key=value\n")
+	backedFile := filepath.Join(adapterDir, "config.json")
+	if err := os.WriteFile(backedFile, content, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	h := sha256.Sum256(content)
+	m := manifest.New(backupID, "linux", "host", "1.0.0", "quick", []string{"config"})
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/config.json",
+			BackupPath: "test-adapter/config.json",
+			Hash:       fmt.Sprintf("sha256:%x", h),
+			Size:       int64(len(content)),
+			Mode:       0644,
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	oldVersion := Version
+	t.Cleanup(func() { Version = oldVersion })
+	Version = "2.0.0"
+
+	origForce := restoreForce
+	origDryRun := restoreDryRun
+	t.Cleanup(func() {
+		restoreForce = origForce
+		restoreDryRun = origDryRun
+	})
+	restoreForce = true
+	restoreDryRun = false
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+	deps := cmdDeps{
+		ConfigLoader: defaultDeps.ConfigLoader,
+		Stdout:       &stdoutBuf,
+		Stderr:       &stderrBuf,
+		Stdin:        strings.NewReader(""),
+	}
+
+	cmd := findSubcommand(t, "restore")
+	err := runRestoreWithDeps(cmd, []string{backupID}, deps)
+	if err != nil {
+		t.Fatalf("runRestoreWithDeps failed: %v", err)
+	}
+
+	stderrOut := stderrBuf.String()
+	if !strings.Contains(stderrOut, "warning:") {
+		t.Fatalf("expected warning on Stderr, got: %q", stderrOut)
+	}
+	if !strings.Contains(stderrOut, backupID) || !strings.Contains(stderrOut, "1.0.0") || !strings.Contains(stderrOut, "2.0.0") {
+		t.Errorf("warning %q should mention backup ID, 1.0.0, and 2.0.0", stderrOut)
+	}
+}
+
+func TestRunRestoreWithDeps_NewerSchemaFailsClosed(t *testing.T) {
+	home := t.TempDir()
+	configtest.SetConfigHome(t, home)
+
+	backupID := "20260101-120000"
+	backupDir := filepath.Join(home, ".bak", "backups", backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := []byte("key=value\n")
+	backedFile := filepath.Join(adapterDir, "config.json")
+	if err := os.WriteFile(backedFile, content, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	h := sha256.Sum256(content)
+	m := manifest.New(backupID, "linux", "host", "1.0.0", "quick", []string{"config"})
+	m.Version = "0.5.0" // newer than 0.4.0
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/config.json",
+			BackupPath: "test-adapter/config.json",
+			Hash:       fmt.Sprintf("sha256:%x", h),
+			Size:       int64(len(content)),
+			Mode:       0644,
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	origForce := restoreForce
+	origDryRun := restoreDryRun
+	t.Cleanup(func() {
+		restoreForce = origForce
+		restoreDryRun = origDryRun
+	})
+	restoreForce = true
+	restoreDryRun = false
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+	deps := cmdDeps{
+		ConfigLoader: defaultDeps.ConfigLoader,
+		Stdout:       &stdoutBuf,
+		Stderr:       &stderrBuf,
+		Stdin:        strings.NewReader(""),
+	}
+
+	cmd := findSubcommand(t, "restore")
+	err := runRestoreWithDeps(cmd, []string{backupID}, deps)
+	if err == nil {
+		t.Fatal("expected error for newer schema, got nil")
+	}
+	if !strings.Contains(err.Error(), "unsupported manifest schema version") {
+		t.Errorf("error %q should mention unsupported manifest schema version", err.Error())
+	}
+}
+
+func TestTuiRunRestore_BakVersionAndSchema(t *testing.T) {
+	home := t.TempDir()
+	configtest.SetConfigHome(t, home)
+
+	backupID := "20260101-120000"
+	backupDir := filepath.Join(home, ".bak", "backups", backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	adapterDir := filepath.Join(backupDir, "test-adapter")
+	if err := os.MkdirAll(adapterDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := []byte("key=value\n")
+	backedFile := filepath.Join(adapterDir, "config.json")
+	if err := os.WriteFile(backedFile, content, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	h := sha256.Sum256(content)
+	m := manifest.New(backupID, "linux", "host", "0.9.0", "quick", []string{"config"})
+	m.Version = "0.5.0"
+	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/bak/config.json",
+			BackupPath: "test-adapter/config.json",
+			Hash:       fmt.Sprintf("sha256:%x", h),
+			Size:       int64(len(content)),
+			Mode:       0644,
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := tuiRunRestore(backupID, false)
+	if err == nil {
+		t.Fatalf("expected error for newer schema, got out: %s", out)
+	}
+	if !strings.Contains(err.Error(), "unsupported manifest schema version") {
+		t.Errorf("expected error to mention unsupported schema version, got: %v", err)
 	}
 }
