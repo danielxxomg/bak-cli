@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/danielxxomg/bak-cli/internal/adapters"
+	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
 
@@ -196,7 +197,7 @@ var _ adapters.Adapter = (*secretFixtureAdapter)(nil)
 
 func TestRun_GeneratesUsableEnvExampleFromSource(t *testing.T) { //nolint:paralleltest // uses t.Setenv
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	configtest.SetConfigHome(t, home)
 
 	configDir := filepath.Join(home, ".config", "opencode")
 	if err := os.MkdirAll(configDir, 0755); err != nil {

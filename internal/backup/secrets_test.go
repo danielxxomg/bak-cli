@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 )
 
 func TestDefaultPatterns(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
@@ -411,7 +413,7 @@ func TestScanFile_DocumentedTokenFamilies_Triangulation(t *testing.T) { //nolint
 
 func TestGenerateEnvExample_HomeRelativeHeaderAndNoAbsolutePaths(t *testing.T) { //nolint:paralleltest // uses t.Setenv
 	homeDir := t.TempDir()
-	t.Setenv("HOME", homeDir)
+	configtest.SetConfigHome(t, homeDir)
 
 	configDir := filepath.Join(homeDir, ".config", "opencode")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -467,7 +469,7 @@ func TestGenerateEnvExample_HomeRelativeHeaderAndNoAbsolutePaths(t *testing.T) {
 
 func TestGenerateEnvExample_UnreadableSourceCleanNote(t *testing.T) { //nolint:paralleltest // uses t.Setenv
 	homeDir := t.TempDir()
-	t.Setenv("HOME", homeDir)
+	configtest.SetConfigHome(t, homeDir)
 
 	missingFile := filepath.Join(homeDir, ".config", "opencode", "missing.env")
 	outputDir := t.TempDir()
