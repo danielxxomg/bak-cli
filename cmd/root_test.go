@@ -769,24 +769,20 @@ func TestTuiRunRestore_RealAction(t *testing.T) {
 	}
 }
 
-// TestTuiRunWizard_RealWizard verifies that tuiRunWizard launches the real
-// wizardModel instead of returning a hardcoded ProfileInfo.
+// TestTuiRunWizard_RealWizard verifies that tuiRunWizard is wired to the real
+// wizard instead of returning a hardcoded ProfileInfo, and that it refuses to
+// start a program without a terminal.
 func TestTuiRunWizard_RealWizard(t *testing.T) {
-	// tuiRunWizard launches tea.NewProgram(wizardModel) and returns user-selected values.
-	// In a non-TTY test, tea.NewProgram won't work — but we can verify the function
-	// no longer returns the hardcoded "default" profile by checking it returns a
-	// real implementation (the function should try to launch the wizard).
-	//
-	// The function will fail in non-TTY tests, but this proves the stub is gone.
+	// Force non-interactive explicitly instead of relying on the host probe.
+	origIsTTY := isTTY
+	isTTY = func() bool { return false }
+	t.Cleanup(func() { isTTY = origIsTTY })
+
 	_, err := tuiRunWizard()
-	// In test env without TTY, we expect either a TTY error or the real result.
-	// Either way, the hardcoded stub is removed — the function now calls real code.
-	if err != nil {
-		// Real wizard launch failed (expected in non-TTY) — stub is gone.
-		// Error from real code is different from the old silent success.
-		return
+	if err == nil {
+		t.Fatal("tuiRunWizard without a TTY must fail instead of starting a program")
 	}
-	// If it succeeds (TTY env), verify the result isn't a hardcoded stub.
-	// (Rare in test, but worth checking.)
-	t.Log("tuiRunWizard succeeded in test: real return value")
+	if !strings.Contains(err.Error(), "TTY") {
+		t.Errorf("expected a TTY error, got: %v", err)
+	}
 }

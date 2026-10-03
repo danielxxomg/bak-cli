@@ -309,6 +309,13 @@ func tuiSetActiveProfile(name string) error {
 // tuiRunWizard launches the interactive profile creation wizard.
 // Returns a ProfileInfo with the created profile data.
 func tuiRunWizard() (tui.ProfileInfo, error) {
+	// Gate on a real terminal before starting the program. Every other
+	// interactive entry point (launchWizard, pick, the restore picker, login)
+	// does this; without it a non-interactive invocation blocks on input
+	// instead of failing fast.
+	if !isTTY() {
+		return tui.ProfileInfo{}, fmt.Errorf("interactive wizard requires a terminal (TTY)")
+	}
 	m := screens.NewWizardModel("profile-create", nil) // nil providers → wizard auto-detects
 	p := tea.NewProgram(m)
 	finalModel, err := p.Run()
