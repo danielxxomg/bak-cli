@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 )
 
 func TestUndoCmd_Structure(t *testing.T) {
@@ -65,14 +67,19 @@ func TestUndoCmd_Help(t *testing.T) {
 	rootCmd.SetErr(buf)
 
 	rootCmd.SetArgs([]string{"undo", "--help"})
-	rootCmd.Execute()
+	_ = rootCmd.Execute()
 
 	output := buf.String()
 	if !strings.Contains(output, "undo") {
 		t.Fatal("help output should mention 'undo'")
 	}
-	if !strings.Contains(output, "revert") || !strings.Contains(output, "Revert") {
+	if !strings.Contains(output, "revert") && !strings.Contains(output, "Revert") {
 		t.Fatal("help output should mention revert")
+	}
+
+	cmd := findSubcommand(t, "undo")
+	if cmd != nil {
+		_ = cmd.Flags().Set("help", "false")
 	}
 }
 
@@ -100,11 +107,18 @@ func TestUndoCmd_Use(t *testing.T) {
 	if cmd.Long == "" {
 		t.Fatal("undo command should have a long description")
 	}
+	if !strings.Contains(cmd.Long, "target configuration") {
+		t.Errorf("expected Long description to mention target configuration, got: %s", cmd.Long)
+	}
+	if !strings.Contains(cmd.Long, "drift") {
+		t.Errorf("expected Long description to mention drift, got: %s", cmd.Long)
+	}
 }
 
 // --- runUndo execution tests ---
 
 func TestRunUndoWithDeps_Delegation(t *testing.T) {
+	configtest.SetConfigHome(t, t.TempDir())
 	// Verify runUndoWithDeps creates UndoAction and delegates without panic.
 	deps, _, _ := setupTestDeps(t)
 
@@ -114,11 +128,9 @@ func TestRunUndoWithDeps_Delegation(t *testing.T) {
 	}
 	err := runUndoWithDeps(cmd, nil, deps)
 
-	// Undo requires a git repo in ~/.bak. If none exists, it errors.
-	// The key assertion: the wrapper successfully delegated — no nil panic.
+	// In an isolated home without .bak repo, undo must return a repository error.
 	if err == nil {
-		t.Log("undo succeeded — .bak git repo exists")
-		return
+		t.Fatal("expected error from undo delegation in empty isolated home, got nil")
 	}
 	errStr := err.Error()
 	if !strings.Contains(errStr, "repository") &&
@@ -131,6 +143,12 @@ func TestRunUndoWithDeps_Delegation(t *testing.T) {
 }
 
 func TestRunUndo_NoBakRepo(t *testing.T) {
+	configtest.SetConfigHome(t, t.TempDir())
+	cmd := findSubcommand(t, "undo")
+	if cmd != nil {
+		cmd.InitDefaultHelpFlag()
+		_ = cmd.Flags().Set("help", "false")
+	}
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
 	rootCmd.SetOut(bufOut)
@@ -140,8 +158,7 @@ func TestRunUndo_NoBakRepo(t *testing.T) {
 	err := rootCmd.Execute()
 
 	if err == nil {
-		t.Log("undo succeeded — .bak repo may already exist")
-		return
+		t.Fatalf("expected error in empty isolated home without bak repo, got nil (stdout: %q, stderr: %q)", bufOut.String(), bufErr.String())
 	}
 
 	errStr := err.Error()
@@ -151,6 +168,7 @@ func TestRunUndo_NoBakRepo(t *testing.T) {
 }
 
 func TestRunUndo_ExtraArgs(t *testing.T) {
+	configtest.SetConfigHome(t, t.TempDir())
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
 	rootCmd.SetOut(bufOut)

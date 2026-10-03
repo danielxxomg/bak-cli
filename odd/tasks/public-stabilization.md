@@ -155,11 +155,11 @@ The user authorized F2 real restore/undo recovery and confirmed that undo must r
   - Native review: post-commit assess (`--base-ref 1413423 --committed-only`, untracked excluded) → `high`/`review_due`. Returned preflight STATUS requires `intended_untracked_selection` collect for pre-existing untracked `.codegraph/.gitignore` and `openspec/changes/product-deep-audit/deep-verify-total.md` (neither in candidate); same unpublished-schema block as T5, no submission attempted to avoid blind retries. No START, consent, or approval exists; review boundary stays at `1413423`.
   - GGA pending: initial unstaged invocation inspected no matching files; intended paths are now staged but effective GGA validation has not run. Native assessment was high/unassessable due undeclared untracked inventory; no consent or approval exists.
 
-- [ ] **T14 — F2.2: Undo actual target files with drift protection**
-  - Project a history-preserving revert back to the affected target files, restoring pre-existing absence and permissions.
-  - Refuse subsequent target changes before mutation; fail honestly on recovery/projection errors and preserve evidence.
-  - Route: delegated direct, reusing the bounded recovery architecture; exact edit surfaces and tests are derived before launch.
-  - Verification and local commit identity: pending.
+- [x] **T14 — F2.2: Undo actual target files with drift protection** (commit pending, on `feat/f2-target-recovery`)
+  - `bak undo` (zero-arg, no new flags) reverts the latest applied recovery point: drift-checks every post-state entry (bytes SHA-256, mode, absence, regular-file, symlink ancestors, pre-snapshot hash) before any write, aborts zero-write on mismatch, projects pre-state (bytes, zero-mode, absence), records `undone` + linear undo commit in the recovery repo. No pruning, no force bypass, sanitized identifiers.
+  - Slices: T14a recovery helpers + unit tests (RED→GREEN observed); T14b action/CLI/e2e/docs wiring (RED→GREEN observed); hardening round fixed 11 lint issues, failed-state persistence, PointID binding, pre/post correspondence, cmd home isolation.
+  - Verification of record: focused undo/recovery suites PASS, `actions`/`cmd` PASS, race PASS, full `go test ./...` 28 packages PASS, `go vet`/`go build` clean, `cover-pkg.sh` PASS (all 26 internal ≥80%, `internal/actions` 87.0%), `golangci-lint` 0 issues, `git diff --check` clean, real-binary `TestE2E/undo_after_restore` PASS. Parent spot-checked focused suites + e2e green.
+  - Review/commit identity: pending (assess after commit; boundary still `1413423`).
 
 - [ ] **T15 — F2 closure proof and documentation**
   - Run applicable suites, coverage, lint, GGA, and real-binary checks; distinguish Linux proof from pending cross-platform proof.

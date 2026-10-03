@@ -1,31 +1,61 @@
-# undo after restore roundtrip
-# Sets up a git repository in .bak/ with two commits, runs bak undo,
-# and verifies the working tree reverts to the previous state.
+# undo after restore roundtrip with real target recovery and drift protection
+# Sets up a git repository in .bak/, creates a real backup, modifies targets,
+# restores them, tests fail-closed drift protection, and verifies real target revert.
 
 # Initialize git repository in .bak/
 exec git init .bak
 exec git -C .bak config user.email test@bak-cli.local
 exec git -C .bak config user.name bak-test
 
-# First commit: initial state (v1).
+# Initial commit in .bak/ so HEAD exists for git revert.
 cp test-v1.txt .bak/test.txt
 exec git -C .bak add test.txt
 exec git -C .bak commit -m bak:initial
-
-# Second commit: modified state (v2).
 cp test-v2.txt .bak/test.txt
 exec git -C .bak add test.txt
 exec git -C .bak commit -m bak:modified
 
-# Run bak undo — should revert the last commit.
+# Run real backup with quick preset.
+exec bak backup --preset quick
+stdout 'Backup created:'
+
+# Capture the backup ID.
+exec sh -c 'ls .bak/backups/ | head -1 > $WORK/bak_id.txt'
+
+# Modify target AGENTS.md before restore (this will be the pre-restore state).
+exec sh -c 'printf "pre-restore-agents\n" > $HOME/.config/opencode/AGENTS.md'
+
+# Restore with --force to apply backed-up state and create recovery point.
+exec sh -c 'ID=$(cat $WORK/bak_id.txt) && bak restore --force $ID'
+stdout 'Restore complete'
+
+# Target was restored to backed-up content (# Agents).
+exec grep 'Agents' $HOME/.config/opencode/AGENTS.md
+
+# --- Drift test case ---
+# Mutate target to introduce drift after restore.
+exec sh -c 'printf "drifted-agents\n" > $HOME/.config/opencode/AGENTS.md'
+
+# Undo must fail closed on drift and touch zero files.
+! exec bak undo
+stderr 'drift'
+
+# Verify target was not modified by the rejected undo attempt.
+exec grep 'drifted-agents' $HOME/.config/opencode/AGENTS.md
+
+# --- Clean undo case ---
+# Align target back to post-restore state (# Agents).
+exec sh -c 'printf "# Agents\n" > $HOME/.config/opencode/AGENTS.md'
+
+# Run bak undo — should project pre-state back to targets.
 exec bak undo
 stdout 'Reverted to previous state'
+stdout 'reverted: ~/.config/opencode/AGENTS.md'
 
-# Verify the working tree file content is back to v1.
-exec git -C .bak show HEAD:test.txt
-stdout 'v1'
+# Verify the real target file was restored to its pre-restore state.
+exec grep 'pre-restore-agents' $HOME/.config/opencode/AGENTS.md
 
-# Verify the revert commit message follows bak convention.
+# Verify the bak git repository commit was reverted.
 exec git -C .bak log -1 --format=%s
 stdout 'bak: undo'
 

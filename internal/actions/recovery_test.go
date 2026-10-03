@@ -2,6 +2,7 @@ package actions
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,9 +12,11 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/danielxxomg/bak-cli/internal/git"
 	"github.com/danielxxomg/bak-cli/internal/manifest"
+	"github.com/danielxxomg/bak-cli/internal/paths"
 	restorepkg "github.com/danielxxomg/bak-cli/internal/restore"
 )
 
@@ -1195,5 +1198,696 @@ func TestRecoveryManager_RealChangedModeRestoration(t *testing.T) { //nolint:par
 	}
 	if fi.Mode().Perm() != 0755 {
 		t.Errorf("target mode was not restored to 0755: got %v", fi.Mode().Perm())
+	}
+}
+
+func TestRecovery_FindLatestAppliedPoint(t *testing.T) {
+	t.Parallel()
+
+	writeMeta := func(recBase, pointID string, meta recoveryMetadata) {
+		pDir := filepath.Join(recBase, pointID, "repo")
+		if err := os.MkdirAll(pDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		data, err := json.MarshalIndent(meta, "", "  ")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(pDir, "recovery-meta.json"), data, 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	tests := []struct {
+		name          string
+		setup         func(recBase string)
+		overrideBase  func(home string) string
+		wantErrIs     error
+		wantPointID   string
+		expectErrFrag string
+	}{
+		{
+			name:  "none when directory does not exist",
+			setup: func(string) {},
+			overrideBase: func(home string) string {
+				return filepath.Join(home, ".bak", "nonexistent")
+			},
+			wantErrIs: errNoAppliedPoint,
+		},
+		{
+			name: "none when directory is empty",
+			setup: func(recBase string) {
+				_ = os.MkdirAll(recBase, 0755)
+			},
+			wantErrIs: errNoAppliedPoint,
+		},
+		{
+			name: "skip non-applied points",
+			setup: func(recBase string) {
+				t0 := time.Now().UTC()
+				writeMeta(recBase, "p-prepared", recoveryMetadata{PointID: "p-prepared", Status: "prepared", CreatedAt: t0})
+				writeMeta(recBase, "p-failed", recoveryMetadata{PointID: "p-failed", Status: "failed", CreatedAt: t0.Add(time.Minute)})
+				writeMeta(recBase, "p-rolledback", recoveryMetadata{PointID: "p-rolledback", Status: "rolled_back", CreatedAt: t0.Add(2 * time.Minute)})
+				writeMeta(recBase, "p-undone", recoveryMetadata{PointID: "p-undone", Status: "undone", CreatedAt: t0.Add(3 * time.Minute)})
+			},
+			wantErrIs: errNoAppliedPoint,
+		},
+		{
+			name: "skip corrupt points and find valid applied point",
+			setup: func(recBase string) {
+				t0 := time.Now().UTC()
+				// Corrupt: invalid JSON
+				corruptDir := filepath.Join(recBase, "p-corrupt", "repo")
+				_ = os.MkdirAll(corruptDir, 0755)
+				_ = os.WriteFile(filepath.Join(corruptDir, "recovery-meta.json"), []byte("{bad json"), 0644)
+
+				// Corrupt: empty directory without meta
+				_ = os.MkdirAll(filepath.Join(recBase, "p-nometa"), 0755)
+
+				// Regular file instead of directory
+				_ = os.WriteFile(filepath.Join(recBase, "p-file"), []byte("not a dir"), 0644)
+
+				// Valid applied point
+				writeMeta(recBase, "p-valid", recoveryMetadata{PointID: "p-valid", Status: "applied", CreatedAt: t0})
+			},
+			wantPointID: "p-valid",
+		},
+		{
+			name: "sort multiple applied points by created_at desc",
+			setup: func(recBase string) {
+				t0 := time.Now().UTC()
+				writeMeta(recBase, "p-old", recoveryMetadata{PointID: "p-old", Status: "applied", CreatedAt: t0.Add(-10 * time.Minute)})
+				writeMeta(recBase, "p-newest", recoveryMetadata{PointID: "p-newest", Status: "applied", CreatedAt: t0})
+				writeMeta(recBase, "p-mid", recoveryMetadata{PointID: "p-mid", Status: "applied", CreatedAt: t0.Add(-5 * time.Minute)})
+			},
+			wantPointID: "p-newest",
+		},
+		{
+			name: "tiebreak on identical created_at by point_id desc",
+			setup: func(recBase string) {
+				t0 := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+				writeMeta(recBase, "p-alpha", recoveryMetadata{PointID: "p-alpha", Status: "applied", CreatedAt: t0})
+				writeMeta(recBase, "p-omega", recoveryMetadata{PointID: "p-omega", Status: "applied", CreatedAt: t0})
+				writeMeta(recBase, "p-beta", recoveryMetadata{PointID: "p-beta", Status: "applied", CreatedAt: t0})
+			},
+			wantPointID: "p-omega",
+		},
+		{
+			name:  "recovery base escaping home directory rejected",
+			setup: func(string) {},
+			overrideBase: func(home string) string {
+				return t.TempDir()
+			},
+			expectErrFrag: "escapes home directory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			home := t.TempDir()
+			storageFS := newHomeFS(home)
+			recBase := filepath.Join(home, ".bak", "recovery")
+			if tt.overrideBase != nil {
+				recBase = tt.overrideBase(home)
+			}
+			tt.setup(recBase)
+
+			meta, err := findLatestAppliedPoint(storageFS, recBase, home)
+			if tt.wantErrIs != nil {
+				if !errors.Is(err, tt.wantErrIs) {
+					t.Fatalf("expected error %v, got %v", tt.wantErrIs, err)
+				}
+				return
+			}
+			if tt.expectErrFrag != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.expectErrFrag) {
+					t.Fatalf("expected error containing %q, got %v", tt.expectErrFrag, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if meta == nil || meta.PointID != tt.wantPointID {
+				t.Fatalf("expected PointID %q, got %+v", tt.wantPointID, meta)
+			}
+		})
+	}
+}
+
+func setupUndoTestScenario(t *testing.T) (*recoveryManager, string, string, string) {
+	t.Helper()
+	home := t.TempDir()
+	fs := newHomeFS(home)
+	recDir := filepath.Join(home, ".bak", "recovery")
+
+	// Target 1: existed prior to restore with "orig1"
+	t1 := filepath.Join(home, "file1.txt")
+	if err := os.WriteFile(t1, []byte("orig1\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Target 2: will be a new file created by restore
+	t2 := filepath.Join(home, "file2.txt")
+
+	rm := &recoveryManager{
+		FS:          fs,
+		StorageFS:   fs,
+		HomeDir:     home,
+		BackupID:    "b-undo-test",
+		RecoveryDir: recDir,
+	}
+
+	diffs := []restorepkg.FileDiff{
+		{Status: restorepkg.DiffModified, TargetPath: t1},
+		{Status: restorepkg.DiffNew, TargetPath: t2},
+	}
+	if err := rm.Prepare(diffs); err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+
+	// Simulate restore apply: t1 modified to "post1", t2 created with "post2"
+	if err := os.WriteFile(t1, []byte("post1\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(t2, []byte("post2\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := rm.RecordPostState(); err != nil {
+		t.Fatalf("record post state: %v", err)
+	}
+
+	return rm, home, t1, t2
+}
+
+func TestRecovery_CheckUndoDrift(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name          string
+		mutate        func(rm *recoveryManager, home, t1, t2 string)
+		expectErrFrag string
+		skipWindows   bool
+	}{
+		{
+			name:   "clean state with zero drift passes",
+			mutate: func(rm *recoveryManager, home, t1, t2 string) {},
+		},
+		{
+			name: "content drift on t1 rejected",
+			mutate: func(rm *recoveryManager, home, t1, t2 string) {
+				if err := os.WriteFile(t1, []byte("user-drift-content\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectErrFrag: "content mismatch",
+		},
+		{
+			name: "mode drift on t1 rejected",
+			mutate: func(rm *recoveryManager, home, t1, t2 string) {
+				if err := os.Chmod(t1, 0755); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectErrFrag: "mode mismatch",
+			skipWindows:   true,
+		},
+		{
+			name: "deletion drift on t1 rejected",
+			mutate: func(rm *recoveryManager, home, t1, t2 string) {
+				if err := os.Remove(t1); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectErrFrag: "missing",
+		},
+		{
+			name: "unexpected existence drift when post was absent rejected",
+			mutate: func(rm *recoveryManager, home, t1, t2 string) {
+				// Mark t2 post-state as not existed, but leave file on disk
+				cleanT2 := paths.CanonicalPath(t2)
+				post := rm.Meta.TargetPostMap[cleanT2]
+				post.Existed = false
+				rm.Meta.TargetPostMap[cleanT2] = post
+			},
+			expectErrFrag: "expected ~/file2.txt to be absent",
+		},
+		{
+			name: "symlink drift on t1 rejected",
+			mutate: func(rm *recoveryManager, home, t1, t2 string) {
+				if err := os.Remove(t1); err != nil {
+					t.Fatal(err)
+				}
+				target := filepath.Join(home, "other.txt")
+				_ = os.WriteFile(target, []byte("x"), 0644)
+				if err := os.Symlink(target, t1); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectErrFrag: "symlink",
+			skipWindows:   true,
+		},
+		{
+			name: "directory replacement drift on t1 rejected",
+			mutate: func(rm *recoveryManager, home, t1, t2 string) {
+				if err := os.Remove(t1); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Mkdir(t1, 0755); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectErrFrag: "directory",
+		},
+		{
+			name: "tampered pre snapshot in recovery repo rejected",
+			mutate: func(rm *recoveryManager, home, t1, t2 string) {
+				preSnap := filepath.Join(rm.RepoDir, "snapshots", "pre", opaquePayloadName("file1.txt"))
+				if err := os.WriteFile(preSnap, []byte("tampered-pre"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectErrFrag: "tampered or corrupted",
+		},
+		{
+			name: "missing pre snapshot in recovery repo rejected",
+			mutate: func(rm *recoveryManager, home, t1, t2 string) {
+				preSnap := filepath.Join(rm.RepoDir, "snapshots", "pre", opaquePayloadName("file1.txt"))
+				if err := os.Remove(preSnap); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectErrFrag: "pre-snapshot",
+		},
+		{
+			name: "symlink ancestor drift on nested target rejected",
+			mutate: func(rm *recoveryManager, home, t1, t2 string) {
+				nestedDir := filepath.Join(home, "sub")
+				if err := os.Mkdir(nestedDir, 0755); err != nil {
+					t.Fatal(err)
+				}
+				nestedTarget := filepath.Join(nestedDir, "nested.txt")
+				if err := os.WriteFile(nestedTarget, []byte("nest"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				cleanNT := paths.CanonicalPath(nestedTarget)
+				h := sha256.Sum256([]byte("nest"))
+				rm.Meta.TargetPostMap[cleanNT] = targetPostState{
+					TargetPath: nestedTarget,
+					RelPath:    "sub/nested.txt",
+					Existed:    true,
+					Mode:       0644,
+					SHA256:     fmt.Sprintf("sha256:%x", h),
+				}
+				rm.Meta.TargetPreMap[cleanNT] = targetPreState{
+					TargetPath: nestedTarget,
+					RelPath:    "sub/nested.txt",
+					Existed:    true,
+					Mode:       0644,
+					SHA256:     fmt.Sprintf("sha256:%x", h),
+				}
+				preSnap := filepath.Join(rm.RepoDir, "snapshots", "pre", opaquePayloadName("sub/nested.txt"))
+				_ = os.MkdirAll(filepath.Dir(preSnap), 0755)
+				_ = os.WriteFile(preSnap, []byte("nest"), 0600)
+
+				otherDir := t.TempDir()
+				_ = os.RemoveAll(nestedDir)
+				if err := os.Symlink(otherDir, nestedDir); err != nil {
+					t.Fatal(err)
+				}
+			},
+			expectErrFrag: "symlink",
+			skipWindows:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if tt.skipWindows && isWindows() {
+				t.Skip("skipping on Windows")
+			}
+			rm, home, t1, t2 := setupUndoTestScenario(t)
+			tt.mutate(rm, home, t1, t2)
+
+			// Read file stats before check to assert ZERO writes
+			stat1Before, _ := os.Stat(t1)
+			stat2Before, _ := os.Stat(t2)
+
+			err := rm.CheckUndoDrift()
+			if tt.expectErrFrag != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.expectErrFrag) {
+					t.Fatalf("expected error containing %q, got %v", tt.expectErrFrag, err)
+				}
+				// Assert ZERO writes occurred
+				stat1After, _ := os.Stat(t1)
+				stat2After, _ := os.Stat(t2)
+				if (stat1Before == nil) != (stat1After == nil) {
+					t.Fatal("file1 existence changed during drift check")
+				}
+				if (stat2Before == nil) != (stat2After == nil) {
+					t.Fatal("file2 existence changed during drift check")
+				}
+			} else if err != nil {
+				t.Fatalf("unexpected drift error: %v", err)
+			}
+		})
+	}
+}
+
+func TestRecovery_UndoTargets_Success(t *testing.T) { //nolint:paralleltest // shared state
+	rm, home, t1, t2 := setupUndoTestScenario(t)
+
+	// Additional target: mode 0000 restored
+	t3 := filepath.Join(home, "mode0000.txt")
+	if err := os.WriteFile(t3, []byte("mode0000-orig"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cleanT3 := paths.CanonicalPath(t3)
+	h3 := sha256.Sum256([]byte("mode0000-orig"))
+	rm.Meta.TargetPreMap[cleanT3] = targetPreState{
+		TargetPath: t3,
+		RelPath:    "mode0000.txt",
+		Existed:    true,
+		Mode:       0000,
+		SHA256:     fmt.Sprintf("sha256:%x", h3),
+	}
+	t3Snap := filepath.Join(rm.RepoDir, "snapshots", "pre", opaquePayloadName("mode0000.txt"))
+	if err := os.WriteFile(t3Snap, []byte("mode0000-orig"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	rm.Meta.TargetPostMap[cleanT3] = targetPostState{
+		TargetPath: t3,
+		RelPath:    "mode0000.txt",
+		Existed:    true,
+		Mode:       0644,
+		SHA256:     fmt.Sprintf("sha256:%x", h3),
+	}
+
+	outcome, err := rm.UndoTargets()
+	if err != nil {
+		t.Fatalf("unexpected undo error: %v (errors: %v)", err, outcome.Errors)
+	}
+
+	// 1. Target 1 reverted to original bytes
+	data1, err := os.ReadFile(t1)
+	if err != nil {
+		t.Fatalf("read t1: %v", err)
+	}
+	if string(data1) != "orig1\n" {
+		t.Errorf("expected t1 to have 'orig1\\n', got %q", string(data1))
+	}
+
+	// 2. Target 2 was new, so it must be absent after undo
+	if _, err := os.Stat(t2); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("expected t2 to be removed/absent, found: %v", err)
+	}
+
+	// 3. Target 3 mode checked (non-Windows)
+	if !isWindows() {
+		fi3, err := os.Stat(t3)
+		if err != nil {
+			t.Fatalf("stat t3: %v", err)
+		}
+		if fi3.Mode().Perm() != 0000 {
+			t.Errorf("expected t3 mode 0000, got %04o", fi3.Mode().Perm())
+		}
+	}
+
+	// 4. Status is undone
+	if rm.Meta.Status != "undone" {
+		t.Errorf("expected status undone, got %q", rm.Meta.Status)
+	}
+
+	// 5. recovery-meta.json committed with undone status
+	metaBytes, err := os.ReadFile(filepath.Join(rm.RepoDir, "recovery-meta.json"))
+	if err != nil {
+		t.Fatalf("read meta: %v", err)
+	}
+	var savedMeta recoveryMetadata
+	if err := json.Unmarshal(metaBytes, &savedMeta); err != nil {
+		t.Fatalf("unmarshal meta: %v", err)
+	}
+	if savedMeta.Status != "undone" {
+		t.Errorf("expected meta file status undone, got %q", savedMeta.Status)
+	}
+
+	// 6. Outcome accounting
+	if len(outcome.Unresolved) != 0 {
+		t.Errorf("expected 0 unresolved, got %v", outcome.Unresolved)
+	}
+	if len(outcome.Reverted) != 3 {
+		t.Errorf("expected 3 reverted targets, got %v", outcome.Reverted)
+	}
+}
+
+func TestRecovery_UndoTargets_PartialFailure(t *testing.T) { //nolint:paralleltest // shared state
+	rm, _, _, t2 := setupUndoTestScenario(t)
+
+	// Mutate t2 to be a directory: rollbackNewTarget will refuse to remove it!
+	if err := os.Remove(t2); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(t2, 0755); err != nil {
+		t.Fatal(err)
+	}
+	userFile := filepath.Join(t2, "preserve-me.txt")
+	if err := os.WriteFile(userFile, []byte("precious"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Update t2 post-state so drift check passes for existence
+	cleanT2 := paths.CanonicalPath(t2)
+	post := rm.Meta.TargetPostMap[cleanT2]
+	post.SHA256 = "" // skip hash check on dir if not checked
+	rm.Meta.TargetPostMap[cleanT2] = post
+
+	// Call rollbackTarget directly or let UndoTargets execute
+	outcome, err := rm.UndoTargets()
+	if err == nil {
+		t.Fatal("expected error on partial failure, got nil")
+	}
+
+	// Assert Status is failed
+	if rm.Meta.Status != "failed" {
+		t.Errorf("expected status failed, got %q", rm.Meta.Status)
+	}
+
+	// Reverted/Unresolved accounting
+	if len(outcome.Unresolved) == 0 {
+		t.Errorf("expected unresolved target for directory refusal, got %v", outcome.Unresolved)
+	}
+	if len(outcome.Errors) == 0 {
+		t.Error("expected non-empty outcome.Errors")
+	}
+
+	// User directory and file must be preserved
+	if _, err := os.Stat(userFile); err != nil {
+		t.Errorf("user file was damaged during partial failure: %v", err)
+	}
+}
+
+func TestRecovery_UndoTargets_TamperRefused(t *testing.T) { //nolint:paralleltest // shared state
+	rm, _, t1, _ := setupUndoTestScenario(t)
+
+	// Tamper pre-snapshot for t1
+	preSnap := filepath.Join(rm.RepoDir, "snapshots", "pre", opaquePayloadName("file1.txt"))
+	if err := os.WriteFile(preSnap, []byte("tampered-bytes"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	outcome, err := rm.UndoTargets()
+	if err == nil {
+		t.Fatal("expected error when pre-snapshot is tampered, got nil")
+	}
+	if rm.Meta.Status != "failed" {
+		t.Errorf("expected status failed, got %q", rm.Meta.Status)
+	}
+	if len(outcome.Unresolved) == 0 {
+		t.Fatalf("expected unresolved targets on tampered snapshot, got %v", outcome.Reverted)
+	}
+	// Assert live file t1 was NOT modified to tampered bytes
+	data, _ := os.ReadFile(t1)
+	if string(data) == "tampered-bytes" {
+		t.Fatal("target file was overwritten with tampered bytes")
+	}
+}
+
+func TestRecovery_ErrorPrivacy(t *testing.T) { //nolint:paralleltest // shared state
+	home := t.TempDir()
+	fs := newHomeFS(home)
+	outsideDir := t.TempDir()
+
+	// 1. findLatestAppliedPoint with escaping path
+	_, err1 := findLatestAppliedPoint(fs, outsideDir, home)
+	if err1 != nil && strings.Contains(err1.Error(), home) {
+		t.Errorf("findLatestAppliedPoint leaked home directory in error: %q", err1.Error())
+	}
+
+	// 2. CheckUndoDrift with invalid target outside home
+	rm := &recoveryManager{
+		FS:        fs,
+		StorageFS: fs,
+		HomeDir:   home,
+		Meta: recoveryMetadata{
+			Status: "applied",
+			TargetPostMap: map[string]targetPostState{
+				filepath.Join(outsideDir, "out.txt"): {
+					TargetPath: filepath.Join(outsideDir, "out.txt"),
+					Existed:    true,
+				},
+			},
+		},
+	}
+	err2 := rm.CheckUndoDrift()
+	if err2 != nil && strings.Contains(err2.Error(), home) {
+		t.Errorf("CheckUndoDrift leaked home directory in error: %q", err2.Error())
+	}
+
+	// 3. UndoTargets with escaping target in pre-map
+	rm3 := &recoveryManager{
+		FS:        fs,
+		StorageFS: fs,
+		HomeDir:   home,
+		PointID:   "rec-privacy",
+		PointDir:  filepath.Join(home, ".bak", "recovery", "rec-privacy"),
+		RepoDir:   filepath.Join(home, ".bak", "recovery", "rec-privacy", "repo"),
+		Meta: recoveryMetadata{
+			PointID: "rec-privacy",
+			Status:  "applied",
+			TargetPreMap: map[string]targetPreState{
+				filepath.Join(outsideDir, "out.txt"): {
+					TargetPath: filepath.Join(outsideDir, "out.txt"),
+					Existed:    true,
+				},
+			},
+		},
+	}
+	_, err3 := rm3.UndoTargets()
+	if err3 != nil && strings.Contains(err3.Error(), home) {
+		t.Errorf("UndoTargets leaked home directory in error: %q", err3.Error())
+	}
+}
+
+func TestRecovery_UndoTargets_PersistFailedStateMetadata_OnGitFailure(t *testing.T) {
+	t.Parallel()
+	rm, _, _, _ := setupUndoTestScenario(t)
+	// Corrupt git repo so git.OpenRepo fails
+	_ = os.RemoveAll(filepath.Join(rm.RepoDir, ".git"))
+
+	outcome, err := rm.UndoTargets()
+	if err == nil {
+		t.Fatal("expected error on git open failure, got nil")
+	}
+	if rm.Meta.Status != "failed" {
+		t.Errorf("expected in-memory status failed, got %q", rm.Meta.Status)
+	}
+
+	// Verify that recovery-meta.json on disk was updated with Status = "failed"
+	metaBytes, readErr := os.ReadFile(filepath.Join(rm.RepoDir, "recovery-meta.json"))
+	if readErr != nil {
+		t.Fatalf("read recovery-meta.json: %v", readErr)
+	}
+	var diskMeta recoveryMetadata
+	if err := json.Unmarshal(metaBytes, &diskMeta); err != nil {
+		t.Fatalf("unmarshal recovery-meta.json: %v", err)
+	}
+	if diskMeta.Status != "failed" {
+		t.Errorf("expected on-disk status failed, got %q", diskMeta.Status)
+	}
+	if len(outcome.Errors) == 0 {
+		t.Error("expected outcome.Errors to contain git failure")
+	}
+}
+
+func TestRecovery_UndoTargets_PersistFailedStateMetadata_WriteErrorSurfaced(t *testing.T) {
+	t.Parallel()
+	rm, _, _, _ := setupUndoTestScenario(t)
+	// Corrupt git repo so git.OpenRepo fails
+	_ = os.RemoveAll(filepath.Join(rm.RepoDir, ".git"))
+
+	// Inject storageFS that fails when writing recovery-meta.json
+	rm.StorageFS = &pathErrorStorageFS{
+		FileSystem:  &OSFileSystem{},
+		failOnWrite: "recovery-meta.json",
+	}
+
+	outcome, err := rm.UndoTargets()
+	if err == nil {
+		t.Fatal("expected error on git failure + metadata write failure, got nil")
+	}
+	foundWriteErr := false
+	for _, e := range outcome.Errors {
+		if strings.Contains(e.Error(), "write") || strings.Contains(e.Error(), "recovery-meta.json") {
+			foundWriteErr = true
+			break
+		}
+	}
+	if !foundWriteErr {
+		t.Errorf("expected metadata write error in outcome.Errors, got %v", outcome.Errors)
+	}
+}
+
+func TestRecovery_FindLatestAppliedPoint_MismatchedPointID_Skipped(t *testing.T) {
+	t.Parallel()
+	home := t.TempDir()
+	fs := newHomeFS(home)
+	recBase := filepath.Join(home, ".bak", "recovery")
+
+	pointDir := filepath.Join(recBase, "real-entry-id", "repo")
+	if err := os.MkdirAll(pointDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Metadata inside real-entry-id claims PointID is spoofed-other-id
+	meta := recoveryMetadata{
+		PointID:   "spoofed-other-id",
+		Status:    "applied",
+		CreatedAt: time.Now(),
+	}
+	data, _ := json.MarshalIndent(meta, "", "  ")
+	_ = os.WriteFile(filepath.Join(pointDir, "recovery-meta.json"), data, 0644)
+
+	res, err := findLatestAppliedPoint(fs, recBase, home)
+	if !errors.Is(err, errNoAppliedPoint) {
+		t.Fatalf("expected errNoAppliedPoint when PointID does not match directory name, got res=%v, err=%v", res, err)
+	}
+}
+
+func TestRecovery_CheckUndoDrift_PrePostCorrespondenceMismatch(t *testing.T) {
+	t.Parallel()
+	rm, home, t1, _ := setupUndoTestScenario(t)
+	cleanT1 := paths.CanonicalPath(t1)
+
+	// Tamper pre-state so pre.TargetPath points to a different file
+	spoofedTarget := filepath.Join(home, "other-file.txt")
+	pre := rm.Meta.TargetPreMap[cleanT1]
+	pre.TargetPath = spoofedTarget
+	rm.Meta.TargetPreMap[cleanT1] = pre
+
+	err := rm.CheckUndoDrift()
+	if err == nil || !strings.Contains(err.Error(), "correspondence") {
+		t.Fatalf("expected error containing 'correspondence', got %v", err)
+	}
+}
+
+func TestRecovery_UndoTargets_PrePostCorrespondenceMismatch(t *testing.T) {
+	t.Parallel()
+	rm, home, t1, _ := setupUndoTestScenario(t)
+	cleanT1 := paths.CanonicalPath(t1)
+
+	// Tamper pre-state so pre.TargetPath points to a different file
+	spoofedTarget := filepath.Join(home, "other-file.txt")
+	pre := rm.Meta.TargetPreMap[cleanT1]
+	pre.TargetPath = spoofedTarget
+	rm.Meta.TargetPreMap[cleanT1] = pre
+
+	outcome, err := rm.UndoTargets()
+	if err == nil || !strings.Contains(err.Error(), "correspondence") {
+		t.Fatalf("expected error containing 'correspondence', got %v (outcome errors: %v)", err, outcome.Errors)
+	}
+	// Assert live target was not touched
+	if _, statErr := os.Stat(spoofedTarget); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("expected spoofed target not to exist, got stat err: %v", statErr)
 	}
 }

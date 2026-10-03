@@ -97,7 +97,7 @@ Restore operations are protected by private local target recovery snapshots:
 Local backup operations are protected by Git history tracking within `~/.bak`:
 
 - **Scoped to `~/.bak`**: Git tracking is initialized within `~/.bak` to track local backup metadata and snapshots. Target configuration directories (such as `~/.config/opencode/`) are not auto-committed to Git by bak during restore operations (`GitDir` integration on target configs is unwired).
-- **`bak undo`**: Reverts the last state in the `~/.bak` repository via `git revert` — safe, non-destructive, and history-preserving.
+- **`bak undo`**: Reverts the last restore operation by restoring target configuration files to their pre-restore state using recovery point metadata, and records a `git revert` commit in the `~/.bak` repository — safe, non-destructive, and history-preserving.
 - **No force-push**: The tool never force-pushes or rewrites Git history.
 
 ### Dry-Run and Confirmation
@@ -119,7 +119,7 @@ This prevents accidental overwrites. There is no silent restoration path.
 ## Known Limitations
 
 - **Local Git required for undo**: The `bak undo` feature requires Git to be installed and operates on the `~/.bak` repository.
-- **Target undo limitation (pending T14)**: Target recovery and automatic rollback protect active restore failures. However, user-initiated `bak undo` currently operates on the `~/.bak` repository only and does not yet project reverts back to external target configuration files. Target-level undo with drift protection is deferred to a future stabilization unit (T14).
+- **Target undo & drift protection**: `bak undo` projects pre-restore snapshots back to target configuration files and requires an exact match with post-restore state. If any target file has drifted (content changed, deleted, permission modified, or replaced with a directory or symlink), `bak undo` refuses all changes before writing any file. Best-effort limits: target undo requires un-drifted local state and a valid applied recovery point; concurrent external modifications during undo are not race-proof.
 - **Token in environment**: `GITHUB_TOKEN` and other cloud provider credentials passed via environment variables are readable by any process with access to the user's environment.
 - **Local backups at rest**: Backups stored locally under `~/.bak/backups/` are **never** encrypted on disk. AES-256-GCM encryption applies exclusively to cloud push/pull archives when configured per profile. Users must rely on OS filesystem permissions and full-disk encryption for local backup confidentiality.
 
