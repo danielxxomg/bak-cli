@@ -71,6 +71,11 @@ func TestRestoreCmd_Args(t *testing.T) {
 }
 
 func TestRestoreCmd_Help(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -158,6 +163,11 @@ func TestRunRestoreWithDeps_BackupNotFound(t *testing.T) {
 }
 
 func TestRunRestore_MissingArgs(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	configtest.SetConfigHome(t, t.TempDir())
 	// Reset rootCmd and restoreCmd state to avoid help-flag leakage
 	// from previous tests (e.g., TestRestoreCmd_Help). pflag doesn't
@@ -202,6 +212,11 @@ func TestRunRestore_MissingArgs(t *testing.T) {
 // does not leak state into subsequent Execute() calls on the shared
 // restoreCmd. This tests the isolation fix for TestRunRestore_MissingArgs.
 func TestRestoreHelpFollowedByExecute(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	// Step 1: Run --help on restore (like TestRestoreCmd_Help does).
 	buf1 := new(bytes.Buffer)
 	rootCmd.SetOut(buf1)
@@ -264,6 +279,11 @@ func TestRunRestore_FlagVariants(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Cleanup(func() {
+				rootCmd.SetOut(nil)
+				rootCmd.SetErr(nil)
+				rootCmd.SetArgs(nil)
+			})
 			configtest.SetConfigHome(t, t.TempDir())
 			bufOut := new(bytes.Buffer)
 			bufErr := new(bytes.Buffer)
@@ -285,6 +305,11 @@ func TestRunRestore_FlagVariants(t *testing.T) {
 }
 
 func TestRunRestore_VerboseFlagExists(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	// --verbose exists as a cobra PersistentFlag registered in root.go.
 	// Verify it is available as a global/persistent flag concept.
 	// The flag is registered in Execute() at runtime; in tests we check
@@ -450,12 +475,14 @@ func TestRunRestoreWithDeps_TamperedManifestWithForceFails(t *testing.T) {
 	}
 
 	// Set --force flag.
+	origForce := restoreForce
+	origDryRun := restoreDryRun
+	t.Cleanup(func() {
+		restoreForce = origForce
+		restoreDryRun = origDryRun
+	})
 	restoreForce = true
 	restoreDryRun = false
-	defer func() {
-		restoreForce = false
-		restoreDryRun = false
-	}()
 
 	err := runRestoreWithDeps(cmd, []string{backupID}, deps)
 	if err == nil {
@@ -515,12 +542,14 @@ func TestRunRestoreWithDeps_RecoveryPointCreatedOnApply(t *testing.T) {
 		t.Fatal("restore command not found")
 	}
 
+	origForce := restoreForce
+	origDryRun := restoreDryRun
+	t.Cleanup(func() {
+		restoreForce = origForce
+		restoreDryRun = origDryRun
+	})
 	restoreForce = true
 	restoreDryRun = false
-	defer func() {
-		restoreForce = false
-		restoreDryRun = false
-	}()
 
 	err := runRestoreWithDeps(cmd, []string{backupID}, deps)
 	if err != nil {
@@ -576,15 +605,17 @@ func TestRunRestoreWithDeps_BakVersionMismatchWarning(t *testing.T) {
 	}
 
 	oldVersion := Version
+	t.Cleanup(func() { Version = oldVersion })
 	Version = "2.0.0"
-	defer func() { Version = oldVersion }()
 
+	origForce := restoreForce
+	origDryRun := restoreDryRun
+	t.Cleanup(func() {
+		restoreForce = origForce
+		restoreDryRun = origDryRun
+	})
 	restoreForce = true
 	restoreDryRun = false
-	defer func() {
-		restoreForce = false
-		restoreDryRun = false
-	}()
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	deps := cmdDeps{
@@ -646,12 +677,14 @@ func TestRunRestoreWithDeps_NewerSchemaFailsClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	origForce := restoreForce
+	origDryRun := restoreDryRun
+	t.Cleanup(func() {
+		restoreForce = origForce
+		restoreDryRun = origDryRun
+	})
 	restoreForce = true
 	restoreDryRun = false
-	defer func() {
-		restoreForce = false
-		restoreDryRun = false
-	}()
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	deps := cmdDeps{

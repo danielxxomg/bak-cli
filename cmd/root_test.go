@@ -53,6 +53,11 @@ func TestRootCmd_HasSubcommands(t *testing.T) {
 }
 
 func TestRootCmd_Help(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -114,6 +119,11 @@ func TestBackupCmd_Flags(t *testing.T) {
 }
 
 func TestBackupCmd_Help(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -158,6 +168,11 @@ func TestVersionCmd_Structure(t *testing.T) {
 }
 
 func TestVersionCmd_Help(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -417,6 +432,11 @@ func TestVersionIsNonEmpty(t *testing.T) {
 // --- Execute tests ---
 
 func TestExecute_Help(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	// Test root command --help execution.
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
@@ -435,6 +455,11 @@ func TestExecute_Help(t *testing.T) {
 }
 
 func TestExecute_NoSubcommand(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
 	rootCmd.SetOut(bufOut)
@@ -470,13 +495,22 @@ func TestExecute_NoSubcommand(t *testing.T) {
 func TestExecute_VerboseFlag(t *testing.T) {
 	// The --verbose flag is added in the Execute() function (root.go).
 	// Test that it works after execution.
+	origVerbose := verbose
+	t.Cleanup(func() {
+		verbose = origVerbose
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
 	rootCmd.SetOut(bufOut)
 	rootCmd.SetErr(bufErr)
 
 	// Add the persistent verbose flag like Execute() does.
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+	if rootCmd.PersistentFlags().Lookup("verbose") == nil {
+		rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+	}
 
 	rootCmd.SetArgs([]string{"--help"})
 	err := rootCmd.Execute()
@@ -490,6 +524,11 @@ func TestExecute_VerboseFlag(t *testing.T) {
 }
 
 func TestExecute_UnknownCommand(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)
 	rootCmd.SetOut(bufOut)

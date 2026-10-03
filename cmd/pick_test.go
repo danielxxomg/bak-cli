@@ -13,8 +13,8 @@ import (
 func TestRunPickWithDeps_NonTTYGuard(t *testing.T) {
 	// Override isTTY to simulate non-interactive terminal.
 	origIsTTY := isTTY
+	t.Cleanup(func() { isTTY = origIsTTY })
 	isTTY = func() bool { return false }
-	defer func() { isTTY = origIsTTY }()
 
 	deps, _, _ := setupTestDeps(t)
 	cmd := &cobra.Command{}

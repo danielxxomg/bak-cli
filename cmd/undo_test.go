@@ -62,6 +62,11 @@ func TestUndoCmd_Args(t *testing.T) {
 }
 
 func TestUndoCmd_Help(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -147,6 +152,11 @@ func TestRunUndoWithDeps_Delegation(t *testing.T) {
 }
 
 func TestRunUndo_NoBakRepo(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	configtest.SetConfigHome(t, t.TempDir())
 	cmd := findSubcommand(t, "undo")
 	if cmd != nil {
@@ -174,6 +184,11 @@ func TestRunUndo_NoBakRepo(t *testing.T) {
 }
 
 func TestRunUndo_ExtraArgs(t *testing.T) {
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetArgs(nil)
+	})
 	configtest.SetConfigHome(t, t.TempDir())
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)

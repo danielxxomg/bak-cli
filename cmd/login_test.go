@@ -41,13 +41,13 @@ func TestRunLoginWithDeps_ConfigLoaderError(t *testing.T) {
 func TestRunLoginWithDeps_NonTTYGuard(t *testing.T) {
 	// Override isTTY to simulate non-interactive terminal.
 	origIsTTY := isTTY
+	t.Cleanup(func() { isTTY = origIsTTY })
 	isTTY = func() bool { return false }
-	defer func() { isTTY = origIsTTY }()
 
 	// Enable interactive mode.
 	origInteractive := loginInteractive
+	t.Cleanup(func() { loginInteractive = origInteractive })
 	loginInteractive = true
-	defer func() { loginInteractive = origInteractive }()
 
 	deps, _, _ := setupTestDeps(t)
 	cmd := &cobra.Command{}
@@ -119,8 +119,8 @@ func TestRunLogin_NonGitHubProviders(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.provider, func(t *testing.T) {
 			orig := loginProvider
+			t.Cleanup(func() { loginProvider = orig })
 			loginProvider = tt.provider
-			defer func() { loginProvider = orig }()
 
 			err := runLogin(nil, nil)
 			if err == nil {

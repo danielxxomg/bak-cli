@@ -36,7 +36,7 @@ func TestRealIsTTY_IsTheDefaultProbe(t *testing.T) {
 // overridden for testing, following the AGENTS.md pattern.
 func TestIsTTY_OverridePointWorks(t *testing.T) {
 	orig := isTTY
-	defer func() { isTTY = orig }()
+	t.Cleanup(func() { isTTY = orig })
 
 	// Override to return true.
 	isTTY = func() bool { return true }
@@ -58,7 +58,7 @@ func TestIsTTY_OverridePointWorks(t *testing.T) {
 func TestRunTUI_InjectionPoint(t *testing.T) {
 	// Save the original and restore after the test.
 	orig := runTUI
-	defer func() { runTUI = orig }()
+	t.Cleanup(func() { runTUI = orig })
 
 	called := false
 	var receivedDeps tui.Deps
@@ -90,7 +90,7 @@ func TestRunTUI_InjectionPoint(t *testing.T) {
 // TestRunTUI_PropagatesError verifies errors from runTUI are propagated.
 func TestRunTUI_PropagatesError(t *testing.T) {
 	orig := runTUI
-	defer func() { runTUI = orig }()
+	t.Cleanup(func() { runTUI = orig })
 
 	wantErr := errors.New("TUI failed")
 	runTUI = func(deps tui.Deps) error {
