@@ -408,3 +408,92 @@ func TestScanFile_DocumentedTokenFamilies_Triangulation(t *testing.T) { //nolint
 		})
 	}
 }
+
+func TestGenerateEnvExample_HomeRelativeHeaderAndNoAbsolutePaths(t *testing.T) { //nolint:paralleltest // uses t.Setenv
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	configDir := filepath.Join(homeDir, ".config", "opencode")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	secretFile := filepath.Join(configDir, "secrets.env")
+	secretContent := "# Configuration\nGITHUB_TOKEN=ghp_abc123def456ghi789jkl012mno345pqr678stu\nLOG_LEVEL=info\n"
+	if err := os.WriteFile(secretFile, []byte(secretContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	outputDir := t.TempDir()
+	patterns := DefaultPatterns()
+
+	if err := GenerateEnvExample([]string{secretFile}, patterns, outputDir); err != nil {
+		t.Fatalf("GenerateEnvExample: %v", err)
+	}
+
+	examplePath := filepath.Join(outputDir, ".env.example")
+	data, err := os.ReadFile(examplePath)
+	if err != nil {
+		t.Fatalf("read .env.example: %v", err)
+	}
+	content := string(data)
+
+	// Must use home-relative path in header
+	wantHeader := "# ---- ~/.config/opencode/secrets.env ----"
+	if !strings.Contains(content, wantHeader) {
+		t.Errorf(".env.example missing home-relative header %q, got:\n%s", wantHeader, content)
+	}
+
+	// Must not leak absolute path or homeDir
+	if strings.Contains(content, homeDir) {
+		t.Errorf(".env.example leaked absolute homeDir %q:\n%s", homeDir, content)
+	}
+
+	// Must contain placeholder
+	if !strings.Contains(content, "<YOUR_") {
+		t.Errorf(".env.example missing placeholder:\n%s", content)
+	}
+
+	// Must not contain raw secret
+	if strings.Contains(content, "ghp_abc123") {
+		t.Errorf(".env.example contains raw secret value:\n%s", content)
+	}
+
+	// Must preserve non-secret lines
+	if !strings.Contains(content, "LOG_LEVEL=info") {
+		t.Errorf(".env.example missing non-secret line:\n%s", content)
+	}
+}
+
+func TestGenerateEnvExample_UnreadableSourceCleanNote(t *testing.T) { //nolint:paralleltest // uses t.Setenv
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	missingFile := filepath.Join(homeDir, ".config", "opencode", "missing.env")
+	outputDir := t.TempDir()
+	patterns := DefaultPatterns()
+
+	if err := GenerateEnvExample([]string{missingFile}, patterns, outputDir); err != nil {
+		t.Fatalf("GenerateEnvExample: %v", err)
+	}
+
+	examplePath := filepath.Join(outputDir, ".env.example")
+	data, err := os.ReadFile(examplePath)
+	if err != nil {
+		t.Fatalf("read .env.example: %v", err)
+	}
+	content := string(data)
+
+	// Must emit clean human-readable note, not raw Go error string
+	if !strings.Contains(content, "# [could not read source file:") {
+		t.Errorf(".env.example missing clean human-readable note, got:\n%s", content)
+	}
+
+	// Must not contain raw Go error substrings or absolute paths
+	if strings.Contains(content, "open ") || strings.Contains(content, "no such file or directory") {
+		t.Errorf(".env.example leaked raw Go error string:\n%s", content)
+	}
+	if strings.Contains(content, homeDir) {
+		t.Errorf(".env.example leaked absolute path %q:\n%s", homeDir, content)
+	}
+}

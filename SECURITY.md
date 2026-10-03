@@ -71,7 +71,12 @@ The backup engine detects common secret patterns and excludes them from backups:
 | `xoxb-*` | Slack bot tokens |
 | `xoxp-*` | Slack user tokens |
 
-Instead of backing up real secrets, bak generates a `.env.example` template with redacted placeholder values. For files containing recognized token families (`ghp_*`, `gho_*`, `ghu_*`, `ghs_*`, `ghr_*`, `sk-*`, `sk-ant-*`, `xoxb-*`, `xoxp-*`) and standard assignment patterns, matching secrets are never written to the backup directory. Unrecognized secret formats, custom token formats, or keys from unlisted providers outside these families are not detected and must be managed or excluded manually.
+Instead of backing up real secrets, bak generates a `.env.example` template with redacted placeholder values. For files containing recognized token families (`ghp_*`, `gho_*`, `ghu_*`, `ghs_*`, `ghr_*`, `sk-*`, `sk-ant-*`, `xoxb-*`, `xoxp-*`) and standard assignment patterns, matching secrets are never written to the backup directory:
+- **Source-based redaction**: `.env.example` is generated directly from source files with home-relative section headers and `<YOUR_SECRET>` placeholders. If a source file is unreadable, a clean note without absolute paths or usernames is emitted.
+- **Named exclusion reporting**: `bak backup` lists every excluded secret-bearing file by its home-relative path (`~/...`) in the backup summary, ensuring exclusions are transparent.
+- **Honest dry-run classification**: On restore, dry-run distinguishes manifest entries absent due to secret exclusion (`[secret-excluded]`) from genuinely absent files (`[missing]`), explicitly warning that excluded files cannot be restored and must be re-entered by hand.
+
+Unrecognized secret formats, custom token formats, or keys from unlisted providers outside these families are not detected and must be managed or excluded manually.
 
 ### Checksum and Manifest Integrity
 

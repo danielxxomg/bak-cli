@@ -25,6 +25,12 @@ const (
 	DiffMissing   DiffStatus = "missing"   // referenced in manifest, not on backup disk
 )
 
+// DiffSecretExcluded classifies a manifest entry absent because it was excluded as a secret.
+const DiffSecretExcluded = "secret-excluded"
+
+// DiffExcluded is an alias for DiffSecretExcluded.
+const DiffExcluded = DiffSecretExcluded
+
 // FileDiff describes the difference between one backed-up file and the
 // current target file on disk.
 type FileDiff struct {
@@ -70,7 +76,11 @@ func ComputeDryRun(m *manifest.Manifest, backupDir, homeDir string) ([]FileDiff,
 			// Check if backup file exists on disk.
 			backupData, err := readFile(backupFilePath)
 			if err != nil {
-				d.Status = DiffMissing
+				if isSecretExcluded(m, backupDir, item) {
+					d.Status = DiffSecretExcluded
+				} else {
+					d.Status = DiffMissing
+				}
 				diffs = append(diffs, d)
 				continue
 			}
@@ -168,4 +178,26 @@ func splitLines(s string) []string {
 func sha256Hex(data []byte) string {
 	h := sha256.Sum256(data)
 	return fmt.Sprintf("%x", h[:])
+}
+
+// isSecretExcluded returns true if an absent backup file was excluded due to secret detection.
+func isSecretExcluded(m *manifest.Manifest, backupDir string, item manifest.Item) bool {
+	envExamplePath := filepath.Join(backupDir, ".env.example")
+	data, err := readFile(envExamplePath)
+	if err == nil {
+		content := string(data)
+		base := filepath.Base(item.BackupPath)
+		if strings.Contains(content, item.SourcePath) ||
+			strings.Contains(content, item.BackupPath) ||
+			(base != "" && base != "." && strings.Contains(content, base)) {
+			return true
+		}
+		return false
+	}
+
+	if m != nil && m.SecretsExcluded {
+		return true
+	}
+
+	return false
 }

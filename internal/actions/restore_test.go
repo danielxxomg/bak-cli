@@ -189,6 +189,78 @@ func TestRestoreAction_DryRunShowsDiff(t *testing.T) { //nolint:paralleltest // 
 	}
 }
 
+func TestRestoreAction_DryRun_DistinguishesSecretExcluded(t *testing.T) { //nolint:paralleltest // not yet parallelized
+	home := t.TempDir()
+	bakDir := filepath.Join(home, ".bak")
+	backupID := "20260101-120000"
+	backupDir := filepath.Join(bakDir, "backups", backupID)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create manifest with SecretsExcluded: true simulating a legacy backup
+	m := manifest.New(backupID, "linux", "testhost", "1.0.0", "quick", []string{"config"})
+	m.SecretsExcluded = true
+	m.AddAdapter("opencode", "", "~/.config/opencode", []manifest.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/opencode/secrets.json",
+			BackupPath: "opencode/secrets.json",
+			Hash:       "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+			Size:       100,
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write companion .env.example
+	envExamplePath := filepath.Join(backupDir, ".env.example")
+	if err := os.WriteFile(envExamplePath, []byte("# ---- ~/.config/opencode/secrets.json ----\nKEY=<YOUR_SECRET>\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	action := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: backupDir,
+		Stdout:    &stdout,
+		Stderr:    io.Discard,
+		DryRun:    true,
+	}
+
+	if err := action.Run(); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	out := stdout.String()
+
+	// Must label as secret-excluded in diff
+	if !strings.Contains(out, "[secret-excluded]") {
+		t.Errorf("dry-run diff missing [secret-excluded], got:\n%s", out)
+	}
+
+	// Must NOT label as missing
+	if strings.Contains(out, "[missing]") {
+		t.Errorf("dry-run diff misclassified as [missing], got:\n%s", out)
+	}
+
+	// Must NOT say 1 file would be restored
+	if strings.Contains(out, "1 file(s) would be restored") {
+		t.Errorf("dry-run falsely implies excluded file would be restored:\n%s", out)
+	}
+
+	// Must state 0 files would be restored
+	if !strings.Contains(out, "0 file(s) would be restored") {
+		t.Errorf("dry-run missing '0 file(s) would be restored':\n%s", out)
+	}
+
+	// Must note that excluded files cannot be restored and must be re-entered
+	if !strings.Contains(out, "cannot be restored") || !strings.Contains(out, "re-entered by hand") {
+		t.Errorf("dry-run summary missing honesty note that files cannot be restored and must be re-entered by hand:\n%s", out)
+	}
+}
+
 func TestRestoreAction_ApplyRestore(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)

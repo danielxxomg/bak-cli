@@ -3,6 +3,7 @@ package backup
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/danielxxomg/bak-cli/internal/adapters"
@@ -155,5 +156,101 @@ func TestRun_RecordsExecutableBit(t *testing.T) { //nolint:paralleltest // share
 	gotMode := am.Items[0].Mode
 	if gotMode != 0755 {
 		t.Errorf("manifest item mode = %o, want 0755", gotMode)
+	}
+}
+
+type secretFixtureAdapter struct {
+	name      string
+	configDir string
+}
+
+func (s *secretFixtureAdapter) Name() string { return s.name }
+func (s *secretFixtureAdapter) Detect(string) (bool, string, error) {
+	return true, s.configDir, nil
+}
+func (s *secretFixtureAdapter) ListItems(string, []string) ([]adapters.Item, error) {
+	return []adapters.Item{
+		{
+			Category:   "config",
+			SourcePath: "~/.config/opencode/secrets.json",
+			RelPath:    "secrets.json",
+		},
+	}, nil
+}
+func (s *secretFixtureAdapter) Backup(homeDir, backupDir string, items []adapters.Item) error {
+	dst := filepath.Join(backupDir, s.name, "secrets.json")
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
+	}
+	// Copy from source file
+	src := filepath.Join(homeDir, ".config", "opencode", "secrets.json")
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, 0644)
+}
+func (s *secretFixtureAdapter) Restore(string, string, []adapters.Item) error { return nil }
+
+var _ adapters.Adapter = (*secretFixtureAdapter)(nil)
+
+func TestRun_GeneratesUsableEnvExampleFromSource(t *testing.T) { //nolint:paralleltest // uses t.Setenv
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	configDir := filepath.Join(home, ".config", "opencode")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	sourceFile := filepath.Join(configDir, "secrets.json")
+	tokenContent := `{"github_token":"ghp_abcdef1234567890123456789012345678901234"}` + "\n"
+	if err := os.WriteFile(sourceFile, []byte(tokenContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	adp := &secretFixtureAdapter{name: "opencode", configDir: configDir}
+	reg := adapters.NewRegistry()
+	if err := reg.Register(adp); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := Context{
+		FS:       osFS{},
+		HomeDir:  home,
+		BakDir:   filepath.Join(home, ".bak"),
+		Registry: reg,
+		Preset:   "quick",
+	}
+	res, err := Run(ctx)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if !res.SecretsExcluded {
+		t.Fatal("expected SecretsExcluded = true")
+	}
+
+	examplePath := filepath.Join(res.BackupDir, ".env.example")
+	data, err := os.ReadFile(examplePath)
+	if err != nil {
+		t.Fatalf("read .env.example: %v", err)
+	}
+	content := string(data)
+
+	// .env.example must be useful, not an error message
+	if strings.Contains(content, "[could not read") {
+		t.Errorf(".env.example contains read failure:\n%s", content)
+	}
+	if !strings.Contains(content, "<YOUR_") {
+		t.Errorf(".env.example missing placeholder:\n%s", content)
+	}
+	if strings.Contains(content, "ghp_abcdef") {
+		t.Errorf(".env.example leaked secret:\n%s", content)
+	}
+	if !strings.Contains(content, "~/.config/opencode/secrets.json") {
+		t.Errorf(".env.example missing home-relative path:\n%s", content)
+	}
+
+	if len(res.SecretFiles) != 1 || res.SecretFiles[0] != "~/.config/opencode/secrets.json" {
+		t.Errorf("res.SecretFiles = %v, want [~/.config/opencode/secrets.json]", res.SecretFiles)
 	}
 }

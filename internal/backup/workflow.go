@@ -196,7 +196,7 @@ func executeBackupPhases(
 
 	// Second pass: backup, scan for secrets, remove secret files, and build
 	// the manifest items with the secretRelPaths skip-map.
-	allSecretFiles, totalFiles, totalSize, err := backupAndBuildManifest(
+	secretSourceFiles, secretHomeFiles, totalFiles, totalSize, err := backupAndBuildManifest(
 		ctx, fsys, allItems, backupDir, patterns, filesTotal, m, stderr,
 	)
 	if err != nil {
@@ -204,9 +204,9 @@ func executeBackupPhases(
 	}
 
 	// --- 7. Generate .env.example when secrets were detected -------------
-	secretsExcluded := len(allSecretFiles) > 0
+	secretsExcluded := len(secretSourceFiles) > 0
 	if secretsExcluded {
-		if err := GenerateEnvExample(allSecretFiles, patterns, backupDir); err != nil {
+		if err := GenerateEnvExample(secretSourceFiles, patterns, backupDir); err != nil {
 			return nil, fmt.Errorf("generate .env.example: %w", err)
 		}
 	}
@@ -222,8 +222,9 @@ func executeBackupPhases(
 		BackupDir:       backupDir,
 		FileCount:       totalFiles,
 		TotalSize:       totalSize,
-		Secrets:         len(allSecretFiles),
+		Secrets:         len(secretHomeFiles),
 		SecretsExcluded: secretsExcluded,
+		SecretFiles:     secretHomeFiles,
 		AdaptersRun:     len(detected),
 		Preset:          ctx.Preset,
 	}, nil
@@ -302,24 +303,38 @@ func backupAndBuildManifest(
 	filesTotal int,
 	m *manifest.Manifest,
 	stderr io.Writer,
-) (allSecretFiles []string, totalFiles int, totalSize int64, err error) {
+) (secretSourceFiles, secretHomeFiles []string, totalFiles int, totalSize int64, err error) {
 	filesDone := 0
 	for _, entry := range allItems {
 		d := entry.adapter
 
 		if err := d.Adapter.Backup(ctx.HomeDir, backupDir, entry.items); err != nil {
-			return nil, 0, 0, fmt.Errorf("backup %q: %w", d.Adapter.Name(), err)
+			return nil, nil, 0, 0, fmt.Errorf("backup %q: %w", d.Adapter.Name(), err)
 		}
 
 		adapterBackupDir := filepath.Join(backupDir, d.Adapter.Name())
 		secretFiles := scanBackupForSecretsFS(fsys, adapterBackupDir, patterns, ctx.Verbose, stderr)
-		allSecretFiles = append(allSecretFiles, secretFiles...)
 
 		secretRelPaths := removeSecretFiles(fsys, secretFiles, backupDir, ctx.Verbose, stderr)
 
+		for _, item := range entry.items {
+			if item.IsDir {
+				continue
+			}
+			backupPath := paths.Slash(filepath.Join(d.Adapter.Name(), item.RelPath))
+			if secretRelPaths[backupPath] {
+				absSource := item.SourcePath
+				if strings.HasPrefix(absSource, "~/") {
+					absSource = paths.FromCanonical(absSource, ctx.HomeDir)
+				}
+				secretSourceFiles = append(secretSourceFiles, absSource)
+				secretHomeFiles = append(secretHomeFiles, toHomeRel(item.SourcePath, ctx.HomeDir))
+			}
+		}
+
 		items, files, size, fdone, berr := buildAdapterManifestItems(entry, ctx, d, backupDir, secretRelPaths, filesDone, filesTotal)
 		if berr != nil {
-			return nil, 0, 0, berr
+			return nil, nil, 0, 0, berr
 		}
 		filesDone = fdone
 		totalFiles += files
@@ -327,7 +342,24 @@ func backupAndBuildManifest(
 
 		m.AddAdapter(d.Adapter.Name(), "", paths.ToCanonical(d.ConfigDir), items)
 	}
-	return allSecretFiles, totalFiles, totalSize, nil
+	return secretSourceFiles, secretHomeFiles, totalFiles, totalSize, nil
+}
+
+// toHomeRel converts a source path to its canonical "~/" form relative to homeDir.
+func toHomeRel(sourcePath, homeDir string) string {
+	if strings.HasPrefix(sourcePath, "~/") {
+		return sourcePath
+	}
+	cleanSource := paths.CanonicalPath(sourcePath)
+	cleanHome := paths.CanonicalPath(homeDir)
+	if strings.EqualFold(cleanSource, cleanHome) {
+		return "~/"
+	}
+	rel, err := filepath.Rel(cleanHome, cleanSource)
+	if err == nil && !strings.HasPrefix(rel, "..") {
+		return "~/" + paths.Slash(rel)
+	}
+	return paths.ToCanonical(sourcePath)
 }
 
 // removeSecretFiles builds the secretRelPaths skip-map and removes each

@@ -343,6 +343,87 @@ func TestBackupAction_WithSecrets(t *testing.T) { //nolint:paralleltest // not y
 	}
 }
 
+func TestBackupAction_ReportNamesExcludedFiles(t *testing.T) { //nolint:paralleltest // not yet parallelized
+	home := t.TempDir()
+	createOpenCodeFixture(t, home)
+
+	configDir := filepath.Join(home, ".config", "opencode")
+	tokenContent := `{"github_token":"ghp_abcdef1234567890123456789012345678901234"}`
+	if err := os.WriteFile(filepath.Join(configDir, "config.json"), []byte(tokenContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	action := &BackupAction{
+		FS:         newHomeFS(home),
+		Registry:   setupBackupRegistry(),
+		Stdout:     &stdout,
+		Stderr:     io.Discard,
+		Preset:     "quick",
+		BakVersion: "test",
+	}
+
+	err := action.Run()
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	output := stdout.String()
+
+	// Must report secret detection count line
+	if !strings.Contains(output, "Secrets detected in 1 file(s) — .env.example created") {
+		t.Errorf("output missing count line:\n%s", output)
+	}
+
+	// Must name the excluded file with home-relative path
+	wantNamedFile := "~/.config/opencode/config.json"
+	if !strings.Contains(output, wantNamedFile) {
+		t.Errorf("output missing excluded file name %q:\n%s", wantNamedFile, output)
+	}
+
+	// Must NOT contain the secret value
+	if strings.Contains(output, "ghp_abcdef") {
+		t.Errorf("output leaked secret value:\n%s", output)
+	}
+
+	// Must NOT contain the raw temporary home directory path in the exclusion list
+	lines := strings.Split(output, "\n")
+	var secretLines []string
+	capture := false
+	for _, l := range lines {
+		if strings.Contains(l, "Secrets detected") {
+			capture = true
+			continue
+		}
+		if capture && strings.HasPrefix(strings.TrimSpace(l), "- ") {
+			secretLines = append(secretLines, l)
+		}
+	}
+	secretSection := strings.Join(secretLines, "\n")
+	if strings.Contains(secretSection, home) {
+		t.Errorf("secret section leaked absolute home path %q:\n%s", home, secretSection)
+	}
+
+	// Triangulate: clean backup without secrets does not print secret warnings
+	cleanHome := t.TempDir()
+	createOpenCodeFixture(t, cleanHome)
+	var cleanStdout bytes.Buffer
+	cleanAction := &BackupAction{
+		FS:         newHomeFS(cleanHome),
+		Registry:   setupBackupRegistry(),
+		Stdout:     &cleanStdout,
+		Stderr:     io.Discard,
+		Preset:     "quick",
+		BakVersion: "test",
+	}
+	if err := cleanAction.Run(); err != nil {
+		t.Fatalf("clean Run: %v", err)
+	}
+	if strings.Contains(cleanStdout.String(), "Secrets detected") {
+		t.Errorf("clean backup reported secrets unexpectedly:\n%s", cleanStdout.String())
+	}
+}
+
 func TestBackupAction_AdapterFilter(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)

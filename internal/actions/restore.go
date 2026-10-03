@@ -87,12 +87,23 @@ func (a *RestoreAction) showDryRun(out io.Writer, diffs []restorepkg.FileDiff) e
 	if !a.DryRun {
 		return nil
 	}
-	if _, err := fmt.Fprintf(out, "Dry-run complete. %d file(s) would be restored, %d unchanged, %d missing.\n",
+	secretExcluded := countByStatus(diffs, restorepkg.DiffSecretExcluded)
+	var excludedSuffix string
+	if secretExcluded > 0 {
+		excludedSuffix = fmt.Sprintf(", %d excluded (secrets)", secretExcluded)
+	}
+	if _, err := fmt.Fprintf(out, "Dry-run complete. %d file(s) would be restored, %d unchanged, %d missing%s.\n",
 		countByStatus(diffs, restorepkg.DiffNew)+countByStatus(diffs, restorepkg.DiffModified),
 		countByStatus(diffs, restorepkg.DiffUnchanged),
 		countByStatus(diffs, restorepkg.DiffMissing),
+		excludedSuffix,
 	); err != nil {
 		return fmt.Errorf("write dry-run summary: %w", err)
+	}
+	if secretExcluded > 0 {
+		if _, err := fmt.Fprintf(out, "  ⚠ %d secret-bearing file(s) cannot be restored and must be re-entered by hand (see .env.example).\n", secretExcluded); err != nil {
+			return fmt.Errorf("write secret-excluded note: %w", err)
+		}
 	}
 	return nil
 }
@@ -375,7 +386,7 @@ func (a *RestoreAction) applyRestore(m *manifest.Manifest, diffs []restorepkg.Fi
 			restored++
 		case restorepkg.DiffUnchanged:
 			skipped++
-		case restorepkg.DiffMissing:
+		case restorepkg.DiffMissing, restorepkg.DiffSecretExcluded:
 			skipped++
 			if a.Verbose {
 				if _, wErr := fmt.Fprintf(errOut, "warning: missing backup file %s\n", d.BackupPath); wErr != nil {

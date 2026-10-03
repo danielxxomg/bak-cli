@@ -228,6 +228,86 @@ func TestComputeDryRun(t *testing.T) { //nolint:paralleltest // not yet parallel
 			t.Fatalf("expected 1 'missing', got %d", statuses[DiffMissing])
 		}
 	})
+
+	t.Run("legacy secret-excluded vs genuinely missing", func(t *testing.T) { //nolint:paralleltest // subtests share table state
+		tests := []struct {
+			name            string
+			secretsExcluded bool
+			envExampleBody  string
+			writeEnvExample bool
+			backupPath      string
+			wantStatus      DiffStatus
+		}{
+			{
+				name:            "legacy backup with SecretsExcluded and env.example",
+				secretsExcluded: true,
+				envExampleBody:  "# ---- ~/.config/opencode/opencode.json ----\n",
+				writeEnvExample: true,
+				backupPath:      "opencode/opencode.json",
+				wantStatus:      DiffSecretExcluded,
+			},
+			{
+				name:            "legacy backup with SecretsExcluded without env.example",
+				secretsExcluded: true,
+				writeEnvExample: false,
+				backupPath:      "opencode/opencode.json",
+				wantStatus:      DiffSecretExcluded,
+			},
+			{
+				name:            "clean backup with genuinely missing file",
+				secretsExcluded: false,
+				writeEnvExample: false,
+				backupPath:      "opencode/opencode.json",
+				wantStatus:      DiffMissing,
+			},
+			{
+				name:            "env.example exists but mentions different file",
+				secretsExcluded: true,
+				envExampleBody:  "# ---- ~/.config/opencode/other.json ----\n",
+				writeEnvExample: true,
+				backupPath:      "opencode/opencode.json",
+				wantStatus:      DiffMissing,
+			},
+		}
+
+		for _, tt := range tests { //nolint:paralleltest // subtests share table state
+			t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table state
+				homeDir := t.TempDir()
+				backupDir := t.TempDir()
+
+				if tt.writeEnvExample {
+					mustWrite(t, filepath.Join(backupDir, ".env.example"), tt.envExampleBody)
+				}
+
+				m := &manifest.Manifest{
+					SecretsExcluded: tt.secretsExcluded,
+					Adapters: map[string]manifest.AdapterManifest{
+						"opencode": {
+							ConfigDir: "~/.config/opencode",
+							Items: []manifest.Item{
+								{
+									SourcePath: "~/.config/" + tt.backupPath,
+									BackupPath: tt.backupPath,
+									Hash:       "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+								},
+							},
+						},
+					},
+				}
+
+				diffs, err := ComputeDryRun(m, backupDir, homeDir)
+				if err != nil {
+					t.Fatalf("ComputeDryRun error: %v", err)
+				}
+				if len(diffs) != 1 {
+					t.Fatalf("expected 1 diff, got %d", len(diffs))
+				}
+				if diffs[0].Status != tt.wantStatus {
+					t.Errorf("got status %q, want %q", diffs[0].Status, tt.wantStatus)
+				}
+			})
+		}
+	})
 }
 
 // mustWrite creates parent directories and writes content to path.

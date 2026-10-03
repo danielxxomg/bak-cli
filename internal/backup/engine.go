@@ -53,14 +53,15 @@ type Engine struct {
 
 // Result summarizes a completed backup operation.
 type Result struct {
-	ID              string // backup ID (timestamp)
-	BackupDir       string // full path to backup directory
-	FileCount       int    // total files backed up
-	TotalSize       int64  // total bytes
-	Secrets         int    // number of secret-bearing files detected
-	SecretsExcluded bool   // true when at least one secret was detected and excluded
-	AdaptersRun     int    // number of adapters that contributed
-	Preset          string // preset used for this backup (for reporting)
+	ID              string   // backup ID (timestamp)
+	BackupDir       string   // full path to backup directory
+	FileCount       int      // total files backed up
+	TotalSize       int64    // total bytes
+	Secrets         int      // number of secret-bearing files detected
+	SecretsExcluded bool     // true when at least one secret was detected and excluded
+	SecretFiles     []string // home-relative paths of excluded secret-bearing files
+	AdaptersRun     int      // number of adapters that contributed
+	Preset          string   // preset used for this backup (for reporting)
 }
 
 // Run executes the full backup flow and returns a summary. It delegates to
