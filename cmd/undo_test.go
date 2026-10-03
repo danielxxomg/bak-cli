@@ -67,7 +67,9 @@ func TestUndoCmd_Help(t *testing.T) {
 	rootCmd.SetErr(buf)
 
 	rootCmd.SetArgs([]string{"undo", "--help"})
-	_ = rootCmd.Execute()
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("undo --help should not error: %v", err)
+	}
 
 	output := buf.String()
 	if !strings.Contains(output, "undo") {
@@ -79,7 +81,9 @@ func TestUndoCmd_Help(t *testing.T) {
 
 	cmd := findSubcommand(t, "undo")
 	if cmd != nil {
-		_ = cmd.Flags().Set("help", "false")
+		if err := cmd.Flags().Set("help", "false"); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
@@ -147,7 +151,9 @@ func TestRunUndo_NoBakRepo(t *testing.T) {
 	cmd := findSubcommand(t, "undo")
 	if cmd != nil {
 		cmd.InitDefaultHelpFlag()
-		_ = cmd.Flags().Set("help", "false")
+		if err := cmd.Flags().Set("help", "false"); err != nil {
+			t.Fatal(err)
+		}
 	}
 	bufOut := new(bytes.Buffer)
 	bufErr := new(bytes.Buffer)

@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
+	"github.com/danielxxomg/bak-cli/internal/tui/screens"
 )
 
 var restoreDryRun bool
@@ -100,24 +101,36 @@ func resolveRestoreArg(args []string, deps cmdDeps) ([]string, bool, error) {
 	}
 
 	// List backups for the picker.
-	backups, err := listBackups()
+	listAction := &actions.ListBackupsAction{}
+	items, err := listAction.Run()
 	if err != nil {
 		return nil, false, fmt.Errorf("list backups: %w", err)
 	}
 
-	if len(backups) == 0 {
+	if len(items) == 0 {
 		return nil, false, fmt.Errorf("no backups found — create one with 'bak backup' first")
 	}
 
+	backups := make([]screens.BackupInfo, len(items))
+	for i, item := range items {
+		backups[i] = screens.BackupInfo{
+			ID:     item.ID,
+			Date:   item.Date,
+			Size:   item.Size,
+			Status: item.Status,
+			Cloud:  item.Cloud,
+		}
+	}
+
 	// Launch interactive picker.
-	m := restorePickerModel{backups: backups}
+	m := screens.RestorePickerModel{Backups: backups}
 	p := tea.NewProgram(m)
 	result, runErr := p.Run()
 	if runErr != nil {
 		return nil, false, fmt.Errorf("picker: %w", runErr)
 	}
 
-	model, ok := result.(restorePickerModel)
+	model, ok := result.(screens.RestorePickerModel)
 	if !ok {
 		return nil, false, fmt.Errorf("picker: unexpected model type %T", result)
 	}

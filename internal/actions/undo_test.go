@@ -476,6 +476,8 @@ type removeFailFS struct {
 	failPath string
 }
 
+var _ FileSystem = (*removeFailFS)(nil)
+
 func (r *removeFailFS) Remove(name string) error {
 	if paths.CanonicalPath(name) == paths.CanonicalPath(r.failPath) {
 		return errors.New("simulated remove failure")

@@ -291,6 +291,8 @@ type targetStatFailingFS struct {
 	failPath string
 }
 
+var _ FileSystem = (*targetStatFailingFS)(nil)
+
 func (f *targetStatFailingFS) Lstat(path string) (os.FileInfo, error) {
 	if path == f.failPath {
 		return nil, os.ErrPermission
@@ -346,6 +348,8 @@ type removeFailingFS struct {
 	FileSystem
 	failRemovePath string
 }
+
+var _ FileSystem = (*removeFailingFS)(nil)
 
 func (r *removeFailingFS) Remove(path string) error {
 	if path == r.failRemovePath {
@@ -849,9 +853,18 @@ func TestRecoveryManager_GitPayloadDurability_NestedGitAndGitignoreHandled(t *te
 	}
 
 	// Calculate opaque payload names derived from relative path hash
-	relGitConfig, _ := filepath.Rel(home, gitConfigPath)
-	relGitignore, _ := filepath.Rel(home, gitignorePath)
-	relIgnoredFile, _ := filepath.Rel(home, ignoredFilePath)
+	relGitConfig, err := filepath.Rel(home, gitConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	relGitignore, err := filepath.Rel(home, gitignorePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	relIgnoredFile, err := filepath.Rel(home, ignoredFilePath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	hGitConfig := sha256.Sum256([]byte(path.Clean(strings.ReplaceAll(relGitConfig, "\\", "/"))))
 	hGitignore := sha256.Sum256([]byte(path.Clean(strings.ReplaceAll(relGitignore, "\\", "/"))))
@@ -874,8 +887,13 @@ func TestRecoveryManager_GitPayloadDurability_NestedGitAndGitignoreHandled(t *te
 	if err != nil {
 		t.Fatalf("blob reader: %v", err)
 	}
-	readGitConfigBytes, _ := io.ReadAll(rGitConfig)
-	_ = rGitConfig.Close()
+	readGitConfigBytes, err := io.ReadAll(rGitConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rGitConfig.Close(); err != nil {
+		t.Fatal(err)
+	}
 	if string(readGitConfigBytes) != string(gitConfigBytes) {
 		t.Errorf("git config bytes mismatch in tree: got %q, want %q", string(readGitConfigBytes), string(gitConfigBytes))
 	}
@@ -892,8 +910,13 @@ func TestRecoveryManager_GitPayloadDurability_NestedGitAndGitignoreHandled(t *te
 	if err != nil {
 		t.Fatalf("blob reader: %v", err)
 	}
-	readIgnoredBytes, _ := io.ReadAll(rIgnored)
-	_ = rIgnored.Close()
+	readIgnoredBytes, err := io.ReadAll(rIgnored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rIgnored.Close(); err != nil {
+		t.Fatal(err)
+	}
 	if string(readIgnoredBytes) != string(ignoredFileBytes) {
 		t.Errorf("ignored file bytes mismatch in tree: got %q, want %q", string(readIgnoredBytes), string(ignoredFileBytes))
 	}
@@ -953,6 +976,8 @@ type pathErrorStorageFS struct {
 	failOnWrite string
 }
 
+var _ FileSystem = (*pathErrorStorageFS)(nil)
+
 func (p *pathErrorStorageFS) WriteFile(path string, data []byte, perm os.FileMode) error {
 	if strings.Contains(path, p.failOnWrite) {
 		return &os.PathError{Op: "open", Path: path, Err: os.ErrPermission}
@@ -1006,6 +1031,8 @@ type chmodFailStorageFS struct {
 	FileSystem
 }
 
+var _ FileSystem = (*chmodFailStorageFS)(nil)
+
 func (c *chmodFailStorageFS) Chmod(path string, perm os.FileMode) error {
 	return fmt.Errorf("injected private chmod failure on %s", path)
 }
@@ -1053,6 +1080,8 @@ type lstatErrFS struct {
 	FileSystem
 	failPath string
 }
+
+var _ FileSystem = (*lstatErrFS)(nil)
 
 func (l *lstatErrFS) Lstat(path string) (os.FileInfo, error) {
 	if path == l.failPath {
@@ -1508,11 +1537,17 @@ func TestRecovery_CheckUndoDrift(t *testing.T) {
 					SHA256:     fmt.Sprintf("sha256:%x", h),
 				}
 				preSnap := filepath.Join(rm.RepoDir, "snapshots", "pre", opaquePayloadName("sub/nested.txt"))
-				_ = os.MkdirAll(filepath.Dir(preSnap), 0755)
-				_ = os.WriteFile(preSnap, []byte("nest"), 0600)
+				if err := os.MkdirAll(filepath.Dir(preSnap), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(preSnap, []byte("nest"), 0600); err != nil {
+					t.Fatal(err)
+				}
 
 				otherDir := t.TempDir()
-				_ = os.RemoveAll(nestedDir)
+				if err := os.RemoveAll(nestedDir); err != nil {
+					t.Fatal(err)
+				}
 				if err := os.Symlink(otherDir, nestedDir); err != nil {
 					t.Fatal(err)
 				}
@@ -1774,7 +1809,9 @@ func TestRecovery_UndoTargets_PersistFailedStateMetadata_OnGitFailure(t *testing
 	t.Parallel()
 	rm, _, _, _ := setupUndoTestScenario(t)
 	// Corrupt git repo so git.OpenRepo fails
-	_ = os.RemoveAll(filepath.Join(rm.RepoDir, ".git"))
+	if err := os.RemoveAll(filepath.Join(rm.RepoDir, ".git")); err != nil {
+		t.Fatal(err)
+	}
 
 	outcome, err := rm.UndoTargets()
 	if err == nil {
@@ -1805,7 +1842,9 @@ func TestRecovery_UndoTargets_PersistFailedStateMetadata_WriteErrorSurfaced(t *t
 	t.Parallel()
 	rm, _, _, _ := setupUndoTestScenario(t)
 	// Corrupt git repo so git.OpenRepo fails
-	_ = os.RemoveAll(filepath.Join(rm.RepoDir, ".git"))
+	if err := os.RemoveAll(filepath.Join(rm.RepoDir, ".git")); err != nil {
+		t.Fatal(err)
+	}
 
 	// Inject storageFS that fails when writing recovery-meta.json
 	rm.StorageFS = &pathErrorStorageFS{
