@@ -40,6 +40,13 @@ checksum:
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
+release:
+  # Mark -rc / -beta / -alpha tags as GitHub pre-releases instead of normal
+  # releases. Without this, `v1.5.0-rc1` was published as a regular release and
+  # GitHub surfaced it as "Latest", so `brew install`/download defaults pointed
+  # users at a release candidate.
+  prerelease: auto
+
 changelog:
   sort: asc
   filters:

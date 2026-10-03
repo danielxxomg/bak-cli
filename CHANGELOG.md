@@ -9,17 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Restore rollback on failure** — Restore captures the affected target state in a private per-operation repository under `~/.bak/recovery/<id>/` before touching any file. On the first copy or permission failure it stops, attempts to roll back every target it touched (including the partially written failing file), preserves the evidence for manual recovery, and returns an error even when the rollback succeeds. Recovery storage is isolated from the cloud-pushable `~/.bak/backups/<id>` archives and is never uploaded.
+- **`bak undo` reverts real target files and refuses drift** — `bak undo` restores the pre-restore contents, permission bits and file absence, and aborts with exit code 1 and zero writes if any target changed after the restore. History is preserved with a linear commit in the recovery repository; there is no `--force` bypass and no history rewriting.
+- **Case-insensitive path containment** — Restore validated that a target stayed inside the backup directory using a case-sensitive prefix comparison while the manifest validator case-folded. A case variant could therefore bypass the boundary check on case-insensitive filesystems. Both sides now compare case-folded canonical paths.
+- **Interactive wizard refuses to start without a terminal** — `tuiRunWizard` started a Bubble Tea program with no TTY check, unlike every other interactive entry point, so a non-interactive invocation blocked on input instead of failing fast.
 - **Mandatory restore integrity verification** — Manifest and SHA-256 checksum validation cannot be bypassed. The `--force` flag skips interactive confirmation only, never integrity checks.
 - **Fail-closed push encryption gating** — `bak push` fails closed when a profile is missing, unknown, or if no profiles are configured, preventing accidental plaintext uploads.
 - **Masked encryption password input** — Terminal password prompts now suppress echo via `golang.org/x/term`, and empty passwords from environment variables or interactive prompts are rejected immediately with actionable guidance.
 - **Expanded secret detection patterns** — Backup engine detects additional token families: GitHub OAuth (`gho_*`), user-to-server (`ghu_*`), server-to-server (`ghs_*`), and refresh tokens (`ghr_*`), plus Slack bot (`xoxb-*`) and user (`xoxp-*`) tokens.
 
+### Added
+
+- **Restore version compatibility checks** — Restore warns when the backup was produced by a different `bak` version (including an unknown or `dev` build) and fails closed when the manifest schema is newer than the supported one, before any target write or recovery side effect.
+- **Eight-stage real-binary journey matrix** — `TestJourneyMatrix` drives the compiled binary through discovery, mutation/deletion, dry-run no-write, apply byte and permission correctness, verification, tampered-payload rejection, partial failure with honest applied/reverted/unresolved reporting, and real recovery. It asserts exit codes and on-disk bytes rather than file existence, and runs in CI on Linux, macOS and Windows.
+
 ### Fixed
 
+- **CI gates that reported success without doing anything** — The test matrix declared `os` only inside `include`, so GitHub collapsed it to a single macOS job and `go test` never ran on Linux or Windows. The required GGA review checked out the pull-request merge ref, leaving the review range empty, so it printed "No matching files changed in PR" and passed in about eleven seconds. Both gates now execute, and the GGA workflow fails explicitly if a review turns out to be vacuous.
+- **Windows test isolation** — Several tests set only `HOME`, but the user home directory is read from `USERPROFILE` on Windows, so they resolved the real user home and failed. They now use the project's `configtest.SetConfigHome` helper across all three platforms.
+- **Tests that launched a live terminal UI** — Unit tests relied on the host terminal probe to stay non-interactive. On Windows runners that probe can report a terminal, so tests started real Bubble Tea programs and blocked until the ten-minute test timeout, which silently skipped every dependent CI job. The `cmd` test package now forces non-interactive mode and restores every mutated global.
 - **Restore error aggregation** — Restores now aggregate all file copy and chmod errors into a multi-error and exit with a non-zero status instead of silently returning success.
 
 ### Changed
 
+- **Release candidates are published as pre-releases** — GoReleaser now marks `-rc`, `-beta` and `-alpha` tags as GitHub pre-releases. Previously `v1.5.0-rc1` was published as a regular release and surfaced as "Latest".
+- **Backup listing and restore picker moved out of `cmd/`** — Backup discovery and manifest loading now live in `actions.ListBackupsAction`, and the interactive picker in `internal/tui/screens.RestorePickerModel`, so `cmd/` only translates cobra types into action parameters. `internal/actions` imports neither cobra nor the TUI packages.
 - **Manifest schema 0.4.0 with permission preservation** — Backups now record portable file mode bits in manifest schema `0.4.0` and reapply them on restore. Legacy `0.3.0` manifests without mode metadata restore in degraded mode with an explicit report rather than claiming exact permission restoration.
 
 ## [1.4.1] — 2026-06-16
