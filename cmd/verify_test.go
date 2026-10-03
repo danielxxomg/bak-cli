@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 
+	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 	"github.com/danielxxomg/bak-cli/internal/manifest"
 )
 
@@ -95,12 +95,7 @@ func TestVerifyCmd_Args(t *testing.T) {
 
 func TestRunVerify_Success(t *testing.T) {
 	tmpDir := t.TempDir()
-	switch runtime.GOOS {
-	case "windows":
-		t.Setenv("USERPROFILE", tmpDir)
-	default:
-		t.Setenv("HOME", tmpDir)
-	}
+	configtest.SetConfigHome(t, tmpDir)
 
 	id := "20250101-120000"
 	stageVerifyBackup(t, tmpDir, id, 2)
@@ -123,12 +118,7 @@ func TestRunVerify_Success(t *testing.T) {
 
 func TestRunVerify_CorruptedFile(t *testing.T) {
 	tmpDir := t.TempDir()
-	switch runtime.GOOS {
-	case "windows":
-		t.Setenv("USERPROFILE", tmpDir)
-	default:
-		t.Setenv("HOME", tmpDir)
-	}
+	configtest.SetConfigHome(t, tmpDir)
 
 	id := "20250101-120000"
 	backupDir := stageVerifyBackup(t, tmpDir, id, 2)
@@ -150,12 +140,7 @@ func TestRunVerify_CorruptedFile(t *testing.T) {
 
 func TestRunVerify_MissingBackup(t *testing.T) {
 	tmpDir := t.TempDir()
-	switch runtime.GOOS {
-	case "windows":
-		t.Setenv("USERPROFILE", tmpDir)
-	default:
-		t.Setenv("HOME", tmpDir)
-	}
+	configtest.SetConfigHome(t, tmpDir)
 
 	deps, _, _ := setupTestDeps(t)
 	cmd := &cobra.Command{}
@@ -170,12 +155,7 @@ func TestRunVerify_MissingBackup(t *testing.T) {
 
 func TestRunVerify_TraversalBlocked(t *testing.T) {
 	tmpDir := t.TempDir()
-	switch runtime.GOOS {
-	case "windows":
-		t.Setenv("USERPROFILE", tmpDir)
-	default:
-		t.Setenv("HOME", tmpDir)
-	}
+	configtest.SetConfigHome(t, tmpDir)
 
 	deps, _, _ := setupTestDeps(t)
 	cmd := &cobra.Command{}
@@ -190,12 +170,7 @@ func TestRunVerify_TraversalBlocked(t *testing.T) {
 
 func TestRunVerify_VerboseOutput(t *testing.T) {
 	tmpDir := t.TempDir()
-	switch runtime.GOOS {
-	case "windows":
-		t.Setenv("USERPROFILE", tmpDir)
-	default:
-		t.Setenv("HOME", tmpDir)
-	}
+	configtest.SetConfigHome(t, tmpDir)
 
 	id := "20250101-120000"
 	stageVerifyBackup(t, tmpDir, id, 1)

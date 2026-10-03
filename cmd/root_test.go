@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
+	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 	"github.com/danielxxomg/bak-cli/internal/restore"
 	"github.com/danielxxomg/bak-cli/internal/tui"
 )
@@ -689,7 +690,7 @@ func mustWriteFile(t *testing.T, path, content string) {
 // RestoreAction instead of returning hardcoded strings.
 func TestTuiRunRestore_RealAction(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	configtest.SetConfigHome(t, home)
 	bakDir := filepath.Join(home, ".bak")
 
 	// Create a backup directory with a valid manifest.
