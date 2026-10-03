@@ -9,6 +9,7 @@ import (
 
 	"github.com/danielxxomg/bak-cli/internal/actions"
 	"github.com/danielxxomg/bak-cli/internal/restore"
+	"github.com/danielxxomg/bak-cli/internal/tui"
 )
 
 // --- Root command structure tests ---
@@ -438,11 +439,30 @@ func TestExecute_NoSubcommand(t *testing.T) {
 	rootCmd.SetOut(bufOut)
 	rootCmd.SetErr(bufErr)
 
+	// Force the non-interactive path. Without this the test consults the real
+	// os.Stdin: on Windows CI runners isatty can report a terminal, so root's
+	// RunE launched the real Bubble Tea program and the job hung until the
+	// 10-minute timeout. Never let a unit test reach a live TUI.
+	origIsTTY := isTTY
+	isTTY = func() bool { return false }
+	t.Cleanup(func() { isTTY = origIsTTY })
+
+	origRunTUI := runTUI
+	var tuiLaunched bool
+	runTUI = func(tui.Deps) error {
+		tuiLaunched = true
+		return nil
+	}
+	t.Cleanup(func() { runTUI = origRunTUI })
+
 	// Running root without a subcommand or help flag should show help.
 	rootCmd.SetArgs([]string{})
 	err := rootCmd.Execute()
 	if err != nil {
 		t.Fatalf("root execution without subcommand should not error: %v", err)
+	}
+	if tuiLaunched {
+		t.Error("root without a subcommand launched the TUI in a non-interactive context")
 	}
 }
 
