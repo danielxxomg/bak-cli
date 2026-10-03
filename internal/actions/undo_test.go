@@ -261,15 +261,72 @@ func TestUndoAction_NoneFound_FailsClosed(t *testing.T) { //nolint:paralleltest 
 	if !errors.Is(err, ErrNoAppliedRecoveryPoint) && !strings.Contains(err.Error(), "no applied recovery point") {
 		t.Fatalf("expected ErrNoAppliedRecoveryPoint or mention, got: %v", err)
 	}
+	if !strings.Contains(err.Error(), "nothing to undo") {
+		t.Fatalf("expected error to mention 'nothing to undo', got: %v", err)
+	}
 }
 
-func TestUndoAction_NotARepo(t *testing.T) { //nolint:paralleltest // shared state
+func TestUndoAction_NotARepo_SkipsUndoFnSilently(t *testing.T) { //nolint:paralleltest // shared state
+	rm, home, t1, t2 := setupUndoTestScenario(t)
+	var out strings.Builder
+	undoCalled := false
+
+	action := &UndoAction{
+		FS:          rm.FS,
+		StorageFS:   rm.StorageFS,
+		RecoveryDir: rm.RecoveryDir,
+		Stdout:      &out,
+		HomeDir: func() (string, error) {
+			return home, nil
+		},
+		BakDir: func(homeDir string) string {
+			return filepath.Join(homeDir, ".bak")
+		},
+		IsRepo: func(path string) bool {
+			return false
+		},
+		UndoFn: func(repoPath string) error {
+			undoCalled = true
+			return nil
+		},
+	}
+
+	err := action.Run()
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if undoCalled {
+		t.Error("UndoFn must not be called when bakDir is not a repo")
+	}
+
+	// Target 1 was pre="orig1\n", post="post1\n". It should now be "orig1\n".
+	content1, err := os.ReadFile(t1)
+	if err != nil {
+		t.Fatalf("read t1: %v", err)
+	}
+	if string(content1) != "orig1\n" {
+		t.Errorf("t1 not restored to pre-state, got %q", string(content1))
+	}
+
+	// Target 2 was pre-absent, post="post2\n". It should now be removed.
+	if _, err := os.Stat(t2); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("t2 should be removed, got err: %v", err)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "Reverted to previous state") {
+		t.Errorf("output should confirm revert: %q", output)
+	}
+}
+
+func TestUndoAction_NotARepo_NoRestore(t *testing.T) { //nolint:paralleltest // shared state
 	var out strings.Builder
 
 	action := &UndoAction{
 		Stdout: &out,
 		HomeDir: func() (string, error) {
-			return "/home/test", nil
+			return t.TempDir(), nil
 		},
 		BakDir: func(homeDir string) string {
 			return filepath.Join(homeDir, ".bak")
@@ -281,10 +338,13 @@ func TestUndoAction_NotARepo(t *testing.T) { //nolint:paralleltest // shared sta
 
 	err := action.Run()
 	if err == nil {
-		t.Fatal("expected error when not a repo")
+		t.Fatal("expected error when no applied recovery point found, got nil")
 	}
-	if !strings.Contains(err.Error(), "no bak repository") {
-		t.Errorf("error should mention no bak repository: %v", err)
+	if !strings.Contains(err.Error(), "nothing to undo") {
+		t.Errorf("error should mention nothing to undo: %v", err)
+	}
+	if strings.Contains(err.Error(), "no bak repository") {
+		t.Errorf("error should not mention no bak repository: %v", err)
 	}
 }
 
@@ -321,43 +381,48 @@ func TestUndoAction_UndoFails(t *testing.T) { //nolint:paralleltest // shared st
 }
 
 func TestUndoAction_DefaultHomeDir(t *testing.T) { //nolint:paralleltest // shared state
-	var out strings.Builder
-
+	home := t.TempDir()
 	action := &UndoAction{
-		Stdout: &out,
-		IsRepo: func(path string) bool {
-			return false
-		},
+		FS: &homeFS{home: home},
 	}
-
-	err := action.Run()
-	if err == nil {
-		t.Fatal("expected error when not a repo (default HomeDir)")
+	homeDir, bakDir, recBase, err := action.resolveDirectories()
+	if err != nil {
+		t.Fatalf("resolveDirectories: %v", err)
 	}
-	if !strings.Contains(err.Error(), "no bak repository") {
-		t.Errorf("error should mention no bak repository: %v", err)
+	if homeDir != home {
+		t.Errorf("expected homeDir %q, got %q", home, homeDir)
+	}
+	expectedBak := filepath.Join(home, ".bak")
+	if bakDir != expectedBak {
+		t.Errorf("expected bakDir %q, got %q", expectedBak, bakDir)
+	}
+	expectedRec := filepath.Join(home, ".bak", "recovery")
+	if recBase != expectedRec {
+		t.Errorf("expected recBase %q, got %q", expectedRec, recBase)
 	}
 }
 
 func TestUndoAction_DefaultBakDir(t *testing.T) { //nolint:paralleltest // shared state
-	var out strings.Builder
-
+	home := "/home/test"
 	action := &UndoAction{
-		Stdout: &out,
 		HomeDir: func() (string, error) {
-			return "/home/test", nil
-		},
-		IsRepo: func(path string) bool {
-			return false
+			return home, nil
 		},
 	}
-
-	err := action.Run()
-	if err == nil {
-		t.Fatal("expected error when not a repo (default BakDir)")
+	homeDir, bakDir, recBase, err := action.resolveDirectories()
+	if err != nil {
+		t.Fatalf("resolveDirectories: %v", err)
 	}
-	if !strings.Contains(err.Error(), "no bak repository") {
-		t.Errorf("error should mention no bak repository: %v", err)
+	if homeDir != home {
+		t.Errorf("expected homeDir %q, got %q", home, homeDir)
+	}
+	expectedBak := filepath.Join(home, ".bak")
+	if bakDir != expectedBak {
+		t.Errorf("expected bakDir %q, got %q", expectedBak, bakDir)
+	}
+	expectedRec := filepath.Join(home, ".bak", "recovery")
+	if recBase != expectedRec {
+		t.Errorf("expected recBase %q, got %q", expectedRec, recBase)
 	}
 }
 

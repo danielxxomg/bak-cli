@@ -9,7 +9,8 @@ import (
 )
 
 // UndoAction reverts the last restore operation to its pre-restore state
-// with fail-closed drift protection, and creates a revert commit in the bak repo.
+// with fail-closed drift protection, and creates a revert commit in the bak repo
+// when present.
 // All dependencies are injectable for testability.
 type UndoAction struct {
 	// FS is the file system for live target files. Defaults to &OSFileSystem{}.
@@ -99,7 +100,7 @@ func (a *UndoAction) discoverRecoveryManager(recBase, homeDir string) (*recovery
 	meta, err := findLatestAppliedPoint(a.StorageFS, recBase, homeDir)
 	if err != nil {
 		if errors.Is(err, ErrNoAppliedRecoveryPoint) {
-			return nil, fmt.Errorf("no applied recovery point found: %w", err)
+			return nil, fmt.Errorf("nothing to undo — no applied restore found: %w", err)
 		}
 		return nil, fmt.Errorf("discover recovery point: %w", err)
 	}
@@ -144,15 +145,11 @@ func (a *UndoAction) applyUndo(recMgr *recoveryManager, out io.Writer, homeDir s
 // latest applied recovery point, verifies targets against post-restore state
 // for drift BEFORE any mutation or commit, projects pre-state back to target
 // files, records reverted and unresolved targets with sanitized paths, and
-// creates a revert commit in the bak repository.
+// creates a revert commit in the bak repository when present.
 func (a *UndoAction) Run() error {
 	out, homeDir, bakDir, recBase, err := a.initAction()
 	if err != nil {
 		return err
-	}
-
-	if a.IsRepo != nil && !a.IsRepo(bakDir) {
-		return fmt.Errorf("no bak repository found — run 'bak backup' first")
 	}
 
 	recMgr, err := a.discoverRecoveryManager(recBase, homeDir)
@@ -168,7 +165,7 @@ func (a *UndoAction) Run() error {
 		return err
 	}
 
-	if a.UndoFn != nil {
+	if a.UndoFn != nil && a.IsRepo != nil && a.IsRepo(bakDir) {
 		if err := a.UndoFn(bakDir); err != nil {
 			return fmt.Errorf("undo failed: %w", err)
 		}

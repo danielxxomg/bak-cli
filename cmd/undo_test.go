@@ -137,21 +137,17 @@ func TestRunUndoWithDeps_Delegation(t *testing.T) {
 	}
 	err := runUndoWithDeps(cmd, nil, deps)
 
-	// In an isolated home without .bak repo, undo must return a repository error.
+	// In an isolated home without an applied recovery point, undo must report nothing to undo.
 	if err == nil {
 		t.Fatal("expected error from undo delegation in empty isolated home, got nil")
 	}
 	errStr := err.Error()
-	if !strings.Contains(errStr, "repository") &&
-		!strings.Contains(errStr, "repo") &&
-		!strings.Contains(errStr, "bak") &&
-		!strings.Contains(errStr, "git") &&
-		!strings.Contains(errStr, "undo") {
+	if !strings.Contains(errStr, "nothing to undo") && !strings.Contains(errStr, "undo") {
 		t.Errorf("unexpected error from undo delegation: %v", err)
 	}
 }
 
-func TestRunUndo_NoBakRepo(t *testing.T) {
+func TestRunUndo_NoAppliedRestore(t *testing.T) {
 	t.Cleanup(func() {
 		rootCmd.SetOut(nil)
 		rootCmd.SetErr(nil)
@@ -174,11 +170,11 @@ func TestRunUndo_NoBakRepo(t *testing.T) {
 	err := rootCmd.Execute()
 
 	if err == nil {
-		t.Fatalf("expected error in empty isolated home without bak repo, got nil (stdout: %q, stderr: %q)", bufOut.String(), bufErr.String())
+		t.Fatalf("expected error in empty isolated home without applied restore, got nil (stdout: %q, stderr: %q)", bufOut.String(), bufErr.String())
 	}
 
 	errStr := err.Error()
-	if !strings.Contains(errStr, "repository") && !strings.Contains(errStr, "repo") && !strings.Contains(errStr, "bak") {
+	if !strings.Contains(errStr, "nothing to undo") {
 		t.Errorf("unexpected undo error: %v", err)
 	}
 }

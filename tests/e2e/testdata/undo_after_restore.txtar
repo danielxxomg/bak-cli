@@ -1,20 +1,14 @@
 # undo after restore roundtrip with real target recovery and drift protection
-# Sets up a git repository in .bak/, creates a real backup, modifies targets,
-# restores them, tests fail-closed drift protection, and verifies real target revert.
+# Exercises real target undo without fabricating a .bak git repository,
+# verifies fresh home reports nothing to undo, tests drift protection,
+# and verifies the legacy backup-repository revert when .bak is a git repo.
 
-# Initialize git repository in .bak/
-exec git init .bak
-exec git -C .bak config user.email test@bak-cli.local
-exec git -C .bak config user.name bak-test
+# --- Fresh home case ---
+# On a fresh home without any restore, undo reports nothing to undo.
+! exec bak undo
+stderr 'nothing to undo'
 
-# Initial commit in .bak/ so HEAD exists for git revert.
-cp test-v1.txt .bak/test.txt
-exec git -C .bak add test.txt
-exec git -C .bak commit -m bak:initial
-cp test-v2.txt .bak/test.txt
-exec git -C .bak add test.txt
-exec git -C .bak commit -m bak:modified
-
+# --- Real target undo flow (no git repo in .bak) ---
 # Run real backup with quick preset.
 exec bak backup --preset quick
 stdout 'Backup created:'
@@ -55,7 +49,29 @@ stdout 'reverted: ~/.config/opencode/AGENTS.md'
 # Verify the real target file was restored to its pre-restore state.
 exec grep 'pre-restore-agents' $HOME/.config/opencode/AGENTS.md
 
-# Verify the bak git repository commit was reverted.
+# --- Legacy backup-repository revert path ---
+# When .bak happens to be a git repository, bak undo also reverts it.
+exec git init .bak
+exec git -C .bak config user.email test@bak-cli.local
+exec git -C .bak config user.name bak-test
+cp test-v1.txt .bak/test.txt
+exec git -C .bak add test.txt
+exec git -C .bak commit -m bak:initial
+cp test-v2.txt .bak/test.txt
+exec git -C .bak add test.txt
+exec git -C .bak commit -m bak:modified
+
+# Make another pre-restore change and restore again to create a fresh applied recovery point.
+exec sh -c 'printf "pre-restore-agents-v2\n" > $HOME/.config/opencode/AGENTS.md'
+exec sh -c 'ID=$(cat $WORK/bak_id.txt) && bak restore --force $ID'
+stdout 'Restore complete'
+
+# Run undo with legacy git repo present — should revert target and git repo.
+exec bak undo
+stdout 'Reverted to previous state'
+exec grep 'pre-restore-agents-v2' $HOME/.config/opencode/AGENTS.md
+
+# Verify the legacy bak git repository commit was also reverted.
 exec git -C .bak log -1 --format=%s
 stdout 'bak: undo'
 
