@@ -213,6 +213,8 @@ The user authorized F2 real restore/undo recovery and confirmed that undo must r
     5. Eleven cmd tests isolated the fake home with raw `t.Setenv("HOME", ...)`, but `os.UserHomeDir()` reads `USERPROFILE` on Windows, so `TestTuiRunRestore_RealAction` resolved the real home and failed. All replaced with `configtest.SetConfigHome`, the helper AGENTS.md mandates.
     6. `TestRestoreAction_ChmodFailure_SurfacesAsError` asserted a chmod error that can never occur on Windows, where restore intentionally skips chmod; guarded with the package's existing `isWindows()` idiom.
   - Result: PR #48 is green on all ten checks with `go test` genuinely executing on ubuntu, windows and macOS, and the GGA gate genuinely reviewing the PR.
+  - Merged: squash commit `4bb7ac0` on `main` after all checks passed. The GGA job failed once for infrastructure reasons (`curl https://opencode.ai/install` returned "Failed to fetch version information" and killed the job before any review); re-running that single job produced the real verdict, 41 files reviewed with `STATUS: PASSED`. A red GGA check therefore does not imply a code violation — read the log before reacting.
+  - The 25 reviewable atomic commits remain on `origin/feat/f2-target-recovery`; `main` carries the single squash commit.
 
 ## Route declaration
 
