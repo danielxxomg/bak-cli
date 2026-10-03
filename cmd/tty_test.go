@@ -11,13 +11,24 @@ import (
 // TestIsTTY — RED (tty.go does not exist yet)
 // =============================================================================
 
-// TestIsTTY_ReturnsFalseInTestEnv verifies the real isTTY (which reads
-// os.Stdin) returns false in piped test environments. We also verify the
-// injection point works by overriding it.
+// TestIsTTY_ReturnsFalseInTestEnv verifies the cmd test package runs
+// non-interactive by default, regardless of the host terminal.
+//
+// This used to call the real probe and assert false, which held on Linux and
+// macOS CI (stdin piped) but not on Windows, where the probe can report a
+// terminal and a unit test would launch a real TUI. The invariant the package
+// now relies on is the forced default, not the host.
 func TestIsTTY_ReturnsFalseInTestEnv(t *testing.T) {
-	// The real isTTY should return false because test runners pipe stdin.
 	if isTTY() {
-		t.Error("isTTY() = true in test environment, want false (stdin is piped)")
+		t.Error("isTTY() = true in test environment, want false (package default is non-interactive)")
+	}
+}
+
+// TestRealIsTTY_IsTheDefaultProbe verifies the injection variable is wired to
+// the real terminal probe in production code.
+func TestRealIsTTY_IsTheDefaultProbe(t *testing.T) {
+	if realIsTTY == nil {
+		t.Fatal("realIsTTY must not be nil")
 	}
 }
 

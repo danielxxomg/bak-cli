@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -233,12 +234,31 @@ func TestProfileCreate_NoArgs_InteractiveAttempt(t *testing.T) {
 	profileCreateInteractive = true
 	defer func() { profileCreateInteractive = oldInteractive }()
 
+	// The package default already forces isTTY false, but assert the seam
+	// explicitly: this test must never be the reason a real wizard program
+	// starts. The wizard TUI blocked on input on Windows CI until the package
+	// timed out.
+	origIsTTY := isTTY
+	isTTY = func() bool { return false }
+	defer func() { isTTY = origIsTTY }()
+
+	origRun := runWizardProgram
+	var wizardLaunched bool
+	runWizardProgram = func(model tea.Model) (tea.Model, error) {
+		wizardLaunched = true
+		return model, nil
+	}
+	defer func() { runWizardProgram = origRun }()
+
 	deps, _, _ := setupTestDeps(t)
 	cmd := &cobra.Command{}
 
 	// With --interactive and no args, the wizard is launched. Without a TTY
 	// it will error, but it must not be the "provide a name" error.
 	err := runProfileCreateWithDeps(cmd, []string{}, deps)
+	if wizardLaunched {
+		t.Error("non-interactive context launched the wizard program")
+	}
 	if err == nil {
 		t.Log("wizard succeeded (TTY available)")
 		return

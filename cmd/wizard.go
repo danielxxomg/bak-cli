@@ -11,12 +11,21 @@ import (
 	"github.com/danielxxomg/bak-cli/internal/tui/screens"
 )
 
+// realIsTTY is the actual terminal probe.
+var realIsTTY = func() bool {
+	return isatty.IsTerminal(os.Stdin.Fd())
+}
+
 // isTTY reports whether stdin is a terminal.
 // Exposed as a package-level variable so tests can override it
 // (follows the var execCommand pattern from AGENTS.md).
-var isTTY = func() bool {
-	return isatty.IsTerminal(os.Stdin.Fd())
-}
+//
+// cmd tests force this to false for the whole package: on Windows CI runners
+// the real probe can report a terminal, which would let a unit test reach one
+// of the unguarded tea.NewProgram call sites and block on input until the test
+// binary times out. Individual tests that need the interactive path override
+// it back to true explicitly.
+var isTTY = realIsTTY
 
 // runWizardProgram is the injection point for running the interactive
 // wizard Bubble Tea program. Tests override this to return a pre-built
