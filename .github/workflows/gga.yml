@@ -29,7 +29,10 @@ jobs:
           go-version: '1.25'
       - name: Install GGA
         run: |
-          git clone --depth 1 --branch v2.8.1 \
+          # Keep CI in sync with the locally verified version. v2.8.1 no-ops in
+          # --pr-mode --diff-only on a PR head checkout (reports "No matching
+          # files changed in PR" even with a non-empty diff).
+          git clone --depth 1 --branch v2.10.1 \
             https://github.com/Gentleman-Programming/gentleman-guardian-angel /tmp/gga
           cd /tmp/gga
           ./install.sh
@@ -81,17 +84,15 @@ jobs:
           GGA_PROVIDER: "opencode:commandcode/meta/muse-spark-1.3-contributor"
           PR_BASE_BRANCH: "main"
         run: |
-          # The repo .gga is gitignored, so synthesize the CI equivalent:
-          # GGA v2.8.1 only reads PR_BASE_BRANCH from the config file,
-          # not from the environment.
           cat << 'EOF' > .gga
           PROVIDER="opencode:commandcode/meta/muse-spark-1.3-contributor"
           RULES_FILE="AGENTS.md"
+          FILE_PATTERNS="*.go,*.mod,*.md,*.yml,*.yaml"
           STRICT_MODE="true"
           TIMEOUT="900"
           PR_BASE_BRANCH="main"
           EOF
-          gga run --pr-mode --diff-only
+          gga run --pr-mode
 
       - name: Guard against a vacuous review
         run: |
