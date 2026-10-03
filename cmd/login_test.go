@@ -94,10 +94,14 @@ func TestRunLogin_EmptyToken(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error from un-authorized device login, got nil")
 	}
-	// Must resolve in seconds, not the server-advertised 10 minutes — proves no
-	// real network call and the test cannot hang CI.
-	if elapsed > 2*time.Second {
-		t.Errorf("login exceeded 2s (elapsed=%v); test is not isolated from the network", elapsed)
+	// Must resolve in seconds, well below a real device-flow expiry, so this
+	// proves no real network call and the test cannot hang CI. The budget is
+	// deliberately generous: the loop honours the server-advertised expires_in
+	// (1s here) but CI runners can overshoot that by whole seconds under load,
+	// and a tight ceiling turned a slow macOS runner into a red build. 30s is
+	// still ~30x the advertised expiry and nowhere near a real 15-minute flow.
+	if elapsed > 30*time.Second {
+		t.Errorf("login took %v, far longer than the 1s server-advertised expiry; test is not isolated from the network", elapsed)
 	}
 	if !strings.Contains(err.Error(), "timed out") && !strings.Contains(err.Error(), "token") {
 		t.Errorf("expected a token/timeout error, got: %v", err)
