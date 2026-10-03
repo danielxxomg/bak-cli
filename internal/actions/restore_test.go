@@ -17,9 +17,9 @@ import (
 
 // --- restore helpers ----------------------------------------------------
 
-// createBackupForRestore creates a real backup inside home so it can be
-// restored.
-func createBackupForRestore(t *testing.T, home string) string {
+// createTestBackupForRestore creates a real backup inside home with customizable
+// bakVersion, schemaVersion, and file mode.
+func createTestBackupForRestore(t *testing.T, home, bakVersion, schemaVersion string, mode uint32) string {
 	t.Helper()
 
 	bakDir := filepath.Join(home, ".bak")
@@ -30,11 +30,10 @@ func createBackupForRestore(t *testing.T, home string) string {
 		t.Fatal(err)
 	}
 
-	// Create a manifest.
-	m := manifest.New(backupID, "linux", "testhost", "test", "quick", []string{"config"})
+	m := manifest.New(backupID, "linux", "testhost", bakVersion, "quick", []string{"config"})
+	m.Version = schemaVersion
 	configDir := filepath.Join(home, ".config", "bak")
 
-	// Write a backed-up file.
 	adapterDir := filepath.Join(backupDir, "test-adapter")
 	if err := os.MkdirAll(adapterDir, 0755); err != nil {
 		t.Fatal(err)
@@ -46,7 +45,6 @@ func createBackupForRestore(t *testing.T, home string) string {
 	}
 
 	h := sha256.Sum256(testContent)
-
 	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
 		{
 			Category:   "config",
@@ -54,6 +52,7 @@ func createBackupForRestore(t *testing.T, home string) string {
 			BackupPath: "test-adapter/config.json",
 			Hash:       fmt.Sprintf("sha256:%x", h),
 			Size:       int64(len(testContent)),
+			Mode:       mode,
 		},
 	})
 	if err := m.Save(backupDir); err != nil {
@@ -66,6 +65,18 @@ func createBackupForRestore(t *testing.T, home string) string {
 	}
 
 	return backupID
+}
+
+// createBackupForRestore creates a standard backup inside home.
+func createBackupForRestore(t *testing.T, home string) string {
+	t.Helper()
+	return createTestBackupForRestore(t, home, "test", manifest.ManifestVersion, 0)
+}
+
+// createCustomManifestBackupForRestore creates a backup with custom versions and mode 0644.
+func createCustomManifestBackupForRestore(t *testing.T, home, bakVersion, schemaVersion string) string {
+	t.Helper()
+	return createTestBackupForRestore(t, home, bakVersion, schemaVersion, 0644)
 }
 
 // --- tests -------------------------------------------------------------
@@ -318,6 +329,114 @@ func TestRestoreAction_CountByStatus_AllTypes(t *testing.T) { //nolint:parallelt
 	}
 }
 
+func TestRestoreAction_RestoreFile_CaseContainment(t *testing.T) { //nolint:paralleltest // shared state
+	tests := []struct {
+		name       string
+		homeDir    string
+		backupDir  string
+		backupPath string
+		targetPath string
+		wantEscape bool
+		errSnippet string
+	}{
+		{
+			name:       "in_bounds_case_variant_target_accepted",
+			homeDir:    "/home/alice",
+			backupDir:  "/home/alice/.bak/backups/test",
+			backupPath: "safe.txt",
+			targetPath: "/HOME/alice/safe.txt",
+			wantEscape: false,
+		},
+		{
+			name:       "in_bounds_case_variant_backup_dir_accepted",
+			homeDir:    "/home/alice",
+			backupDir:  "/HOME/alice/.bak/backups/test",
+			backupPath: "safe.txt",
+			targetPath: "/home/alice/safe.txt",
+			wantEscape: false,
+		},
+		{
+			name:       "escape_target_parent_traversal_uppercase",
+			homeDir:    "/home/alice",
+			backupDir:  "/home/alice/.bak/backups/test",
+			backupPath: "safe.txt",
+			targetPath: "/HOME/alice/../../etc/passwd",
+			wantEscape: true,
+			errSnippet: "target path escapes home directory",
+		},
+		{
+			name:       "escape_target_sibling_dir_case_variant",
+			homeDir:    "/home/alice",
+			backupDir:  "/home/alice/.bak/backups/test",
+			backupPath: "safe.txt",
+			targetPath: "/HOME/alice-sibling/escape.txt",
+			wantEscape: true,
+			errSnippet: "target path escapes home directory",
+		},
+		{
+			name:       "escape_backup_path_traversal_case_variant",
+			homeDir:    "/home/alice",
+			backupDir:  "/home/alice/.bak/backups/test",
+			backupPath: "../OTHER/escape.txt",
+			targetPath: "/home/alice/safe.txt",
+			wantEscape: true,
+			errSnippet: "source path escapes backup directory",
+		},
+		{
+			name:       "escape_backup_path_windows_slash_case_variant",
+			homeDir:    "/home/alice",
+			backupDir:  "/home/alice/.bak/backups/test",
+			backupPath: "..\\ESCAPE\\file.txt",
+			targetPath: "/home/alice/safe.txt",
+			wantEscape: true,
+			errSnippet: "source path escapes backup directory",
+		},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest
+			srcFile := filepath.Join(tt.backupDir, tt.backupPath)
+			mockFS := &MockFileSystem{
+				HomeDir:    tt.homeDir,
+				StatResult: make(map[string]MockStatResult),
+				Files: map[string][]byte{
+					srcFile: []byte("content"),
+				},
+			}
+
+			action := &RestoreAction{
+				FS:        mockFS,
+				BackupDir: tt.backupDir,
+			}
+
+			err := action.restoreFile(restorepkg.FileDiff{
+				BackupPath: tt.backupPath,
+				TargetPath: tt.targetPath,
+			}, 0)
+
+			if tt.wantEscape {
+				if err == nil {
+					t.Fatalf("expected error for escaping path, got nil")
+				}
+				if !strings.Contains(err.Error(), tt.errSnippet) {
+					t.Errorf("error %q should contain %q", err.Error(), tt.errSnippet)
+				}
+				// Verify refusal: nothing was written to the target path.
+				if _, ok := mockFS.Files[tt.targetPath]; ok {
+					t.Errorf("expected target %q not to be written in mock FS after refusal", tt.targetPath)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("expected in-bounds case-variant path to succeed, got: %v", err)
+				}
+				if _, ok := mockFS.Files[tt.targetPath]; !ok {
+					t.Errorf("expected target %q to be written in mock FS, but was not", tt.targetPath)
+				}
+			}
+		})
+	}
+}
+
 func TestRestoreAction_RestoreFile_PathTraversalBackupDir(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	action := &RestoreAction{
@@ -344,9 +463,13 @@ func TestRestoreAction_RestoreFile_PathTraversalTarget(t *testing.T) { //nolint:
 	bakDir := filepath.Join(home, ".bak")
 	backupsDir := filepath.Join(bakDir, "backups")
 	backupDir := filepath.Join(backupsDir, "test")
-	os.MkdirAll(backupDir, 0755)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		t.Fatalf("mkdir backup dir: %v", err)
+	}
 	srcFile := filepath.Join(backupDir, "safe.txt")
-	os.WriteFile(srcFile, []byte("content"), 0644)
+	if err := os.WriteFile(srcFile, []byte("content"), 0644); err != nil {
+		t.Fatalf("write src file: %v", err)
+	}
 
 	action := &RestoreAction{
 		FS:        newHomeFS(home),
@@ -391,7 +514,9 @@ func TestRestoreAction_RestoreFile_CopyFile_Success(t *testing.T) { //nolint:par
 	// Create only the backup directory structure (no real source file).
 	bakDir := filepath.Join(home, ".bak")
 	backupsDir := filepath.Join(bakDir, "backups", "test")
-	os.MkdirAll(backupsDir, 0755)
+	if err := os.MkdirAll(backupsDir, 0755); err != nil {
+		t.Fatalf("mkdir backups dir: %v", err)
+	}
 
 	// Source file exists ONLY in the mock FS, forcing the code path
 	// through a.FS.CopyFile() instead of os.Open.
@@ -429,7 +554,9 @@ func TestRestoreAction_RestoreFile_CopyFile_Error(t *testing.T) { //nolint:paral
 
 	bakDir := filepath.Join(home, ".bak")
 	backupsDir := filepath.Join(bakDir, "backups", "test")
-	os.MkdirAll(backupsDir, 0755)
+	if err := os.MkdirAll(backupsDir, 0755); err != nil {
+		t.Fatalf("mkdir backups dir: %v", err)
+	}
 
 	srcPath := filepath.Join(backupsDir, "safe.txt")
 	mockFS := &MockFileSystem{
@@ -642,7 +769,43 @@ func TestRestoreAction_NilWritersFallback(t *testing.T) { //nolint:paralleltest 
 // errorReader returns an error on every Read call.
 type errorReader struct{}
 
+var _ io.Reader = (*errorReader)(nil)
+
 func (e *errorReader) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
+
+// failingWriter returns an error on every Write call.
+type failingWriter struct{}
+
+var _ io.Writer = (*failingWriter)(nil)
+
+func (f *failingWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
+func TestRestoreAction_WritersErrorHandling(t *testing.T) { //nolint:paralleltest // shared state
+	action := &RestoreAction{}
+	fw := &failingWriter{}
+
+	// printDryRunDiff error propagation
+	diffs := []restorepkg.FileDiff{{Status: restorepkg.DiffNew, SourcePath: "/a"}}
+	if err := action.printDryRunDiff(fw, diffs); err == nil {
+		t.Error("printDryRunDiff should return error when writer fails")
+	}
+
+	// warnBakVersionMismatch error propagation
+	if err := action.warnBakVersionMismatch("test-id", "1.0.0", fw); err == nil {
+		t.Error("warnBakVersionMismatch should return error when writer fails")
+	}
+
+	// confirmRestore prompt write error propagation
+	if _, err := action.confirmRestore(fw, fw); err == nil {
+		t.Error("confirmRestore should return error when prompt write fails")
+	}
+
+	// reportRestore error propagation
+	m := &manifest.Manifest{ID: "test-id"}
+	if err := reportRestore(fw, m, 1, 0, 0, 0); err == nil {
+		t.Error("reportRestore should return error when writer fails")
+	}
+}
 
 func TestRestoreAction_CancelPrompt_AnswerNo(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
@@ -1026,6 +1189,8 @@ type chmodFailingFS struct {
 	FileSystem
 }
 
+var _ FileSystem = (*chmodFailingFS)(nil)
+
 func (c *chmodFailingFS) Chmod(name string, _ os.FileMode) error {
 	return fmt.Errorf("chmod %s: permission denied", name)
 }
@@ -1093,6 +1258,8 @@ type partialCopyFailingFS struct {
 	failOnDst string
 	failErr   error
 }
+
+var _ FileSystem = (*partialCopyFailingFS)(nil)
 
 func (p *partialCopyFailingFS) CopyFile(src, dst string) error {
 	if dst == p.failOnDst {
@@ -1227,13 +1394,19 @@ type metadataFailCopyFS struct {
 	homeDir   string
 }
 
+var _ FileSystem = (*metadataFailCopyFS)(nil)
+
 func (m *metadataFailCopyFS) CopyFile(src, dst string) error {
 	if dst == m.failOnDst {
 		recBase := filepath.Join(m.homeDir, ".bak", "recovery")
 		if entries, err := os.ReadDir(recBase); err == nil && len(entries) > 0 {
 			metaFile := filepath.Join(recBase, entries[0].Name(), "repo", "recovery-meta.json")
-			_ = os.Remove(metaFile)
-			_ = os.Mkdir(metaFile, 0755)
+			if rmErr := os.Remove(metaFile); rmErr != nil && !os.IsNotExist(rmErr) {
+				return fmt.Errorf("remove metafile: %w", rmErr)
+			}
+			if mkErr := os.Mkdir(metaFile, 0755); mkErr != nil {
+				return fmt.Errorf("mkdir metafile: %w", mkErr)
+			}
 		}
 		return m.failErr
 	}
@@ -1345,6 +1518,8 @@ func TestRestoreAction_MetadataFailureDuringRollback_SurfacedAtActionBoundary(t 
 type postFailStorageFS struct {
 	FileSystem
 }
+
+var _ FileSystem = (*postFailStorageFS)(nil)
 
 func (p *postFailStorageFS) WriteFile(path string, data []byte, perm os.FileMode) error {
 	if strings.HasSuffix(path, "recovery-meta.json") && strings.Contains(string(data), `"status": "applied"`) {
@@ -1471,51 +1646,6 @@ func TestRestoreAction_RealAutomaticPostRecordingFailure(t *testing.T) { //nolin
 	if !strings.Contains(report, "Restore failed") {
 		t.Errorf("report %q should reflect failed restore", report)
 	}
-}
-
-func createCustomManifestBackupForRestore(t *testing.T, home, bakVersion, schemaVersion string) string {
-	t.Helper()
-	bakDir := filepath.Join(home, ".bak")
-	backupsDir := filepath.Join(bakDir, "backups")
-	backupID := "20260101-120000"
-	backupDir := filepath.Join(backupsDir, backupID)
-	if err := os.MkdirAll(backupDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	m := manifest.New(backupID, "linux", "testhost", bakVersion, "quick", []string{"config"})
-	m.Version = schemaVersion
-	configDir := filepath.Join(home, ".config", "bak")
-
-	adapterDir := filepath.Join(backupDir, "test-adapter")
-	if err := os.MkdirAll(adapterDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	testContent := []byte("key=value\n")
-	backedFile := filepath.Join(adapterDir, "config.json")
-	if err := os.WriteFile(backedFile, testContent, 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	h := sha256.Sum256(testContent)
-	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
-		{
-			Category:   "config",
-			SourcePath: "~/.config/bak/config.json",
-			BackupPath: "test-adapter/config.json",
-			Hash:       fmt.Sprintf("sha256:%x", h),
-			Size:       int64(len(testContent)),
-			Mode:       0644,
-		},
-	})
-	if err := m.Save(backupDir); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	return backupID
 }
 
 func TestRestoreAction_BakVersionWarning(t *testing.T) { //nolint:paralleltest // shared state

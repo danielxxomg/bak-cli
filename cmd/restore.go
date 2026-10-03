@@ -124,7 +124,9 @@ func resolveRestoreArg(args []string, deps cmdDeps) ([]string, bool, error) {
 
 	selectedID := model.SelectedID()
 	if selectedID == "" {
-		_, _ = fmt.Fprintln(deps.Stdout, "Restore cancelled.")
+		if _, err := fmt.Fprintln(deps.Stdout, "Restore cancelled."); err != nil {
+			return nil, false, fmt.Errorf("write output: %w", err)
+		}
 		return nil, false, nil
 	}
 

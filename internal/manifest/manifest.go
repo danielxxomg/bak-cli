@@ -272,19 +272,21 @@ func (m *Manifest) recount() {
 }
 
 // hashFile computes the SHA-256 hex digest of a file.
-func hashFile(path string) (string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", fmt.Errorf("open: %w", err)
+func hashFile(path string) (res string, err error) {
+	f, openErr := os.Open(path)
+	if openErr != nil {
+		return "", fmt.Errorf("open: %w", openErr)
 	}
-	defer func() { _ = f.Close() }()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close: %w", closeErr)
+			res = ""
+		}
+	}()
 
 	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return "", fmt.Errorf("hash: %w", err)
-	}
-	if err := f.Close(); err != nil {
-		return "", fmt.Errorf("close: %w", err)
+	if _, copyErr := io.Copy(h, f); copyErr != nil {
+		return "", fmt.Errorf("hash: %w", copyErr)
 	}
 	return fmt.Sprintf("sha256:%x", h.Sum(nil)), nil
 }

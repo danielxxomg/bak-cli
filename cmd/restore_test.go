@@ -10,8 +10,11 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	configtest "github.com/danielxxomg/bak-cli/internal/config/testutil"
 	"github.com/danielxxomg/bak-cli/internal/manifest"
+	"github.com/danielxxomg/bak-cli/internal/tui"
 )
 
 func TestRestoreCmd_Structure(t *testing.T) {
@@ -93,25 +96,30 @@ func TestRestoreCmd_Help(t *testing.T) {
 	}
 }
 
-func TestRestoreCmd_Use(t *testing.T) {
+func TestRestoreCmd_UseAndDescription(t *testing.T) {
 	cmd := findSubcommand(t, "restore")
 	if cmd == nil {
 		t.Fatal("restore command not found")
 	}
 
-	// Use should start with "restore".
-	if cmd.Use == "" {
-		t.Fatal("restore command should have a Use string")
+	tests := []struct {
+		name       string
+		got        string
+		wantPrefix string
+	}{
+		{name: "Use", got: cmd.Use, wantPrefix: "restore"},
+		{name: "Short", got: cmd.Short},
+		{name: "Long", got: cmd.Long},
 	}
-	if !strings.HasPrefix(cmd.Use, "restore") {
-		t.Fatalf("Use = %q, should start with \"restore\"", cmd.Use)
-	}
-
-	if cmd.Short == "" {
-		t.Fatal("restore command should have a short description")
-	}
-	if cmd.Long == "" {
-		t.Fatal("restore command should have a long description")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got == "" {
+				t.Fatalf("restore %s should not be empty", tt.name)
+			}
+			if tt.wantPrefix != "" && !strings.HasPrefix(tt.got, tt.wantPrefix) {
+				t.Fatalf("restore %s = %q, should start with %q", tt.name, tt.got, tt.wantPrefix)
+			}
+		})
 	}
 }
 
@@ -245,76 +253,37 @@ func TestRestoreHelpFollowedByExecute(t *testing.T) {
 	}
 }
 
-func TestRunRestore_BackupNotFound(t *testing.T) {
-	configtest.SetConfigHome(t, t.TempDir())
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
-
-	rootCmd.SetArgs([]string{"restore", "20250101-000000"})
-	err := rootCmd.Execute()
-
-	if err == nil {
-		t.Log("restore of non-existent backup succeeded (backup may exist)")
-		return
+func TestRunRestore_FlagVariants(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "no_flags", args: []string{"restore", "20250101-000000"}},
+		{name: "dry_run", args: []string{"restore", "--dry-run", "20250101-000000"}},
+		{name: "force", args: []string{"restore", "--force", "20250101-000000"}},
+		{name: "override", args: []string{"restore", "--override", "20250101-000000"}},
+		{name: "override_and_dry_run", args: []string{"restore", "--override", "--dry-run", "20250101-000000"}},
 	}
-	if !strings.Contains(err.Error(), "not found") {
-		t.Errorf("error should mention 'not found', got: %v", err)
-	}
-}
 
-func TestRunRestore_DryRunNonexistent(t *testing.T) {
-	configtest.SetConfigHome(t, t.TempDir())
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configtest.SetConfigHome(t, t.TempDir())
+			bufOut := new(bytes.Buffer)
+			bufErr := new(bytes.Buffer)
+			rootCmd.SetOut(bufOut)
+			rootCmd.SetErr(bufErr)
 
-	rootCmd.SetArgs([]string{"restore", "--dry-run", "20250101-000000"})
-	err := rootCmd.Execute()
+			rootCmd.SetArgs(tt.args)
+			err := rootCmd.Execute()
 
-	if err == nil {
-		t.Log("restore --dry-run succeeded (backup may exist)")
-		return
-	}
-	if !strings.Contains(err.Error(), "not found") {
-		t.Errorf("error should mention 'not found', got: %v", err)
-	}
-}
-
-func TestRestoreCmd_UseAndDescription(t *testing.T) {
-	cmd := findSubcommand(t, "restore")
-	if cmd == nil {
-		t.Fatal("restore command not found")
-	}
-	if cmd.Use == "" {
-		t.Fatal("restore Use should not be empty")
-	}
-	if cmd.Short == "" {
-		t.Fatal("restore Short should not be empty")
-	}
-	if cmd.Long == "" {
-		t.Fatal("restore Long should not be empty")
-	}
-}
-
-func TestRunRestore_ForceFlag(t *testing.T) {
-	configtest.SetConfigHome(t, t.TempDir())
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
-
-	rootCmd.SetArgs([]string{"restore", "--force", "20250101-000000"})
-	err := rootCmd.Execute()
-
-	if err == nil {
-		t.Log("restore --force succeeded (backup may exist)")
-		return
-	}
-	if !strings.Contains(err.Error(), "not found") {
-		t.Errorf("error should mention 'not found', got: %v", err)
+			if err == nil {
+				t.Logf("restore %v succeeded (backup may exist)", tt.args)
+				return
+			}
+			if !strings.Contains(err.Error(), "not found") {
+				t.Errorf("error should mention 'not found', got: %v", err)
+			}
+		})
 	}
 }
 
@@ -335,44 +304,6 @@ func TestRunRestore_VerboseFlagExists(t *testing.T) {
 	output := buf.String()
 	if !strings.Contains(output, "restore") {
 		t.Error("restore help should mention 'restore'")
-	}
-}
-
-func TestRunRestore_OverrideFlag(t *testing.T) {
-	configtest.SetConfigHome(t, t.TempDir())
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
-
-	rootCmd.SetArgs([]string{"restore", "--override", "20250101-000000"})
-	err := rootCmd.Execute()
-
-	if err == nil {
-		t.Log("restore --override succeeded (backup may exist)")
-		return
-	}
-	if !strings.Contains(err.Error(), "not found") {
-		t.Errorf("error should mention 'not found', got: %v", err)
-	}
-}
-
-func TestRunRestore_OverrideAndDryRun(t *testing.T) {
-	configtest.SetConfigHome(t, t.TempDir())
-	bufOut := new(bytes.Buffer)
-	bufErr := new(bytes.Buffer)
-	rootCmd.SetOut(bufOut)
-	rootCmd.SetErr(bufErr)
-
-	rootCmd.SetArgs([]string{"restore", "--override", "--dry-run", "20250101-000000"})
-	err := rootCmd.Execute()
-
-	if err == nil {
-		t.Log("restore --override --dry-run succeeded (backup may exist)")
-		return
-	}
-	if !strings.Contains(err.Error(), "not found") {
-		t.Errorf("error should mention 'not found', got: %v", err)
 	}
 }
 
@@ -786,5 +717,287 @@ func TestTuiRunRestore_BakVersionAndSchema(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "unsupported manifest schema version") {
 		t.Errorf("expected error to mention unsupported schema version, got: %v", err)
+	}
+}
+
+func TestRestorePickerModel_TableDriven_Update(t *testing.T) {
+	sampleBackups := []tui.BackupInfo{
+		{ID: "20260101-100000", Date: "2026-01-01", Size: "1.2 MB"},
+		{ID: "20260102-100000", Date: "2026-01-02", Size: "2.4 MB"},
+		{ID: "20260103-100000", Date: "2026-01-03", Size: "3.6 MB"},
+	}
+
+	tests := []struct {
+		name          string
+		initial       restorePickerModel
+		msg           tea.Msg
+		wantCursor    int
+		wantConfirmed bool
+		wantQuitting  bool
+		wantCmdQuit   bool
+		wantWidth     int
+		wantHeight    int
+	}{
+		{
+			name:       "window_size_msg_updates_dimensions",
+			initial:    restorePickerModel{backups: sampleBackups, cursor: 0},
+			msg:        tea.WindowSizeMsg{Width: 80, Height: 24},
+			wantCursor: 0,
+			wantWidth:  80,
+			wantHeight: 24,
+		},
+		{
+			name:       "cursor_down_increments",
+			initial:    restorePickerModel{backups: sampleBackups, cursor: 0},
+			msg:        tea.KeyPressMsg{Code: tea.KeyDown},
+			wantCursor: 1,
+		},
+		{
+			name:       "cursor_down_j_increments",
+			initial:    restorePickerModel{backups: sampleBackups, cursor: 1},
+			msg:        tea.KeyPressMsg{Code: 'j'},
+			wantCursor: 2,
+		},
+		{
+			name:       "cursor_down_at_bottom_stays_clamped",
+			initial:    restorePickerModel{backups: sampleBackups, cursor: 2},
+			msg:        tea.KeyPressMsg{Code: tea.KeyDown},
+			wantCursor: 2,
+		},
+		{
+			name:       "cursor_up_decrements",
+			initial:    restorePickerModel{backups: sampleBackups, cursor: 2},
+			msg:        tea.KeyPressMsg{Code: tea.KeyUp},
+			wantCursor: 1,
+		},
+		{
+			name:       "cursor_up_k_decrements",
+			initial:    restorePickerModel{backups: sampleBackups, cursor: 1},
+			msg:        tea.KeyPressMsg{Code: 'k'},
+			wantCursor: 0,
+		},
+		{
+			name:       "cursor_up_at_top_stays_clamped",
+			initial:    restorePickerModel{backups: sampleBackups, cursor: 0},
+			msg:        tea.KeyPressMsg{Code: tea.KeyUp},
+			wantCursor: 0,
+		},
+		{
+			name:          "enter_with_items_confirms_and_quits",
+			initial:       restorePickerModel{backups: sampleBackups, cursor: 1},
+			msg:           tea.KeyPressMsg{Code: tea.KeyEnter},
+			wantCursor:    1,
+			wantConfirmed: true,
+			wantCmdQuit:   true,
+		},
+		{
+			name:          "enter_with_empty_items_does_not_confirm",
+			initial:       restorePickerModel{backups: []tui.BackupInfo{}, cursor: 0},
+			msg:           tea.KeyPressMsg{Code: tea.KeyEnter},
+			wantCursor:    0,
+			wantConfirmed: false,
+		},
+		{
+			name:          "enter_with_nil_items_does_not_confirm",
+			initial:       restorePickerModel{backups: nil, cursor: 0},
+			msg:           tea.KeyPressMsg{Code: tea.KeyEnter},
+			wantCursor:    0,
+			wantConfirmed: false,
+		},
+		{
+			name:         "quit_with_q",
+			initial:      restorePickerModel{backups: sampleBackups, cursor: 0},
+			msg:          tea.KeyPressMsg{Code: 'q'},
+			wantQuitting: true,
+			wantCmdQuit:  true,
+		},
+		{
+			name:         "quit_with_esc",
+			initial:      restorePickerModel{backups: sampleBackups, cursor: 0},
+			msg:          tea.KeyPressMsg{Code: tea.KeyEsc},
+			wantQuitting: true,
+			wantCmdQuit:  true,
+		},
+		{
+			name:         "quit_with_ctrl_c",
+			initial:      restorePickerModel{backups: sampleBackups, cursor: 0},
+			msg:          tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl},
+			wantQuitting: true,
+			wantCmdQuit:  true,
+		},
+		{
+			name:       "unhandled_key_ignored",
+			initial:    restorePickerModel{backups: sampleBackups, cursor: 1},
+			msg:        tea.KeyPressMsg{Code: 'x'},
+			wantCursor: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := tt.initial
+			if m.Init() != nil {
+				t.Error("Init() should return nil")
+			}
+
+			updated, cmd := m.Update(tt.msg)
+			gotModel, ok := updated.(restorePickerModel)
+			if !ok {
+				t.Fatalf("Update() returned type %T, want restorePickerModel", updated)
+			}
+
+			if gotModel.cursor != tt.wantCursor {
+				t.Errorf("cursor = %d, want %d", gotModel.cursor, tt.wantCursor)
+			}
+			if gotModel.confirmed != tt.wantConfirmed {
+				t.Errorf("confirmed = %v, want %v", gotModel.confirmed, tt.wantConfirmed)
+			}
+			if gotModel.quitting != tt.wantQuitting {
+				t.Errorf("quitting = %v, want %v", gotModel.quitting, tt.wantQuitting)
+			}
+			if tt.wantCmdQuit && cmd == nil {
+				t.Error("expected tea.Quit command, got nil")
+			}
+			if !tt.wantCmdQuit && cmd != nil {
+				t.Errorf("expected nil cmd, got %v", cmd)
+			}
+			if tt.wantWidth != 0 && gotModel.width != tt.wantWidth {
+				t.Errorf("width = %d, want %d", gotModel.width, tt.wantWidth)
+			}
+			if tt.wantHeight != 0 && gotModel.height != tt.wantHeight {
+				t.Errorf("height = %d, want %d", gotModel.height, tt.wantHeight)
+			}
+		})
+	}
+}
+
+func TestRestorePickerModel_TableDriven_ViewAndSelection(t *testing.T) {
+	sampleBackups := []tui.BackupInfo{
+		{ID: "20260101-100000", Date: "2026-01-01", Size: "1.2 MB"},
+		{ID: "20260102-100000", Date: "2026-01-02", Size: "2.4 MB"},
+	}
+
+	tests := []struct {
+		name           string
+		model          restorePickerModel
+		wantViewSub    string
+		wantViewEmpty  bool
+		wantSelectedID string
+	}{
+		{
+			name: "normal_view_shows_title_and_items",
+			model: restorePickerModel{
+				backups: sampleBackups,
+				cursor:  0,
+				width:   80,
+				height:  24,
+			},
+			wantViewSub:    "Select backup to restore",
+			wantSelectedID: "", // unconfirmed
+		},
+		{
+			name: "confirmed_selection_returns_id",
+			model: restorePickerModel{
+				backups:   sampleBackups,
+				cursor:    1,
+				confirmed: true,
+				width:     80,
+				height:    24,
+			},
+			wantViewSub:    "Select backup to restore",
+			wantSelectedID: "20260102-100000",
+		},
+		{
+			name: "quitting_returns_empty_view",
+			model: restorePickerModel{
+				backups:  sampleBackups,
+				cursor:   0,
+				quitting: true,
+			},
+			wantViewEmpty:  true,
+			wantSelectedID: "",
+		},
+		{
+			name: "narrow_terminal_width_shows_too_small",
+			model: restorePickerModel{
+				backups: sampleBackups,
+				width:   15,
+				height:  20,
+			},
+			wantViewSub:    "Terminal too small",
+			wantSelectedID: "",
+		},
+		{
+			name: "narrow_terminal_height_shows_too_small",
+			model: restorePickerModel{
+				backups: sampleBackups,
+				width:   40,
+				height:  8,
+			},
+			wantViewSub:    "Terminal too small",
+			wantSelectedID: "",
+		},
+		{
+			name: "empty_slice_shows_no_backups",
+			model: restorePickerModel{
+				backups: []tui.BackupInfo{},
+				width:   80,
+				height:  24,
+			},
+			wantViewSub:    "No backups found.",
+			wantSelectedID: "",
+		},
+		{
+			name: "nil_slice_shows_no_backups",
+			model: restorePickerModel{
+				backups: nil,
+				width:   80,
+				height:  24,
+			},
+			wantViewSub:    "No backups found.",
+			wantSelectedID: "",
+		},
+		{
+			name: "negative_cursor_unconfirmed_renders_without_panic",
+			model: restorePickerModel{
+				backups: sampleBackups,
+				cursor:  -1,
+				width:   80,
+				height:  24,
+			},
+			wantViewSub:    "Select backup to restore",
+			wantSelectedID: "",
+		},
+		{
+			name: "out_of_bounds_cursor_renders_and_returns_empty_id",
+			model: restorePickerModel{
+				backups:   sampleBackups,
+				cursor:    99,
+				confirmed: true,
+				width:     80,
+				height:    24,
+			},
+			wantViewSub:    "Select backup to restore",
+			wantSelectedID: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			view := tt.model.View()
+			if tt.wantViewEmpty {
+				if view.Content != "" {
+					t.Errorf("View().Content = %q, want empty", view.Content)
+				}
+			} else if tt.wantViewSub != "" {
+				if !strings.Contains(view.Content, tt.wantViewSub) {
+					t.Errorf("View().Content %q does not contain %q", view.Content, tt.wantViewSub)
+				}
+			}
+
+			if gotID := tt.model.SelectedID(); gotID != tt.wantSelectedID {
+				t.Errorf("SelectedID() = %q, want %q", gotID, tt.wantSelectedID)
+			}
+		})
 	}
 }

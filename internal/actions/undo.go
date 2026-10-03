@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 )
 
 // UndoAction reverts the last restore operation to its pre-restore state
@@ -61,13 +62,18 @@ func (a *UndoAction) resolveDirectories() (homeDir, bakDir, recBase string, err 
 	return homeDir, bakDir, recBase, nil
 }
 
-func reportOutcome(out io.Writer, outcome rollbackOutcome, homeDir string) {
+func reportOutcome(out io.Writer, outcome rollbackOutcome, homeDir string) error {
+	var b strings.Builder
 	for _, p := range outcome.Reverted {
-		_, _ = fmt.Fprintf(out, "reverted: %s\n", sanitizePath(p, homeDir))
+		fmt.Fprintf(&b, "reverted: %s\n", sanitizePath(p, homeDir))
 	}
 	for _, p := range outcome.Unresolved {
-		_, _ = fmt.Fprintf(out, "unresolved: %s\n", sanitizePath(p, homeDir))
+		fmt.Fprintf(&b, "unresolved: %s\n", sanitizePath(p, homeDir))
 	}
+	if _, err := fmt.Fprint(out, b.String()); err != nil {
+		return fmt.Errorf("write outcome: %w", err)
+	}
+	return nil
 }
 
 func (a *UndoAction) initAction() (io.Writer, string, string, string, error) {
@@ -118,12 +124,18 @@ func (a *UndoAction) discoverRecoveryManager(recBase, homeDir string) (*recovery
 
 func (a *UndoAction) applyUndo(recMgr *recoveryManager, out io.Writer, homeDir string) error {
 	outcome, undoErr := recMgr.UndoTargets()
-	reportOutcome(out, outcome, homeDir)
+	repErr := reportOutcome(out, outcome, homeDir)
 	if undoErr != nil || len(outcome.Unresolved) > 0 {
 		if undoErr == nil {
 			undoErr = fmt.Errorf("unresolved targets remain")
 		}
+		if repErr != nil {
+			return errors.Join(fmt.Errorf("undo targets: %w", undoErr), repErr)
+		}
 		return fmt.Errorf("undo targets: %w", undoErr)
+	}
+	if repErr != nil {
+		return repErr
 	}
 	return nil
 }
@@ -162,6 +174,8 @@ func (a *UndoAction) Run() error {
 		}
 	}
 
-	_, _ = fmt.Fprintln(out, "✅ Reverted to previous state")
+	if _, err := fmt.Fprintln(out, "✅ Reverted to previous state"); err != nil {
+		return fmt.Errorf("write confirmation: %w", err)
+	}
 	return nil
 }

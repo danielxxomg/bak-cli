@@ -2,6 +2,8 @@ package manifest
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -464,5 +466,58 @@ func TestValidate_NewerSchemaVersion(t *testing.T) { //nolint:paralleltest // no
 	}
 	if !strings.Contains(err.Error(), "unsupported manifest schema version") {
 		t.Errorf("Validate() error %q should mention unsupported manifest schema version", err.Error())
+	}
+}
+
+func TestHashFile(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	validFile := filepath.Join(dir, "test.txt")
+	content := []byte("hello world\n")
+	if err := os.WriteFile(validFile, content, 0644); err != nil {
+		t.Fatalf("write test file: %v", err)
+	}
+
+	h := sha256.Sum256(content)
+	expectedHash := fmt.Sprintf("sha256:%x", h)
+
+	tests := []struct {
+		name       string
+		path       string
+		wantHash   string
+		wantErr    bool
+		errSnippet string
+	}{
+		{
+			name:     "valid_file",
+			path:     validFile,
+			wantHash: expectedHash,
+			wantErr:  false,
+		},
+		{
+			name:       "nonexistent_file",
+			path:       filepath.Join(dir, "missing.txt"),
+			wantErr:    true,
+			errSnippet: "open:",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := hashFile(tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("hashFile(%q) error = %v, wantErr %v", tt.path, err, tt.wantErr)
+			}
+			if tt.wantErr {
+				if !strings.Contains(err.Error(), tt.errSnippet) {
+					t.Errorf("hashFile error %q should contain %q", err.Error(), tt.errSnippet)
+				}
+				return
+			}
+			if got != tt.wantHash {
+				t.Errorf("hashFile(%q) = %q, want %q", tt.path, got, tt.wantHash)
+			}
+		})
 	}
 }
