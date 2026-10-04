@@ -862,7 +862,9 @@ func TestRedactFileInPlace(t *testing.T) { //nolint:paralleltest
 // with whitespace. An earlier tightening of the value class silently stopped
 // matching `"accessToken":""`, which would have let a populated OAuth token
 // through undetected.
-func TestDefaultPatterns_CredentialKeyIsAlwaysSensitive(t *testing.T) { //nolint:paralleltest // pure function
+func TestDefaultPatterns_CredentialKeyIsAlwaysSensitive(t *testing.T) {
+	t.Parallel()
+
 	patterns := DefaultPatterns()
 	cases := []struct{ name, in string }{
 		{"empty value", `{"mcpOAuth":{"v":{"accessToken":""}}}`},
@@ -872,6 +874,7 @@ func TestDefaultPatterns_CredentialKeyIsAlwaysSensitive(t *testing.T) { //nolint
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			if !matchesAny(patterns, c.in) {
 				t.Errorf("credential-shaped key not detected in %s", c.in)
 			}
