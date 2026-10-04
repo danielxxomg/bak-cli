@@ -33,10 +33,15 @@ func DefaultPatterns() []*regexp.Regexp {
 
 		// JSON/YAML style: "apiKey": "sk-..." or apiKey: sk-...
 		// Generic key/value secrets. The closing quote belongs outside the
-		// alternation (it previously applied only to auth_token) and the value
-		// stops at JSON/YAML structure so redacting one secret no longer eats
-		// the rest of the line.
-		regexp.MustCompile(`(?i)"?(?:api[_-]?key|apikey|token|secret|password|auth[_-]?token)"?\s*[:=]\s*['"]?[^\s'",}]+`),
+		// alternation (it previously applied only to auth_token), and the value
+		// stops at JSON/YAML structure so redacting one secret does not eat the
+		// rest of the line.
+		//
+		// The value part is deliberately allowed to be empty and to be preceded by
+		// whitespace. A credential-shaped key with an empty or whitespace-padded
+		// value is still treated as sensitive: this scanner fails closed, because
+		// a missed token is far worse than a file flagged over-cautiously.
+		regexp.MustCompile(`(?i)"?(?:api[_-]?key|apikey|token|secret|password|auth[_-]?token)"?\s*[:=]\s*['"]?\s*[^\s'",}]*`),
 
 		// GitHub token named assignments.
 		regexp.MustCompile(`(?i)github[_-]?token\s*[:=]\s*['"]?\s*\S+`),

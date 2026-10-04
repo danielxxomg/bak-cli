@@ -856,3 +856,35 @@ func TestRedactFileInPlace(t *testing.T) { //nolint:paralleltest
 		t.Errorf("file lost surrounding structure: %s", afterStr)
 	}
 }
+
+// TestDefaultPatterns_CredentialKeyIsAlwaysSensitive pins the fail-closed rule:
+// a credential-shaped key is flagged even when its value is empty or padded
+// with whitespace. An earlier tightening of the value class silently stopped
+// matching `"accessToken":""`, which would have let a populated OAuth token
+// through undetected.
+func TestDefaultPatterns_CredentialKeyIsAlwaysSensitive(t *testing.T) { //nolint:paralleltest // pure function
+	patterns := DefaultPatterns()
+	cases := []struct{ name, in string }{
+		{"empty value", `{"mcpOAuth":{"v":{"accessToken":""}}}`},
+		{"empty value spaced", `{"accessToken": ""}`},
+		{"leading space value", `{"accessToken": " abcdef123456"}`},
+		{"populated value", `{"accessToken":"eyJhbGciOiJIUzI1NiJ9"}`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if !matchesAny(patterns, c.in) {
+				t.Errorf("credential-shaped key not detected in %s", c.in)
+			}
+		})
+	}
+}
+
+// matchesAny reports whether any pattern matches the input.
+func matchesAny(patterns []*regexp.Regexp, in string) bool {
+	for _, p := range patterns {
+		if p.MatchString(in) {
+			return true
+		}
+	}
+	return false
+}
