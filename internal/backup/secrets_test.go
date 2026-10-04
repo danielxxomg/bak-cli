@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -497,5 +498,264 @@ func TestGenerateEnvExample_UnreadableSourceCleanNote(t *testing.T) { //nolint:p
 	}
 	if strings.Contains(content, homeDir) {
 		t.Errorf(".env.example leaked absolute path %q:\n%s", homeDir, content)
+	}
+}
+
+func TestScanFile_ExtendedSecretFamilies(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	patterns := DefaultPatterns()
+
+	tests := []struct {
+		name    string
+		content string
+		want    int
+	}{
+		{
+			name:    "AWS access key ID (AKIA)",
+			content: "key = AKIAIOSFODNN7EXAMPLE\n",
+			want:    1,
+		},
+		{
+			name:    "AWS temporary key ID (ASIA)",
+			content: "ASIAY34FZKBOKMUTVV7A\n",
+			want:    1,
+		},
+		{
+			name:    "Google Cloud API key",
+			content: "AIzaSyD-1234567890abcdefghijklmnopqrstu\n",
+			want:    1,
+		},
+		{
+			name:    "Stripe secret live key (sk_live)",
+			content: "sk_live_abcdefghij1234\n",
+			want:    1,
+		},
+		{
+			name:    "Stripe restricted test key (rk_test)",
+			content: "rk_test_abcdefghij1234\n",
+			want:    1,
+		},
+		{
+			name:    "PostgreSQL connection string with credentials in JSON",
+			content: `{"database_url": "postgres://myuser:mypassword@localhost:5432/mydb"}` + "\n",
+			want:    1,
+		},
+		{
+			name:    "Redis connection string with auth",
+			content: "redis://admin:hunter2@cache.internal:6379/0\n",
+			want:    1,
+		},
+		{
+			name:    "MongoDB SRV connection string with auth",
+			content: "mongodb+srv://u:pw@cluster0.example.net/db\n",
+			want:    1,
+		},
+		{
+			name:    "Authorization header Bearer token",
+			content: "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\n",
+			want:    1,
+		},
+		{
+			name:    "Raw Bearer token standalone",
+			content: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\n",
+			want:    1,
+		},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+			dir := t.TempDir()
+			fp := filepath.Join(dir, "secrets.env")
+			if err := os.WriteFile(fp, []byte(tt.content), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			results, err := ScanFile(fp, patterns)
+			if err != nil {
+				t.Fatalf("ScanFile: %v", err)
+			}
+			if len(results) < tt.want {
+				t.Errorf("got %d matches, want at least %d. Results: %+v", len(results), tt.want, results)
+			}
+		})
+	}
+}
+
+func TestScanFile_ExtendedSecretFamilies_FalsePositiveGuards(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	patterns := DefaultPatterns()
+
+	tests := []struct {
+		name    string
+		content string
+		want    int
+	}{
+		{
+			name:    "Stripe publishable live key ignored",
+			content: "pk_live_abcdefghij1234\n",
+			want:    0,
+		},
+		{
+			name:    "Stripe publishable test key ignored",
+			content: "pk_test_abcdefghij1234\n",
+			want:    0,
+		},
+		{
+			name:    "PostgreSQL connection string without credentials ignored",
+			content: "postgres://localhost:5432/mydb\n",
+			want:    0,
+		},
+		{
+			name:    "Redis connection string without credentials ignored",
+			content: "redis://cache.internal:6379/0\n",
+			want:    0,
+		},
+		{
+			name:    "HTTPS URL ignored",
+			content: "https://example.com/path?a=b\n",
+			want:    0,
+		},
+		{
+			name:    "Short Bearer token placeholder ignored",
+			content: "Bearer token\n",
+			want:    0,
+		},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+			dir := t.TempDir()
+			fp := filepath.Join(dir, "clean.env")
+			if err := os.WriteFile(fp, []byte(tt.content), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			results, err := ScanFile(fp, patterns)
+			if err != nil {
+				t.Fatalf("ScanFile: %v", err)
+			}
+			if len(results) != tt.want {
+				t.Errorf("got %d matches, want %d. Results: %+v", len(results), tt.want, results)
+			}
+		})
+	}
+}
+
+func TestGenerateEnvExample_DSNRedaction(t *testing.T) { //nolint:paralleltest // uses t.Setenv via configtest.SetConfigHome
+	homeDir := t.TempDir()
+	configtest.SetConfigHome(t, homeDir)
+
+	configDir := filepath.Join(homeDir, ".config", "opencode")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	configFile := filepath.Join(configDir, "config.json")
+	content := `{"database_url": "postgres://myuser:mypassword@localhost:5432/mydb"}` + "\n"
+	if err := os.WriteFile(configFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	outputDir := t.TempDir()
+	patterns := DefaultPatterns()
+
+	if err := GenerateEnvExample([]string{configFile}, patterns, outputDir); err != nil {
+		t.Fatalf("GenerateEnvExample: %v", err)
+	}
+
+	examplePath := filepath.Join(outputDir, ".env.example")
+	data, err := os.ReadFile(examplePath)
+	if err != nil {
+		t.Fatalf("read .env.example: %v", err)
+	}
+	outStr := string(data)
+
+	if strings.Contains(outStr, "myuser") {
+		t.Errorf(".env.example leaked username %q", "myuser")
+	}
+	if strings.Contains(outStr, "mypassword") {
+		t.Errorf(".env.example leaked password %q", "mypassword")
+	}
+	if !strings.Contains(outStr, "<YOUR_SECRET>") {
+		t.Errorf(".env.example missing <YOUR_SECRET> placeholder:\n%s", outStr)
+	}
+
+	found := false
+	for _, line := range strings.Split(outStr, "\n") {
+		if strings.Contains(line, "<YOUR_SECRET>") {
+			found = true
+			jsonPart := strings.TrimSpace(strings.Split(line, "  #")[0])
+			var parsed map[string]string
+			if err := json.Unmarshal([]byte(jsonPart), &parsed); err != nil {
+				t.Fatalf("surrounding JSON is not parseable: %v (line: %s)", err, jsonPart)
+			}
+			if parsed["database_url"] != "<YOUR_SECRET>" {
+				t.Errorf("database_url = %q, want <YOUR_SECRET>", parsed["database_url"])
+			}
+		}
+	}
+	if !found {
+		t.Fatal("redacted JSON line not found in .env.example")
+	}
+}
+
+// TestRedactLine_MultipleFamiliesOnOneLine guards a real leak: a single JSON
+// line routinely carries more than one credential family, and redacting only
+// the first match left the rest of the line in the clear.
+func TestRedactLine_MultipleFamiliesOnOneLine(t *testing.T) { //nolint:paralleltest // pure function
+	line := `{"db":"postgres://realuser:realsecret@db.internal:5432/app","aws":"AKIAIOSFODNN7EXAMPLE","token":"ghp_abc123def456ghi789jkl012mno345pqr678stu"}`
+
+	got, matched := redactLine(line, DefaultPatterns())
+	if !matched {
+		t.Fatal("expected the line to match a secret pattern")
+	}
+	for _, leak := range []string{"realuser", "realsecret", "AKIAIOSFODNN7EXAMPLE", "ghp_abc123def456ghi789jkl012mno345pqr678stu"} {
+		if strings.Contains(got, leak) {
+			t.Errorf("redacted output still leaks %q:\n%s", leak, got)
+		}
+	}
+	if !strings.Contains(got, "<YOUR_SECRET>") {
+		t.Errorf("expected a placeholder in redacted output:\n%s", got)
+	}
+	// Sibling keys must survive so the user can still tell which value to
+	// re-enter. The generic key/value pattern intentionally redacts from the
+	// key name onward, so the redacted key itself is not expected to survive;
+	// what matters is that one secret no longer eats the rest of the line.
+	for _, key := range []string{`"db":`, `"aws":`} {
+		if !strings.Contains(got, key) {
+			t.Errorf("redaction destroyed surrounding JSON, missing %s:\n%s", key, got)
+		}
+	}
+	if !strings.HasSuffix(strings.TrimSpace(got), "}") {
+		t.Errorf("redaction destroyed the JSON object:\n%s", got)
+	}
+}
+
+// TestRedactLine_NoMatchLeavesLineUnchanged verifies the no-match path.
+func TestRedactLine_NoMatchLeavesLineUnchanged(t *testing.T) { //nolint:paralleltest // pure function
+	line := `{"model":"lab","theme":"rose-pine"}`
+	got, matched := redactLine(line, DefaultPatterns())
+	if matched {
+		t.Error("expected no match on a secret-free line")
+	}
+	if got != line {
+		t.Errorf("line was modified: got %q, want %q", got, line)
+	}
+}
+
+// TestRedactLine_OverlappingSpansMerged verifies overlapping matches from
+// different patterns collapse into one placeholder without corrupting output.
+func TestRedactLine_OverlappingSpansMerged(t *testing.T) { //nolint:paralleltest // pure function
+	patterns := []*regexp.Regexp{
+		regexp.MustCompile(`SECRET`),
+		regexp.MustCompile(`SECRET-[0-9]+`),
+	}
+	got, matched := redactLine("value=SECRET-1234 end", patterns)
+	if !matched {
+		t.Fatal("expected a match")
+	}
+	if strings.Count(got, "<YOUR_SECRET>") != 1 {
+		t.Errorf("expected exactly one merged placeholder, got %q", got)
+	}
+	if got != "value=<YOUR_SECRET> end" {
+		t.Errorf("merged redaction = %q", got)
 	}
 }

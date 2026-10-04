@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/danielxxomg/bak-cli/internal/paths"
@@ -31,10 +32,32 @@ func DefaultPatterns() []*regexp.Regexp {
 		regexp.MustCompile(`(?im)^\s*(?:export\s+)?\w*(?:api[_-]?key|apikey|token|secret|password|passwd|pwd|auth)\w*\s*[:=]\s*['"]?\s*\S+`),
 
 		// JSON/YAML style: "apiKey": "sk-..." or apiKey: sk-...
-		regexp.MustCompile(`(?i)"?(?:api[_-]?key|apikey|token|secret|password|auth[_-]?token)"?\s*[:=]\s*['"]?\s*\S+`),
+		// Generic key/value secrets. The closing quote belongs outside the
+		// alternation (it previously applied only to auth_token) and the value
+		// stops at JSON/YAML structure so redacting one secret no longer eats
+		// the rest of the line.
+		regexp.MustCompile(`(?i)"?(?:api[_-]?key|apikey|token|secret|password|auth[_-]?token)"?\s*[:=]\s*['"]?[^\s'",}]+`),
 
 		// GitHub token named assignments.
 		regexp.MustCompile(`(?i)github[_-]?token\s*[:=]\s*['"]?\s*\S+`),
+
+		// AWS access key ID (AKIA long-lived, ASIA temporary/sts).
+		regexp.MustCompile(`(?i)\b(?:AKIA|ASIA)[0-9A-Z]{16}\b`),
+
+		// Google Cloud API key.
+		regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{35}\b`),
+
+		// Stripe secret keys. Publishable pk_ keys are deliberately NOT matched:
+		// Stripe documents them as safe for client-side use, and redacting them would
+		// replace working configuration with placeholders on restore.
+		regexp.MustCompile(`\b[sr]k_(?:live|test)_[0-9A-Za-z]{10,}\b`),
+
+		// Connection strings carrying inline credentials. A DSN without user:password
+		// must not match, so both credential components are required.
+		regexp.MustCompile("(?i)\\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\\+srv)?|redis|rediss|amqps?)://[^\\s:@/'\"]+:[^\\s@/'\"]+@[^\\s'\"]+"),
+
+		// HTTP Bearer tokens.
+		regexp.MustCompile(`(?i)\bBearer\s+[A-Za-z0-9\-._~+/]{20,}={0,2}`),
 	}
 }
 
@@ -159,14 +182,7 @@ func scanRedactedFile(out *strings.Builder, f *os.File, patterns []*regexp.Regex
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Text()
-		matched := false
-		for _, pat := range patterns {
-			if pat.MatchString(line) {
-				matched = true
-				line = redactLine(line, pat)
-				break
-			}
-		}
+		line, matched := redactLine(line, patterns)
 		if matched {
 			out.WriteString(line + "  # ⚠ secret detected — replaced\n")
 		} else {
@@ -181,12 +197,52 @@ func scanRedactedFile(out *strings.Builder, f *os.File, patterns []*regexp.Regex
 	}
 }
 
-// redactLine replaces the value portion of a secret assignment with a
-// <YOUR_SECRET> placeholder. It handles KEY=VALUE and KEY: VALUE styles.
-func redactLine(line string, pat *regexp.Regexp) string {
-	idx := pat.FindStringIndex(line)
-	if idx == nil {
-		return line
+// redactLine replaces every secret match on the line with a single
+// <YOUR_SECRET> placeholder and reports whether anything matched.
+//
+// All patterns are applied, not just the first one: a single JSON line
+// commonly carries several credential families at once, and stopping at the
+// first match leaked the others. Matches from every pattern are collected and
+// merged before rewriting so overlapping spans cannot corrupt the output or
+// shift offsets.
+func redactLine(line string, patterns []*regexp.Regexp) (string, bool) {
+	type span struct{ start, end int }
+	var spans []span
+	for _, pat := range patterns {
+		for _, m := range pat.FindAllStringIndex(line, -1) {
+			spans = append(spans, span{m[0], m[1]})
+		}
 	}
-	return line[:idx[0]] + "<YOUR_SECRET>" + line[idx[1]:]
+	if len(spans) == 0 {
+		return line, false
+	}
+
+	sort.Slice(spans, func(i, j int) bool {
+		if spans[i].start == spans[j].start {
+			return spans[i].end > spans[j].end
+		}
+		return spans[i].start < spans[j].start
+	})
+
+	merged := []span{spans[0]}
+	for _, s := range spans[1:] {
+		last := &merged[len(merged)-1]
+		if s.start <= last.end {
+			if s.end > last.end {
+				last.end = s.end
+			}
+			continue
+		}
+		merged = append(merged, s)
+	}
+
+	var b strings.Builder
+	prev := 0
+	for _, m := range merged {
+		b.WriteString(line[prev:m.start])
+		b.WriteString("<YOUR_SECRET>")
+		prev = m.end
+	}
+	b.WriteString(line[prev:])
+	return b.String(), true
 }

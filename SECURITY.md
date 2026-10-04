@@ -70,11 +70,20 @@ The backup engine detects common secret patterns and excludes them from backups:
 | `sk-ant-*` | Anthropic API keys |
 | `xoxb-*` | Slack bot tokens |
 | `xoxp-*` | Slack user tokens |
+| `AKIA*`, `ASIA*` | AWS access key IDs (AKIA long-lived, ASIA temporary/STS) |
+| `AIza*` | Google Cloud API keys |
+| `sk_*`, `rk_*` | Stripe secret and restricted keys (publishable `pk_*` keys are excluded) |
+| Connection strings | DSNs carrying inline credentials (`user:password@`) |
+| `Bearer *` | HTTP Bearer authentication tokens |
 
-Instead of backing up real secrets, bak generates a `.env.example` template with redacted placeholder values. For files containing recognized token families (`ghp_*`, `gho_*`, `ghu_*`, `ghs_*`, `ghr_*`, `sk-*`, `sk-ant-*`, `xoxb-*`, `xoxp-*`) and standard assignment patterns, matching secrets are never written to the backup directory:
+Instead of backing up real secrets, bak generates a `.env.example` template with redacted placeholder values. For files containing recognized token families (GitHub, OpenAI, Anthropic, Slack, AWS access key IDs, GCP API keys, Stripe secret keys, connection strings with inline credentials, Bearer tokens) and standard assignment patterns, matching secrets are never written to the backup directory:
 - **Source-based redaction**: `.env.example` is generated directly from source files with home-relative section headers and `<YOUR_SECRET>` placeholders. If a source file is unreadable, a clean note without absolute paths or usernames is emitted.
 - **Named exclusion reporting**: `bak backup` lists every excluded secret-bearing file by its home-relative path (`~/...`) in the backup summary, ensuring exclusions are transparent.
 - **Honest dry-run classification**: On restore, dry-run distinguishes manifest entries absent due to secret exclusion (`[secret-excluded]`) from genuinely absent files (`[missing]`), explicitly warning that excluded files cannot be restored and must be re-entered by hand.
+
+Stripe publishable `pk_` keys are deliberately not treated as secrets: Stripe documents them as safe for client-side use, and redacting them would replace working configuration with placeholders on restore.
+
+Tradeoff: every added pattern excludes matching files from the backup, so a false positive silently removes a file from protection.
 
 Unrecognized secret formats, custom token formats, or keys from unlisted providers outside these families are not detected and must be managed or excluded manually.
 
