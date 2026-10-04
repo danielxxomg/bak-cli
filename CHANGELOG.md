@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0-rc2]
+
+First release candidate carrying the restore safety work. Backups now protect config files whose contents contain credentials: such files are stored with `<YOUR_SECRET>` placeholders instead of being dropped, under manifest schema `0.5.0`. Restoring a redacted file overwrites the live file's real secrets with placeholders, and the dry-run and restore report both say so.
+
 ### Security
 
 - **Redacted-in-place backup for files containing secrets** — Configuration files containing recognized secret patterns are no longer dropped from backups. Instead, secrets are replaced in-place with `<YOUR_SECRET>` placeholders in the backup payload while preserving structural settings, indentation, sibling keys, and comments. A companion `.env.example` is generated to list what credentials must be re-entered. Manifest schema 0.5.0 tracks `redacted: true` and `secret_count`.
