@@ -1274,3 +1274,61 @@ func TestGenericAdapter_Symlinks(t *testing.T) { //nolint:paralleltest // not ye
 		}
 	})
 }
+
+// TestGenericAdapter_SymlinkUnderSymlinkedHome pins a cross-platform defect:
+// the containment check compared a fully resolved symlink target against an
+// unresolved home directory. On macOS a temporary home lives under /var, which
+// is itself a symlink to /private/var, so every symlink was rejected as
+// escaping home and the full preset produced no items. Reproduced here on any
+// platform by reaching the fake home through a symlink.
+func TestGenericAdapter_SymlinkUnderSymlinkedHome(t *testing.T) { //nolint:paralleltest // filesystem fixtures
+	realHome := t.TempDir()
+	aliasHome := filepath.Join(t.TempDir(), "home-alias")
+	if err := os.Symlink(realHome, aliasHome); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	targetDir := filepath.Join(realHome, ".agents", "skills", "astro")
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(targetDir, "SKILL.md"), []byte("name: astro\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	skillsDir := filepath.Join(aliasHome, ".test", "skills")
+	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(targetDir, filepath.Join(skillsDir, "astro")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	// ConfigRelPath is relative to home, as adapters declare it.
+	ga := adapters.GenericAdapter{
+		AdapterName:   "symlinked-home-test",
+		ConfigRelPath: ".test",
+		Categories: map[string]adapters.CategoryDir{
+			"skills": {SubPath: "skills", IsDir: true},
+		},
+		DetectErrContext: "stat symlinked-home-test config dir",
+	}
+
+	items, err := ga.ListItems(aliasHome, []string{"skills"})
+	if err != nil {
+		t.Fatalf("ListItems under a symlinked home must not fail: %v", err)
+	}
+
+	var found bool
+	for _, it := range items {
+		if it.RelPath == "skills/astro/SKILL.md" {
+			found = true
+			if it.Hash == "" {
+				t.Error("symlinked skill file has no hash")
+			}
+		}
+	}
+	if !found {
+		t.Errorf("skill behind a symlinked home was not listed; items: %+v", items)
+	}
+}

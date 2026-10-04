@@ -262,7 +262,17 @@ func resolveSymlink(absPath, rel, homeDir string, verbose bool) (fs.FileInfo, st
 		return nil, "", false
 	}
 
-	if !pathUnderHome(targetReal, homeDir) {
+	// Compare like with like: targetReal is fully resolved, so the home side
+	// must be resolved too. On macOS a temporary home lives under /var, which
+	// is itself a symlink to /private/var, so comparing a resolved target
+	// against a raw home rejected every symlink. Only the resolved target is
+	// ever tested here: absPath is under the config dir by construction, so it
+	// would prove nothing about where the link points.
+	homeReal := homeDir
+	if real, realErr := filepath.EvalSymlinks(homeDir); realErr == nil {
+		homeReal = real
+	}
+	if !pathUnderHome(targetReal, homeReal) {
 		if verbose {
 			if warnErr := emitSymlinkWarning(rel, fmt.Errorf("target escapes home: %s", targetReal)); warnErr != nil {
 				fmt.Fprintf(os.Stderr, "warning: %v\n", warnErr)
