@@ -229,6 +229,13 @@ The user authorized F2 real restore/undo recovery and confirmed that undo must r
   - **Accepted risk, recorded before tagging `v1.5.0-rc2`:** the user's real backup shrank from 62 files / 145 MB to 17 files / 411 KB. The `codex` adapter now contributes only `config.toml` where the June binary backed up 46 files (AGENTS.md, hooks.json, the `*.bak` family and the sqlite state files). This is an adapter/category mapping change from the GenericAdapter refactor, not the secret scanner. The user chose to cut the RC with this behavior rather than investigate it first, so it is an open question for the stable release: what a backup is expected to cover.
   - Also fixed here: a detection hole I introduced in `86eb24a`. Tightening the generic credential-key value class also removed the `\s*` that absorbed padding after the opening quote, so a credential-shaped key with an empty or whitespace-padded value stopped matching. A populated OAuth token in that shape would have been backed up in cleartext. The scan now fails closed on a credential-shaped key regardless of its value. No credential actually leaked: the user's Vercel MCP `accessToken` is an empty string.
 
+- [x] **T24 — Cut and publish `v1.5.0-rc2`**
+  - Pre-flight: `main` clean and synchronized at `4d4c84b`, all ten CI checks green on that exact SHA, the `1.5.0-rc2` changelog section added, and the accepted backup-coverage risk recorded above before tagging.
+  - Tagged and pushed `v1.5.0-rc2`; the `release.yml` workflow published 11 artifacts (tar.gz, deb, rpm, zip across linux/darwin/windows on amd64/arm64) plus `checksums.txt`. Verified `isPrerelease: true`, so `v1.4.1` correctly remains "Latest" — this is the outcome the `release.prerelease: auto` fix was meant to guarantee.
+  - Downloaded the published `linux_amd64` artifact and verified it against `checksums.txt` (`OK`). The released binary self-reports `bak 1.5.0-rc2`, commit `4d4c84b`, built with go1.25.14.
+  - Ran the published binary as a dry-run against the user's real legacy backup: it reports `2 modified, 54 unchanged, 0 missing, 6 excluded (secrets)` and warns that the 6 secret-bearing files cannot be restored. That is exactly the honest reporting the old binary failed to produce.
+  - Not done: user validation of the published artifact on their own configuration, and stable `v1.5.0`.
+
 ## Route declaration
 
 - Initial readiness mapping: delegated direct through one bounded read-only explorer.
