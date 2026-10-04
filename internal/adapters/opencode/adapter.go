@@ -87,3 +87,6 @@ func (a *Adapter) Restore(backupDir, homeDir string, items []adapters.Item) erro
 
 // SetScanOptions forwards scan options to the underlying GenericAdapter.
 func (a *Adapter) SetScanOptions(opts adapters.ScanOptions) { base.ScanOpts = opts }
+
+// SetVerbose forwards verbose option to the underlying GenericAdapter.
+func (a *Adapter) SetVerbose(v bool) { base.Verbose = v }

@@ -55,6 +55,14 @@ Implementation:
 - Reject paths that do not start with the canonical home prefix
 ```
 
+### Symlink Traversal and Containment
+
+During backup scanning, adapters follow symbolic links that stay within the user's home directory boundary:
+- **Directory symlinks**: Symlinks targeting directories within the home directory are traversed recursively, enabling backup of shared skill directories, command libraries, or plugin directories linked across agents.
+- **File symlinks**: Symlinks targeting regular files within the home directory are resolved, hashed, and backed up as regular files.
+- **Broken and escaping symlinks**: Broken or unresolvable symlinks, and symlinks pointing outside the user's home directory, are skipped (and warned on `stderr` when verbose mode is enabled) rather than aborting the backup or copying content outside home. Cycle detection prevents infinite traversal on recursive symlink loops.
+- **Tradeoff**: Following symlinks means the backup can include content stored outside the adapter's own configuration directory (for example, shared skills located in `~/.agents/skills/`), provided the target remains safely within the user's home directory.
+
 ### Secret Detection and Redacted-in-Place Backup
 
 The backup engine detects common secret patterns and redacts them in-place with placeholders:

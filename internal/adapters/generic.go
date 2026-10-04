@@ -42,6 +42,9 @@ type GenericAdapter struct {
 	// preserves current behavior (all files included).
 	ScanOpts ScanOptions
 
+	// Verbose gates diagnostic warnings during scanning (e.g. skipped broken symlinks).
+	Verbose bool
+
 	// RootConfigFiles is an optional whitelist mapping root entry names
 	// to their category. When non-nil, scanRootFiles skips any root
 	// entry whose name is not in this map. This is the belt alongside
@@ -67,6 +70,11 @@ func (ga *GenericAdapter) Name() string { return ga.AdapterName }
 // SetScanOptions applies the given scanning options to the adapter.
 func (ga *GenericAdapter) SetScanOptions(opts ScanOptions) {
 	ga.ScanOpts = opts
+}
+
+// SetVerbose sets the verbose flag on GenericAdapter.
+func (ga *GenericAdapter) SetVerbose(v bool) {
+	ga.Verbose = v
 }
 
 // Detect checks whether the adapter's config directory exists under homeDir.
@@ -116,7 +124,7 @@ func (ga *GenericAdapter) ListItems(homeDir string, categories []string) ([]Item
 
 		if info.IsDir {
 			dir := filepath.Join(configDir, info.SubPath)
-			dirItems, err := scanDir(dir, cat, configDir, ga.ScanOpts)
+			dirItems, err := scanDir(dir, cat, configDir, homeDir, ga.ScanOpts, ga.Verbose)
 			if err != nil {
 				if os.IsNotExist(err) {
 					continue
@@ -128,7 +136,7 @@ func (ga *GenericAdapter) ListItems(homeDir string, categories []string) ([]Item
 	}
 
 	if rootScanRequested(catSet, ga.RootConfigFiles) {
-		rootItems, err := scanRootFiles(configDir, catSet, ga.ScanOpts, ga.RootConfigFiles)
+		rootItems, err := scanRootFiles(configDir, homeDir, catSet, ga.ScanOpts, ga.RootConfigFiles, ga.Verbose)
 		if err != nil {
 			return nil, fmt.Errorf("scan root files: %w", err)
 		}
@@ -214,78 +222,223 @@ func copyItems(items []Item, srcBase, dstBase string) error {
 	return nil
 }
 
-// scanDir recursively walks a directory and returns an Item for every
-// file and subdirectory found. Directories receive a zero hash and size.
-// When opts is non-zero, entries matching exclude patterns or exceeding
-// MaxFileSize are skipped.
-func scanDir(dir, category, configDir string, opts ScanOptions) ([]Item, error) {
-	var items []Item
-
-	err := filepath.WalkDir(dir, func(absPath string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+// initAncestorDirs records all real directory paths from dir up to homeDir
+// to prevent symlinks from looping back to parent directories.
+func initAncestorDirs(dir, homeDir string) map[string]bool {
+	visited := make(map[string]bool)
+	for p := dir; ; {
+		if realP, err := filepath.EvalSymlinks(p); err == nil {
+			visited[paths.CanonicalPath(realP)] = true
 		}
-		if absPath == dir {
-			return nil
+		if p == homeDir || p == filepath.Dir(p) {
+			break
 		}
+		p = filepath.Dir(p)
+	}
+	return visited
+}
 
-		relPath, relErr := filepath.Rel(configDir, absPath)
+// resolveSymlink resolves a symlink entry with os.Stat and filepath.EvalSymlinks,
+// verifying that its target stays within homeDir. Returns ok=false on any error
+// or containment violation (with diagnostic warning if verbose is enabled).
+func resolveSymlink(absPath, rel, homeDir string, verbose bool) (fs.FileInfo, string, bool) {
+	targetStat, statErr := os.Stat(absPath)
+	if statErr != nil {
+		if verbose {
+			if warnErr := emitSymlinkWarning(rel, statErr); warnErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: %v\n", warnErr)
+			}
+		}
+		return nil, "", false
+	}
+
+	targetReal, evalErr := filepath.EvalSymlinks(absPath)
+	if evalErr != nil {
+		if verbose {
+			if warnErr := emitSymlinkWarning(rel, evalErr); warnErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: %v\n", warnErr)
+			}
+		}
+		return nil, "", false
+	}
+
+	if !pathUnderHome(targetReal, homeDir) {
+		if verbose {
+			if warnErr := emitSymlinkWarning(rel, fmt.Errorf("target escapes home: %s", targetReal)); warnErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: %v\n", warnErr)
+			}
+		}
+		return nil, "", false
+	}
+
+	return targetStat, targetReal, true
+}
+
+// isOversized checks whether size exceeds maxFileSize, emitting a warning if so.
+func isOversized(size, max int64, rel string) bool {
+	if max > 0 && size > max {
+		if warnErr := emitOversizeWarning(size, max, rel); warnErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: %v\n", warnErr)
+		}
+		return true
+	}
+	return false
+}
+
+// createFileItem constructs a non-directory Item with computed hash and size.
+func createFileItem(absPath, rel, category string, info fs.FileInfo) (Item, error) {
+	hash, sz, hashErr := FileHash(absPath)
+	if hashErr != nil {
+		return Item{}, fmt.Errorf("hash %s: %w", rel, hashErr)
+	}
+	return Item{
+		Category:   category,
+		SourcePath: paths.ToCanonical(absPath),
+		RelPath:    rel,
+		IsDir:      false,
+		Hash:       hash,
+		Size:       sz,
+		Mode:       uint32(info.Mode().Perm()),
+	}, nil
+}
+
+// createDirItem constructs a directory Item with mode metadata.
+func createDirItem(absPath, rel, category string, info fs.FileInfo) Item {
+	return Item{
+		Category:   category,
+		SourcePath: paths.ToCanonical(absPath),
+		RelPath:    rel,
+		IsDir:      true,
+		Mode:       uint32(info.Mode().Perm()),
+	}
+}
+
+// dirScanner encapsulates directory traversal state for scanDir.
+type dirScanner struct {
+	category    string
+	configDir   string
+	homeDir     string
+	opts        ScanOptions
+	verbose     bool
+	visitedDirs map[string]bool
+	items       []Item
+}
+
+func (s *dirScanner) walk(currentDir string) error {
+	entries, err := os.ReadDir(currentDir)
+	if err != nil {
+		return err
+	}
+
+	for _, d := range entries {
+		absPath := filepath.Join(currentDir, d.Name())
+		relPath, relErr := filepath.Rel(s.configDir, absPath)
 		if relErr != nil {
 			return fmt.Errorf("compute relative path: %w", relErr)
 		}
-
-		// Normalize for matching.
 		rel := strings.ReplaceAll(relPath, "\\", "/")
 
-		// Check exclude patterns.
-		if matchesExclude(d.Name(), rel, d.IsDir(), opts) {
-			if d.IsDir() {
-				return filepath.SkipDir
+		if d.Type()&fs.ModeSymlink != 0 {
+			if err := s.handleSymlink(d, absPath, rel); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if err := s.handleRegular(d, absPath, rel); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *dirScanner) handleSymlink(d fs.DirEntry, absPath, rel string) error {
+	targetStat, targetReal, ok := resolveSymlink(absPath, rel, s.homeDir, s.verbose)
+	if !ok {
+		return nil
+	}
+	if matchesExclude(d.Name(), rel, targetStat.IsDir(), s.opts) {
+		return nil
+	}
+	if targetStat.IsDir() {
+		canonical := paths.CanonicalPath(targetReal)
+		if s.visitedDirs[canonical] {
+			if s.verbose {
+				_ = emitSymlinkWarning(rel, fmt.Errorf("cycle detected: %s", targetReal))
 			}
 			return nil
 		}
+		s.visitedDirs[canonical] = true
+		s.items = append(s.items, createDirItem(absPath, rel, s.category, targetStat))
+		return s.walk(absPath)
+	}
 
-		info, statErr := d.Info()
-		if statErr != nil {
-			return fmt.Errorf("stat %s: %w", relPath, statErr)
-		}
-
-		// Check MaxFileSize for regular files.
-		if !d.IsDir() && opts.MaxFileSize > 0 {
-			if info.Size() > opts.MaxFileSize {
-				if warnErr := emitOversizeWarning(info.Size(), opts.MaxFileSize, rel); warnErr != nil {
-					// Log the write failure to verbose output and continue —
-					// the scan MUST NOT abort or return the write error.
-					fmt.Fprintf(os.Stderr, "warning: %v\n", warnErr)
-				}
-				return nil
-			}
-		}
-
-		canonical := paths.ToCanonical(absPath)
-
-		item := Item{
-			Category:   category,
-			SourcePath: canonical,
-			RelPath:    strings.ReplaceAll(relPath, "\\", "/"),
-			IsDir:      d.IsDir(),
-			Mode:       uint32(info.Mode().Perm()),
-		}
-
-		if !d.IsDir() {
-			hash, sz, hashErr := FileHash(absPath)
-			if hashErr != nil {
-				return fmt.Errorf("hash %s: %w", strings.ReplaceAll(relPath, "\\", "/"), hashErr)
-			}
-			item.Hash = hash
-			item.Size = sz
-		}
-
-		items = append(items, item)
+	if isOversized(targetStat.Size(), s.opts.MaxFileSize, rel) {
 		return nil
-	})
+	}
+	item, err := createFileItem(absPath, rel, s.category, targetStat)
+	if err != nil {
+		return err
+	}
+	s.items = append(s.items, item)
+	return nil
+}
 
-	return items, err
+func (s *dirScanner) handleRegular(d fs.DirEntry, absPath, rel string) error {
+	if matchesExclude(d.Name(), rel, d.IsDir(), s.opts) {
+		return nil
+	}
+
+	info, statErr := d.Info()
+	if statErr != nil {
+		return fmt.Errorf("stat %s: %w", rel, statErr)
+	}
+
+	if d.IsDir() {
+		if realSub, err := filepath.EvalSymlinks(absPath); err == nil {
+			s.visitedDirs[paths.CanonicalPath(realSub)] = true
+		}
+		s.items = append(s.items, createDirItem(absPath, rel, s.category, info))
+		return s.walk(absPath)
+	}
+
+	if isOversized(info.Size(), s.opts.MaxFileSize, rel) {
+		return nil
+	}
+
+	item, err := createFileItem(absPath, rel, s.category, info)
+	if err != nil {
+		return err
+	}
+	s.items = append(s.items, item)
+	return nil
+}
+
+// scanDir recursively walks a directory and returns an Item for every
+// file and subdirectory found. Directories receive a zero hash and size.
+// Symlinks pointing within the user home are resolved: directory targets are
+// traversed recursively, while regular file targets are hashed and recorded.
+// Broken symlinks or symlinks escaping the home directory are skipped (with a
+// warning when verbose is true). When opts is non-zero, entries matching
+// exclude patterns or exceeding MaxFileSize are skipped.
+func scanDir(dir, category, configDir, homeDir string, opts ScanOptions, verbose bool) ([]Item, error) {
+	if _, err := os.Stat(dir); err != nil {
+		return nil, err
+	}
+
+	s := &dirScanner{
+		category:    category,
+		configDir:   configDir,
+		homeDir:     homeDir,
+		opts:        opts,
+		verbose:     verbose,
+		visitedDirs: initAncestorDirs(dir, homeDir),
+	}
+
+	if err := s.walk(dir); err != nil {
+		return nil, err
+	}
+	return s.items, nil
 }
 
 // MatchExclude checks whether a file or directory matches an exclude pattern.
@@ -365,12 +518,22 @@ func emitOversizeWarning(size, max int64, rel string) error {
 	return err
 }
 
+// emitSymlinkWarning writes the shared "skipping symlink" warning to
+// stderrWriter. Both scanDir and scanRootFiles use it so the message format
+// stays identical in one place.
+func emitSymlinkWarning(rel string, err error) error {
+	_, writeErr := fmt.Fprintf(stderrWriter, "warning: skipping symlink %s: %v\n", rel, err)
+	return writeErr
+}
+
 // scanRootFiles reads the top-level config directory and returns items
 // for all regular files that belong to categories in catSet. When opts
 // is non-zero, entries matching exclude patterns or exceeding MaxFileSize
 // are skipped — mirroring scanDir's filtering. When rootConfigFiles is
 // non-nil, only file names present in the map are included (whitelist).
-func scanRootFiles(configDir string, catSet map[string]bool, opts ScanOptions, rootConfigFiles map[string]string) ([]Item, error) {
+// Symlinks to regular files within the user home are followed; broken links
+// or links escaping home are skipped with a warning when verbose is true.
+func scanRootFiles(configDir, homeDir string, catSet map[string]bool, opts ScanOptions, rootConfigFiles map[string]string, verbose bool) ([]Item, error) {
 	entries, err := os.ReadDir(configDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -381,10 +544,6 @@ func scanRootFiles(configDir string, catSet map[string]bool, opts ScanOptions, r
 
 	var items []Item
 	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-
 		entryName := e.Name()
 
 		// Per-entry category resolution. When rootConfigFiles is nil the
@@ -410,37 +569,33 @@ func scanRootFiles(configDir string, catSet map[string]bool, opts ScanOptions, r
 			continue
 		}
 
-		info, infoErr := e.Info()
-		if infoErr != nil {
-			return nil, fmt.Errorf("stat %s: %w", entryName, infoErr)
+		var info fs.FileInfo
+		if e.Type()&fs.ModeSymlink != 0 {
+			targetStat, _, ok := resolveSymlink(absPath, entryName, homeDir, verbose)
+			if !ok || targetStat.IsDir() {
+				continue
+			}
+			info = targetStat
+		} else {
+			if e.IsDir() {
+				continue
+			}
+			var infoErr error
+			info, infoErr = e.Info()
+			if infoErr != nil {
+				return nil, fmt.Errorf("stat %s: %w", entryName, infoErr)
+			}
 		}
 
-		// Check MaxFileSize for regular files.
-		if opts.MaxFileSize > 0 && info.Size() > opts.MaxFileSize {
-			if warnErr := emitOversizeWarning(info.Size(), opts.MaxFileSize, entryName); warnErr != nil {
-				// Log the write failure to verbose output and continue —
-				// the scan MUST NOT abort or return the write error.
-				fmt.Fprintf(os.Stderr, "warning: %v\n", warnErr)
-			}
+		if isOversized(info.Size(), opts.MaxFileSize, entryName) {
 			continue
 		}
 
-		canonical := paths.ToCanonical(absPath)
-
-		hash, _, hashErr := FileHash(absPath)
-		if hashErr != nil {
-			return nil, fmt.Errorf("hash %s: %w", entryName, hashErr)
+		item, err := createFileItem(absPath, entryName, cat, info)
+		if err != nil {
+			return nil, err
 		}
-
-		items = append(items, Item{
-			Category:   cat,
-			SourcePath: canonical,
-			RelPath:    entryName,
-			IsDir:      false,
-			Hash:       hash,
-			Size:       info.Size(),
-			Mode:       uint32(info.Mode().Perm()),
-		})
+		items = append(items, item)
 	}
 
 	return items, nil

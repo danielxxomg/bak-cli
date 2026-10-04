@@ -598,3 +598,75 @@ func TestAdapter_ListItemsSnapshot(t *testing.T) { //nolint:paralleltest // not 
 		}
 	}
 }
+
+func TestAdapter_SharedSkillsSymlink(t *testing.T) { //nolint:paralleltest // shared state
+	home := t.TempDir()
+	configDir := filepath.Join(home, ".config", "opencode")
+	skillsDir := filepath.Join(configDir, "skills")
+	if err := os.MkdirAll(skillsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create shared skill under ~/.agents/skills/astro
+	sharedSkillDir := filepath.Join(home, ".agents", "skills", "astro")
+	if err := os.MkdirAll(sharedSkillDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	skillContent := []byte("---\nname: astro\n---\n")
+	if err := os.WriteFile(filepath.Join(sharedSkillDir, "SKILL.md"), skillContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Symlink ~/.config/opencode/skills/astro -> ~/.agents/skills/astro
+	linkPath := filepath.Join(skillsDir, "astro")
+	if err := os.Symlink(sharedSkillDir, linkPath); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skipf("symlink creation unavailable on Windows: %v", err)
+		}
+		t.Fatalf("create symlink: %v", err)
+	}
+
+	a := &Adapter{}
+	items, err := a.ListItems(home, []string{"skills"})
+	if err != nil {
+		t.Fatalf("ListItems failed on symlinked skill: %v", err)
+	}
+
+	var foundSkillFile, foundAstroDir bool
+	for _, it := range items {
+		if it.RelPath == "skills/astro/SKILL.md" {
+			foundSkillFile = true
+			if it.IsDir {
+				t.Errorf("skills/astro/SKILL.md should be file, got dir")
+			}
+			if it.Hash == "" {
+				t.Errorf("skills/astro/SKILL.md has empty hash")
+			}
+		}
+		if it.RelPath == "skills/astro" && it.IsDir {
+			foundAstroDir = true
+		}
+	}
+
+	if !foundSkillFile {
+		t.Errorf("expected skills/astro/SKILL.md in items, got %+v", items)
+	}
+	if !foundAstroDir {
+		t.Errorf("expected skills/astro dir in items, got %+v", items)
+	}
+}
+
+func TestAdapter_SetVerbose(t *testing.T) { //nolint:paralleltest // shared state
+	a := &Adapter{}
+	t.Cleanup(func() { a.SetVerbose(false) })
+
+	a.SetVerbose(true)
+	if !base.Verbose {
+		t.Error("expected base.Verbose to be true after SetVerbose(true)")
+	}
+
+	a.SetVerbose(false)
+	if base.Verbose {
+		t.Error("expected base.Verbose to be false after SetVerbose(false)")
+	}
+}

@@ -923,3 +923,354 @@ func TestGenericAdapter_ListItems_RecordsMode(t *testing.T) { //nolint:parallelt
 		t.Error("expected settings.json in items")
 	}
 }
+
+func createTestSymlink(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.Symlink(target, link); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skipf("symlink creation unavailable on Windows: %v", err)
+		}
+		t.Fatalf("create symlink %s -> %s: %v", link, target, err)
+	}
+}
+
+func TestGenericAdapter_Symlinks(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	t.Run("symlink to a directory is traversed and its files are listed", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+		home := t.TempDir()
+		configDir := filepath.Join(home, ".test")
+		skillsDir := filepath.Join(configDir, "skills")
+		if err := os.MkdirAll(skillsDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		targetDir := filepath.Join(home, ".agents", "skills", "astro")
+		if err := os.MkdirAll(targetDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		skillFile := filepath.Join(targetDir, "SKILL.md")
+		if err := os.WriteFile(skillFile, []byte("name: astro\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		createTestSymlink(t, targetDir, filepath.Join(skillsDir, "astro"))
+
+		ga := adapters.GenericAdapter{
+			AdapterName:   "symlink-dir-test",
+			ConfigRelPath: ".test",
+			Categories: map[string]adapters.CategoryDir{
+				"skills": {SubPath: "skills", IsDir: true},
+			},
+			DetectErrContext: "stat symlink-dir-test config dir",
+		}
+
+		items, err := ga.ListItems(home, []string{"skills"})
+		if err != nil {
+			t.Fatalf("ListItems failed: %v", err)
+		}
+
+		var foundSkillFile, foundAstroDir bool
+		for _, it := range items {
+			if it.RelPath == "skills/astro/SKILL.md" {
+				foundSkillFile = true
+				if it.IsDir {
+					t.Errorf("expected skills/astro/SKILL.md to be a file, got dir")
+				}
+				if it.Hash == "" {
+					t.Errorf("expected skills/astro/SKILL.md to have hash, got empty")
+				}
+				if it.Size != int64(len("name: astro\n")) {
+					t.Errorf("expected skills/astro/SKILL.md size = %d, got %d", len("name: astro\n"), it.Size)
+				}
+			}
+			if it.RelPath == "skills/astro" && it.IsDir {
+				foundAstroDir = true
+			}
+		}
+
+		if !foundSkillFile {
+			t.Errorf("expected skills/astro/SKILL.md in items, got %+v", items)
+		}
+		if !foundAstroDir {
+			t.Errorf("expected skills/astro dir in items, got %+v", items)
+		}
+	})
+
+	t.Run("symlink to a regular file is hashed and listed as a file", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+		home := t.TempDir()
+		configDir := filepath.Join(home, ".test")
+		scriptsDir := filepath.Join(configDir, "scripts")
+		if err := os.MkdirAll(scriptsDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		targetFile := filepath.Join(home, "shared", "tool.sh")
+		if err := os.MkdirAll(filepath.Dir(targetFile), 0755); err != nil {
+			t.Fatal(err)
+		}
+		content := []byte("#!/bin/bash\necho ok\n")
+		if err := os.WriteFile(targetFile, content, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		createTestSymlink(t, targetFile, filepath.Join(scriptsDir, "tool.sh"))
+
+		ga := adapters.GenericAdapter{
+			AdapterName:   "symlink-file-test",
+			ConfigRelPath: ".test",
+			Categories: map[string]adapters.CategoryDir{
+				"scripts": {SubPath: "scripts", IsDir: true},
+			},
+			DetectErrContext: "stat symlink-file-test config dir",
+		}
+
+		items, err := ga.ListItems(home, []string{"scripts"})
+		if err != nil {
+			t.Fatalf("ListItems failed: %v", err)
+		}
+
+		var foundTool bool
+		for _, it := range items {
+			if it.RelPath == "scripts/tool.sh" {
+				foundTool = true
+				if it.IsDir {
+					t.Errorf("expected scripts/tool.sh to be a file, got dir")
+				}
+				if it.Hash == "" {
+					t.Errorf("expected scripts/tool.sh to have hash, got empty")
+				}
+				if it.Size != int64(len(content)) {
+					t.Errorf("expected scripts/tool.sh size = %d, got %d", len(content), it.Size)
+				}
+			}
+		}
+
+		if !foundTool {
+			t.Errorf("expected scripts/tool.sh in items, got %+v", items)
+		}
+	})
+
+	t.Run("broken symlink is skipped without error, and siblings still appear", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+		home := t.TempDir()
+		configDir := filepath.Join(home, ".test")
+		skillsDir := filepath.Join(configDir, "skills")
+		if err := os.MkdirAll(skillsDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		siblingFile := filepath.Join(skillsDir, "valid.txt")
+		if err := os.WriteFile(siblingFile, []byte("valid content\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		brokenTarget := filepath.Join(home, "nonexistent-target")
+		createTestSymlink(t, brokenTarget, filepath.Join(skillsDir, "broken-link"))
+
+		ga := adapters.GenericAdapter{
+			AdapterName:   "symlink-broken-test",
+			ConfigRelPath: ".test",
+			Categories: map[string]adapters.CategoryDir{
+				"skills": {SubPath: "skills", IsDir: true},
+			},
+			DetectErrContext: "stat symlink-broken-test config dir",
+		}
+
+		items, err := ga.ListItems(home, []string{"skills"})
+		if err != nil {
+			t.Fatalf("expected broken symlink to be skipped without error, got error: %v", err)
+		}
+
+		var foundSibling, foundBroken bool
+		for _, it := range items {
+			if it.RelPath == "skills/valid.txt" {
+				foundSibling = true
+			}
+			if it.RelPath == "skills/broken-link" {
+				foundBroken = true
+			}
+		}
+
+		if !foundSibling {
+			t.Errorf("expected sibling skills/valid.txt in items, got %+v", items)
+		}
+		if foundBroken {
+			t.Errorf("broken symlink should have been skipped, but was included: %+v", items)
+		}
+	})
+
+	t.Run("symlink pointing outside the temp home is not silently accepted", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+		home := t.TempDir()
+		configDir := filepath.Join(home, ".test")
+		skillsDir := filepath.Join(configDir, "skills")
+		if err := os.MkdirAll(skillsDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		outsideHome := t.TempDir()
+		outsideFile := filepath.Join(outsideHome, "secret.txt")
+		if err := os.WriteFile(outsideFile, []byte("secret content\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		outsideDir := filepath.Join(outsideHome, "outside-folder")
+		if err := os.MkdirAll(outsideDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(outsideDir, "nested.txt"), []byte("nested\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		createTestSymlink(t, outsideFile, filepath.Join(skillsDir, "escape-file.txt"))
+		createTestSymlink(t, outsideDir, filepath.Join(skillsDir, "escape-dir"))
+
+		ga := adapters.GenericAdapter{
+			AdapterName:   "symlink-containment-test",
+			ConfigRelPath: ".test",
+			Categories: map[string]adapters.CategoryDir{
+				"skills": {SubPath: "skills", IsDir: true},
+			},
+			DetectErrContext: "stat symlink-containment-test config dir",
+		}
+
+		items, err := ga.ListItems(home, []string{"skills"})
+		if err != nil {
+			t.Fatalf("ListItems returned error: %v", err)
+		}
+
+		for _, it := range items {
+			if strings.Contains(it.RelPath, "escape") {
+				t.Errorf("symlink pointing outside home was silently accepted: %+v", it)
+			}
+		}
+	})
+
+	t.Run("verbose warning emitted when verbose is set and suppressed when not", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+		home := t.TempDir()
+		configDir := filepath.Join(home, ".test")
+		skillsDir := filepath.Join(configDir, "skills")
+		if err := os.MkdirAll(skillsDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		brokenTarget := filepath.Join(home, "nonexistent")
+		createTestSymlink(t, brokenTarget, filepath.Join(skillsDir, "broken"))
+
+		gaVerbose := adapters.GenericAdapter{
+			AdapterName:   "verbose-symlink-test",
+			ConfigRelPath: ".test",
+			Categories: map[string]adapters.CategoryDir{
+				"skills": {SubPath: "skills", IsDir: true},
+			},
+			Verbose: true,
+		}
+
+		stderr := captureStderr(t, func() {
+			_, err := gaVerbose.ListItems(home, []string{"skills"})
+			if err != nil {
+				t.Fatalf("ListItems: %v", err)
+			}
+		})
+		if !strings.Contains(stderr, "warning: skipping symlink skills/broken:") {
+			t.Errorf("expected verbose warning for broken symlink, got %q", stderr)
+		}
+
+		gaQuiet := gaVerbose
+		gaQuiet.Verbose = false
+		stderrQuiet := captureStderr(t, func() {
+			_, err := gaQuiet.ListItems(home, []string{"skills"})
+			if err != nil {
+				t.Fatalf("ListItems: %v", err)
+			}
+		})
+		if strings.Contains(stderrQuiet, "warning: skipping symlink") {
+			t.Errorf("expected no warning when verbose is false, got %q", stderrQuiet)
+		}
+	})
+
+	t.Run("symlink cycle is detected and does not loop infinitely", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+		home := t.TempDir()
+		configDir := filepath.Join(home, ".test")
+		skillsDir := filepath.Join(configDir, "skills")
+		if err := os.MkdirAll(skillsDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		// Self-referencing link: skills/loop -> skills
+		createTestSymlink(t, skillsDir, filepath.Join(skillsDir, "loop"))
+
+		ga := adapters.GenericAdapter{
+			AdapterName:   "symlink-cycle-test",
+			ConfigRelPath: ".test",
+			Categories: map[string]adapters.CategoryDir{
+				"skills": {SubPath: "skills", IsDir: true},
+			},
+			Verbose: true,
+		}
+
+		stderr := captureStderr(t, func() {
+			items, err := ga.ListItems(home, []string{"skills"})
+			if err != nil {
+				t.Fatalf("ListItems failed on cycle: %v", err)
+			}
+			for _, it := range items {
+				if it.RelPath == "skills/loop" {
+					t.Errorf("loop symlink should be skipped, got item %+v", it)
+				}
+			}
+		})
+		if !strings.Contains(stderr, "cycle detected") {
+			t.Errorf("expected cycle warning, got %q", stderr)
+		}
+	})
+
+	t.Run("root file symlinks are followed or skipped safely", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+		home := t.TempDir()
+		configDir := filepath.Join(home, ".test")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		// Valid target within home
+		sharedConfig := filepath.Join(home, "shared-config.json")
+		if err := os.WriteFile(sharedConfig, []byte(`{"shared":true}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+		createTestSymlink(t, sharedConfig, filepath.Join(configDir, "opencode.json"))
+
+		// Broken target
+		createTestSymlink(t, filepath.Join(home, "missing.json"), filepath.Join(configDir, "mcp.json"))
+
+		ga := newMultiCatAdapter("root-symlinks")
+		ga.Verbose = true
+
+		var items []adapters.Item
+		stderr := captureStderr(t, func() {
+			var err error
+			items, err = ga.ListItems(home, []string{"config", "mcp"})
+			if err != nil {
+				t.Fatalf("ListItems: %v", err)
+			}
+		})
+
+		var foundConfig, foundMCP bool
+		for _, it := range items {
+			if it.RelPath == "opencode.json" {
+				foundConfig = true
+				if it.Hash == "" {
+					t.Errorf("opencode.json should have hash")
+				}
+			}
+			if it.RelPath == "mcp.json" {
+				foundMCP = true
+			}
+		}
+
+		if !foundConfig {
+			t.Errorf("expected opencode.json in items")
+		}
+		if foundMCP {
+			t.Errorf("broken mcp.json should have been skipped, but was included")
+		}
+		if !strings.Contains(stderr, "warning: skipping symlink mcp.json:") {
+			t.Errorf("expected warning for broken root symlink mcp.json, got %q", stderr)
+		}
+	})
+}
