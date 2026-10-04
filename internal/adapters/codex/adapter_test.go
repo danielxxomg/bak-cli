@@ -370,3 +370,157 @@ func TestAdapter_WhitelistOnlyConfigs(t *testing.T) { //nolint:paralleltest // n
 		t.Error("instructions.md should be included (whitelisted)")
 	}
 }
+
+func TestCodexAdapter_AllowlistExpansion(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	a := &Adapter{}
+
+	tests := []struct {
+		name         string
+		filename     string
+		content      string
+		wantCategory string
+	}{
+		{name: "config.toml", filename: "config.toml", content: "[model]", wantCategory: "config"},
+		{name: "config.json", filename: "config.json", content: "{}", wantCategory: "config"},
+		{name: "config.yaml", filename: "config.yaml", content: "model: gpt-4", wantCategory: "config"},
+		{name: "config.yml", filename: "config.yml", content: "model: gpt-4", wantCategory: "config"},
+		{name: "instructions.md", filename: "instructions.md", content: "# Instructions", wantCategory: "config"},
+		{name: "INSTRUCTIONS.md", filename: "INSTRUCTIONS.md", content: "# Instructions", wantCategory: "config"},
+		{name: "AGENTS.md", filename: "AGENTS.md", content: "# Agents Instructions", wantCategory: "agents"},
+		{name: "agents.md", filename: "agents.md", content: "# Agents Instructions", wantCategory: "agents"},
+		{name: "hooks.json", filename: "hooks.json", content: "{}", wantCategory: "config"},
+		{name: "hooks.toml", filename: "hooks.toml", content: "[hooks]", wantCategory: "config"},
+		{name: "hooks.yaml", filename: "hooks.yaml", content: "hooks: []", wantCategory: "config"},
+		{name: "hooks.yml", filename: "hooks.yml", content: "hooks: []", wantCategory: "config"},
+		{name: "mcp.json", filename: "mcp.json", content: "{}", wantCategory: "mcp"},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest // subtests share table/struct state
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+			home := t.TempDir()
+			configDir := filepath.Join(home, ".codex")
+			if err := os.MkdirAll(configDir, 0755); err != nil {
+				t.Fatal(err)
+			}
+			filePath := filepath.Join(configDir, tt.filename)
+			if err := os.WriteFile(filePath, []byte(tt.content), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			// When querying all supported categories, the file must be returned with its expected category.
+			items, err := a.ListItems(home, []string{"config", "agents", "mcp"})
+			if err != nil {
+				t.Fatalf("ListItems: %v", err)
+			}
+			var found *adapters.Item
+			for i := range items {
+				if items[i].RelPath == tt.filename {
+					found = &items[i]
+					break
+				}
+			}
+			if found == nil {
+				t.Fatalf("expected file %q to be included by allowlist, but was omitted", tt.filename)
+			}
+			if found.Category != tt.wantCategory {
+				t.Errorf("file %q Category = %q, want %q", tt.filename, found.Category, tt.wantCategory)
+			}
+
+			// When querying specifically for its category, it must also be returned.
+			singleCatItems, err := a.ListItems(home, []string{tt.wantCategory})
+			if err != nil {
+				t.Fatalf("ListItems(%q): %v", tt.wantCategory, err)
+			}
+			foundInSingle := false
+			for _, item := range singleCatItems {
+				if item.RelPath == tt.filename {
+					foundInSingle = true
+					break
+				}
+			}
+			if !foundInSingle {
+				t.Errorf("file %q not found when querying its category %q", tt.filename, tt.wantCategory)
+			}
+		})
+	}
+}
+
+func TestCodexAdapter_RuntimeStateExcluded(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	a := &Adapter{}
+
+	runtimeFiles := []struct {
+		name     string
+		filename string
+	}{
+		{name: "sqlite database", filename: "logs_2.sqlite"},
+		{name: "sqlite wal", filename: "logs_2.sqlite-wal"},
+		{name: "sqlite shm", filename: "logs_2.sqlite-shm"},
+		{name: "sqlite state", filename: "state_5.sqlite"},
+		{name: "history jsonl", filename: "history.jsonl"},
+		{name: "session index", filename: "session_index.jsonl"},
+		{name: "models cache", filename: "models_cache.json"},
+		{name: "installation id", filename: "installation_id"},
+		{name: "version json", filename: "version.json"},
+	}
+
+	for _, rf := range runtimeFiles { //nolint:paralleltest // subtests share table/struct state
+		t.Run(rf.name, func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+			home := t.TempDir()
+			configDir := filepath.Join(home, ".codex")
+			if err := os.MkdirAll(configDir, 0755); err != nil {
+				t.Fatal(err)
+			}
+
+			// Create the runtime file and a valid config file.
+			if err := os.WriteFile(filepath.Join(configDir, rf.filename), []byte("runtime-data"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(configDir, "config.toml"), []byte("[model]"), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			items, err := a.ListItems(home, []string{"config", "agents", "mcp"})
+			if err != nil {
+				t.Fatalf("ListItems: %v", err)
+			}
+
+			for _, item := range items {
+				if item.RelPath == rf.filename {
+					t.Errorf("runtime state file %q was unexpectedly included by allowlist", rf.filename)
+				}
+			}
+		})
+	}
+}
+
+func TestCodexAdapter_CleanEmpty(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+	a := &Adapter{}
+
+	t.Run("empty directory returns empty slice without error", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+		home := t.TempDir()
+		configDir := filepath.Join(home, ".codex")
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		items, err := a.ListItems(home, []string{"config", "agents", "mcp"})
+		if err != nil {
+			t.Fatalf("ListItems: %v", err)
+		}
+		if len(items) != 0 {
+			t.Errorf("expected 0 items for empty directory, got %d", len(items))
+		}
+	})
+
+	t.Run("nonexistent directory returns empty slice without error", func(t *testing.T) { //nolint:paralleltest // subtests share table/struct state
+		home := t.TempDir()
+
+		items, err := a.ListItems(home, []string{"config", "agents", "mcp"})
+		if err != nil {
+			t.Fatalf("ListItems: %v", err)
+		}
+		if len(items) != 0 {
+			t.Errorf("expected 0 items for nonexistent directory, got %d", len(items))
+		}
+	})
+}

@@ -16,8 +16,13 @@ const ConfigRelPath = ".codex"
 // CategoryMap maps category names to their subdirectory/file patterns, exposed for knowledge validation.
 var CategoryMap = map[string]adapters.CategoryDir{
 	configCategory: {SubPath: "", IsDir: false},
-	"agents":       {SubPath: "", IsDir: false},
+	agentsCategory: {SubPath: "", IsDir: false},
 }
+
+const (
+	agentsCategory = "agents"
+	mcpCategory    = "mcp"
+)
 
 var base = adapters.GenericAdapter{
 	AdapterName:      AdapterName,
@@ -25,10 +30,23 @@ var base = adapters.GenericAdapter{
 	Categories:       CategoryMap,
 	DetectErrContext: "stat codex config dir",
 	RootConfigFiles: map[string]string{
-		"config.toml":     configCategory,
+		// Tool configuration
+		"config.toml": configCategory,
+		"config.json": configCategory,
+		"config.yaml": configCategory,
+		"config.yml":  configCategory,
+		// Instructions
 		"instructions.md": configCategory,
-		"config.json":     configCategory,
-		"mcp.json":        "mcp",
+		"INSTRUCTIONS.md": configCategory,
+		"AGENTS.md":       agentsCategory,
+		"agents.md":       agentsCategory,
+		// Hooks
+		"hooks.json": configCategory,
+		"hooks.toml": configCategory,
+		"hooks.yaml": configCategory,
+		"hooks.yml":  configCategory,
+		// Model Context Protocol
+		"mcp.json": mcpCategory,
 	},
 }
 

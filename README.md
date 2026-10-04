@@ -318,12 +318,18 @@ categories:
 directory exists under your home directory. Use `--adapter myapp` to
 force it.
 
-Custom adapters that share a name with a built-in adapter require
-`--override` to replace the built-in:
+Custom adapters that share a name with a built-in adapter (e.g. `codex`, `opencode`)
+replace the built-in adapter when `--override` is passed:
 
 ```bash
-bak backup --adapter opencode --override
+bak backup --adapter codex --override
 ```
+
+The YAML schema supports `config_path`, and for each category:
+- `sub_path`: relative path under `config_path`
+- `is_dir`: boolean indicating if `sub_path` is a directory to recursively scan
+- `patterns`: glob patterns to match files (e.g. `["*.config.toml"]`)
+- `root_files`: explicit filenames at the config root
 
 See `examples/presets/` and `examples/adapters/` for annotated samples.
 
@@ -416,6 +422,22 @@ Force a specific adapter:
 ```bash
 bak backup --adapter cursor
 ```
+
+#### Codex Configuration & State Boundary
+
+The built-in Codex adapter (`~/.codex/`) uses a strict allowlist to back up meaningful configuration while preventing backup bloat from runtime state:
+
+- **Covered configuration**:
+  - Tool configuration: `config.toml`, `config.json`, `config.yaml`, `config.yml` (`config` category)
+  - Instructions: `instructions.md`, `INSTRUCTIONS.md` (`config` category), `AGENTS.md`, `agents.md` (`agents` category)
+  - Hooks: `hooks.json`, `hooks.toml`, `hooks.yaml`, `hooks.yml` (`config` category)
+  - Model Context Protocol: `mcp.json` (`mcp` category)
+- **Deliberately excluded runtime state**:
+  - SQLite databases: `*.sqlite`, `*.sqlite-wal`, `*.sqlite-shm` (e.g., `logs_2.sqlite`, `state_5.sqlite`)
+  - Session history: `history.jsonl`, `session_index.jsonl`
+  - Caches & ephemeral metadata: `models_cache.json`, `installation_id`, `version.json`
+- **Size rationale**: Runtime session databases and execution logs are dynamically regenerated at runtime. In older releases without an allowlist, capturing unmanaged SQLite files caused backups to balloon to ~145 MB (with a single `logs_2.sqlite` exceeding 140 MB). The allowlist ensures compact, fast, reproducible backups.
+- **Escape hatch for custom files**: If your configuration includes additional non-standard files (such as custom `*.config.toml` variants), define a custom adapter in `~/.config/bak/adapters/codex.yaml` and pass `--override` to replace the built-in adapter. The YAML schema supports `patterns` (globs) and `root_files` without requiring built-in code changes.
 
 ## Architecture
 
