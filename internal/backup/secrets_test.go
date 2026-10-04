@@ -2,6 +2,7 @@ package backup
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -757,5 +758,101 @@ func TestRedactLine_OverlappingSpansMerged(t *testing.T) { //nolint:paralleltest
 	}
 	if got != "value=<YOUR_SECRET> end" {
 		t.Errorf("merged redaction = %q", got)
+	}
+}
+
+func TestRedactContent_TableDriven(t *testing.T) { //nolint:paralleltest // pure function
+	tests := []struct {
+		name       string
+		input      string
+		patterns   []*regexp.Regexp
+		wantCount  int
+		wantSubstr []string
+		dontWant   []string
+	}{
+		{
+			name:       "clean content unchanged",
+			input:      "{\"theme\":\"rose-pine\"}\n",
+			patterns:   DefaultPatterns(),
+			wantCount:  0,
+			wantSubstr: []string{"{\"theme\":\"rose-pine\"}\n"},
+		},
+		{
+			name:       "single token replaced",
+			input:      "{\"token\":\"ghp_abcdef1234567890123456789012345678901234\"}\n",
+			patterns:   DefaultPatterns(),
+			wantCount:  1,
+			wantSubstr: []string{"<YOUR_SECRET>", "\n"},
+			dontWant:   []string{"ghp_abcdef"},
+		},
+		{
+			name:       "preserves CRLF and multiple lines",
+			input:      "line1=safe\r\nline2=ghp_abcdef1234567890123456789012345678901234\r\nline3=AKIAIOSFODNN7EXAMPLE\r\n",
+			patterns:   DefaultPatterns(),
+			wantCount:  2,
+			wantSubstr: []string{"line1=safe\r\n", "line2=<YOUR_SECRET>\r\n", "line3=<YOUR_SECRET>\r\n"},
+			dontWant:   []string{"ghp_abcdef", "AKIAIOSFODNN7EXAMPLE"},
+		},
+		{
+			name:       "preserves file without trailing newline",
+			input:      "{\"key\":\"ghp_abcdef1234567890123456789012345678901234\"}",
+			patterns:   DefaultPatterns(),
+			wantCount:  1,
+			wantSubstr: []string{"<YOUR_SECRET>"},
+			dontWant:   []string{"ghp_abcdef", "\n"},
+		},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest
+			gotBytes, count := RedactContent([]byte(tt.input), tt.patterns)
+			if count != tt.wantCount {
+				t.Errorf("count = %d, want %d", count, tt.wantCount)
+			}
+			got := string(gotBytes)
+			for _, w := range tt.wantSubstr {
+				if !strings.Contains(got, w) {
+					t.Errorf("missing expected substring %q in:\n%s", w, got)
+				}
+			}
+			for _, nw := range tt.dontWant {
+				if strings.Contains(got, nw) {
+					t.Errorf("unexpected substring leaked %q in:\n%s", nw, got)
+				}
+			}
+		})
+	}
+}
+
+func TestRedactFileInPlace(t *testing.T) { //nolint:paralleltest
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "config.json")
+	secretToken := "ghp_abcdef1234567890123456789012345678901234"
+	content := fmt.Sprintf("{\"key\":\"%s\",\"safe\":true}\n", secretToken)
+	if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	count, err := RedactFileInPlace(filePath, DefaultPatterns())
+	if err != nil {
+		t.Fatalf("RedactFileInPlace: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("count = %d, want 1", count)
+	}
+
+	after, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterStr := string(after)
+	if strings.Contains(afterStr, secretToken) {
+		t.Errorf("file still contains secret: %s", afterStr)
+	}
+	if !strings.Contains(afterStr, "<YOUR_SECRET>") {
+		t.Errorf("file missing placeholder: %s", afterStr)
+	}
+	if !strings.Contains(afterStr, `"safe":true`) {
+		t.Errorf("file lost surrounding structure: %s", afterStr)
 	}
 }

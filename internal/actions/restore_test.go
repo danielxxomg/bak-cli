@@ -261,6 +261,114 @@ func TestRestoreAction_DryRun_DistinguishesSecretExcluded(t *testing.T) { //noli
 	}
 }
 
+func TestRestoreAction_RedactedFileExplicitInDryRunAndReport(t *testing.T) { //nolint:paralleltest // not yet parallelized
+	home := t.TempDir()
+	configtest.SetConfigHome(t, home)
+	bakDir := filepath.Join(home, ".bak")
+	backupID := "20261001-120000"
+	backupDir := filepath.Join(bakDir, "backups", backupID)
+	if err := os.MkdirAll(filepath.Join(backupDir, "opencode"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	payloadFile := filepath.Join(backupDir, "opencode", "opencode.json")
+	payloadContent := `{"token":"<YOUR_SECRET>","theme":"dark"}`
+	if err := os.WriteFile(payloadFile, []byte(payloadContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Live file on target has real secrets
+	liveConfigDir := filepath.Join(home, ".config", "opencode")
+	if err := os.MkdirAll(liveConfigDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	liveFile := filepath.Join(liveConfigDir, "opencode.json")
+	if err := os.WriteFile(liveFile, []byte(`{"token":"real_secret_token","theme":"light"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	h := sha256.Sum256([]byte(payloadContent))
+	m := manifest.New(backupID, "linux", "testhost", "0.5.0", "quick", []string{"config"})
+	m.AddAdapter("opencode", "", "~/.config/opencode", []manifest.Item{
+		{
+			Category:    "config",
+			SourcePath:  "~/.config/opencode/opencode.json",
+			BackupPath:  "opencode/opencode.json",
+			Hash:        fmt.Sprintf("sha256:%x", h),
+			Size:        int64(len(payloadContent)),
+			Mode:        0644,
+			Redacted:    true,
+			SecretCount: 1,
+		},
+	})
+	if err := m.Save(backupDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. Dry run check
+	var dryRunStdout bytes.Buffer
+	dryRunAction := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: backupDir,
+		Stdout:    &dryRunStdout,
+		Stderr:    io.Discard,
+		DryRun:    true,
+	}
+	if err := dryRunAction.Run(); err != nil {
+		t.Fatalf("dry run error: %v", err)
+	}
+	dryOut := dryRunStdout.String()
+
+	// Must label as [redacted]
+	if !strings.Contains(dryOut, "[redacted]") {
+		t.Errorf("dry-run missing [redacted] label:\n%s", dryOut)
+	}
+	// Must say 1 file(s) would be restored
+	if !strings.Contains(dryOut, "1 file(s) would be restored") {
+		t.Errorf("dry-run missing 1 file(s) would be restored:\n%s", dryOut)
+	}
+	// Must state the tradeoff plainly
+	wantTradeoff := "Restoring a redacted file overwrites the live file's real secrets with placeholders. The user must re-enter them."
+	if !strings.Contains(dryOut, wantTradeoff) {
+		t.Errorf("dry-run missing mandatory tradeoff warning %q:\n%s", wantTradeoff, dryOut)
+	}
+
+	// 2. Real restore apply check
+	var restoreStdout bytes.Buffer
+	restoreAction := &RestoreAction{
+		FS:        newHomeFS(home),
+		BackupDir: backupDir,
+		Stdout:    &restoreStdout,
+		Stderr:    io.Discard,
+		Force:     true,
+	}
+	if err := restoreAction.Run(); err != nil {
+		t.Fatalf("restore apply error: %v", err)
+	}
+	repOut := restoreStdout.String()
+
+	// Must name restored path with placeholders
+	if !strings.Contains(repOut, "~/.config/opencode/opencode.json") {
+		t.Errorf("restore report missing restored path with placeholders:\n%s", repOut)
+	}
+	// Must state secrets must be re-entered by hand
+	if !strings.Contains(repOut, "secrets must be re-entered by hand") {
+		t.Errorf("restore report missing re-entered by hand note:\n%s", repOut)
+	}
+	// Must state the tradeoff plainly in report
+	if !strings.Contains(repOut, wantTradeoff) {
+		t.Errorf("restore report missing mandatory tradeoff warning %q:\n%s", wantTradeoff, repOut)
+	}
+	// Target file on disk now has the placeholder
+	liveAfter, err := os.ReadFile(liveFile)
+	if err != nil {
+		t.Fatalf("read live file after restore: %v", err)
+	}
+	if !strings.Contains(string(liveAfter), "<YOUR_SECRET>") {
+		t.Errorf("live file not overwritten with placeholder:\n%s", string(liveAfter))
+	}
+}
+
 func TestRestoreAction_ApplyRestore(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	home := t.TempDir()
 	backupID := createBackupForRestore(t, home)
@@ -874,7 +982,7 @@ func TestRestoreAction_WritersErrorHandling(t *testing.T) { //nolint:paralleltes
 
 	// reportRestore error propagation
 	m := &manifest.Manifest{ID: "test-id"}
-	if err := reportRestore(fw, m, 1, 0, 0, 0); err == nil {
+	if err := reportRestore(fw, m, 1, 0, 0, 0, nil); err == nil {
 		t.Error("reportRestore should return error when writer fails")
 	}
 }
@@ -1851,7 +1959,7 @@ func TestRestoreAction_NewerSchemaVersion_FailsClosedBeforeWrite(t *testing.T) {
 	}{
 		{
 			name:          "newer_minor_schema_fails_closed",
-			schemaVersion: "0.5.0",
+			schemaVersion: "0.6.0",
 			wantErr:       true,
 			errContain:    "unsupported manifest schema version",
 		},
@@ -1862,7 +1970,12 @@ func TestRestoreAction_NewerSchemaVersion_FailsClosedBeforeWrite(t *testing.T) {
 			errContain:    "unsupported manifest schema version",
 		},
 		{
-			name:          "current_schema_040_succeeds",
+			name:          "current_schema_050_succeeds",
+			schemaVersion: "0.5.0",
+			wantErr:       false,
+		},
+		{
+			name:          "older_schema_040_succeeds",
 			schemaVersion: "0.4.0",
 			wantErr:       false,
 		},

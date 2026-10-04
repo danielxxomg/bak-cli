@@ -197,15 +197,9 @@ func scanRedactedFile(out *strings.Builder, f *os.File, patterns []*regexp.Regex
 	}
 }
 
-// redactLine replaces every secret match on the line with a single
-// <YOUR_SECRET> placeholder and reports whether anything matched.
-//
-// All patterns are applied, not just the first one: a single JSON line
-// commonly carries several credential families at once, and stopping at the
-// first match leaked the others. Matches from every pattern are collected and
-// merged before rewriting so overlapping spans cannot corrupt the output or
-// shift offsets.
-func redactLine(line string, patterns []*regexp.Regexp) (string, bool) {
+// redactLineCount replaces every secret match on the line with a
+// <YOUR_SECRET> placeholder and returns the count of merged secrets replaced.
+func redactLineCount(line string, patterns []*regexp.Regexp) (string, int) {
 	type span struct{ start, end int }
 	var spans []span
 	for _, pat := range patterns {
@@ -214,7 +208,7 @@ func redactLine(line string, patterns []*regexp.Regexp) (string, bool) {
 		}
 	}
 	if len(spans) == 0 {
-		return line, false
+		return line, 0
 	}
 
 	sort.Slice(spans, func(i, j int) bool {
@@ -244,5 +238,102 @@ func redactLine(line string, patterns []*regexp.Regexp) (string, bool) {
 		prev = m.end
 	}
 	b.WriteString(line[prev:])
-	return b.String(), true
+	return b.String(), len(merged)
+}
+
+// redactLine replaces every secret match on the line with a single
+// <YOUR_SECRET> placeholder and reports whether anything matched.
+//
+// All patterns are applied, not just the first one: a single JSON line
+// commonly carries several credential families at once, and stopping at the
+// first match leaked the others. Matches from every pattern are collected and
+// merged before rewriting so overlapping spans cannot corrupt the output or
+// shift offsets.
+func redactLine(line string, patterns []*regexp.Regexp) (string, bool) {
+	redacted, count := redactLineCount(line, patterns)
+	return redacted, count > 0
+}
+
+// RedactContent redacts secrets from data using patterns, preserving original
+// line terminators (CRLF or LF) and whether the file ended with a newline.
+// Returns the redacted bytes and the count of replaced secret occurrences.
+func RedactContent(data []byte, patterns []*regexp.Regexp) ([]byte, int) {
+	if len(data) == 0 {
+		return data, 0
+	}
+	var b strings.Builder
+	totalSecrets := 0
+	content := string(data)
+	for len(content) > 0 {
+		idx := strings.IndexByte(content, '\n')
+		var line, term string
+		if idx >= 0 {
+			rawLine := content[:idx]
+			content = content[idx+1:]
+			if strings.HasSuffix(rawLine, "\r") {
+				line = rawLine[:len(rawLine)-1]
+				term = "\r\n"
+			} else {
+				line = rawLine
+				term = "\n"
+			}
+		} else {
+			line = content
+			content = ""
+			term = ""
+		}
+		redacted, count := redactLineCount(line, patterns)
+		totalSecrets += count
+		b.WriteString(redacted)
+		b.WriteString(term)
+	}
+	return []byte(b.String()), totalSecrets
+}
+
+// RedactFileInPlaceFS redacts secrets in filePath using fsys (or os when nil),
+// preserving the file's permission bits. Returns the number of replaced secrets.
+func RedactFileInPlaceFS(fsys FS, filePath string, patterns []*regexp.Regexp) (int, error) {
+	var (
+		data []byte
+		perm os.FileMode = 0644
+		err  error
+	)
+	if fsys != nil {
+		if info, statErr := fsys.Stat(filePath); statErr == nil {
+			perm = info.Mode().Perm()
+		}
+		data, err = fsys.ReadFile(filePath)
+	} else {
+		if info, statErr := os.Stat(filePath); statErr == nil {
+			perm = info.Mode().Perm()
+		}
+		data, err = os.ReadFile(filePath)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read file: %w", err)
+	}
+
+	redactedData, count := RedactContent(data, patterns)
+	if count == 0 {
+		return 0, nil
+	}
+
+	cleanPath := filepath.Clean(filePath)
+	if fsys != nil {
+		if err := fsys.WriteFile(cleanPath, redactedData, perm); err != nil {
+			return count, fmt.Errorf("write redacted file: %w", err)
+		}
+	} else {
+		//nolint:gosec // G703: cleanPath is clean path within backup directory
+		if err := os.WriteFile(cleanPath, redactedData, perm); err != nil {
+			return count, fmt.Errorf("write redacted file: %w", err)
+		}
+	}
+	return count, nil
+}
+
+// RedactFileInPlace redacts secrets in filePath in-place, preserving file permissions.
+// Returns the count of replaced secrets.
+func RedactFileInPlace(filePath string, patterns []*regexp.Regexp) (int, error) {
+	return RedactFileInPlaceFS(nil, filePath, patterns)
 }

@@ -662,7 +662,7 @@ func TestRunRestoreWithDeps_NewerSchemaFailsClosed(t *testing.T) {
 
 	h := sha256.Sum256(content)
 	m := manifest.New(backupID, "linux", "host", "1.0.0", "quick", []string{"config"})
-	m.Version = "0.5.0" // newer than 0.4.0
+	m.Version = "0.6.0" // newer than 0.5.0
 	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
 		{
 			Category:   "config",
@@ -726,7 +726,7 @@ func TestTuiRunRestore_BakVersionAndSchema(t *testing.T) {
 
 	h := sha256.Sum256(content)
 	m := manifest.New(backupID, "linux", "host", "0.9.0", "quick", []string{"config"})
-	m.Version = "0.5.0"
+	m.Version = "0.6.0"
 	m.AddAdapter("test-adapter", "", "~/.config/bak", []manifest.Item{
 		{
 			Category:   "config",

@@ -59,7 +59,9 @@ type Result struct {
 	TotalSize       int64    // total bytes
 	Secrets         int      // number of secret-bearing files detected
 	SecretsExcluded bool     // true when at least one secret was detected and excluded
-	SecretFiles     []string // home-relative paths of excluded secret-bearing files
+	SecretFiles     []string // home-relative paths of secret-bearing files
+	RedactedFiles   []string // home-relative paths of files backed up with secrets redacted
+	ExcludedFiles   []string // home-relative paths of files excluded from backup
 	AdaptersRun     int      // number of adapters that contributed
 	Preset          string   // preset used for this backup (for reporting)
 }

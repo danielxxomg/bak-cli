@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -226,8 +227,8 @@ func TestRun_GeneratesUsableEnvExampleFromSource(t *testing.T) { //nolint:parall
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if !res.SecretsExcluded {
-		t.Fatal("expected SecretsExcluded = true")
+	if len(res.RedactedFiles) != 1 {
+		t.Fatalf("expected 1 redacted file, got %d", len(res.RedactedFiles))
 	}
 
 	examplePath := filepath.Join(res.BackupDir, ".env.example")
@@ -253,5 +254,82 @@ func TestRun_GeneratesUsableEnvExampleFromSource(t *testing.T) { //nolint:parall
 
 	if len(res.SecretFiles) != 1 || res.SecretFiles[0] != "~/.config/opencode/secrets.json" {
 		t.Errorf("res.SecretFiles = %v, want [~/.config/opencode/secrets.json]", res.SecretFiles)
+	}
+}
+
+func TestRun_RedactedInPlaceBackup(t *testing.T) { //nolint:paralleltest // uses t.Setenv
+	home := t.TempDir()
+	configtest.SetConfigHome(t, home)
+
+	configDir := filepath.Join(home, ".config", "opencode")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	sourceFile := filepath.Join(configDir, "secrets.json")
+	secretToken := "ghp_abcdef1234567890123456789012345678901234"
+	tokenContent := fmt.Sprintf(`{"token":"%s","theme":"dark"}`+"\n", secretToken)
+	if err := os.WriteFile(sourceFile, []byte(tokenContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	adp := &secretFixtureAdapter{name: "opencode", configDir: configDir}
+	reg := adapters.NewRegistry()
+	if err := reg.Register(adp); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := Context{
+		FS:         osFS{},
+		HomeDir:    home,
+		BakDir:     filepath.Join(home, ".bak"),
+		Registry:   reg,
+		Preset:     "quick",
+		BakVersion: "0.5.0",
+	}
+	res, err := Run(ctx)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// 1. Backed-up file MUST exist in backup directory with placeholder
+	backedUpFile := filepath.Join(res.BackupDir, "opencode", "secrets.json")
+	data, err := os.ReadFile(backedUpFile)
+	if err != nil {
+		t.Fatalf("backed up file not found in payload: %v", err)
+	}
+	payloadStr := string(data)
+	if !strings.Contains(payloadStr, "<YOUR_SECRET>") {
+		t.Errorf("payload missing placeholder <YOUR_SECRET>:\n%s", payloadStr)
+	}
+	if strings.Contains(payloadStr, secretToken) {
+		t.Errorf("payload leaked secret token:\n%s", payloadStr)
+	}
+	if !strings.Contains(payloadStr, `"theme":"dark"`) {
+		t.Errorf("payload lost surrounding structure:\n%s", payloadStr)
+	}
+
+	// 2. Manifest entry must exist with Redacted: true, SecretCount: 1, and match payload hash/size
+	m, err := manifest.Load(res.BackupDir)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+	am, ok := m.Adapters["opencode"]
+	if !ok || len(am.Items) != 1 {
+		t.Fatalf("manifest opencode items: got %d items, want 1", len(am.Items))
+	}
+	item := am.Items[0]
+	if !item.Redacted {
+		t.Errorf("manifest item Redacted = false, want true")
+	}
+	if item.SecretCount != 1 {
+		t.Errorf("manifest item SecretCount = %d, want 1", item.SecretCount)
+	}
+	if item.Size != int64(len(data)) {
+		t.Errorf("manifest item Size = %d, want %d", item.Size, len(data))
+	}
+
+	// 3. bak verify (Validate) must succeed on the redacted backup
+	if err := m.Validate(res.BackupDir, nil); err != nil {
+		t.Errorf("Validate failed on redacted backup: %v", err)
 	}
 }

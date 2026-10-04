@@ -59,7 +59,7 @@ func (a *RestoreAction) ResolveBackup(backupID string) error {
 func handlePostStateFailure(recMgr *recoveryManager, diffs []restorepkg.FileDiff, err error) error {
 	var attempted []string
 	for _, d := range diffs {
-		if d.Status == restorepkg.DiffNew || d.Status == restorepkg.DiffModified {
+		if d.Status == restorepkg.DiffNew || d.Status == restorepkg.DiffModified || d.Status == restorepkg.DiffRedacted {
 			attempted = append(attempted, d.TargetPath)
 		}
 	}
@@ -88,17 +88,30 @@ func (a *RestoreAction) showDryRun(out io.Writer, diffs []restorepkg.FileDiff) e
 		return nil
 	}
 	secretExcluded := countByStatus(diffs, restorepkg.DiffSecretExcluded)
-	var excludedSuffix string
+	secretRedacted := countByStatus(diffs, restorepkg.DiffRedacted)
+	var suffixes []string
+	if secretRedacted > 0 {
+		suffixes = append(suffixes, fmt.Sprintf("%d redacted", secretRedacted))
+	}
 	if secretExcluded > 0 {
-		excludedSuffix = fmt.Sprintf(", %d excluded (secrets)", secretExcluded)
+		suffixes = append(suffixes, fmt.Sprintf("%d excluded (secrets)", secretExcluded))
+	}
+	var extraSuffix string
+	if len(suffixes) > 0 {
+		extraSuffix = ", " + strings.Join(suffixes, ", ")
 	}
 	if _, err := fmt.Fprintf(out, "Dry-run complete. %d file(s) would be restored, %d unchanged, %d missing%s.\n",
-		countByStatus(diffs, restorepkg.DiffNew)+countByStatus(diffs, restorepkg.DiffModified),
+		countByStatus(diffs, restorepkg.DiffNew)+countByStatus(diffs, restorepkg.DiffModified)+secretRedacted,
 		countByStatus(diffs, restorepkg.DiffUnchanged),
 		countByStatus(diffs, restorepkg.DiffMissing),
-		excludedSuffix,
+		extraSuffix,
 	); err != nil {
 		return fmt.Errorf("write dry-run summary: %w", err)
+	}
+	if secretRedacted > 0 {
+		if _, err := fmt.Fprintf(out, "  Warning: Restoring a redacted file overwrites the live file's real secrets with placeholders. The user must re-enter them.\n"); err != nil {
+			return fmt.Errorf("write dry-run warning: %w", err)
+		}
 	}
 	if secretExcluded > 0 {
 		if _, err := fmt.Fprintf(out, "  ⚠ %d secret-bearing file(s) cannot be restored and must be re-entered by hand (see .env.example).\n", secretExcluded); err != nil {
@@ -110,8 +123,9 @@ func (a *RestoreAction) showDryRun(out io.Writer, diffs []restorepkg.FileDiff) e
 
 // finishRestore handles post-apply reporting, post-state recording, and error propagation.
 func (a *RestoreAction) finishRestore(out io.Writer, m *manifest.Manifest, diffs []restorepkg.FileDiff, recMgr *recoveryManager, restored, skipped, failed, degraded int, applyErr error) error {
+	redactedFiles := collectRedactedTargets(diffs)
 	if failed > 0 || applyErr != nil {
-		if repErr := reportRestore(out, m, restored, skipped, failed, degraded); repErr != nil && applyErr != nil {
+		if repErr := reportRestore(out, m, restored, skipped, failed, degraded, redactedFiles); repErr != nil && applyErr != nil {
 			return errors.Join(applyErr, repErr)
 		} else if repErr != nil {
 			return repErr
@@ -120,13 +134,13 @@ func (a *RestoreAction) finishRestore(out io.Writer, m *manifest.Manifest, diffs
 	}
 
 	if err := recMgr.RecordPostState(); err != nil {
-		if repErr := reportRestore(out, m, 0, skipped, countByStatus(diffs, restorepkg.DiffNew)+countByStatus(diffs, restorepkg.DiffModified), degraded); repErr != nil {
+		if repErr := reportRestore(out, m, 0, skipped, countByStatus(diffs, restorepkg.DiffNew)+countByStatus(diffs, restorepkg.DiffModified)+countByStatus(diffs, restorepkg.DiffRedacted), degraded, nil); repErr != nil {
 			return errors.Join(handlePostStateFailure(recMgr, diffs, err), repErr)
 		}
 		return handlePostStateFailure(recMgr, diffs, err)
 	}
 
-	return reportRestore(out, m, restored, skipped, failed, degraded)
+	return reportRestore(out, m, restored, skipped, failed, degraded, redactedFiles)
 }
 
 // Run executes the restore workflow: load manifest, compute diffs, and
@@ -256,7 +270,7 @@ func (a *RestoreAction) printDryRunDiff(out io.Writer, diffs []restorepkg.FileDi
 	b.WriteString("Dry-run diff:\n")
 	for _, d := range diffs {
 		fmt.Fprintf(&b, "  [%s] %s\n", d.Status, d.SourcePath)
-		if d.Status == restorepkg.DiffModified && d.Diff != "" && a.Verbose {
+		if (d.Status == restorepkg.DiffModified || d.Status == restorepkg.DiffRedacted) && d.Diff != "" && a.Verbose {
 			b.WriteString(d.Diff)
 		}
 	}
@@ -340,7 +354,7 @@ func buildModeMap(m *manifest.Manifest) map[string]uint32 {
 func countRestoreTargets(diffs []restorepkg.FileDiff) int {
 	filesTotal := 0
 	for _, d := range diffs {
-		if d.Status == restorepkg.DiffNew || d.Status == restorepkg.DiffModified {
+		if d.Status == restorepkg.DiffNew || d.Status == restorepkg.DiffModified || d.Status == restorepkg.DiffRedacted {
 			filesTotal++
 		}
 	}
@@ -359,7 +373,7 @@ func (a *RestoreAction) applyRestore(m *manifest.Manifest, diffs []restorepkg.Fi
 
 	for _, d := range diffs {
 		switch d.Status {
-		case restorepkg.DiffNew, restorepkg.DiffModified:
+		case restorepkg.DiffNew, restorepkg.DiffModified, restorepkg.DiffRedacted:
 			filesDone++
 			if a.ProgressFn != nil {
 				a.ProgressFn(d.SourcePath, filesDone, filesTotal)
@@ -398,9 +412,19 @@ func (a *RestoreAction) applyRestore(m *manifest.Manifest, diffs []restorepkg.Fi
 	return restored, skipped, failed, degraded, nil
 }
 
+func collectRedactedTargets(diffs []restorepkg.FileDiff) []string {
+	var targets []string
+	for _, d := range diffs {
+		if d.Status == restorepkg.DiffRedacted || d.Redacted {
+			targets = append(targets, d.SourcePath)
+		}
+	}
+	return targets
+}
+
 // reportRestore writes the final restore summary to out, including the failed
-// count only when at least one file failed and degraded permissions warning.
-func reportRestore(out io.Writer, m *manifest.Manifest, restored, skipped, failed, degraded int) error {
+// count only when at least one file failed, restored placeholders, and degraded permissions warning.
+func reportRestore(out io.Writer, m *manifest.Manifest, restored, skipped, failed, degraded int, redactedFiles []string) error {
 	var b strings.Builder
 	if failed > 0 {
 		fmt.Fprintf(&b, "Restore failed: %s\n", m.ID)
@@ -411,6 +435,13 @@ func reportRestore(out io.Writer, m *manifest.Manifest, restored, skipped, faile
 	fmt.Fprintf(&b, "  Skipped:  %d\n", skipped)
 	if failed > 0 {
 		fmt.Fprintf(&b, "  Failed:   %d\n", failed)
+	}
+	if len(redactedFiles) > 0 && restored > 0 {
+		fmt.Fprintf(&b, "  ⚠ Restored with placeholders (%d file(s) — secrets must be re-entered by hand):\n", len(redactedFiles))
+		for _, rf := range redactedFiles {
+			fmt.Fprintf(&b, "    - %s\n", rf)
+		}
+		fmt.Fprintf(&b, "  Warning: Restoring a redacted file overwrites the live file's real secrets with placeholders. The user must re-enter them.\n")
 	}
 	if degraded > 0 {
 		fmt.Fprintf(&b, "  Warning: degraded permissions (%d file(s) lack mode metadata)\n", degraded)

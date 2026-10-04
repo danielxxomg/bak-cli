@@ -96,8 +96,20 @@ func (a *BackupAction) report(out io.Writer, r *backup.Result) {
 	infof(out, "  Files:      %d\n", r.FileCount)
 	infof(out, "  Size:       %s\n", formatSize(r.TotalSize))
 	infof(out, "  Location:   %s\n", r.BackupDir)
-	if r.SecretsExcluded {
-		infof(out, "  ⚠ Secrets detected in %d file(s) — .env.example created:\n", r.Secrets)
+	if len(r.RedactedFiles) > 0 {
+		infof(out, "  ⚠ Backed up with secrets redacted in %d file(s) — .env.example created:\n", len(r.RedactedFiles))
+		for _, f := range r.RedactedFiles {
+			infof(out, "    - %s\n", f)
+		}
+	}
+	if len(r.ExcludedFiles) > 0 {
+		infof(out, "  ⚠ Excluded %d file(s):\n", len(r.ExcludedFiles))
+		for _, f := range r.ExcludedFiles {
+			infof(out, "    - %s\n", f)
+		}
+	}
+	if len(r.RedactedFiles) == 0 && r.SecretsExcluded {
+		infof(out, "  ⚠ Excluded %d file(s) (secrets) — .env.example created:\n", r.Secrets)
 		for _, f := range r.SecretFiles {
 			infof(out, "    - %s\n", f)
 		}

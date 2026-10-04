@@ -290,10 +290,105 @@ func TestSetEncryption_NilSaltNonce(t *testing.T) { //nolint:paralleltest // not
 	}
 }
 
-func TestManifest_NewVersion_040(t *testing.T) { //nolint:paralleltest // shared state
-	m := New("test-v040", "linux", "box", "0.4.0", "quick", []string{"config"})
-	if m.Version != "0.4.0" {
-		t.Errorf("manifest version = %q, want 0.4.0", m.Version)
+func TestManifest_NewVersion_050(t *testing.T) { //nolint:paralleltest // shared state
+	m := New("test-v050", "linux", "box", "0.5.0", "quick", []string{"config"})
+	if m.Version != "0.5.0" {
+		t.Errorf("manifest version = %q, want 0.5.0", m.Version)
+	}
+	if ManifestVersion != "0.5.0" {
+		t.Errorf("ManifestVersion constant = %q, want 0.5.0", ManifestVersion)
+	}
+}
+
+func TestManifest_RedactedRoundTrip(t *testing.T) { //nolint:paralleltest // shared state
+	dir := t.TempDir()
+	m := New("test-redacted", "linux", "host", "0.5.0", "quick", []string{"config"})
+	m.AddAdapter("opencode", "1.0.0", "~/.config/opencode", []Item{
+		{
+			Category:    "config",
+			SourcePath:  "~/.config/opencode/opencode.json",
+			BackupPath:  "opencode/opencode.json",
+			Hash:        "sha256:123456",
+			Size:        100,
+			Mode:        0644,
+			Redacted:    true,
+			SecretCount: 3,
+		},
+	})
+	if err := m.Save(dir); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	loaded, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	items := loaded.Adapters["opencode"].Items
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	if !items[0].Redacted {
+		t.Errorf("Redacted = false, want true")
+	}
+	if items[0].SecretCount != 3 {
+		t.Errorf("SecretCount = %d, want 3", items[0].SecretCount)
+	}
+}
+
+func TestManifest_LoadV040WithoutRedacted(t *testing.T) { //nolint:paralleltest // shared state
+	dir := t.TempDir()
+	rawJSON := `{
+  "version": "0.4.0",
+  "id": "20260101-v040",
+  "created_at": "2026-01-01T00:00:00Z",
+  "os_source": "linux",
+  "bak_version": "0.4.0",
+  "preset": "quick",
+  "categories": ["config"],
+  "adapters": {
+    "opencode": {
+      "config_dir": "~/.config/opencode",
+      "items": [
+        {
+          "category": "config",
+          "source_path": "~/.config/opencode/config.json",
+          "backup_path": "opencode/config.json",
+          "hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0,
+          "mode": 420
+        }
+      ]
+    }
+  }
+}`
+	if err := os.WriteFile(filepath.Join(dir, "manifest.json"), []byte(rawJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if loaded.Version != "0.4.0" {
+		t.Errorf("version = %q, want 0.4.0", loaded.Version)
+	}
+	am := loaded.Adapters["opencode"]
+	if len(am.Items) != 1 {
+		t.Fatalf("items len = %d, want 1", len(am.Items))
+	}
+	if am.Items[0].Redacted {
+		t.Errorf("expected Redacted == false for 0.4.0 manifest, got true")
+	}
+	if am.Items[0].SecretCount != 0 {
+		t.Errorf("expected SecretCount == 0 for 0.4.0 manifest, got %d", am.Items[0].SecretCount)
+	}
+	backupFile := filepath.Join(dir, "opencode", "config.json")
+	if err := os.MkdirAll(filepath.Dir(backupFile), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(backupFile, []byte{}, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := loaded.Validate(dir, nil); err != nil {
+		t.Errorf("Validate 0.4.0 manifest: %v", err)
 	}
 }
 
@@ -433,11 +528,12 @@ func TestValidateSchemaVersion(t *testing.T) { //nolint:paralleltest // not yet 
 		wantErr    bool
 		errContain string
 	}{
-		{"current_schema_040", "0.4.0", false, ""},
+		{"current_schema_050", "0.5.0", false, ""},
+		{"older_schema_040", "0.4.0", false, ""},
 		{"older_schema_030", "0.3.0", false, ""},
 		{"older_schema_010", "0.1.0", false, ""},
-		{"newer_minor_050", "0.5.0", true, "unsupported manifest schema version 0.5.0 (maximum supported is 0.4.0): upgrade bak"},
-		{"newer_major_100", "1.0.0", true, "unsupported manifest schema version 1.0.0 (maximum supported is 0.4.0): upgrade bak"},
+		{"newer_minor_060", "0.6.0", true, "unsupported manifest schema version 0.6.0 (maximum supported is 0.5.0): upgrade bak"},
+		{"newer_major_100", "1.0.0", true, "unsupported manifest schema version 1.0.0 (maximum supported is 0.5.0): upgrade bak"},
 		{"empty_version", "", true, "manifest version is empty"},
 		{"invalid_version", "not-a-version", true, "unsupported manifest schema version"},
 	}
@@ -457,12 +553,12 @@ func TestValidateSchemaVersion(t *testing.T) { //nolint:paralleltest // not yet 
 
 func TestValidate_NewerSchemaVersion(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	m := &Manifest{
-		Version:  "0.5.0",
+		Version:  "0.6.0",
 		Adapters: map[string]AdapterManifest{"test": {}},
 	}
 	err := m.Validate(".", nil)
 	if err == nil {
-		t.Fatal("Validate() expected error for newer schema 0.5.0, got nil")
+		t.Fatal("Validate() expected error for newer schema 0.6.0, got nil")
 	}
 	if !strings.Contains(err.Error(), "unsupported manifest schema version") {
 		t.Errorf("Validate() error %q should mention unsupported manifest schema version", err.Error())

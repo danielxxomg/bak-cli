@@ -55,9 +55,9 @@ Implementation:
 - Reject paths that do not start with the canonical home prefix
 ```
 
-### Secret Detection and Exclusion
+### Secret Detection and Redacted-in-Place Backup
 
-The backup engine detects common secret patterns and excludes them from backups:
+The backup engine detects common secret patterns and redacts them in-place with placeholders:
 
 | Pattern | Description |
 |---------|-------------|
@@ -76,14 +76,16 @@ The backup engine detects common secret patterns and excludes them from backups:
 | Connection strings | DSNs carrying inline credentials (`user:password@`) |
 | `Bearer *` | HTTP Bearer authentication tokens |
 
-Instead of backing up real secrets, bak generates a `.env.example` template with redacted placeholder values. For files containing recognized token families (GitHub, OpenAI, Anthropic, Slack, AWS access key IDs, GCP API keys, Stripe secret keys, connection strings with inline credentials, Bearer tokens) and standard assignment patterns, matching secrets are never written to the backup directory:
-- **Source-based redaction**: `.env.example` is generated directly from source files with home-relative section headers and `<YOUR_SECRET>` placeholders. If a source file is unreadable, a clean note without absolute paths or usernames is emitted.
-- **Named exclusion reporting**: `bak backup` lists every excluded secret-bearing file by its home-relative path (`~/...`) in the backup summary, ensuring exclusions are transparent.
-- **Honest dry-run classification**: On restore, dry-run distinguishes manifest entries absent due to secret exclusion (`[secret-excluded]`) from genuinely absent files (`[missing]`), explicitly warning that excluded files cannot be restored and must be re-entered by hand.
+Instead of dropping files containing secrets, bak preserves configuration files structurally by replacing secrets in-place with `<YOUR_SECRET>` placeholders in the backup payload and generating a companion `.env.example` template:
+- **Redacted-in-place payload**: Config files containing recognized secret families are written to the backup payload with every matched secret replaced by `<YOUR_SECRET>`. Surrounding structure (JSON/YAML formatting, sibling keys, comments) survives.
+- **Manifest schema 0.5.0 tracking**: Manifest `Item` entries record `redacted: true` and `secret_count`. Stored SHA-256 hashes and file sizes describe the redacted content actually written to disk, so integrity checks pass on redacted backups.
+- **Companion `.env.example`**: Generated directly from source files with home-relative section headers and `<YOUR_SECRET>` placeholders to list what needs re-entering.
+- **Transparent summary reporting**: The backup summary distinguishes excluded files from files backed up with secrets redacted using home-relative paths (`~/...`).
+- **Honest dry-run classification**: On restore, dry-run labels redacted files as `[redacted]`, distinctly from clean and missing files.
+- **Restore report transparency**: The restore report lists every restored file that contains placeholders and reminds the user that secrets must be re-entered by hand.
+- **Critical tradeoff**: Restoring a redacted file **overwrites the live file's real secrets with placeholders**. The user must re-enter them. This is strictly better than having no backup of the file, but it is a real footgun and users must be aware that restoring onto a live system will replace working credentials with placeholders until re-entered.
 
 Stripe publishable `pk_` keys are deliberately not treated as secrets: Stripe documents them as safe for client-side use, and redacting them would replace working configuration with placeholders on restore.
-
-Tradeoff: every added pattern excludes matching files from the backup, so a false positive silently removes a file from protection.
 
 Unrecognized secret formats, custom token formats, or keys from unlisted providers outside these families are not detected and must be managed or excluded manually.
 
@@ -92,10 +94,10 @@ Unrecognized secret formats, custom token formats, or keys from unlisted provide
 - **SHA-256 checksums**: Every backed-up file gets a SHA-256 checksum computed at backup time and stored in `manifest.json`.
 - **Integrity verification**: On restore, every file is verified against its stored checksum before being written. Checksum mismatches block the restore and produce a clear error message.
 - **Mandatory under `--force`**: Manifest and checksum integrity verification cannot be bypassed. The `--force` flag skips interactive confirmation only, never integrity checks.
-- **Permission preservation (0.4.0)**: Manifest schema `0.4.0` preserves portable file permission bits (`Mode`) at backup time and reapplies them during restore. Any chmod failures are reported as restore errors.
+- **Permission preservation (0.4.0+)**: Manifest schema `0.4.0` and `0.5.0` preserve portable file permission bits (`Mode`) at backup time and reapply them during restore. Any chmod failures are reported as restore errors.
 - **Degraded 0.3.0 handling**: Legacy `0.3.0` manifests lacking mode metadata are loaded and restored in degraded mode, explicitly warning the user that restored files lack original mode metadata rather than claiming exact permission restoration.
 - **Version compatibility warning**: On restore, `bak` compares the backup tool version (`bak_version`) with the running tool version. Any mismatch (including unknown, development, or empty versions on either side) produces a clear warning on stderr naming the backup ID and both versions without blocking restore.
-- **Schema version gating**: Manifest schema versions newer than supported (`0.4.0`) cannot be safely interpreted and fail closed with an actionable error before any target write or recovery preparation, instructing the user to upgrade `bak`. Legacy known versions (`0.3.0`) continue to restore in degraded mode.
+- **Schema version gating**: Manifest schema versions newer than supported (`0.5.0`) cannot be safely interpreted and fail closed with an actionable error before any target write or recovery preparation, instructing the user to upgrade `bak`. Legacy known versions (`0.3.0` and `0.4.0`) continue to restore.
 - **Real-binary journey verification**: An eight-stage real-binary journey matrix (`tests/e2e/journey_matrix_test.go`) characterizes discovery, mutation/deletion diff recovery, dry-run zero-write guarantees, apply correctness, manifest verification, tamper fail-closed rejection, partial failure rollback, and target undo drift protection.
 
 ### Target Recovery and Automatic Rollback

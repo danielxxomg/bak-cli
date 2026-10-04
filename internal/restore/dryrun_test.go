@@ -303,9 +303,59 @@ func TestComputeDryRun(t *testing.T) { //nolint:paralleltest // not yet parallel
 					t.Fatalf("expected 1 diff, got %d", len(diffs))
 				}
 				if diffs[0].Status != tt.wantStatus {
-					t.Errorf("got status %q, want %q", diffs[0].Status, tt.wantStatus)
+					t.Errorf("status = %q, want %q", diffs[0].Status, tt.wantStatus)
 				}
 			})
+		}
+	})
+
+	t.Run("redacted file — labeled DiffRedacted distinctly from clean and missing", func(t *testing.T) { //nolint:paralleltest // subtests share table state
+		homeDir := t.TempDir()
+		backupDir := t.TempDir()
+
+		backupFilePath := filepath.Join(backupDir, "opencode", "opencode.json")
+		mustWrite(t, backupFilePath, `{"token":"<YOUR_SECRET>"}`)
+
+		targetPath := filepath.Join(homeDir, ".config", "opencode", "opencode.json")
+		mustWrite(t, targetPath, `{"token":"real_secret_token"}`)
+
+		m := &manifest.Manifest{
+			Version: "0.5.0",
+			Adapters: map[string]manifest.AdapterManifest{
+				"opencode": {
+					ConfigDir: "~/.config/opencode",
+					Items: []manifest.Item{
+						{
+							SourcePath:  "~/.config/opencode/opencode.json",
+							BackupPath:  "opencode/opencode.json",
+							Hash:        mustHash(t, backupFilePath),
+							Redacted:    true,
+							SecretCount: 1,
+						},
+					},
+				},
+			},
+		}
+
+		diffs, err := ComputeDryRun(m, backupDir, homeDir)
+		if err != nil {
+			t.Fatalf("ComputeDryRun error: %v", err)
+		}
+		if len(diffs) != 1 {
+			t.Fatalf("expected 1 diff, got %d", len(diffs))
+		}
+		d := diffs[0]
+		if d.Status != DiffRedacted {
+			t.Errorf("status = %q, want %q", d.Status, DiffRedacted)
+		}
+		if !d.Redacted {
+			t.Errorf("d.Redacted = false, want true")
+		}
+		if d.SecretCount != 1 {
+			t.Errorf("d.SecretCount = %d, want 1", d.SecretCount)
+		}
+		if d.Diff == "" {
+			t.Errorf("expected non-empty diff against live target file")
 		}
 	})
 }

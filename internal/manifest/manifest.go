@@ -18,7 +18,7 @@ import (
 )
 
 // ManifestVersion is the current schema version written by this tool.
-const ManifestVersion = "0.4.0"
+const ManifestVersion = "0.5.0"
 
 // parseSemver splits a version into [major, minor, patch] integers and optional prerelease string.
 func parseSemver(v string) ([]int, string, error) {
@@ -115,12 +115,14 @@ type AdapterManifest struct {
 
 // Item describes one backed-up file or directory.
 type Item struct {
-	Category   string `json:"category"`
-	SourcePath string `json:"source_path"`
-	BackupPath string `json:"backup_path"`
-	Hash       string `json:"hash"`
-	Size       int64  `json:"size"`
-	Mode       uint32 `json:"mode,omitempty"`
+	Category    string `json:"category"`
+	SourcePath  string `json:"source_path"`
+	BackupPath  string `json:"backup_path"`
+	Hash        string `json:"hash"`
+	Size        int64  `json:"size"`
+	Mode        uint32 `json:"mode,omitempty"`
+	Redacted    bool   `json:"redacted,omitempty"`
+	SecretCount int    `json:"secret_count,omitempty"`
 }
 
 // Encryption holds encryption metadata for an encrypted backup.

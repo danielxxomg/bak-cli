@@ -25,6 +25,9 @@ const (
 	DiffMissing   DiffStatus = "missing"   // referenced in manifest, not on backup disk
 )
 
+// DiffRedacted classifies a backup file whose secrets were redacted with placeholders.
+const DiffRedacted = "redacted"
+
 // DiffSecretExcluded classifies a manifest entry absent because it was excluded as a secret.
 const DiffSecretExcluded = "secret-excluded"
 
@@ -34,11 +37,13 @@ const DiffExcluded = DiffSecretExcluded
 // FileDiff describes the difference between one backed-up file and the
 // current target file on disk.
 type FileDiff struct {
-	SourcePath string     // canonical source path from manifest
-	TargetPath string     // resolved absolute path on target OS
-	BackupPath string     // path within backup directory
-	Status     DiffStatus // classification
-	Diff       string     // unified diff for modified files; empty otherwise
+	SourcePath  string     // canonical source path from manifest
+	TargetPath  string     // resolved absolute path on target OS
+	BackupPath  string     // path within backup directory
+	Status      DiffStatus // classification
+	Diff        string     // unified diff for modified files; empty otherwise
+	Redacted    bool       // true if the backed-up file was redacted with placeholders
+	SecretCount int        // number of redacted secrets in the backed-up file
 }
 
 // CountByStatus returns the number of diffs with the given status.
@@ -68,9 +73,11 @@ func ComputeDryRun(m *manifest.Manifest, backupDir, homeDir string) ([]FileDiff,
 			backupFilePath := filepath.Join(backupDir, item.BackupPath)
 
 			d := FileDiff{
-				SourcePath: item.SourcePath,
-				TargetPath: targetPath,
-				BackupPath: item.BackupPath,
+				SourcePath:  item.SourcePath,
+				TargetPath:  targetPath,
+				BackupPath:  item.BackupPath,
+				Redacted:    item.Redacted,
+				SecretCount: item.SecretCount,
 			}
 
 			// Check if backup file exists on disk.
@@ -80,6 +87,16 @@ func ComputeDryRun(m *manifest.Manifest, backupDir, homeDir string) ([]FileDiff,
 					d.Status = DiffSecretExcluded
 				} else {
 					d.Status = DiffMissing
+				}
+				diffs = append(diffs, d)
+				continue
+			}
+
+			if item.Redacted {
+				d.Status = DiffRedacted
+				targetData, tErr := readFile(targetPath)
+				if tErr == nil {
+					d.Diff = unifiedDiff(targetPath, string(targetData), string(backupData))
 				}
 				diffs = append(diffs, d)
 				continue

@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,6 +27,7 @@ type FS interface {
 	UserHomeDir() (string, error)
 	Stat(path string) (os.FileInfo, error)
 	ReadDir(dirname string) ([]os.DirEntry, error)
+	ReadFile(filename string) ([]byte, error)
 	MkdirAll(path string, perm os.FileMode) error
 	RemoveAll(path string) error
 	WalkDir(root string, fn fs.WalkDirFunc) error
@@ -39,11 +41,13 @@ type osFS struct{}
 func (osFS) UserHomeDir() (string, error)                 { return os.UserHomeDir() }
 func (osFS) Stat(path string) (os.FileInfo, error)        { return os.Stat(path) }
 func (osFS) ReadDir(name string) ([]os.DirEntry, error)   { return os.ReadDir(name) }
+func (osFS) ReadFile(filename string) ([]byte, error)     { return os.ReadFile(filename) }
 func (osFS) MkdirAll(path string, perm os.FileMode) error { return os.MkdirAll(path, perm) }
 func (osFS) RemoveAll(path string) error                  { return os.RemoveAll(path) }
 func (osFS) WalkDir(root string, fn fs.WalkDirFunc) error { return filepath.WalkDir(root, fn) }
 func (osFS) WriteFile(name string, data []byte, perm os.FileMode) error {
-	return os.WriteFile(name, data, perm)
+	//nolint:gosec // G703: name is managed by backup workflow
+	return os.WriteFile(filepath.Clean(name), data, perm)
 }
 
 // Context bundles every input the canonical backup workflow needs. Both
@@ -204,13 +208,13 @@ func executeBackupPhases(
 	}
 
 	// --- 7. Generate .env.example when secrets were detected -------------
-	secretsExcluded := len(secretSourceFiles) > 0
-	if secretsExcluded {
+	secretsDetected := len(secretSourceFiles) > 0
+	if secretsDetected {
 		if err := GenerateEnvExample(secretSourceFiles, patterns, backupDir); err != nil {
 			return nil, fmt.Errorf("generate .env.example: %w", err)
 		}
 	}
-	m.SecretsExcluded = secretsExcluded
+	m.SecretsExcluded = false
 
 	// --- 8. Save final manifest -------------------------------------------
 	if err := saveManifest(fsys, m, backupDir); err != nil {
@@ -223,8 +227,9 @@ func executeBackupPhases(
 		FileCount:       totalFiles,
 		TotalSize:       totalSize,
 		Secrets:         len(secretHomeFiles),
-		SecretsExcluded: secretsExcluded,
+		SecretsExcluded: false,
 		SecretFiles:     secretHomeFiles,
+		RedactedFiles:   secretHomeFiles,
 		AdaptersRun:     len(detected),
 		Preset:          ctx.Preset,
 	}, nil
@@ -291,9 +296,9 @@ func collectAdapterItems(detected []adapters.DetectedAdapter, homeDir string, ca
 }
 
 // backupAndBuildManifest runs the second pass: for each adapter it backs the
-// items up, scans for secrets, removes secret files from the backup dir, and
-// builds the manifest entries with the secretRelPaths skip-map so no dangling
-// references remain. It mutates m by adding one adapter section per pass.
+// items up, scans for secrets, redacts secret files in-place with placeholders,
+// and builds the manifest entries reflecting the redacted payload contents.
+// It mutates m by adding one adapter section per pass.
 func backupAndBuildManifest(
 	ctx Context,
 	fsys FS,
@@ -315,14 +320,14 @@ func backupAndBuildManifest(
 		adapterBackupDir := filepath.Join(backupDir, d.Adapter.Name())
 		secretFiles := scanBackupForSecretsFS(fsys, adapterBackupDir, patterns, ctx.Verbose, stderr)
 
-		secretRelPaths := removeSecretFiles(fsys, secretFiles, backupDir, ctx.Verbose, stderr)
+		redactedMap := redactSecretFiles(fsys, secretFiles, backupDir, patterns, ctx.Verbose, stderr)
 
 		for _, item := range entry.items {
 			if item.IsDir {
 				continue
 			}
 			backupPath := paths.Slash(filepath.Join(d.Adapter.Name(), item.RelPath))
-			if secretRelPaths[backupPath] {
+			if _, isRedacted := redactedMap[backupPath]; isRedacted {
 				absSource := item.SourcePath
 				if strings.HasPrefix(absSource, "~/") {
 					absSource = paths.FromCanonical(absSource, ctx.HomeDir)
@@ -332,7 +337,7 @@ func backupAndBuildManifest(
 			}
 		}
 
-		items, files, size, fdone, berr := buildAdapterManifestItems(entry, ctx, d, backupDir, secretRelPaths, filesDone, filesTotal)
+		items, files, size, fdone, berr := buildAdapterManifestItems(entry, ctx, d, backupDir, redactedMap, filesDone, filesTotal)
 		if berr != nil {
 			return nil, nil, 0, 0, berr
 		}
@@ -362,33 +367,74 @@ func toHomeRel(sourcePath, homeDir string) string {
 	return paths.ToCanonical(sourcePath)
 }
 
-// removeSecretFiles builds the secretRelPaths skip-map and removes each
-// secret-bearing file from the backup directory via FS.RemoveAll (handles
-// directories containing only secrets). The skip-map keys are backup-relative
-// slash paths so the manifest builder can match item.BackupPath exactly.
-func removeSecretFiles(fsys FS, secretFiles []string, backupDir string, verbose bool, stderr io.Writer) map[string]bool {
-	secretRelPaths := make(map[string]bool)
+type redactedMeta struct {
+	secretCount int
+	hash        string
+	size        int64
+}
+
+// hashFSFile reads a file and returns its sha256: hex hash and byte length.
+func hashFSFile(fsys FS, path string) (string, int64, error) {
+	var (
+		data []byte
+		err  error
+	)
+	if fsys != nil {
+		data, err = fsys.ReadFile(path)
+	} else {
+		data, err = os.ReadFile(path)
+	}
+	if err != nil {
+		return "", 0, fmt.Errorf("read file for hash: %w", err)
+	}
+	h := sha256.Sum256(data)
+	return fmt.Sprintf("sha256:%x", h), int64(len(data)), nil
+}
+
+// redactSecretFiles redacts each secret-bearing file in the backup directory
+// in-place using RedactFileInPlaceFS. It returns a map from backup-relative
+// slash paths to their redacted metadata (secret count, hash, size).
+func redactSecretFiles(fsys FS, secretFiles []string, backupDir string, patterns []*regexp.Regexp, verbose bool, stderr io.Writer) map[string]redactedMeta {
+	redactedMap := make(map[string]redactedMeta)
 	for _, secretFile := range secretFiles {
-		if rel, relErr := filepath.Rel(backupDir, secretFile); relErr == nil {
-			secretRelPaths[paths.Slash(rel)] = true
+		rel, relErr := filepath.Rel(backupDir, secretFile)
+		if relErr != nil {
+			continue
 		}
-		if rmErr := fsys.RemoveAll(secretFile); rmErr != nil && verbose {
-			fmt.Fprintf(stderr, "warning: could not remove secret file: %v\n", rmErr) //nolint:errcheck // non-critical diagnostic
+		backupRel := paths.Slash(rel)
+		count, err := RedactFileInPlaceFS(fsys, secretFile, patterns)
+		if err != nil {
+			if verbose {
+				fmt.Fprintf(stderr, "warning: redact %s: %v\n", secretFile, err) //nolint:errcheck // non-critical diagnostic
+			}
+			continue
+		}
+		hash, size, hErr := hashFSFile(fsys, secretFile)
+		if hErr != nil {
+			if verbose {
+				fmt.Fprintf(stderr, "warning: hash %s: %v\n", secretFile, hErr) //nolint:errcheck // non-critical diagnostic
+			}
+			continue
+		}
+		redactedMap[backupRel] = redactedMeta{
+			secretCount: count,
+			hash:        hash,
+			size:        size,
 		}
 	}
-	return secretRelPaths
+	return redactedMap
 }
 
 // buildAdapterManifestItems walks one adapter's items, advancing progress,
-// skipping removed-secret entries, validating source paths stay under the
-// home dir, and assembling the manifest.Item slice. It returns the per-adapter
+// recording redacted secret metadata for redacted items, validating source paths stay
+// under the home dir, and assembling the manifest.Item slice. It returns the per-adapter
 // item count and size deltas plus the updated running filesDone counter.
 func buildAdapterManifestItems(
 	entry adapterItems,
 	ctx Context,
 	d adapters.DetectedAdapter,
 	_ string,
-	secretRelPaths map[string]bool,
+	redactedMap map[string]redactedMeta,
 	filesDone, filesTotal int,
 ) (items []manifest.Item, files int, size int64, done int, err error) {
 	items = make([]manifest.Item, 0, len(entry.items))
@@ -404,12 +450,6 @@ func buildAdapterManifestItems(
 
 		backupPath := paths.Slash(filepath.Join(d.Adapter.Name(), item.RelPath))
 
-		// Skip items whose backed-up file was removed (contained secrets) so
-		// the manifest never carries dangling references.
-		if secretRelPaths[backupPath] {
-			continue
-		}
-
 		// Security: validate the source path stays under the home dir.
 		absSource := item.SourcePath
 		if strings.HasPrefix(absSource, "~/") {
@@ -422,16 +462,29 @@ func buildAdapterManifestItems(
 			return nil, 0, 0, filesDone, fmt.Errorf("adapter %q returned source path outside home directory", d.Adapter.Name())
 		}
 
+		itemHash := item.Hash
+		itemSize := item.Size
+		redacted := false
+		secretCount := 0
+		if meta, isRedacted := redactedMap[backupPath]; isRedacted {
+			itemHash = meta.hash
+			itemSize = meta.size
+			redacted = true
+			secretCount = meta.secretCount
+		}
+
 		items = append(items, manifest.Item{
-			Category:   item.Category,
-			SourcePath: item.SourcePath,
-			BackupPath: backupPath,
-			Hash:       item.Hash,
-			Size:       item.Size,
-			Mode:       item.Mode,
+			Category:    item.Category,
+			SourcePath:  item.SourcePath,
+			BackupPath:  backupPath,
+			Hash:        itemHash,
+			Size:        itemSize,
+			Mode:        item.Mode,
+			Redacted:    redacted,
+			SecretCount: secretCount,
 		})
 		files++
-		size += item.Size
+		size += itemSize
 	}
 	return items, files, size, filesDone, nil
 }

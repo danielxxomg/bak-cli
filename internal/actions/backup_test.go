@@ -343,7 +343,7 @@ func TestBackupAction_WithSecrets(t *testing.T) { //nolint:paralleltest // not y
 	}
 }
 
-func TestBackupAction_ReportNamesExcludedFiles(t *testing.T) { //nolint:paralleltest // not yet parallelized
+func TestBackupAction_ReportNamesRedactedFiles(t *testing.T) { //nolint:paralleltest // not yet parallelized
 	home := t.TempDir()
 	createOpenCodeFixture(t, home)
 
@@ -370,15 +370,15 @@ func TestBackupAction_ReportNamesExcludedFiles(t *testing.T) { //nolint:parallel
 
 	output := stdout.String()
 
-	// Must report secret detection count line
-	if !strings.Contains(output, "Secrets detected in 1 file(s) — .env.example created") {
+	// Must report secret redaction count line
+	if !strings.Contains(output, "Backed up with secrets redacted in 1 file(s) — .env.example created") {
 		t.Errorf("output missing count line:\n%s", output)
 	}
 
-	// Must name the excluded file with home-relative path
+	// Must name the redacted file with home-relative path
 	wantNamedFile := "~/.config/opencode/config.json"
 	if !strings.Contains(output, wantNamedFile) {
-		t.Errorf("output missing excluded file name %q:\n%s", wantNamedFile, output)
+		t.Errorf("output missing redacted file name %q:\n%s", wantNamedFile, output)
 	}
 
 	// Must NOT contain the secret value
@@ -391,7 +391,7 @@ func TestBackupAction_ReportNamesExcludedFiles(t *testing.T) { //nolint:parallel
 	var secretLines []string
 	capture := false
 	for _, l := range lines {
-		if strings.Contains(l, "Secrets detected") {
+		if strings.Contains(l, "Backed up with secrets redacted") {
 			capture = true
 			continue
 		}
@@ -419,7 +419,7 @@ func TestBackupAction_ReportNamesExcludedFiles(t *testing.T) { //nolint:parallel
 	if err := cleanAction.Run(); err != nil {
 		t.Fatalf("clean Run: %v", err)
 	}
-	if strings.Contains(cleanStdout.String(), "Secrets detected") {
+	if strings.Contains(cleanStdout.String(), "Backed up with secrets redacted") || strings.Contains(cleanStdout.String(), "Excluded") {
 		t.Errorf("clean backup reported secrets unexpectedly:\n%s", cleanStdout.String())
 	}
 }
@@ -953,37 +953,31 @@ func loadManifestItems(t *testing.T, home string) []manifest.Item {
 	return items
 }
 
-// TestBackupAction_ManifestExcludesSecretFiles is the RED test for the
-// qa-refactor-analysis engine consolidation. Given N backed-up files, S of
-// which contain secret patterns, the manifest MUST list only N-S items — the
-// secret files MUST NOT appear as dangling references.
-//
-// This originally FAILED on the CLI path (BackupAction.Run): the
-// pre-consolidation implementation included all items in the manifest and
-// only removed the secret files from disk, leaving dangling references. The
-// table exercises two cases: a partial-secret fixture (10 files, 2 secrets)
-// and an all-secrets fixture (2 files, 2 secrets) so the secretRelPaths skip
-// logic is both present and general.
-func TestBackupAction_ManifestExcludesSecretFiles(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
+// TestBackupAction_ManifestRedactsSecretFiles verifies that given N backed-up files,
+// S of which contain secret patterns, the manifest lists all N items with the S
+// secret files marked Redacted: true and their payloads redacted with placeholders,
+// rather than dropped from the backup.
+func TestBackupAction_ManifestRedactsSecretFiles(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
 	tests := []struct {
 		name       string
 		itemCount  int
 		secretAt   []int
 		wantItems  int
-		wantLeaked []string // BackupPath suffixes that must NOT appear
+		wantSecret []string // BackupPath suffixes that must be redacted
 	}{
 		{
-			name:       "10 files with 2 secrets excludes secrets",
+			name:       "10 files with 2 secrets redacts secrets in place",
 			itemCount:  10,
 			secretAt:   []int{8, 9},
-			wantItems:  8,
-			wantLeaked: []string{"file8.txt", "file9.txt"},
+			wantItems:  10,
+			wantSecret: []string{"file8.txt", "file9.txt"},
 		},
 		{
-			name:      "all-secret fixture excludes everything",
-			itemCount: 2,
-			secretAt:  []int{0, 1},
-			wantItems: 0,
+			name:       "all-secret fixture redacts all files in place",
+			itemCount:  2,
+			secretAt:   []int{0, 1},
+			wantItems:  2,
+			wantSecret: []string{"file0.txt", "file1.txt"},
 		},
 	}
 
@@ -1020,11 +1014,47 @@ func TestBackupAction_ManifestExcludesSecretFiles(t *testing.T) { //nolint:paral
 				t.Fatalf("manifest Items count = %d, want %d", len(items), tt.wantItems)
 			}
 
+			secretMap := make(map[string]bool)
+			for _, s := range tt.wantSecret {
+				secretMap[s] = true
+			}
+
+			bakDir := filepath.Join(home, ".bak", "backups")
+			entries, err := os.ReadDir(bakDir)
+			if err != nil || len(entries) == 0 {
+				t.Fatalf("read backups: %v", err)
+			}
+			backupDir := filepath.Join(bakDir, entries[0].Name())
+
 			for _, it := range items {
-				for _, leaked := range tt.wantLeaked {
-					if strings.HasSuffix(it.BackupPath, leaked) {
-						t.Errorf("secret file %q leaked into manifest as dangling reference", it.BackupPath)
+				isSecret := false
+				for s := range secretMap {
+					if strings.HasSuffix(it.BackupPath, s) {
+						isSecret = true
+						break
 					}
+				}
+
+				if isSecret {
+					if !it.Redacted {
+						t.Errorf("expected %q to be marked Redacted", it.BackupPath)
+					}
+					if it.SecretCount <= 0 {
+						t.Errorf("expected %q SecretCount > 0, got %d", it.BackupPath, it.SecretCount)
+					}
+					// Verify file on disk is redacted
+					onDisk, rErr := os.ReadFile(filepath.Join(backupDir, it.BackupPath))
+					if rErr != nil {
+						t.Fatalf("read backup file %q: %v", it.BackupPath, rErr)
+					}
+					if !strings.Contains(string(onDisk), "<YOUR_SECRET>") {
+						t.Errorf("file %q missing placeholder on disk", it.BackupPath)
+					}
+					if strings.Contains(string(onDisk), "ghp_") {
+						t.Errorf("file %q leaked secret on disk", it.BackupPath)
+					}
+				} else if it.Redacted {
+					t.Errorf("expected clean file %q to have Redacted=false", it.BackupPath)
 				}
 			}
 		})

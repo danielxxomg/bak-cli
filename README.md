@@ -27,7 +27,7 @@
 
 - 🤖 **Multi-Agent Support** — Auto-detects 8 AI coding tools (originating with OpenCode): Claude Code, Cursor, Codex, Windsurf, Kiro, KiloCode, pi.dev, and OpenCode
 - 🔄 **Backup & Restore** — Preset-based backups (quick, full, skills) with interactive confirmation and dry-run preview before restore
-- 🔒 **Secret Detection** — Automatically detects and excludes recognized secret families (GitHub, OpenAI, Anthropic, Slack, AWS, GCP, Stripe secret keys, connection strings with inline credentials, Bearer tokens), names excluded files in the backup summary, and generates `.env.example` templates
+- 🔒 **Secret Detection & Redacted-in-Place Backup** — Automatically detects recognized secret families (GitHub, OpenAI, Anthropic, Slack, AWS, GCP, Stripe secret keys, connection strings with inline credentials, Bearer tokens). Instead of dropping files containing secrets, bak preserves configuration files structurally by replacing secrets in-place with `<YOUR_SECRET>` placeholders in the backup payload, labels them in the manifest schema 0.5.0, and generates `.env.example` templates. *Tradeoff:* Restoring a redacted file **overwrites the live file's real secrets with placeholders**. The user must re-enter them.
 - ☁️ **Multi-Cloud Sync** — Push/pull backups to GitHub Gist, GitHub Repo, Codeberg, Gitea/Forgejo, and rclone (Google Drive, S3, etc.)
 - 🔐 **Cloud Archive Encryption** — AES-256-GCM encryption with Argon2id key derivation for cloud archives (opt-in per profile; local backups under ~/.bak remain plaintext)
 - 👤 **Machine Profiles** — `bak profile` commands to scope backups per machine with independent adapter, category, preset, provider, and encryption settings
