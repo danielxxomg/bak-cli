@@ -563,7 +563,10 @@ func TestCodexAdapter_InstructionFileCoveredByQuickPreset(t *testing.T) { //noli
 
 	var foundAgents bool
 	for _, it := range items {
-		if strings.HasSuffix(it.SourcePath, "/AGENTS.md") {
+		// Compare on a separator-independent form: on Windows the source path
+		// is canonicalized with backslashes when it cannot be expressed as ~/.
+		normalized := strings.ReplaceAll(it.SourcePath, "\\", "/")
+		if strings.HasSuffix(normalized, "/AGENTS.md") {
 			foundAgents = true
 		}
 	}
