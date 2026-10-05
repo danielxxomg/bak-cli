@@ -4,9 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/danielxxomg/bak-cli/internal/adapters"
+	"github.com/danielxxomg/bak-cli/internal/presets"
 )
 
 func TestAdapter_Name(t *testing.T) { //nolint:paralleltest // not yet parallelized — shared state (os.Stderr/execCommand/config-file/struct) isolation pending
@@ -386,8 +388,10 @@ func TestCodexAdapter_AllowlistExpansion(t *testing.T) { //nolint:paralleltest /
 		{name: "config.yml", filename: "config.yml", content: "model: gpt-4", wantCategory: "config"},
 		{name: "instructions.md", filename: "instructions.md", content: "# Instructions", wantCategory: "config"},
 		{name: "INSTRUCTIONS.md", filename: "INSTRUCTIONS.md", content: "# Instructions", wantCategory: "config"},
-		{name: "AGENTS.md", filename: "AGENTS.md", content: "# Agents Instructions", wantCategory: "agents"},
-		{name: "agents.md", filename: "agents.md", content: "# Agents Instructions", wantCategory: "agents"},
+		// A main instruction file is configuration, so the default quick preset
+		// covers it. The agents category is the sub-agent definition directory.
+		{name: "AGENTS.md", filename: "AGENTS.md", content: "# Agents Instructions", wantCategory: "config"},
+		{name: "agents.md", filename: "agents.md", content: "# Agents Instructions", wantCategory: "config"},
 		{name: "hooks.json", filename: "hooks.json", content: "{}", wantCategory: "config"},
 		{name: "hooks.toml", filename: "hooks.toml", content: "[hooks]", wantCategory: "config"},
 		{name: "hooks.yaml", filename: "hooks.yaml", content: "hooks: []", wantCategory: "config"},
@@ -523,4 +527,47 @@ func TestCodexAdapter_CleanEmpty(t *testing.T) { //nolint:paralleltest // not ye
 			t.Errorf("expected 0 items for nonexistent directory, got %d", len(items))
 		}
 	})
+}
+
+// TestCodexAdapter_InstructionFileCoveredByQuickPreset pins the category
+// decision: a main instruction file is configuration, so the default quick
+// preset must cover it. The codex adapter previously mapped AGENTS.md to the
+// agents category, which meant a quick backup silently omitted the user's
+// instructions while the opencode adapter covered the same file as config.
+func TestCodexAdapter_InstructionFileCoveredByQuickPreset(t *testing.T) { //nolint:paralleltest // filesystem fixtures
+	home := t.TempDir()
+	configDir := filepath.Join(home, ConfigRelPath)
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, content := range map[string]string{
+		"AGENTS.md":   "# Instructions\n",
+		"config.toml": "[general]\n",
+	} {
+		if err := os.WriteFile(filepath.Join(configDir, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// The quick preset resolves to the config category alone.
+	quick, err := presets.Resolve(presets.Quick)
+	if err != nil {
+		t.Fatalf("resolve quick preset: %v", err)
+	}
+
+	a := &Adapter{}
+	items, err := a.ListItems(home, quick)
+	if err != nil {
+		t.Fatalf("ListItems: %v", err)
+	}
+
+	var foundAgents bool
+	for _, it := range items {
+		if strings.HasSuffix(it.SourcePath, "/AGENTS.md") {
+			foundAgents = true
+		}
+	}
+	if !foundAgents {
+		t.Errorf("AGENTS.md must be covered by the quick preset; quick covers %v and listed %d items", quick, len(items))
+	}
 }

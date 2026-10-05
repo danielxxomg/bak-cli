@@ -429,7 +429,7 @@ The built-in Codex adapter (`~/.codex/`) uses a strict allowlist to back up mean
 
 - **Covered configuration**:
   - Tool configuration: `config.toml`, `config.json`, `config.yaml`, `config.yml` (`config` category)
-  - Instructions: `instructions.md`, `INSTRUCTIONS.md` (`config` category), `AGENTS.md`, `agents.md` (`agents` category)
+  - Instructions: `instructions.md`, `INSTRUCTIONS.md`, `AGENTS.md`, `agents.md` (`config` category, so the default `quick` preset covers them); the `agents` category is the `agent/` directory of sub-agent definitions
   - Hooks: `hooks.json`, `hooks.toml`, `hooks.yaml`, `hooks.yml` (`config` category)
   - Model Context Protocol: `mcp.json` (`mcp` category)
 - **Deliberately excluded runtime state**:

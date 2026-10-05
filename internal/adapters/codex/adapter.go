@@ -16,7 +16,9 @@ const ConfigRelPath = ".codex"
 // CategoryMap maps category names to their subdirectory/file patterns, exposed for knowledge validation.
 var CategoryMap = map[string]adapters.CategoryDir{
 	configCategory: {SubPath: "", IsDir: false},
-	agentsCategory: {SubPath: "", IsDir: false},
+	// agents is the directory of sub-agent definition files, matching the
+	// opencode adapter. It is not where a main instruction file belongs.
+	agentsCategory: {SubPath: "agent", IsDir: true},
 }
 
 const (
@@ -38,8 +40,11 @@ var base = adapters.GenericAdapter{
 		// Instructions
 		"instructions.md": configCategory,
 		"INSTRUCTIONS.md": configCategory,
-		"AGENTS.md":       agentsCategory,
-		"agents.md":       agentsCategory,
+		// A main instruction file is configuration, not a sub-agent
+		// definition: the default quick preset must cover it. This matches the
+		// opencode adapter, which already maps AGENTS.md to config.
+		"AGENTS.md": configCategory,
+		"agents.md": configCategory,
 		// Hooks
 		"hooks.json": configCategory,
 		"hooks.toml": configCategory,
