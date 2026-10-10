@@ -6,7 +6,7 @@
   <a href="https://goreportcard.com/report/github.com/danielxxomg/bak-cli"><img src="https://goreportcard.com/badge/github.com/danielxxomg/bak-cli" alt="Go Report Card"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://github.com/danielxxomg/bak-cli/releases/latest"><img src="https://img.shields.io/github/v/release/danielxxomg/bak-cli" alt="Release"></a>
-  <img src="https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white" alt="Go 1.26+">
+  <img src="https://img.shields.io/badge/Go-1.26.9+-00ADD8?logo=go&logoColor=white" alt="Go 1.26.9+">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
   <img src="https://img.shields.io/badge/tests-1235+-brightgreen" alt="Tests">
 </p>
