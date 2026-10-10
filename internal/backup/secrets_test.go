@@ -891,3 +891,109 @@ func matchesAny(patterns []*regexp.Regexp, in string) bool {
 	}
 	return false
 }
+
+func TestScanFile_BakConfigCredentialsRedaction(t *testing.T) { //nolint:paralleltest // shared state isolation
+	patterns := DefaultPatterns()
+
+	tests := []struct {
+		name           string
+		configJSON     string
+		wantMinMatches int
+		secretMarkers  []string
+		wantRedacted   bool
+	}{
+		{
+			name: "populated bak config.json with github token, provider token, and encryption password",
+			configJSON: `{
+  "schema_version": "0.3.0",
+  "github_token": "ghp_012345678901234567890123456789012345",
+  "providers": {
+    "github": {
+      "token": "ghp_abcdef1234567890123456789012345678901234"
+    },
+    "gitea": {
+      "token": "synthetic_provider_token_12345"
+    }
+  },
+  "profiles": {
+    "default": {
+      "encryption": {
+        "enabled": true,
+        "password": "synthetic_encryption_password"
+      }
+    }
+  }
+}
+`,
+			wantMinMatches: 4,
+			wantRedacted:   true,
+			secretMarkers: []string{
+				"ghp_012345678901234567890123456789012345",
+				"ghp_abcdef1234567890123456789012345678901234",
+				"synthetic_provider_token_12345",
+				"synthetic_encryption_password",
+			},
+		},
+		{
+			name: "clean bak config.json without credentials",
+			configJSON: `{
+  "schema_version": "0.3.0",
+  "settings": {
+    "default_preset": "quick",
+    "auto_sync": false
+  }
+}
+`,
+			wantMinMatches: 0,
+			wantRedacted:   false,
+		},
+	}
+
+	for _, tt := range tests { //nolint:paralleltest
+		t.Run(tt.name, func(t *testing.T) { //nolint:paralleltest
+			dir := t.TempDir()
+			configPath := filepath.Join(dir, "config.json")
+			if err := os.WriteFile(configPath, []byte(tt.configJSON), 0600); err != nil {
+				t.Fatal(err)
+			}
+
+			results, err := ScanFile(configPath, patterns)
+			if err != nil {
+				t.Fatalf("ScanFile error: %v", err)
+			}
+			if len(results) < tt.wantMinMatches {
+				t.Errorf("detected %d secret matches, want at least %d", len(results), tt.wantMinMatches)
+			}
+			if !tt.wantRedacted && len(results) > 0 {
+				t.Errorf("expected 0 secrets in clean config, detected %d", len(results))
+			}
+
+			count, err := RedactFileInPlace(configPath, patterns)
+			if err != nil {
+				t.Fatalf("RedactFileInPlace: %v", err)
+			}
+			if tt.wantRedacted && count == 0 {
+				t.Error("expected secrets to be redacted in place, got count 0")
+			}
+			if !tt.wantRedacted && count > 0 {
+				t.Errorf("expected 0 redacting in clean config, got %d", count)
+			}
+
+			redactedBytes, err := os.ReadFile(configPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			redactedContent := string(redactedBytes)
+
+			if tt.wantRedacted && !strings.Contains(redactedContent, "<YOUR_SECRET>") {
+				t.Error("expected redacted content to contain <YOUR_SECRET> placeholder")
+			}
+
+			for _, marker := range tt.secretMarkers {
+				if strings.Contains(redactedContent, marker) {
+					t.Error("redacted file still contains secret value")
+				}
+			}
+		})
+	}
+}

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/danielxxomg/bak-cli/internal/adapters"
+	"github.com/danielxxomg/bak-cli/internal/adapters/bak"
 	"github.com/danielxxomg/bak-cli/internal/adapters/claudecode"
 	"github.com/danielxxomg/bak-cli/internal/adapters/codex"
 	"github.com/danielxxomg/bak-cli/internal/adapters/cursor"
@@ -22,7 +23,7 @@ import (
 
 // All registers every known adapter with the provided registry in
 // priority order (Claude Code → Cursor → Codex → Windsurf → Kiro →
-// KiloCode → pi.dev → OpenCode). Returns the first registration error
+// KiloCode → pi.dev → OpenCode → bak). Returns the first registration error
 // encountered.
 func All(r *adapters.Registry) error {
 	builtins := []adapters.Adapter{
@@ -34,6 +35,7 @@ func All(r *adapters.Registry) error {
 		&kilocode.Adapter{},
 		&pidev.Adapter{},
 		&opencode.Adapter{},
+		&bak.Adapter{},
 	}
 
 	for _, a := range builtins {

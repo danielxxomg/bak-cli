@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <strong>bak</strong> is a CLI tool that backs up, restores, and syncs your AI coding configuration across machines. Originating with OpenCode and expanded to support 8 AI coding tools — Claude Code, Cursor, Codex, Windsurf, Kiro, KiloCode, pi.dev, and OpenCode. Never lose your skills, MCP servers, plugins, agents, or config files again.
+  <strong>bak</strong> is a CLI tool that backs up, restores, and syncs your AI coding configuration across machines. Originating with OpenCode and expanded to support 8 AI coding tools — Claude Code, Cursor, Codex, Windsurf, Kiro, KiloCode, pi.dev, and OpenCode — plus self-backup of bak's own configuration. Never lose your skills, MCP servers, plugins, agents, or config files again.
 </p>
 
 ## Supported Platforms
@@ -25,7 +25,7 @@
 
 ## Features
 
-- 🤖 **Multi-Agent Support** — Auto-detects 8 AI coding tools (originating with OpenCode): Claude Code, Cursor, Codex, Windsurf, Kiro, KiloCode, pi.dev, and OpenCode
+- 🤖 **Multi-Agent Support** — Auto-detects 8 AI coding tools (originating with OpenCode): Claude Code, Cursor, Codex, Windsurf, Kiro, KiloCode, pi.dev, OpenCode, and self-backup for bak itself
 - 🔄 **Backup & Restore** — Preset-based backups (quick, full, skills) with interactive confirmation and dry-run preview before restore
 - 🔒 **Secret Detection & Redacted-in-Place Backup** — Automatically detects recognized secret families (GitHub, OpenAI, Anthropic, Slack, AWS, GCP, Stripe secret keys, connection strings with inline credentials, Bearer tokens). Instead of dropping files containing secrets, bak preserves configuration files structurally by replacing secrets in-place with `<YOUR_SECRET>` placeholders in the backup payload, labels them in the manifest schema 0.5.0, and generates `.env.example` templates. *Tradeoff:* Restoring a redacted file **overwrites the live file's real secrets with placeholders**. The user must re-enter them.
 - ☁️ **Multi-Cloud Sync** — Push/pull backups to GitHub Gist, GitHub Repo, Codeberg, Gitea/Forgejo, and rclone (Google Drive, S3, etc.)
@@ -417,6 +417,7 @@ Originating with OpenCode and expanded to 8 tools, `bak backup` auto-detects ins
 | KiloCode | `~/.kilocode/` | 6 |
 | pi.dev | `~/.pi/` | 7 |
 | OpenCode | `~/.config/opencode/` | 8 |
+| bak | `~/.config/bak/` | 9 |
 
 Force a specific adapter:
 ```bash
@@ -439,14 +440,28 @@ The built-in Codex adapter (`~/.codex/`) uses a strict allowlist to back up mean
 - **Size rationale**: Runtime session databases and execution logs are dynamically regenerated at runtime. In older releases without an allowlist, capturing unmanaged SQLite files caused backups to balloon to ~145 MB (with a single `logs_2.sqlite` exceeding 140 MB). The allowlist ensures compact, fast, reproducible backups.
 - **Escape hatch for custom files**: If your configuration includes additional non-standard files (such as custom `*.config.toml` variants), define a custom adapter in `~/.config/bak/adapters/codex.yaml` and pass `--override` to replace the built-in adapter. The YAML schema supports `patterns` (globs) and `root_files` without requiring built-in code changes.
 
+#### bak Self-Backup Configuration & State Boundary
+
+The built-in `bak` adapter (`~/.config/bak/`) backs up bak's own configuration and custom adapter definitions so they survive machine migrations:
+
+- **Covered configuration**:
+  - Main configuration: `config.json` (`config` category), preserving settings, cloud provider endpoints, profiles, and scheduling options.
+  - Custom adapters: `adapters/` directory (`adapters` category), preserving custom YAML adapter definitions (`*.yaml`).
+- **Deliberately excluded state**:
+  - Backup repository `~/.bak`: The local backup repository (`~/.bak`, `backup.BakDir()`) is the **output** of backups. It is strictly and deliberately never backed up to prevent infinite recursive backup loops.
+  - Migration leftovers: Files such as `config.json.v010.bak` and `config.json.v020.bak` created during schema migrations are excluded by the allowlist to prevent accumulating outdated or redundant state.
+- **Secret redaction tradeoff**:
+  - Sensitive fields in `config.json` (such as `github_token`, provider `token` values, and profile encryption `password` values) match built-in secret patterns and are automatically redacted in-place with `<YOUR_SECRET>` placeholders in the backup payload.
+  - Restoring `config.json` therefore requires re-entering cloud provider tokens and encryption passwords, exactly like any other redacted file.
+
 ## Architecture
 
 ```
 bak-cli/
 ├── cmd/                    # CLI commands (cobra)
 ├── internal/
-│   ├── adapters/           # Agent adapters (8 supported: Claude Code, Cursor, Codex,
-│   │   │                   #   Windsurf, Kiro, KiloCode, pi.dev, OpenCode)
+│   ├── adapters/           # Agent adapters (9 supported: Claude Code, Cursor, Codex,
+│   │   │                   #   Windsurf, Kiro, KiloCode, pi.dev, OpenCode, bak)
 │   │   └── register/       # RegisterAll() wire-up
 │   ├── backup/             # Backup engine + presets + secrets
 │   ├── restore/            # Restore engine + dry-run + git safety

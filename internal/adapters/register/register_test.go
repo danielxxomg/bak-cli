@@ -25,6 +25,7 @@ func TestRegisterAll(t *testing.T) { //nolint:paralleltest // not yet paralleliz
 		"kilocode",
 		"pidev",
 		"opencode",
+		"bak",
 	}
 
 	names := r.List()
@@ -212,7 +213,7 @@ func TestAll_AdapterCount(t *testing.T) { //nolint:paralleltest // not yet paral
 	if err := All(r); err != nil {
 		t.Fatalf("All: %v", err)
 	}
-	if got := len(r.All()); got != 8 {
-		t.Errorf("All() adapter count = %d, want 8", got)
+	if got := len(r.All()); got != 9 {
+		t.Errorf("All() adapter count = %d, want 9", got)
 	}
 }

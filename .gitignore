@@ -4,7 +4,6 @@
 *.dll
 *.so
 *.dylib
-bak
 
 # Test binary
 *.test
@@ -27,8 +26,10 @@ vendor/
 .DS_Store
 Thumbs.db
 
-# bak output directory
-bak/
+# bak build output and backup repository (anchored: unanchored `bak` or `bak/`
+# also matched internal/adapters/bak/, hiding the adapter source from git)
+/bak
+/bak/
 
 # Local tooling (not for repo)
 .atl/
