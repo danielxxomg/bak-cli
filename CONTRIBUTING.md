@@ -16,7 +16,7 @@ Thank you for your interest in contributing to **bak** — the CLI that backs up
 
 ### Prerequisites
 
-- **Go 1.25+** — [download](https://go.dev/dl/)
+- **Go 1.26+** — [download](https://go.dev/dl/)
 - **Git** — [download](https://git-scm.com/)
 - **golangci-lint** (optional, for linting) — [install](https://golangci-lint.run/welcome/install/)
 

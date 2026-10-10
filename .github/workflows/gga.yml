@@ -26,7 +26,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.26'
       - name: Install GGA
         run: |
           # Keep CI in sync with the locally verified version. v2.8.1 no-ops in

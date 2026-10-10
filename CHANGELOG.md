@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Go 1.26 and patched `golang.org/x/net`** — `govulncheck` reported 9 vulnerabilities reachable from this codebase: the `golang.org/x/net` module at `v0.56.0` and the Go standard library `net/http` at `go1.25.14`. The dependency fix is only available in `golang.org/x/net v0.60.0`, which itself requires Go 1.26, so the two could not be separated. The module floor moves from Go 1.25 to Go 1.26. Release binaries are unaffected: GoReleaser compiles them, so only people building from source need Go 1.26 or newer.
+
 ## [1.5.0-rc2]
 
 First release candidate carrying the restore safety work. Backups now protect config files whose contents contain credentials: such files are stored with `<YOUR_SECRET>` placeholders instead of being dropped, under manifest schema `0.5.0`. Restoring a redacted file overwrites the live file's real secrets with placeholders, and the dry-run and restore report both say so.
