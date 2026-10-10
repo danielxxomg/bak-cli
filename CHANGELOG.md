@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0-rc3]
+
+Fixes the two defects found while validating rc2 on real configuration, and clears the reported vulnerabilities.
+
+- `--preset full` no longer fails when skills are symlinked. Scanning followed no symlinks at all: a symlinked skill directory was hashed as a file and the run died with `is a directory`, which made the whole `full` preset unusable on machines that share skills. Symlinks inside the home directory are now traversed, broken ones are skipped, and cycles cannot loop.
+- The Codex adapter covered only 4 files, so a full backup captured one file from `~/.codex`. It now covers the conventional config, instruction and hook files including `AGENTS.md`, which the default `quick` preset backs up too. Runtime state (SQLite databases, session history, caches) stays excluded by allowlist.
+- `bak` now backs up its own configuration at `~/.config/bak/`, including custom YAML adapter definitions. Credentials inside it are redacted like any other secret-bearing file, so restoring requires re-entering them. The backup repository `~/.bak` is never an input.
+- Built with Go 1.26.9. `govulncheck` had reported 9 reachable vulnerabilities against rc2's toolchain. Release binaries were affected; this release is not.
+
+
 ### Security
 
 - **Go 1.26 and patched `golang.org/x/net`** — `govulncheck` reported 9 vulnerabilities reachable from this codebase: the `golang.org/x/net` module at `v0.56.0` and the Go standard library `net/http` at `go1.25.14`. The dependency fix is only available in `golang.org/x/net v0.60.0`, which itself requires Go 1.26, so the two could not be separated. The module floor moves from Go 1.25 to Go 1.26. Release binaries are unaffected: GoReleaser compiles them, so only people building from source need Go 1.26 or newer.
